@@ -73,17 +73,35 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 }
 
 // CreateCollection creates a collection in the database.
+//
+// Options can be passed using the builder pattern or as raw structs:
+//
+//	// No options (simple collection)
+//	coll, err := db.CreateCollection(ctx, "my_collection")
+//
+//	// With vector options
+//	coll, err := db.CreateCollection(ctx, "my_collection",
+//	    options.CreateCollection().SetVector(&options.VectorOptions{
+//	        Dimension: 1024,
+//	        Metric:    "cosine",
+//	    })
+//	)
+//
+//	// Passing in options as raw struct
+//	opts := &options.CreateCollectionOptions{
+//		DefaultId: &options.CollectionDefaultIdOptions{
+//			Type: options.DefaultIdTypeUUIDv7,
+//		},
+//	}
+//	coll, err := db.CreateCollection(ctx, "my_collection", options.WithCreateCollectionOptions(opts))
+//
 // Note: Warnings are accessible via the WarningHandler option callback only.
-func (d *Db) CreateCollection(ctx context.Context, name string, collOpts *options.CollectionOptions) (*Collection, error) {
-	payload := struct {
-		Name    string                     `json:"name"`
-		Options *options.CollectionOptions `json:"options,omitempty"`
-	}{
-		Name:    name,
-		Options: collOpts,
+func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.Builder[options.CreateCollectionOptions]) (*Collection, error) {
+	cmd, err := createCollectionCommand(d, name, opts...)
+	if err != nil {
+		return nil, err
 	}
-	cmd := d.newCmd("createCollection", payload)
-	_, _, err := cmd.Execute(ctx)
+	_, _, err = cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -91,6 +109,31 @@ func (d *Db) CreateCollection(ctx context.Context, name string, collOpts *option
 		db:   d,
 		name: name,
 	}, nil
+}
+
+// createCollectionPayload is the payload for the createCollection command
+type createCollectionPayload struct {
+	Name    string                           `json:"name"`
+	Options *options.CreateCollectionOptions `json:"options,omitempty"`
+}
+
+// createCollectionCommand builds the createCollection command for the database
+func createCollectionCommand(d *Db, name string, opts ...options.Builder[options.CreateCollectionOptions]) (command, error) {
+	payload := createCollectionPayload{
+		Name: name,
+	}
+
+	merged, err := options.MergeOptions(opts...)
+	if err != nil {
+		return command{}, err
+	}
+
+	// Only set Options if at least one field is non-nil (prevents "options":{} in JSON)
+	if merged != nil && (merged.DefaultId != nil || merged.Vector != nil || merged.Indexing != nil || merged.Lexical != nil || merged.Rerank != nil) {
+		payload.Options = merged
+	}
+
+	return d.newCmd("createCollection", payload), nil
 }
 
 // DropCollection drops a collection from the database.

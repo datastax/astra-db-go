@@ -47,7 +47,7 @@ const collectionName = "GoTest"
 func CollectionCreate(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
-	_, err := db.CreateCollection(ctx, collectionName, nil)
+	_, err := db.CreateCollection(ctx, collectionName)
 	return err
 }
 
@@ -193,7 +193,7 @@ func CollectionCursorPagination(e *harness.TestEnv) error {
 
 	// Create a dedicated collection for pagination test
 	paginationCollectionName := "GoTestPagination"
-	_, err := db.CreateCollection(ctx, paginationCollectionName, nil)
+	_, err := db.CreateCollection(ctx, paginationCollectionName)
 	if err != nil {
 		return fmt.Errorf("failed to create pagination test collection: %w", err)
 	}
@@ -344,12 +344,11 @@ func CollectionVectorCreate(e *harness.TestEnv) error {
 	db := e.DefaultDb()
 
 	// Create a collection with vector support
-	_, err := db.CreateCollection(ctx, vectorCollectionName, &options.CollectionOptions{
-		Vector: &options.VectorOptions{
+	_, err := db.CreateCollection(ctx, vectorCollectionName,
+		options.CreateCollection().SetVector(&options.VectorOptions{
 			Dimension: vectorDimension,
 			Metric:    "cosine",
-		},
-	})
+		}))
 	if err != nil {
 		return fmt.Errorf("failed to create vector collection: %w", err)
 	}
