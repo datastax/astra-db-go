@@ -26,6 +26,8 @@ go get github.com/datastax/astra-db-go
 
 You will need a token to test with. From the [Astra Console](https://astra.datastax.com/), go to `Settings` > `Tokens`. Select a role, and click "Generate token". In these contrived examples, the token is represented as a string. **Never check the token in to source control or share it**. Use a secret manager to expose the token to your client.
 
+Check out [./examples](./examples/) for runnable examples and instructions on how to run them.
+
 ### Creating a Client
 
 Import the package and create a client with your Application Token:
