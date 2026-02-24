@@ -14,6 +14,8 @@
 
 package options
 
+// TODO: move towards new naming scheme as well as using builder pattern.
+
 // CreateTableOptions represents options for creating a table
 type CreateTableOptions struct {
 	// IfNotExists if true, the command will silently succeed even if a table
@@ -46,7 +48,9 @@ func WithTableKeyspace(keyspace string) TableOption {
 func NewCreateTableOptions(opts ...TableOption) *CreateTableOptions {
 	options := &CreateTableOptions{}
 	for _, opt := range opts {
-		opt(options)
+		if opt != nil {
+			opt(options)
+		}
 	}
 	return options
 }
@@ -127,7 +131,9 @@ func WithInitialPageState(pageState string) TableFindOption {
 func NewTableFindOptions(opts ...TableFindOption) *TableFindOptions {
 	options := &TableFindOptions{}
 	for _, opt := range opts {
-		opt(options)
+		if opt != nil {
+			opt(options)
+		}
 	}
 	return options
 }
