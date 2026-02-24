@@ -39,13 +39,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Configuration loaded successfully.")
 	client := astradb.NewClient(
 		options.WithToken(config.ApplicationToken),
 	)
 	db := client.Database(config.DBEndpoint)
+	fmt.Printf("Using database endpoint: %s\n", config.DBEndpoint)
 	ctx := context.Background()
 
 	// Define our table schema and create the table.
+	logHeader("Creating Table")
 	definition := table.Definition{
 		Columns: map[string]table.Column{
 			"id":     table.Text(),
@@ -62,41 +65,80 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Created table: books")
 
 	// Insert a single row
+	logHeader("Inserting Rows")
 	_, err = tbl.InsertOne(ctx, BookRow{
 		ID: "1", Title: "The Go Programming Language", Author: "Alan Donovan", Year: 2015,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Inserted: \"The Go Programming Language\" by Alan Donovan (2015)")
 
 	// Insert multiple rows
 	_, err = tbl.InsertMany(ctx, []BookRow{
 		{ID: "2", Title: "Go in Action", Author: "William Kennedy", Year: 2015},
 		{ID: "3", Title: "Concurrency in Go", Author: "Katherine Cox-Buday", Year: 2017},
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Inserted 2 more rows via InsertMany.")
 
 	// Find Rows
+	logHeader("Finding Single Row")
 	var row BookRow
 	err = tbl.FindOne(ctx, filter.Eq("id", "1")).Decode(&row)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Found: %s by %s (%d)\n", row.Title, row.Author, row.Year)
 
-	cursor := tbl.Find(ctx, filter.F{"author": "Alan Donovan"})
+	logHeader("Finding All")
+	cursor := tbl.Find(ctx, nil)
 	defer cursor.Close(ctx)
 
 	var rows []BookRow
 	if err = cursor.All(ctx, &rows); err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("Found %d result(s):\n", len(rows))
+	for _, r := range rows {
+		fmt.Printf("  - %s (%d)\n", r.Title, r.Year)
+	}
 
 	// Creating Indexes
+	logHeader("Creating Indexes")
 
 	// Standard index on a column
 	err = tbl.CreateIndex(ctx, "author_idx", "author")
-
-	// Vector index for similarity search
-	err = tbl.CreateVectorIndex(ctx, "embedding_idx", "embedding")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Created index: author_idx on column \"author\"")
 
 	// List existing indexes
-	indexes, err := tbl.ListIndexes(ctx)
+	logHeader("Listing Indexes")
+	// SetExplain will return extra metadata
+	indexes, err := tbl.ListIndexes(ctx, options.ListIndexes().SetExplain(true))
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Found %d indexes:\n", len(indexes))
+	for _, idx := range indexes {
+		fmt.Printf("  - %s (type: %s, columns: %v)\n", idx.Name, idx.IndexType, idx.Definition.Column)
+	}
 
-	fmt.Println(indexes)
+	logHeader("Dropping Table")
+	err = db.DropTable(ctx, "books")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println("Dropped table: books")
+}
 
+func logHeader(title string) {
+	fmt.Printf("\n--- %s ---\n", title)
 }
