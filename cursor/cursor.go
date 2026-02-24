@@ -285,6 +285,10 @@ func (c *Cursor) All(ctx context.Context, results any) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.err != nil {
+		return c.err
+	}
+
 	if c.state == CursorStateClosed {
 		return ErrCursorClosed
 	}
