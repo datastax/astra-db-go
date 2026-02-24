@@ -58,7 +58,7 @@ func main() {
 			PartitionSort: map[string]int{"year": -1},
 		},
 	}
-	tbl, err := db.CreateTable(ctx, "books", definition, nil)
+	tbl, err := db.CreateTable(ctx, "books", definition)
 	if err != nil {
 		log.Fatal(err)
 	}
