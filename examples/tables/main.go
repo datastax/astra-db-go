@@ -47,7 +47,15 @@ func main() {
 	fmt.Printf("Using database endpoint: %s\n", config.DBEndpoint)
 	ctx := context.Background()
 
-	// Define our table schema and create the table.
+	tbl := createTable(ctx, db)
+	insertRows(ctx, tbl)
+	findOneRow(ctx, tbl)
+	findAllRows(ctx, tbl)
+	createAndListIndexes(ctx, tbl)
+	dropTable(ctx, db)
+}
+
+func createTable(ctx context.Context, db *astradb.Db) *astradb.Table {
 	logHeader("Creating Table")
 	definition := table.Definition{
 		Columns: map[string]table.Column{
@@ -66,10 +74,12 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Created table: books")
+	return tbl
+}
 
-	// Insert a single row
+func insertRows(ctx context.Context, tbl *astradb.Table) {
 	logHeader("Inserting Rows")
-	_, err = tbl.InsertOne(ctx, BookRow{
+	_, err := tbl.InsertOne(ctx, BookRow{
 		ID: "1", Title: "The Go Programming Language", Author: "Alan Donovan", Year: 2015,
 	})
 	if err != nil {
@@ -86,42 +96,42 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Inserted 2 more rows via InsertMany.")
+}
 
-	// Find Rows
-	logHeader("Finding Single Row")
+func findOneRow(ctx context.Context, tbl *astradb.Table) {
+	logHeader("Finding: id = '1'")
 	var row BookRow
-	err = tbl.FindOne(ctx, filter.Eq("id", "1")).Decode(&row)
+	err := tbl.FindOne(ctx, filter.Eq("id", "1")).Decode(&row)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Found: %s by %s (%d)\n", row.Title, row.Author, row.Year)
+}
 
-	logHeader("Finding All")
+func findAllRows(ctx context.Context, tbl *astradb.Table) {
+	logHeader("Finding All Rows")
 	cursor := tbl.Find(ctx, nil)
 	defer cursor.Close(ctx)
 
 	var rows []BookRow
-	if err = cursor.All(ctx, &rows); err != nil {
+	if err := cursor.All(ctx, &rows); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Found %d result(s):\n", len(rows))
 	for _, r := range rows {
 		fmt.Printf("  - %s (%d)\n", r.Title, r.Year)
 	}
+}
 
-	// Creating Indexes
+func createAndListIndexes(ctx context.Context, tbl *astradb.Table) {
 	logHeader("Creating Indexes")
-
-	// Standard index on a column
-	err = tbl.CreateIndex(ctx, "author_idx", "author")
+	err := tbl.CreateIndex(ctx, "author_idx", "author")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Created index: author_idx on column \"author\"")
 
-	// List existing indexes
 	logHeader("Listing Indexes")
-	// SetExplain will return extra metadata
 	indexes, err := tbl.ListIndexes(ctx, options.ListIndexes().SetExplain(true))
 	if err != nil {
 		log.Fatal(err)
@@ -130,9 +140,11 @@ func main() {
 	for _, idx := range indexes {
 		fmt.Printf("  - %s (type: %s, columns: %v)\n", idx.Name, idx.IndexType, idx.Definition.Column)
 	}
+}
 
+func dropTable(ctx context.Context, db *astradb.Db) {
 	logHeader("Dropping Table")
-	err = db.DropTable(ctx, "books")
+	err := db.DropTable(ctx, "books")
 	if err != nil {
 		log.Fatal(err)
 	}

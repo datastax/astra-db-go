@@ -45,14 +45,26 @@ func main() {
 	fmt.Printf("Using database endpoint: %s\n", config.DBEndpoint)
 	ctx := context.Background()
 
+	coll := createCollection(ctx, db)
+	insertDocuments(ctx, coll)
+	findOneDocument(ctx, coll)
+	findAllDocuments(ctx, coll)
+	filterDocumentsByYear(ctx, coll)
+	countDocuments(ctx, coll)
+	dropCollection(ctx, db)
+}
+
+func createCollection(ctx context.Context, db *astradb.Db) *astradb.Collection {
 	logHeader("Creating Collection")
 	coll, err := db.CreateCollection(ctx, "my_collection")
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Created collection: my_collection")
+	return coll
+}
 
-	// Insert a single document
+func insertDocuments(ctx context.Context, coll *astradb.Collection) {
 	logHeader("Inserting Documents")
 	resp, err := coll.InsertOne(ctx, Book{
 		Title:  "The Go Programming Language",
@@ -78,51 +90,62 @@ func main() {
 	for _, id := range resp.Status.InsertedIds {
 		fmt.Printf("  - %s\n", id)
 	}
+}
 
-	logHeader("Finding Documents")
+func findOneDocument(ctx context.Context, coll *astradb.Collection) {
+	logHeader("Finding: title = 'The Go Programming Language'")
 	var result Book
-	err = coll.FindOne(ctx, filter.Eq("title", "The Go Programming Language")).Decode(&result)
+	err := coll.FindOne(ctx, filter.Eq("title", "The Go Programming Language")).Decode(&result)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Found: %s by %s (%d)\n", result.Title, result.Author, result.Year)
+}
 
+func findAllDocuments(ctx context.Context, coll *astradb.Collection) {
+	logHeader("Finding All Documents")
 	cursor := coll.Find(ctx, filter.F{})
 	defer cursor.Close(ctx)
 
 	var books []Book
-	if err = cursor.All(ctx, &books); err != nil {
+	if err := cursor.All(ctx, &books); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Found %d result(s):\n", len(books))
 	for _, b := range books {
 		fmt.Printf("  - %s (%d)\n", b.Title, b.Year)
 	}
+}
 
+func filterDocumentsByYear(ctx context.Context, coll *astradb.Collection) {
 	logHeader("Filtering: year >= 2016")
-	second := coll.Find(ctx, filter.F{"year": filter.F{"$gte": 2016}})
-	defer second.Close(ctx)
+	cursor := coll.Find(ctx, filter.F{"year": filter.F{"$gte": 2016}})
+	defer cursor.Close(ctx)
 
-	for second.Next(ctx) {
+	for cursor.Next(ctx) {
 		var book Book
-		if err := second.Decode(&book); err != nil {
+		if err := cursor.Decode(&book); err != nil {
 			log.Fatal(err)
 		}
 		fmt.Printf("  - %s by %s (%d)\n", book.Title, book.Author, book.Year)
 	}
-	if err := second.Err(); err != nil {
+	if err := cursor.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
 
+func countDocuments(ctx context.Context, coll *astradb.Collection) {
 	logHeader("Counting Documents")
 	count, err := coll.CountDocuments(ctx, filter.F{}, 1000)
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Total documents:", count)
+}
 
+func dropCollection(ctx context.Context, db *astradb.Db) {
 	logHeader("Dropping Collection")
-	if err = db.DropCollection(ctx, "my_collection"); err != nil {
+	if err := db.DropCollection(ctx, "my_collection"); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Collection dropped.")
