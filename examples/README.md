@@ -35,7 +35,7 @@ If you have the [Astra CLI](https://docs.datastax.com/en/astra-cli/index.html) i
 
 ```bash
 # Replace mydb with the name of your database
-astra db create-dotenv mydb
+astra db create-dotenv <db_name> --preset data_api_client 
 ```
 
 ## Run the example
