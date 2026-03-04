@@ -34,7 +34,7 @@ ASTRA_DB_APPLICATION_TOKEN="AstraCS:myToken"
 If you have the [Astra CLI](https://docs.datastax.com/en/astra-cli/index.html) installed, you can have it create the .env file for you:
 
 ```bash
-# Replace mydb with the name of your database
+# Replace <db_name> with the name of your database
 astra db create-dotenv <db_name> --preset data_api_client 
 ```
 
