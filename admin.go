@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/ptr"
 )
 
 // DefaultAdminAPIVersion is the default version of the Astra DevOps API.
@@ -287,7 +288,7 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.B
 	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil).
 		withQueryParam("region-type", "vector")
 	if merged != nil {
-		if merged.FilterByOrg != nil && *merged.FilterByOrg {
+		if ptr.From(merged.FilterByOrg) {
 			cmd.withQueryParam("filter-by-org", "enabled")
 		}
 	}

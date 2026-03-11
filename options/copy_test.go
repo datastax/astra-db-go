@@ -17,7 +17,7 @@ package options
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/internal/ptr"
+	"github.com/datastax/astra-db-go/ptr"
 )
 
 // testStruct is a simple struct with pointer fields for testing copyNonNilFields.

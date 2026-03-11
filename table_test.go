@@ -493,13 +493,14 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 
 func TestTableFindOptions(t *testing.T) {
 	t.Run("with all options", func(t *testing.T) {
-		opts := options.NewTableFindOptions(
-			options.WithSort(map[string]any{"rating": options.SortAscending}),
-			options.WithProjection(map[string]bool{"title": true}),
-			options.WithLimit(10),
-			options.WithSkip(5),
-			options.WithIncludeSimilarity(true),
-			options.WithInitialPageState("some-page-state"),
+		opts, _ := options.MergeOptions(
+			options.TableFind().
+				SetSort(map[string]any{"rating": options.SortAscending}).
+				SetProjection(map[string]bool{"title": true}).
+				SetLimit(10).
+				SetSkip(5).
+				SetIncludeSimilarity(true).
+				SetPageState("some-page-state"),
 		)
 
 		if opts.Sort == nil {

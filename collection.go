@@ -22,6 +22,7 @@ import (
 	"github.com/datastax/astra-db-go/cursor"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 )
 
@@ -187,17 +188,17 @@ type collectionFindResponse struct {
 // Example with sort and limit:
 //
 //	cursor := coll.Find(ctx, filter.F{"status": "active"},
-//	    options.WithCollectionSort(map[string]any{"created": -1}),
-//	    options.WithCollectionLimit(10),
+//	    options.CollectionFind().SetSort(map[string]any{"created": -1}).SetLimit(10),
 //	)
 //
 // Example with vector search:
 //
 //	cursor := coll.Find(ctx, filter.F{},
-//	    options.WithCollectionSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}),
-//	    options.WithCollectionIncludeSimilarity(true),
+//	    options.CollectionFind().
+//	        SetSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}).
+//	        SetIncludeSimilarity(true),
 //	)
-func (c *Collection) Find(ctx context.Context, f any, opts ...options.CollectionFindOption) *cursor.Cursor {
+func (c *Collection) Find(ctx context.Context, f any, opts ...options.Builder[options.CollectionFindOptions]) *cursor.Cursor {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter:
@@ -207,7 +208,7 @@ func (c *Collection) Find(ctx context.Context, f any, opts ...options.Collection
 	}
 
 	// Build the find options once (they don't change between pages)
-	findOpts := options.NewCollectionFindOptions(opts...)
+	findOpts, _ := options.MergeOptions(opts...)
 
 	// Create a page fetcher that captures the collection, filter, and options
 	fetcher := func(fetchCtx context.Context, pageState *string) ([]json.RawMessage, *string, results.Warnings, error) {
@@ -265,6 +266,64 @@ func (c *Collection) Find(ctx context.Context, f any, opts ...options.Collection
 	}
 
 	return cursor.New(fetcher)
+}
+
+// collectionUpdateOnePayload is the payload for the updateOne command on collections.
+type collectionUpdateOnePayload struct {
+	Filter  any            `json:"filter,omitempty"`
+	Update  any            `json:"update"`
+	Sort    map[string]any `json:"sort,omitempty"`
+	Options map[string]any `json:"options,omitempty"`
+}
+
+// collectionUpdateOneResponse is the response from the updateOne command.
+type collectionUpdateOneResponse struct {
+	Status struct {
+		MatchedCount  int `json:"matchedCount"`
+		ModifiedCount int `json:"modifiedCount"`
+		UpsertedCount int `json:"upsertedCount"`
+		UpsertedId    any `json:"upsertedId"`
+	} `json:"status"`
+}
+
+// UpdateOne updates a single document matching the filter.
+//
+// The update parameter should be an update expression (e.g., map[string]any{"$set": ...}).
+//
+// Options passed here override those set on the collection.
+func (c *Collection) UpdateOne(ctx context.Context, f any, update any, opts ...options.Builder[options.CollectionUpdateOneOptions]) (*results.UpdateResult, error) {
+	merged, err := options.MergeOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := collectionUpdateOnePayload{
+		Filter: f,
+		Update: update,
+		Sort:   merged.Sort,
+	}
+
+	if ptr.From(merged.Upsert) {
+		payload.Options = map[string]any{"upsert": true}
+	}
+
+	cmd := c.newCmd("updateOne", payload)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp collectionUpdateOneResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, err
+	}
+
+	return &results.UpdateResult{
+		MatchedCount:  resp.Status.MatchedCount,
+		ModifiedCount: resp.Status.ModifiedCount,
+		UpsertedCount: resp.Status.UpsertedCount,
+		UpsertedId:    resp.Status.UpsertedId,
+	}, nil
 }
 
 func newCmdPayload(filter any) cmdPayload {

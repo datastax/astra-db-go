@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/ptr"
 )
 
 func TestCreateCollectionCommand(t *testing.T) {
@@ -41,8 +42,8 @@ func TestCreateCollectionCommand(t *testing.T) {
 	t.Run("with vector", func(t *testing.T) {
 		cmd, err := createCollectionCommand(getTestDb(t), "my_collection",
 			options.CreateCollection().SetVector(&options.VectorOptions{
-				Dimension: 1024,
-				Metric:    "cosine",
+				Dimension: ptr.To(1024),
+				Metric:    ptr.To("cosine"),
 			}))
 		if err != nil {
 			t.Fatalf("createCollectionCommand: %v", err)
@@ -61,12 +62,12 @@ func TestCreateCollectionCommand(t *testing.T) {
 		// Later option should override earlier
 		cmd, err := createCollectionCommand(getTestDb(t), "my_collection",
 			options.CreateCollection().SetVector(&options.VectorOptions{
-				Dimension: 512,
-				Metric:    "euclidean",
+				Dimension: ptr.To(512),
+				Metric:    ptr.To("euclidean"),
 			}),
 			options.CreateCollection().SetVector(&options.VectorOptions{
-				Dimension: 1024,
-				Metric:    "cosine",
+				Dimension: ptr.To(1024),
+				Metric:    ptr.To("cosine"),
 			}),
 		)
 		if err != nil {
@@ -86,7 +87,7 @@ func TestCreateCollectionCommand(t *testing.T) {
 	t.Run("raw struct passed directly", func(t *testing.T) {
 		rawOpts := &options.CreateCollectionOptions{
 			DefaultId: &options.CollectionDefaultIdOptions{
-				Type: options.DefaultIdTypeUUIDv7,
+				Type: ptr.To(options.DefaultIdTypeUUIDv7),
 			},
 		}
 		cmd, err := createCollectionCommand(getTestDb(t), "my_collection", rawOpts)

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/internal/ptr"
+	"github.com/datastax/astra-db-go/ptr"
 )
 
 func TestTo(t *testing.T) {

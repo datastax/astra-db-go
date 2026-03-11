@@ -17,7 +17,7 @@ package options
 import (
 	"time"
 
-	"github.com/datastax/astra-db-go/internal/ptr"
+	"github.com/datastax/astra-db-go/ptr"
 )
 
 // DefaultDatabasePollInterval is the default interval for polling database status.

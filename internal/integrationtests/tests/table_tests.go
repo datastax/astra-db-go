@@ -62,7 +62,7 @@ func TableCreate(e *harness.TestEnv) error {
 		},
 	}
 
-	_, err := db.CreateTable(ctx, tableName, definition, options.WithIfNotExists(true))
+	_, err := db.CreateTable(ctx, tableName, definition, options.CreateTable().SetIfNotExists(true))
 	return err
 }
 
@@ -306,8 +306,9 @@ func TableFindWithSort(e *harness.TestEnv) error {
 
 	// Find books sorted by rating descending using cursor.All()
 	cursor := tbl.Find(ctx, filter.F{},
-		options.WithSort(map[string]any{"rating": options.SortDescending}),
-		options.WithLimit(3),
+		options.TableFind().
+			SetSort(map[string]any{"rating": options.SortDescending}).
+			SetLimit(3),
 	)
 	defer cursor.Close(ctx)
 
@@ -338,8 +339,9 @@ func TableFindWithProjection(e *harness.TestEnv) error {
 
 	// Find books with only title and author using cursor.All()
 	cursor := tbl.Find(ctx, filter.F{},
-		options.WithProjection(map[string]bool{"title": true, "author": true}),
-		options.WithLimit(1),
+		options.TableFind().
+			SetProjection(map[string]bool{"title": true, "author": true}).
+			SetLimit(1),
 	)
 	defer cursor.Close(ctx)
 
@@ -464,7 +466,7 @@ func TableVectorIndex(e *harness.TestEnv) error {
 		},
 	}
 
-	_, err := db.CreateTable(ctx, vectorTableName, definition, options.WithIfNotExists(true))
+	_, err := db.CreateTable(ctx, vectorTableName, definition, options.CreateTable().SetIfNotExists(true))
 	if err != nil {
 		return fmt.Errorf("failed to create vector table: %w", err)
 	}
@@ -499,9 +501,10 @@ func TableVectorIndex(e *harness.TestEnv) error {
 	// Test vector similarity search - find documents similar to [1.0, 0.0, 0.0]
 	queryVector := []float32{1.0, 0.0, 0.0}
 	cursor := tbl.Find(ctx, filter.F{},
-		options.WithSort(map[string]any{"embedding": queryVector}),
-		options.WithIncludeSimilarity(true),
-		options.WithLimit(3),
+		options.TableFind().
+			SetSort(map[string]any{"embedding": queryVector}).
+			SetIncludeSimilarity(true).
+			SetLimit(3),
 	)
 	defer cursor.Close(ctx)
 

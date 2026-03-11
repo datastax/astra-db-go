@@ -22,6 +22,7 @@ import (
 	"github.com/datastax/astra-db-go/cursor"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/table"
 )
@@ -116,9 +117,9 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 //		},
 //	}
 //	tbl, err := db.CreateTable(ctx, "my_table", definition)
-func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.TableOption) (*Table, error) {
+func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.Builder[options.CreateTableOptions]) (*Table, error) {
 	// Apply options
-	tableOpts := options.NewCreateTableOptions(opts...)
+	tableOpts, _ := options.MergeOptions(opts...)
 
 	payload := createTablePayload{
 		Name:       name,
@@ -126,17 +127,17 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	}
 
 	// Add options if ifNotExists is set
-	if tableOpts.IfNotExists {
+	if ptr.From(tableOpts.IfNotExists) {
 		payload.Options = &createTableOpts{
-			IfNotExists: tableOpts.IfNotExists,
+			IfNotExists: true,
 		}
 	}
 
 	cmd := d.newCmd("createTable", payload)
 
 	// Override keyspace if specified in options
-	if tableOpts.Keyspace != "" {
-		cmd.keyspace = tableOpts.Keyspace
+	if tableOpts.Keyspace != nil {
+		cmd.keyspace = *tableOpts.Keyspace
 	}
 
 	// Execute the command
@@ -254,10 +255,11 @@ type tableFindResponse struct {
 // Example with vector search:
 //
 //	cursor := tbl.Find(ctx, filter.F{},
-//	    options.WithSort(map[string]any{"vector_column": []float32{0.1, 0.2, 0.3}}),
-//	    options.WithIncludeSimilarity(true),
+//	    options.TableFind().
+//	        SetSort(map[string]any{"vector_column": []float32{0.1, 0.2, 0.3}}).
+//	        SetIncludeSimilarity(true),
 //	)
-func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption) *cursor.Cursor {
+func (t *Table) Find(ctx context.Context, f any, opts ...options.Builder[options.TableFindOptions]) *cursor.Cursor {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter, map[string]any, nil:
@@ -267,7 +269,10 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption
 	}
 
 	// Build the find options once (they don't change between pages)
-	findOpts := options.NewTableFindOptions(opts...)
+	findOpts, err := options.MergeOptions(opts...)
+	if err != nil {
+		return cursor.NewWithError(fmt.Errorf("invalid options: %w", err))
+	}
 
 	// Create a page fetcher that captures the table, filter, and options
 	fetcher := func(fetchCtx context.Context, pageState *string) ([]json.RawMessage, *string, results.Warnings, error) {
@@ -330,7 +335,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption
 //	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
 //	var row MyRow
 //	err := result.Decode(&row)
-func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOption) *results.SingleResult {
+func (t *Table) FindOne(ctx context.Context, f any, opts ...options.Builder[options.TableFindOptions]) *results.SingleResult {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter, map[string]any, nil:
@@ -340,7 +345,10 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 	}
 
 	// Build the find options
-	findOpts := options.NewTableFindOptions(opts...)
+	findOpts, err := options.MergeOptions(opts...)
+	if err != nil {
+		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid options: %w", err))
+	}
 
 	// Build the payload
 	payload := tableFindPayload{
@@ -619,7 +627,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Build
 		}
 
 		// Add command options if ifNotExists is set
-		if merged.IfNotExists != nil && *merged.IfNotExists {
+		if ptr.From(merged.IfNotExists) {
 			payload.Options = &createIndexOpts{
 				IfNotExists: true,
 			}
@@ -691,7 +699,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		}
 
 		// Add command options if ifNotExists is set
-		if merged.IfNotExists != nil && *merged.IfNotExists {
+		if ptr.From(merged.IfNotExists) {
 			payload.Options = &createIndexOpts{
 				IfNotExists: true,
 			}
@@ -822,7 +830,7 @@ func listIndexesCommand(t *Table, opts ...options.Builder[options.ListIndexesOpt
 	}
 
 	// Add options if explain is set
-	if merged != nil && merged.Explain != nil && *merged.Explain {
+	if merged != nil && ptr.From(merged.Explain) {
 		payload.Options = &listIndexesOpts{
 			Explain: true,
 		}

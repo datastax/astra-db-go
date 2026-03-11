@@ -14,45 +14,50 @@
 
 package options
 
-// TODO: move towards new naming scheme as well as using builder pattern.
-
 // CreateTableOptions represents options for creating a table
 type CreateTableOptions struct {
 	// IfNotExists if true, the command will silently succeed even if a table
 	// with the given name already exists. This only checks table names, not schemas.
-	IfNotExists bool `json:"ifNotExists,omitempty"`
+	IfNotExists *bool `json:"ifNotExists,omitempty"`
 
 	// Keyspace specifies the keyspace in which to create the table.
 	// If not provided, defaults to the working keyspace for the database.
-	Keyspace string `json:"-"`
+	Keyspace *string `json:"-"`
 }
 
-// TableOption is a functional option for configuring CreateTableOptions
-type TableOption func(*CreateTableOptions)
-
-// WithIfNotExists sets the ifNotExists option
-func WithIfNotExists(ifNotExists bool) TableOption {
-	return func(opts *CreateTableOptions) {
-		opts.IfNotExists = ifNotExists
-	}
+// List implements Builder[CreateTableOptions].
+func (o *CreateTableOptions) List() []func(*CreateTableOptions) {
+	return NoopBuilder(o)
 }
 
-// WithTableKeyspace sets the keyspace option for the table operation
-func WithTableKeyspace(keyspace string) TableOption {
-	return func(opts *CreateTableOptions) {
-		opts.Keyspace = keyspace
-	}
+// Validate implements Validator for CreateTableOptions.
+func (o CreateTableOptions) Validate() error { return nil }
+
+// CreateTableOptionsBuilder is a builder for CreateTableOptions.
+type CreateTableOptionsBuilder struct {
+	Opts []func(*CreateTableOptions)
 }
 
-// NewCreateTableOptions creates a CreateTableOptions with the provided options applied
-func NewCreateTableOptions(opts ...TableOption) *CreateTableOptions {
-	options := &CreateTableOptions{}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(options)
-		}
-	}
-	return options
+// CreateTable creates a new CreateTableOptionsBuilder.
+func CreateTable() *CreateTableOptionsBuilder {
+	return &CreateTableOptionsBuilder{}
+}
+
+// List implements Builder[CreateTableOptions].
+func (b *CreateTableOptionsBuilder) List() []func(*CreateTableOptions) {
+	return b.Opts
+}
+
+// SetIfNotExists sets whether the operation should silently succeed if the table already exists.
+func (b *CreateTableOptionsBuilder) SetIfNotExists(v bool) *CreateTableOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *CreateTableOptions) { o.IfNotExists = &v })
+	return b
+}
+
+// SetKeyspace sets the keyspace for the table operation.
+func (b *CreateTableOptionsBuilder) SetKeyspace(v string) *CreateTableOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *CreateTableOptions) { o.Keyspace = &v })
+	return b
 }
 
 // TableFindOptions represents options for finding rows in a table
@@ -82,60 +87,64 @@ type TableFindOptions struct {
 	InitialPageState *string `json:"pageState,omitempty"`
 }
 
-// TableFindOption is a functional option for configuring TableFindOptions
-type TableFindOption func(*TableFindOptions)
-
-// WithSort sets the sort option for the find operation
-func WithSort(sort map[string]any) TableFindOption {
-	return func(opts *TableFindOptions) {
-		opts.Sort = sort
-	}
+// List implements Builder[TableFindOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableFindOptions].
+func (o *TableFindOptions) List() []func(*TableFindOptions) {
+	return NoopBuilder(o)
 }
 
-// WithProjection sets the projection option for the find operation
-func WithProjection(projection map[string]bool) TableFindOption {
-	return func(opts *TableFindOptions) {
-		opts.Projection = projection
-	}
+// Validate implements Validator for TableFindOptions.
+func (o TableFindOptions) Validate() error { return nil }
+
+// TableFindOptionsBuilder is a builder for TableFindOptions.
+type TableFindOptionsBuilder struct {
+	Opts []func(*TableFindOptions)
 }
 
-// WithLimit sets the limit option for the find operation
-func WithLimit(limit int) TableFindOption {
-	return func(opts *TableFindOptions) {
-		opts.Limit = &limit
-	}
+// TableFind creates a new TableFindOptionsBuilder.
+func TableFind() *TableFindOptionsBuilder {
+	return &TableFindOptionsBuilder{}
 }
 
-// WithSkip sets the skip option for the find operation
-func WithSkip(skip int) TableFindOption {
-	return func(opts *TableFindOptions) {
-		opts.Skip = &skip
-	}
+// List implements Builder[TableFindOptions].
+func (b *TableFindOptionsBuilder) List() []func(*TableFindOptions) {
+	return b.Opts
 }
 
-// WithIncludeSimilarity sets the includeSimilarity option for vector search
-func WithIncludeSimilarity(include bool) TableFindOption {
-	return func(opts *TableFindOptions) {
-		opts.IncludeSimilarity = &include
-	}
+// SetSort sets the sort option for the find operation.
+func (b *TableFindOptionsBuilder) SetSort(sort map[string]any) *TableFindOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Sort = sort })
+	return b
 }
 
-// WithInitialPageState sets the initial page state for pagination
-func WithInitialPageState(pageState string) TableFindOption {
-	return func(opts *TableFindOptions) {
-		opts.InitialPageState = &pageState
-	}
+// SetProjection sets the projection option for the find operation.
+func (b *TableFindOptionsBuilder) SetProjection(projection map[string]bool) *TableFindOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Projection = projection })
+	return b
 }
 
-// NewTableFindOptions creates a TableFindOptions with the provided options applied
-func NewTableFindOptions(opts ...TableFindOption) *TableFindOptions {
-	options := &TableFindOptions{}
-	for _, opt := range opts {
-		if opt != nil {
-			opt(options)
-		}
-	}
-	return options
+// SetLimit sets the limit option for the find operation.
+func (b *TableFindOptionsBuilder) SetLimit(limit int) *TableFindOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Limit = &limit })
+	return b
+}
+
+// SetSkip sets the skip option for the find operation.
+func (b *TableFindOptionsBuilder) SetSkip(skip int) *TableFindOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Skip = &skip })
+	return b
+}
+
+// SetIncludeSimilarity sets the includeSimilarity option for vector search.
+func (b *TableFindOptionsBuilder) SetIncludeSimilarity(include bool) *TableFindOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.IncludeSimilarity = &include })
+	return b
+}
+
+// SetPageState sets the initial page state for pagination.
+func (b *TableFindOptionsBuilder) SetPageState(pageState string) *TableFindOptionsBuilder {
+	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.InitialPageState = &pageState })
+	return b
 }
 
 // SortAscending is the sort order value for ascending (1)
@@ -143,95 +152,3 @@ const SortAscending = 1
 
 // SortDescending is the sort order value for descending (-1)
 const SortDescending = -1
-
-// CollectionFindOptions represents options for finding documents in a collection
-type CollectionFindOptions struct {
-	// Sort specifies how to sort the results. Can be used for:
-	// - Ascending/descending sort on fields (e.g., {"rating": 1, "title": -1})
-	// - Vector search with a vector (e.g., {"$vector": [0.1, 0.2, 0.3]})
-	// - Vector search with vectorize (e.g., {"$vectorize": "search text"})
-	Sort map[string]any `json:"sort,omitempty"`
-
-	// Projection controls which fields are included or excluded in the returned documents
-	// Use true to include a field, false to exclude it
-	Projection map[string]any `json:"projection,omitempty"`
-
-	// Limit limits the total number of documents returned
-	Limit *int `json:"limit,omitempty"`
-
-	// Skip specifies the number of documents to bypass before returning results.
-	// Only valid with ascending/descending sort, not with vector search.
-	Skip *int `json:"skip,omitempty"`
-
-	// IncludeSimilarity if true, includes a $similarity property in the response
-	// for vector searches.
-	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
-
-	// IncludeSortVector if true, includes the sort vector in the response.
-	// Useful for vector searches using $vectorize.
-	IncludeSortVector *bool `json:"includeSortVector,omitempty"`
-
-	// InitialPageState is used for pagination to fetch the next page of results
-	InitialPageState *string `json:"pageState,omitempty"`
-}
-
-// CollectionFindOption is a functional option for configuring CollectionFindOptions
-type CollectionFindOption func(*CollectionFindOptions)
-
-// WithCollectionSort sets the sort option for the find operation
-func WithCollectionSort(sort map[string]any) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.Sort = sort
-	}
-}
-
-// WithCollectionProjection sets the projection option for the find operation
-func WithCollectionProjection(projection map[string]any) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.Projection = projection
-	}
-}
-
-// WithCollectionLimit sets the limit option for the find operation
-func WithCollectionLimit(limit int) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.Limit = &limit
-	}
-}
-
-// WithCollectionSkip sets the skip option for the find operation
-func WithCollectionSkip(skip int) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.Skip = &skip
-	}
-}
-
-// WithCollectionIncludeSimilarity sets the includeSimilarity option for vector search
-func WithCollectionIncludeSimilarity(include bool) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.IncludeSimilarity = &include
-	}
-}
-
-// WithCollectionIncludeSortVector sets the includeSortVector option for vectorize searches
-func WithCollectionIncludeSortVector(include bool) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.IncludeSortVector = &include
-	}
-}
-
-// WithCollectionPageState sets the initial page state for pagination
-func WithCollectionPageState(pageState string) CollectionFindOption {
-	return func(opts *CollectionFindOptions) {
-		opts.InitialPageState = &pageState
-	}
-}
-
-// NewCollectionFindOptions creates a CollectionFindOptions with the provided options applied
-func NewCollectionFindOptions(opts ...CollectionFindOption) *CollectionFindOptions {
-	options := &CollectionFindOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
-	return options
-}
