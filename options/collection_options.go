@@ -14,6 +14,8 @@
 
 package options
 
+import "fmt"
+
 // CreateCollectionOptions represents options for a collection's behavior.
 type CreateCollectionOptions struct {
 	// Settings for generating ids
@@ -38,9 +40,36 @@ func (o *CreateCollectionOptions) List() []func(*CreateCollectionOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CreateCollectionOptions.
-func (o CreateCollectionOptions) Validate() error {
+// validate calls Validate on v if it is non-nil.
+// TODO: probably will end up moving this. It's undecided what approach we
+// want to take for child struct validation still so leaving it here until that
+// conversation is resolved.
+func validate[T Validator](v *T) error {
+	if v == nil {
+		return nil
+	}
+	return (*v).Validate()
+}
+
+// Just a helper to return first error in variadic input to prevent a bunch of if err != nil.
+func firstErr(errs ...error) error {
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (o CreateCollectionOptions) Validate() error {
+	err := firstErr(
+		validate(o.DefaultId),
+		validate(o.Vector),
+		validate(o.Indexing),
+		validate(o.Lexical),
+		validate(o.Rerank),
+	)
+	return err
 }
 
 // CreateCollectionOptionsBuilder is a builder for CreateCollectionOptions that implements
@@ -85,7 +114,6 @@ func (b *CreateCollectionOptionsBuilder) SetIndexingAllow(v ...string) *CreateCo
 			o.Indexing = &IndexingOptions{}
 		}
 		o.Indexing.Allow = v
-		o.Indexing.Deny = nil // Ensure mutual exclusivity
 	})
 	return b
 }
@@ -98,12 +126,15 @@ func (b *CreateCollectionOptionsBuilder) SetIndexingDeny(v ...string) *CreateCol
 			o.Indexing = &IndexingOptions{}
 		}
 		o.Indexing.Deny = v
-		o.Indexing.Allow = nil // Ensure mutual exclusivity
 	})
 	return b
 }
 
-// SetIndexing sets the indexing options for the collection.
+// SetIndexing sets the indexing options for the collection. Example:
+//
+//	opts := options.CreateCollection().SetIndexing(&options.IndexingOptions{
+//		Allow: []string{"field1", "field2"},
+//	})
 func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
 		merged, _ := MergeOptions(v...)
@@ -316,7 +347,13 @@ func (o *IndexingOptions) List() []func(*IndexingOptions) {
 }
 
 // Validate implements Validator for IndexingOptions.
-func (o IndexingOptions) Validate() error { return nil }
+func (o IndexingOptions) Validate() error {
+	// Allow/Deny must be mutually exclusive. If both are set, return an error.
+	if o.Allow != nil && o.Deny != nil {
+		return fmt.Errorf("allow and deny cannot both be set")
+	}
+	return nil
+}
 
 // IndexingOptionsBuilder is a builder for IndexingOptions.
 type IndexingOptionsBuilder struct {
