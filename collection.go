@@ -281,7 +281,6 @@ type collectionUpdateOneResponse struct {
 	Status struct {
 		MatchedCount  int `json:"matchedCount"`
 		ModifiedCount int `json:"modifiedCount"`
-		UpsertedCount int `json:"upsertedCount"`
 		UpsertedId    any `json:"upsertedId"`
 	} `json:"status"`
 }
@@ -318,22 +317,18 @@ func (c *Collection) UpdateOne(ctx context.Context, f any, update any, opts ...o
 		return nil, err
 	}
 
+	upsertedCount := 0
+	if resp.Status.UpsertedId != nil {
+		upsertedCount = 1
+	}
+
 	return &results.UpdateResult{
 		MatchedCount:  resp.Status.MatchedCount,
 		ModifiedCount: resp.Status.ModifiedCount,
-		UpsertedCount: resp.Status.UpsertedCount,
+		UpsertedCount: upsertedCount,
 		UpsertedId:    resp.Status.UpsertedId,
 	}, nil
 }
-
-func newCmdPayload(filter any) cmdPayload {
-	if filter != nil {
-		return cmdPayload{"filter": filter}
-	}
-	return cmdPayload{}
-}
-
-type cmdPayload map[string]any
 
 // CountDocuments counts documents after applying filter f. Count operations are
 // expensive: for this reason, the best practice is to provide a reasonable upperBound.
