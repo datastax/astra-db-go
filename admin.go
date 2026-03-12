@@ -287,10 +287,8 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.B
 	// Hard-coding to region-type=vector because classic isn't relevant to this client.
 	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil).
 		withQueryParam("region-type", "vector")
-	if merged != nil {
-		if ptr.From(merged.FilterByOrg) {
-			cmd.withQueryParam("filter-by-org", "enabled")
-		}
+	if ptr.From(merged.FilterByOrg) {
+		cmd.withQueryParam("filter-by-org", "enabled")
 	}
 
 	// Execute request
@@ -352,19 +350,17 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.Builder[
 	}
 
 	cmd := a.createCommand(http.MethodGet, "/databases", nil)
-	if merged != nil {
-		if merged.Include != nil {
-			cmd.withQueryParam("include", string(*merged.Include))
-		}
-		if merged.Provider != nil {
-			cmd.withQueryParam("provider", string(*merged.Provider))
-		}
-		if merged.Limit != nil {
-			cmd.withQueryParam("limit", fmt.Sprintf("%d", *merged.Limit))
-		}
-		if merged.StartingAfter != nil {
-			cmd.withQueryParam("starting_after", *merged.StartingAfter)
-		}
+	if merged.Include != nil {
+		cmd.withQueryParam("include", string(*merged.Include))
+	}
+	if merged.Provider != nil {
+		cmd.withQueryParam("provider", string(*merged.Provider))
+	}
+	if merged.Limit != nil {
+		cmd.withQueryParam("limit", fmt.Sprintf("%d", *merged.Limit))
+	}
+	if merged.StartingAfter != nil {
+		cmd.withQueryParam("starting_after", *merged.StartingAfter)
 	}
 
 	resp, err := cmd.execute(ctx)

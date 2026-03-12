@@ -616,21 +616,19 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Build
 		return command{}, err
 	}
 
-	if merged != nil {
-		// Add definition options if any text index options are set
-		if merged.Ascii != nil || merged.Normalize != nil || merged.CaseSensitive != nil {
-			payload.Definition.Options = &indexDefOpts{
-				Ascii:         merged.Ascii,
-				Normalize:     merged.Normalize,
-				CaseSensitive: merged.CaseSensitive,
-			}
+	// Add definition options if any text index options are set
+	if merged.Ascii != nil || merged.Normalize != nil || merged.CaseSensitive != nil {
+		payload.Definition.Options = &indexDefOpts{
+			Ascii:         merged.Ascii,
+			Normalize:     merged.Normalize,
+			CaseSensitive: merged.CaseSensitive,
 		}
+	}
 
-		// Add command options if ifNotExists is set
-		if ptr.From(merged.IfNotExists) {
-			payload.Options = &createIndexOpts{
-				IfNotExists: true,
-			}
+	// Add command options if ifNotExists is set
+	if ptr.From(merged.IfNotExists) {
+		payload.Options = &createIndexOpts{
+			IfNotExists: true,
 		}
 	}
 
@@ -685,24 +683,22 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		return command{}, err
 	}
 
-	if merged != nil {
-		// Add definition options if metric or sourceModel are set
-		if merged.Metric != nil || merged.SourceModel != nil {
-			defOpts := &vectorIndexDefOpts{}
-			if merged.Metric != nil {
-				defOpts.Metric = string(*merged.Metric)
-			}
-			if merged.SourceModel != nil {
-				defOpts.SourceModel = *merged.SourceModel
-			}
-			payload.Definition.Options = defOpts
+	// Add definition options if metric or sourceModel are set
+	if merged.Metric != nil || merged.SourceModel != nil {
+		defOpts := &vectorIndexDefOpts{}
+		if merged.Metric != nil {
+			defOpts.Metric = string(*merged.Metric)
 		}
+		if merged.SourceModel != nil {
+			defOpts.SourceModel = *merged.SourceModel
+		}
+		payload.Definition.Options = defOpts
+	}
 
-		// Add command options if ifNotExists is set
-		if ptr.From(merged.IfNotExists) {
-			payload.Options = &createIndexOpts{
-				IfNotExists: true,
-			}
+	// Add command options if ifNotExists is set
+	if ptr.From(merged.IfNotExists) {
+		payload.Options = &createIndexOpts{
+			IfNotExists: true,
 		}
 	}
 
@@ -830,7 +826,7 @@ func listIndexesCommand(t *Table, opts ...options.Builder[options.ListIndexesOpt
 	}
 
 	// Add options if explain is set
-	if merged != nil && ptr.From(merged.Explain) {
+	if ptr.From(merged.Explain) {
 		payload.Options = &listIndexesOpts{
 			Explain: true,
 		}
