@@ -119,7 +119,10 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 //	tbl, err := db.CreateTable(ctx, "my_table", definition)
 func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.Builder[options.CreateTableOptions]) (*Table, error) {
 	// Apply options
-	tableOpts, _ := options.MergeOptions(opts...)
+	tableOpts, err := options.MergeOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
 
 	payload := createTablePayload{
 		Name:       name,
@@ -143,7 +146,7 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	// Execute the command
 	// Response is in format: {"status":{"ok":1}}
 	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err := cmd.Execute(ctx)
+	_, _, err = cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}

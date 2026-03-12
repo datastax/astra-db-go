@@ -208,7 +208,10 @@ func (c *Collection) Find(ctx context.Context, f any, opts ...options.Builder[op
 	}
 
 	// Build the find options once (they don't change between pages)
-	findOpts, _ := options.MergeOptions(opts...)
+	findOpts, err := options.MergeOptions(opts...)
+	if err != nil {
+		return cursor.NewWithError(err)
+	}
 
 	// Create a page fetcher that captures the collection, filter, and options
 	fetcher := func(fetchCtx context.Context, pageState *string) ([]json.RawMessage, *string, results.Warnings, error) {
