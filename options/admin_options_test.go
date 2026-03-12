@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/ptr"
 )
 
 func TestCreateDatabase_Defaults(t *testing.T) {
