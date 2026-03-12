@@ -27,6 +27,9 @@ func init() {
 		{Name: "CollectionFind", Run: CollectionFind},
 		{Name: "CollectionFindOne", Run: CollectionFindOne},
 		{Name: "CollectionCursorPagination", Run: CollectionCursorPagination},
+		{Name: "CollectionUpdateOne", Run: CollectionUpdateOne},
+		{Name: "CollectionUpdateOneUpsert", Run: CollectionUpdateOneUpsert},
+		{Name: "CollectionUpdateOneNoMatch", Run: CollectionUpdateOneNoMatch},
 		{Name: "CollectionDrop", Run: CollectionDrop},
 		// Vector search tests
 		{Name: "CollectionVectorCreate", Run: CollectionVectorCreate},
@@ -301,6 +304,122 @@ func CollectionCursorPagination(e *harness.TestEnv) error {
 		"totalDocuments", len(fetchedDocs),
 		"pagesFetched", pagesFetched,
 	)
+
+	return nil
+}
+
+func CollectionUpdateOne(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	// Insert a document to update
+	original := SimpleObject{Name: "UpdateOneOriginal"}
+	resp, err := c.InsertOne(ctx, original)
+	if err != nil {
+		return fmt.Errorf("failed to insert document: %w", err)
+	}
+	insertedID := resp.Status.InsertedIds[0]
+
+	// Update the document's name
+	result, err := c.UpdateOne(ctx, filter.F{"_id": insertedID}, map[string]any{
+		"$set": map[string]any{"name": "UpdateOneModified"},
+	})
+	if err != nil {
+		return fmt.Errorf("UpdateOne failed: %w", err)
+	}
+
+	if result.MatchedCount != 1 {
+		return fmt.Errorf("expected MatchedCount 1, got %d", result.MatchedCount)
+	}
+	if result.ModifiedCount != 1 {
+		return fmt.Errorf("expected ModifiedCount 1, got %d", result.ModifiedCount)
+	}
+	if result.UpsertedCount != 0 {
+		return fmt.Errorf("expected UpsertedCount 0, got %d", result.UpsertedCount)
+	}
+
+	// Verify the update by reading back
+	var doc SimpleObject
+	if err := c.FindOne(ctx, filter.F{"_id": insertedID}).Decode(&doc); err != nil {
+		return fmt.Errorf("FindOne after update failed: %w", err)
+	}
+	if doc.Name != "UpdateOneModified" {
+		return fmt.Errorf("expected name 'UpdateOneModified', got '%s'", doc.Name)
+	}
+
+	return nil
+}
+
+func CollectionUpdateOneUpsert(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	// Adding timestamp so this test survives retries. At some point, it might be good
+	// to either make ALL tests survive retries, or add a "cleanup" flag to tests that
+	// indicate they should run even if other tests fail. Or maybe it is more like we
+	// make these grouped tests "suites" and we have setup and teardown functions for
+	// suites.
+	upsertID := fmt.Sprintf("upsert-test-id-%d", time.Now().Unix())
+
+	// Upsert a document that doesn't exist
+	result, err := c.UpdateOne(ctx,
+		filter.F{"_id": upsertID},
+		map[string]any{"$set": map[string]any{"name": "UpsertedDoc"}},
+		options.CollectionUpdateOne().SetUpsert(true),
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateOne upsert failed: %w", err)
+	}
+
+	if result.MatchedCount != 0 {
+		return fmt.Errorf("expected MatchedCount 0, got %d", result.MatchedCount)
+	}
+	if result.ModifiedCount != 0 {
+		return fmt.Errorf("expected ModifiedCount 0, got %d", result.ModifiedCount)
+	}
+	if result.UpsertedCount != 1 {
+		return fmt.Errorf("expected UpsertedCount 1, got %d", result.UpsertedCount)
+	}
+	if result.UpsertedId == nil {
+		return errors.New("expected UpsertedId to be non-nil")
+	}
+
+	// Verify the upserted document
+	var doc SimpleObject
+	if err := c.FindOne(ctx, filter.F{"_id": upsertID}).Decode(&doc); err != nil {
+		return fmt.Errorf("FindOne after upsert failed: %w", err)
+	}
+	if doc.Name != "UpsertedDoc" {
+		return fmt.Errorf("expected name 'UpsertedDoc', got '%s'", doc.Name)
+	}
+
+	return nil
+}
+
+func CollectionUpdateOneNoMatch(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	result, err := c.UpdateOne(ctx,
+		filter.F{"_id": "nonexistent-id-xyz"},
+		map[string]any{"$set": map[string]any{"name": "ShouldNotExist"}},
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateOne no-match failed: %w", err)
+	}
+
+	if result.MatchedCount != 0 {
+		return fmt.Errorf("expected MatchedCount 0, got %d", result.MatchedCount)
+	}
+	if result.ModifiedCount != 0 {
+		return fmt.Errorf("expected ModifiedCount 0, got %d", result.ModifiedCount)
+	}
+	if result.UpsertedCount != 0 {
+		return fmt.Errorf("expected UpsertedCount 0, got %d", result.UpsertedCount)
+	}
 
 	return nil
 }
