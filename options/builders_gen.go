@@ -823,14 +823,14 @@ func (b *ListDatabasesOptionsBuilder) List() []func(*ListDatabasesOptions) {
 }
 
 // SetInclude sets the Include option.
-// Include filters databases by status. Defaults to DatabaseStatusNonTerminated.
+// Include filters databases by status. Defaults to [DatabaseStatusNonTerminated].
 func (b *ListDatabasesOptionsBuilder) SetInclude(v DatabaseStatus) *ListDatabasesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Include = &v })
 	return b
 }
 
 // SetProvider sets the Provider option.
-// Provider filters databases by cloud provider. Defaults to "ALL".
+// Provider filters databases by cloud provider. Defaults to [CloudProviderAll].
 func (b *ListDatabasesOptionsBuilder) SetProvider(v CloudProviderFilter) *ListDatabasesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Provider = &v })
 	return b
