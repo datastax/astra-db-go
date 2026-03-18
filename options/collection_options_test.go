@@ -78,3 +78,66 @@ func TestIndexingOptionsValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestVectorServiceOptionsValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		opts    options.Builder[options.CreateCollectionOptions]
+		wantErr bool
+	}{
+		{
+			name: "both provider and modelName set",
+			opts: options.CreateCollection().SetVector(
+				options.Vector().SetDimension(1024).SetService(
+					options.VectorService().SetProvider("openai").SetModelName("text-embedding-3-small"),
+				),
+			),
+			wantErr: false,
+		},
+		{
+			name: "neither provider nor modelName set",
+			opts: options.CreateCollection().SetVector(
+				options.Vector().SetDimension(1024).SetService(
+					options.VectorService(),
+				),
+			),
+			wantErr: false,
+		},
+		{
+			name: "provider only",
+			opts: options.CreateCollection().SetVector(
+				options.Vector().SetDimension(1024).SetService(
+					options.VectorService().SetProvider("openai"),
+				),
+			),
+			wantErr: true,
+		},
+		{
+			name: "modelName only",
+			opts: options.CreateCollection().SetVector(
+				options.Vector().SetDimension(1024).SetService(
+					options.VectorService().SetModelName("text-embedding-3-small"),
+				),
+			),
+			wantErr: true,
+		},
+		{
+			name: "no service at all",
+			opts: options.CreateCollection().SetVector(
+				options.Vector().SetDimension(1024),
+			),
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := options.MergeOptions(tt.opts)
+			if tt.wantErr && err == nil {
+				t.Errorf("options.MergeOptions(): was expecting error. Got: %v", err)
+			} else if !tt.wantErr && err != nil {
+				t.Errorf("options.MergeOptions(): wasn't expecting error. Got: %v", err)
+			}
+		})
+	}
+}

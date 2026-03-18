@@ -34,12 +34,6 @@ type CreateCollectionOptions struct {
 	Rerank *RerankOptions `json:"rerank,omitempty"`
 }
 
-// List implements Builder[CreateCollectionOptions] allowing the raw struct to be
-// passed directly to methods that accept ...Builder[CreateCollectionOptions].
-func (o *CreateCollectionOptions) List() []func(*CreateCollectionOptions) {
-	return NoopBuilder(o)
-}
-
 // validate calls Validate on v if it is non-nil.
 // TODO: probably will end up moving this. It's undecided what approach we
 // want to take for child struct validation still so leaving it here until that
@@ -72,40 +66,6 @@ func (o CreateCollectionOptions) Validate() error {
 	return err
 }
 
-// CreateCollectionOptionsBuilder is a builder for CreateCollectionOptions that implements
-// Builder[CreateCollectionOptions] following the MongoDB Go driver pattern.
-type CreateCollectionOptionsBuilder struct {
-	Opts []func(*CreateCollectionOptions)
-}
-
-// CreateCollection creates a new CreateCollectionOptionsBuilder.
-func CreateCollection() *CreateCollectionOptionsBuilder {
-	return &CreateCollectionOptionsBuilder{}
-}
-
-// List implements Builder[CreateCollectionOptions].
-func (b *CreateCollectionOptionsBuilder) List() []func(*CreateCollectionOptions) {
-	return b.Opts
-}
-
-// SetDefaultId sets the default ID options for the collection.
-func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDefaultIdOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.DefaultId = merged
-	})
-	return b
-}
-
-// SetVector sets the vector options for the collection.
-func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Vector = merged
-	})
-	return b
-}
-
 // SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
 // Mutually exclusive with SetIndexingDeny.
 func (b *CreateCollectionOptionsBuilder) SetIndexingAllow(v ...string) *CreateCollectionOptionsBuilder {
@@ -126,37 +86,6 @@ func (b *CreateCollectionOptionsBuilder) SetIndexingDeny(v ...string) *CreateCol
 			o.Indexing = &IndexingOptions{}
 		}
 		o.Indexing.Deny = v
-	})
-	return b
-}
-
-// SetIndexing sets the indexing options for the collection. Example:
-//
-//	opts := options.CreateCollection().SetIndexing(&options.IndexingOptions{
-//		Allow: []string{"field1", "field2"},
-//	})
-func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Indexing = merged
-	})
-	return b
-}
-
-// SetLexical sets the lexical analysis options for the collection.
-func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Lexical = merged
-	})
-	return b
-}
-
-// SetRerank sets the reranking options for the collection.
-func (b *CreateCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Rerank = merged
 	})
 	return b
 }
@@ -194,35 +123,6 @@ type CollectionDefaultIdOptions struct {
 	Type *DefaultIdType `json:"type,omitempty"`
 }
 
-// List implements Builder[CollectionDefaultIdOptions].
-func (o *CollectionDefaultIdOptions) List() []func(*CollectionDefaultIdOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for CollectionDefaultIdOptions.
-func (o CollectionDefaultIdOptions) Validate() error { return nil }
-
-// CollectionDefaultIdOptionsBuilder is a builder for CollectionDefaultIdOptions.
-type CollectionDefaultIdOptionsBuilder struct {
-	Opts []func(*CollectionDefaultIdOptions)
-}
-
-// CollectionDefaultId creates a new CollectionDefaultIdOptionsBuilder.
-func CollectionDefaultId() *CollectionDefaultIdOptionsBuilder {
-	return &CollectionDefaultIdOptionsBuilder{}
-}
-
-// List implements Builder[CollectionDefaultIdOptions].
-func (b *CollectionDefaultIdOptionsBuilder) List() []func(*CollectionDefaultIdOptions) {
-	return b.Opts
-}
-
-// SetType sets the default ID type.
-func (b *CollectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *CollectionDefaultIdOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionDefaultIdOptions) { o.Type = &v })
-	return b
-}
-
 // -- Placeholder structs for the types referenced above --
 // TODO: flesh these out. I shallow-ported some C# code to Go to get things working but need
 // to come back and finish these options.
@@ -242,50 +142,6 @@ type VectorOptions struct {
 	Service *VectorServiceOptions `json:"service,omitempty"`
 }
 
-// List implements Builder[VectorOptions].
-func (o *VectorOptions) List() []func(*VectorOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for VectorOptions.
-func (o VectorOptions) Validate() error { return nil }
-
-// VectorOptionsBuilder is a builder for VectorOptions.
-type VectorOptionsBuilder struct {
-	Opts []func(*VectorOptions)
-}
-
-// Vector creates a new VectorOptionsBuilder.
-func Vector() *VectorOptionsBuilder {
-	return &VectorOptionsBuilder{}
-}
-
-// List implements Builder[VectorOptions].
-func (b *VectorOptionsBuilder) List() []func(*VectorOptions) {
-	return b.Opts
-}
-
-// SetDimension sets the vector dimension.
-func (b *VectorOptionsBuilder) SetDimension(v int) *VectorOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorOptions) { o.Dimension = &v })
-	return b
-}
-
-// SetMetric sets the similarity metric.
-func (b *VectorOptionsBuilder) SetMetric(v string) *VectorOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorOptions) { o.Metric = &v })
-	return b
-}
-
-// SetService sets the vectorize service options.
-func (b *VectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *VectorOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Service = merged
-	})
-	return b
-}
-
 // VectorServiceOptions configures the embedding service for vectorize.
 type VectorServiceOptions struct {
 	// Provider is the embedding provider name (e.g., "openai", "huggingface").
@@ -295,39 +151,13 @@ type VectorServiceOptions struct {
 	ModelName *string `json:"modelName,omitempty"`
 }
 
-// List implements Builder[VectorServiceOptions].
-func (o *VectorServiceOptions) List() []func(*VectorServiceOptions) {
-	return NoopBuilder(o)
-}
-
 // Validate implements Validator for VectorServiceOptions.
-func (o VectorServiceOptions) Validate() error { return nil }
-
-// VectorServiceOptionsBuilder is a builder for VectorServiceOptions.
-type VectorServiceOptionsBuilder struct {
-	Opts []func(*VectorServiceOptions)
-}
-
-// VectorService creates a new VectorServiceOptionsBuilder.
-func VectorService() *VectorServiceOptionsBuilder {
-	return &VectorServiceOptionsBuilder{}
-}
-
-// List implements Builder[VectorServiceOptions].
-func (b *VectorServiceOptionsBuilder) List() []func(*VectorServiceOptions) {
-	return b.Opts
-}
-
-// SetProvider sets the embedding provider name.
-func (b *VectorServiceOptionsBuilder) SetProvider(v string) *VectorServiceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorServiceOptions) { o.Provider = &v })
-	return b
-}
-
-// SetModelName sets the embedding model name.
-func (b *VectorServiceOptionsBuilder) SetModelName(v string) *VectorServiceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorServiceOptions) { o.ModelName = &v })
-	return b
+// Provider and ModelName must both be set or both be unset.
+func (o VectorServiceOptions) Validate() error {
+	if (o.Provider != nil) != (o.ModelName != nil) {
+		return fmt.Errorf("vectorize service: provider and modelName must both be set or both be unset")
+	}
+	return nil
 }
 
 // IndexingOptions holds options for collection indexing. Only one of `Allow` or `Deny` can be specified.
@@ -341,11 +171,6 @@ type IndexingOptions struct {
 	Deny []string `json:"deny,omitempty"`
 }
 
-// List implements Builder[IndexingOptions].
-func (o *IndexingOptions) List() []func(*IndexingOptions) {
-	return NoopBuilder(o)
-}
-
 // Validate implements Validator for IndexingOptions.
 func (o IndexingOptions) Validate() error {
 	// Allow/Deny must be mutually exclusive. If both are set, return an error.
@@ -355,54 +180,9 @@ func (o IndexingOptions) Validate() error {
 	return nil
 }
 
-// IndexingOptionsBuilder is a builder for IndexingOptions.
-type IndexingOptionsBuilder struct {
-	Opts []func(*IndexingOptions)
-}
-
-// Indexing creates a new IndexingOptionsBuilder.
-func Indexing() *IndexingOptionsBuilder {
-	return &IndexingOptionsBuilder{}
-}
-
-// List implements Builder[IndexingOptions].
-func (b *IndexingOptionsBuilder) List() []func(*IndexingOptions) {
-	return b.Opts
-}
-
-// SetAllow sets the list of field paths to index.
-// Use "*" to index all fields. Mutually exclusive with SetDeny.
-func (b *IndexingOptionsBuilder) SetAllow(fields ...string) *IndexingOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *IndexingOptions) { o.Allow = fields })
-	return b
-}
-
-// SetDeny sets the list of field paths to exclude from indexing.
-// Use "*" to disable indexing entirely. Mutually exclusive with SetAllow.
-func (b *IndexingOptionsBuilder) SetDeny(fields ...string) *IndexingOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *IndexingOptions) { o.Deny = fields })
-	return b
-}
-
 type LexicalOptions struct{}
 
-// List implements Builder[LexicalOptions].
-func (o *LexicalOptions) List() []func(*LexicalOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for LexicalOptions.
-func (o LexicalOptions) Validate() error { return nil }
-
 type RerankOptions struct{}
-
-// List implements Builder[RerankOptions].
-func (o *RerankOptions) List() []func(*RerankOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for RerankOptions.
-func (o RerankOptions) Validate() error { return nil }
 
 // CollectionFindOptions represents options for finding documents in a collection
 type CollectionFindOptions struct {
@@ -435,66 +215,6 @@ type CollectionFindOptions struct {
 	InitialPageState *string `json:"pageState,omitempty"`
 }
 
-// List implements Builder[CollectionFindOptions] allowing the raw struct to be
-// passed directly to methods that accept ...Builder[CollectionFindOptions].
-func (o *CollectionFindOptions) List() []func(*CollectionFindOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for CollectionFindOptions.
-func (o CollectionFindOptions) Validate() error { return nil }
-
-// CollectionFindOptionsBuilder is a builder for CollectionFindOptions.
-type CollectionFindOptionsBuilder struct {
-	Opts []func(*CollectionFindOptions)
-}
-
-// CollectionFind creates a new CollectionFindOptionsBuilder.
-func CollectionFind() *CollectionFindOptionsBuilder {
-	return &CollectionFindOptionsBuilder{}
-}
-
-// List implements Builder[CollectionFindOptions].
-func (b *CollectionFindOptionsBuilder) List() []func(*CollectionFindOptions) {
-	return b.Opts
-}
-
-// SetSort sets the sort option for the find operation.
-func (b *CollectionFindOptionsBuilder) SetSort(sort map[string]any) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Sort = sort })
-	return b
-}
-
-// SetProjection sets the projection option for the find operation.
-func (b *CollectionFindOptionsBuilder) SetProjection(projection map[string]any) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Projection = projection })
-	return b
-}
-
-// SetLimit sets the limit option for the find operation.
-func (b *CollectionFindOptionsBuilder) SetLimit(limit int) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Limit = &limit })
-	return b
-}
-
-// SetSkip sets the skip option for the find operation.
-func (b *CollectionFindOptionsBuilder) SetSkip(skip int) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Skip = &skip })
-	return b
-}
-
-// SetIncludeSimilarity sets the includeSimilarity option for vector search.
-func (b *CollectionFindOptionsBuilder) SetIncludeSimilarity(include bool) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.IncludeSimilarity = &include })
-	return b
-}
-
-// SetIncludeSortVector sets the includeSortVector option for vectorize searches.
-func (b *CollectionFindOptionsBuilder) SetIncludeSortVector(include bool) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.IncludeSortVector = &include })
-	return b
-}
-
 // SetPageState sets the initial page state for pagination.
 func (b *CollectionFindOptionsBuilder) SetPageState(pageState string) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.InitialPageState = &pageState })
@@ -505,42 +225,4 @@ func (b *CollectionFindOptionsBuilder) SetPageState(pageState string) *Collectio
 type CollectionUpdateOneOptions struct {
 	Sort   map[string]any
 	Upsert *bool
-}
-
-// List implements Builder[CollectionUpdateOneOptions] allowing the raw struct to be
-// passed directly to methods that accept ...Builder[CollectionUpdateOneOptions].
-func (o *CollectionUpdateOneOptions) List() []func(*CollectionUpdateOneOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for CollectionUpdateOneOptions.
-func (o CollectionUpdateOneOptions) Validate() error {
-	return nil
-}
-
-// CollectionUpdateOneOptionsBuilder is a builder for CollectionUpdateOneOptions.
-type CollectionUpdateOneOptionsBuilder struct {
-	Opts []func(*CollectionUpdateOneOptions)
-}
-
-// CollectionUpdateOne creates a new CollectionUpdateOneOptionsBuilder.
-func CollectionUpdateOne() *CollectionUpdateOneOptionsBuilder {
-	return &CollectionUpdateOneOptionsBuilder{}
-}
-
-// List implements Builder[CollectionUpdateOneOptions].
-func (b *CollectionUpdateOneOptionsBuilder) List() []func(*CollectionUpdateOneOptions) {
-	return b.Opts
-}
-
-// SetSort sets the sort option for the updateOne operation.
-func (b *CollectionUpdateOneOptionsBuilder) SetSort(sort map[string]any) *CollectionUpdateOneOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionUpdateOneOptions) { o.Sort = sort })
-	return b
-}
-
-// SetUpsert sets the upsert option for the updateOne operation.
-func (b *CollectionUpdateOneOptionsBuilder) SetUpsert(upsert bool) *CollectionUpdateOneOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionUpdateOneOptions) { o.Upsert = &upsert })
-	return b
 }
