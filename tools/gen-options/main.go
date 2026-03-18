@@ -207,6 +207,7 @@ type optsDef struct {
 
 // setterDef describes a single Set* method to generate.
 type setterDef struct {
+	Comment           string // doc comment from the struct field, if any
 	Method            string // e.g. "SetLimit"
 	Field             string // e.g. "Limit"
 	ParamType         string // e.g. "int", "Builder[VectorOptions]", "map[string]any"
@@ -219,6 +220,7 @@ type setterDef struct {
 
 func buildersSrc(pkg *loadedPkg) renderJob {
 	hwMethods := handWrittenMethods(pkg)
+	comments := fieldComments(pkg)
 	scope := pkg.types.Scope()
 
 	// Pre-scan: collect all Options struct names. Every Options type gets a
@@ -254,7 +256,7 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 			HasBuilder:  true,
 			BuilderType: builderName,
 			Constructor: strings.TrimSuffix(name, "Options"),
-			Setters:     settersFor(optsStruct, pkg.validator, futureValidators),
+			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
 		}
 
 		defs = append(defs, def)
@@ -266,18 +268,74 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 // settersFor inspects every field of s and returns a setterDef for each one we
 // know how to generate. Unrecognised field kinds are silently skipped — they can
 // be written by hand as convenience methods that delegate to the generated ones.
-func settersFor(s *types.Struct, validator *types.Interface, futureValidators map[string]bool) []setterDef {
+func settersFor(structName string, s *types.Struct, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) []setterDef {
 	var setters []setterDef
 	for i := range s.NumFields() {
-		if sd, ok := setterForField(s.Field(i), validator, futureValidators); ok {
+		if sd, ok := setterForField(structName, s.Field(i), validator, futureValidators, comments); ok {
 			setters = append(setters, sd)
 		}
 	}
 	return setters
 }
 
-func setterForField(f *types.Var, validator *types.Interface, futureValidators map[string]bool) (setterDef, bool) {
+// fieldComments extracts doc comments from struct fields across all source files.
+// Map layout is map[structname]map[fieldname]comment. So can use like:
+//
+//	comments["CreateTableOptions"]["IfNotExists"] // get comment for CreateTableOptions.IfNotExists
+func fieldComments(pkg *loadedPkg) map[string]map[string]string {
+	result := make(map[string]map[string]string)
+
+	for _, file := range pkg.syntax {
+		// Skip generated files
+		filename := filepath.Base(pkg.fset.File(file.Pos()).Name())
+		if strings.Contains(filename, "_gen") {
+			continue
+		}
+
+		for _, decl := range file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				st, ok := ts.Type.(*ast.StructType)
+				if !ok {
+					continue
+				}
+
+				fields := make(map[string]string)
+				for _, field := range st.Fields.List {
+					if field.Doc == nil || len(field.Names) == 0 {
+						continue
+					}
+					// field.Doc is the comment group directly above the field.
+					// field.Comment is text comment on the same line (not what we want).
+					comment := strings.TrimSpace(field.Doc.Text())
+					if comment != "" {
+						fields[field.Names[0].Name] = comment
+					}
+				}
+				if len(fields) > 0 {
+					result[ts.Name.Name] = fields
+				}
+			}
+		}
+	}
+	return result
+}
+
+func setterForField(structName string, f *types.Var, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) (setterDef, bool) {
 	method := "Set" + f.Name()
+	comment := ""
+	if structComments, ok := comments[structName]; ok {
+		if c, ok := structComments[f.Name()]; ok {
+			comment = strings.ReplaceAll(c, "\n", "\n// ")
+		}
+	}
 
 	switch t := f.Type().(type) {
 
@@ -294,6 +352,7 @@ func setterForField(f *types.Var, validator *types.Interface, futureValidators m
 		if isValidator && isNamed {
 			inner := named.Obj().Name()
 			return setterDef{
+				Comment:           comment,
 				Method:            method,
 				Field:             f.Name(),
 				ParamType:         fmt.Sprintf("Builder[%s]", inner),
@@ -303,19 +362,19 @@ func setterForField(f *types.Var, validator *types.Interface, futureValidators m
 		}
 		// *scalar → value setter (we take v T and store &v)
 		if param := typeStr(t.Elem()); param != "" {
-			return setterDef{Method: method, Field: f.Name(), ParamType: param}, true
+			return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param}, true
 		}
 
 	case *types.Map:
 		// map[K]V → value setter (stored directly, no address-of)
 		if param := typeStr(t); param != "" {
-			return setterDef{Method: method, Field: f.Name(), ParamType: param, IsMap: true}, true
+			return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param, IsMap: true}, true
 		}
 
 	case *types.Slice:
 		// []T → variadic setter (v ...T, stored directly)
 		if elem := typeStr(t.Elem()); elem != "" {
-			return setterDef{Method: method, Field: f.Name(), IsSlice: true, ElemType: elem}, true
+			return setterDef{Comment: comment, Method: method, Field: f.Name(), IsSlice: true, ElemType: elem}, true
 		}
 	}
 
@@ -434,6 +493,9 @@ func (o *{{ .Name }}) Children() []Validator {
 }
 {{ end }}`))
 
+// Note on // {{ .Comment }} where .Comment can be empty string:
+// The resulting comment won't have a trailing blank line because
+// we are running this through gofmt.
 var buildersTmpl = template.Must(template.New("builders").Parse(boilerplate + `
 
 package {{ .PkgName }}
@@ -465,6 +527,7 @@ func (b *{{ .BuilderType }}) List() []func(*{{ .OptsType }}) {
 {{ range .Setters }}
 {{- if .IsVariadicBuilder }}
 // {{ .Method }} sets the {{ .Field }} option.
+// {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.BuilderType }} {
 	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) {
 		merged, _ := MergeOptions(v...)
@@ -474,18 +537,21 @@ func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.Build
 }
 {{ else if .IsSlice }}
 // {{ .Method }} sets the {{ .Field }} option.
+// {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ElemType }}) *{{ $o.BuilderType }} {
 	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
 	return b
 }
 {{ else if .IsMap }}
 // {{ .Method }} sets the {{ .Field }} option.
+// {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {
 	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
 	return b
 }
 {{ else }}
 // {{ .Method }} sets the {{ .Field }} option.
+// {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {
 	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = &v })
 	return b
