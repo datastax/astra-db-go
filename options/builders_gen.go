@@ -46,36 +46,43 @@ func (b *APIOptionsBuilder) List() []func(*APIOptions) {
 }
 
 // SetToken sets the Token option.
+// Token is the authentication token for Astra DB
 func (b *APIOptionsBuilder) SetToken(v string) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.Token = &v })
 	return b
 }
 
 // SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations
 func (b *APIOptionsBuilder) SetKeyspace(v string) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.Keyspace = &v })
 	return b
 }
 
 // SetAPIVersion sets the APIVersion option.
+// APIVersion is the Data API version (e.g., "v1")
 func (b *APIOptionsBuilder) SetAPIVersion(v string) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.APIVersion = &v })
 	return b
 }
 
 // SetHTTPClient sets the HTTPClient option.
+// HTTPClient is the HTTP client to use for requests
 func (b *APIOptionsBuilder) SetHTTPClient(v http.Client) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.HTTPClient = &v })
 	return b
 }
 
 // SetHeaders sets the Headers option.
+// Headers contains custom headers to include in requests
+// (e.g., for embedding API keys like "x-embedding-api-key")
 func (b *APIOptionsBuilder) SetHeaders(v map[string]string) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.Headers = v })
 	return b
 }
 
 // SetTimeout sets the Timeout option.
+// Timeout contains timeout configuration
 func (b *APIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) {
 		merged, _ := MergeOptions(v...)
@@ -85,6 +92,7 @@ func (b *APIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *APIOptions
 }
 
 // SetSerdes sets the Serdes option.
+// Serdes contains serialization/deserialization options
 func (b *APIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) {
 		merged, _ := MergeOptions(v...)
@@ -94,12 +102,16 @@ func (b *APIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *APIOptionsBu
 }
 
 // SetAstraEnvironment sets the AstraEnvironment option.
+// AstraEnvironment is the Astra environment (prod, dev, test).
+// Controls the DevOps API URL. Defaults to prod.
 func (b *APIOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.AstraEnvironment = &v })
 	return b
 }
 
 // SetDataAPIBackend sets the DataAPIBackend option.
+// DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
+// Controls the Data API path. Defaults to astra.
 func (b *APIOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) { o.DataAPIBackend = &v })
 	return b
@@ -130,6 +142,9 @@ func (b *CollectionDefaultIdOptionsBuilder) List() []func(*CollectionDefaultIdOp
 }
 
 // SetType sets the Type option.
+// Type is the type of the default ID that the API should generate if no ID is provided in the inserted document.
+// Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
+// If not specified, the default ID will be a string UUID.
 func (b *CollectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *CollectionDefaultIdOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionDefaultIdOptions) { o.Type = &v })
 	return b
@@ -160,42 +175,56 @@ func (b *CollectionFindOptionsBuilder) List() []func(*CollectionFindOptions) {
 }
 
 // SetSort sets the Sort option.
+// Sort specifies how to sort the results. Can be used for:
+//   - Ascending/descending sort on fields (e.g., {"rating": 1, "title": -1})
+//   - Vector search with a vector (e.g., {"$vector": [0.1, 0.2, 0.3]})
+//   - Vector search with vectorize (e.g., {"$vectorize": "search text"})
 func (b *CollectionFindOptionsBuilder) SetSort(v map[string]any) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Sort = v })
 	return b
 }
 
 // SetProjection sets the Projection option.
+// Projection controls which fields are included or excluded in the returned documents
+// Use true to include a field, false to exclude it
 func (b *CollectionFindOptionsBuilder) SetProjection(v map[string]any) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Projection = v })
 	return b
 }
 
 // SetLimit sets the Limit option.
+// Limit limits the total number of documents returned
 func (b *CollectionFindOptionsBuilder) SetLimit(v int) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Limit = &v })
 	return b
 }
 
 // SetSkip sets the Skip option.
+// Skip specifies the number of documents to bypass before returning results.
+// Only valid with ascending/descending sort, not with vector search.
 func (b *CollectionFindOptionsBuilder) SetSkip(v int) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Skip = &v })
 	return b
 }
 
 // SetIncludeSimilarity sets the IncludeSimilarity option.
+// IncludeSimilarity if true, includes a $similarity property in the response
+// for vector searches.
 func (b *CollectionFindOptionsBuilder) SetIncludeSimilarity(v bool) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.IncludeSimilarity = &v })
 	return b
 }
 
 // SetIncludeSortVector sets the IncludeSortVector option.
+// IncludeSortVector if true, includes the sort vector in the response.
+// Useful for vector searches using $vectorize.
 func (b *CollectionFindOptionsBuilder) SetIncludeSortVector(v bool) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.IncludeSortVector = &v })
 	return b
 }
 
 // SetInitialPageState sets the InitialPageState option.
+// InitialPageState is used for pagination to fetch the next page of results
 func (b *CollectionFindOptionsBuilder) SetInitialPageState(v string) *CollectionFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.InitialPageState = &v })
 	return b
@@ -243,6 +272,9 @@ func (o *CreateCollectionOptions) List() []func(*CreateCollectionOptions) {
 	return NoopBuilder(o)
 }
 
+// Validate implements Validator for CreateCollectionOptions.
+func (o CreateCollectionOptions) Validate() error { return nil }
+
 // CreateCollectionOptionsBuilder is a builder for CreateCollectionOptions.
 type CreateCollectionOptionsBuilder struct {
 	Opts []func(*CreateCollectionOptions)
@@ -259,6 +291,7 @@ func (b *CreateCollectionOptionsBuilder) List() []func(*CreateCollectionOptions)
 }
 
 // SetDefaultId sets the DefaultId option.
+// Settings for generating ids
 func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDefaultIdOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
 		merged, _ := MergeOptions(v...)
@@ -268,6 +301,7 @@ func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDef
 }
 
 // SetVector sets the Vector option.
+// Vector specifications for the collection
 func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
 		merged, _ := MergeOptions(v...)
@@ -277,6 +311,7 @@ func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) 
 }
 
 // SetIndexing sets the Indexing option.
+// Overrides for document indexing
 func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
 		merged, _ := MergeOptions(v...)
@@ -286,6 +321,7 @@ func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOption
 }
 
 // SetLexical sets the Lexical option.
+// Lexical analysis options for the collection
 func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
 		merged, _ := MergeOptions(v...)
@@ -295,6 +331,7 @@ func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]
 }
 
 // SetRerank sets the Rerank option.
+// Reranking options for the collection
 func (b *CreateCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
 		merged, _ := MergeOptions(v...)
@@ -328,18 +365,23 @@ func (b *CreateDatabaseOptionsBuilder) List() []func(*CreateDatabaseOptions) {
 }
 
 // SetKeyspace sets the Keyspace option.
+// Keyspace is the initial keyspace name. Defaults to "default_keyspace" if not specified.
 func (b *CreateDatabaseOptionsBuilder) SetKeyspace(v string) *CreateDatabaseOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateDatabaseOptions) { o.Keyspace = &v })
 	return b
 }
 
 // SetBlocking sets the Blocking option.
+// Blocking controls whether to wait for the database to become ACTIVE.
+// Defaults to true.
 func (b *CreateDatabaseOptionsBuilder) SetBlocking(v bool) *CreateDatabaseOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateDatabaseOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
+// PollInterval is how often to check the database status when blocking.
+// Defaults to DefaultDatabasePollInterval (10 seconds).
 func (b *CreateDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *CreateDatabaseOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateDatabaseOptions) { o.PollInterval = &v })
 	return b
@@ -370,24 +412,32 @@ func (b *CreateIndexOptionsBuilder) List() []func(*CreateIndexOptions) {
 }
 
 // SetIfNotExists sets the IfNotExists option.
+// IfNotExists if true, the command will silently succeed even if an index
+// with the given name already exists. This only checks index names, not definitions.
 func (b *CreateIndexOptionsBuilder) SetIfNotExists(v bool) *CreateIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.IfNotExists = &v })
 	return b
 }
 
 // SetAscii sets the Ascii option.
+// Ascii if true, converts non-ASCII characters to US-ASCII before indexing.
+// Only applicable to text columns.
 func (b *CreateIndexOptionsBuilder) SetAscii(v bool) *CreateIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.Ascii = &v })
 	return b
 }
 
 // SetNormalize sets the Normalize option.
+// Normalize if true, applies Unicode character normalization before indexing.
+// Only applicable to text columns.
 func (b *CreateIndexOptionsBuilder) SetNormalize(v bool) *CreateIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.Normalize = &v })
 	return b
 }
 
 // SetCaseSensitive sets the CaseSensitive option.
+// CaseSensitive if true (default), enforces case-sensitive matching.
+// Only applicable to text columns.
 func (b *CreateIndexOptionsBuilder) SetCaseSensitive(v bool) *CreateIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.CaseSensitive = &v })
 	return b
@@ -418,18 +468,24 @@ func (b *CreateKeyspaceOptionsBuilder) List() []func(*CreateKeyspaceOptions) {
 }
 
 // SetBlocking sets the Blocking option.
+// Blocking controls whether to wait for the keyspace to become visible.
+// Defaults to true. Only used by the Astra (DevOps API) path.
 func (b *CreateKeyspaceOptionsBuilder) SetBlocking(v bool) *CreateKeyspaceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateKeyspaceOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
+// PollInterval is how often to check whether the keyspace exists when blocking.
+// Defaults to DefaultKeyspacePollInterval (1 second). Only used by the Astra (DevOps API) path.
 func (b *CreateKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *CreateKeyspaceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateKeyspaceOptions) { o.PollInterval = &v })
 	return b
 }
 
 // SetReplicationFactor sets the ReplicationFactor option.
+// ReplicationFactor sets the replication factor for the keyspace.
+// Only used by the Data API path (non-Astra environments).
 func (b *CreateKeyspaceOptionsBuilder) SetReplicationFactor(v int) *CreateKeyspaceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateKeyspaceOptions) { o.ReplicationFactor = &v })
 	return b
@@ -460,12 +516,16 @@ func (b *CreateTableOptionsBuilder) List() []func(*CreateTableOptions) {
 }
 
 // SetIfNotExists sets the IfNotExists option.
+// IfNotExists if true, the command will silently succeed even if a table
+// with the given name already exists. This only checks table names, not schemas.
 func (b *CreateTableOptionsBuilder) SetIfNotExists(v bool) *CreateTableOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateTableOptions) { o.IfNotExists = &v })
 	return b
 }
 
 // SetKeyspace sets the Keyspace option.
+// Keyspace specifies the keyspace in which to create the table.
+// If not provided, defaults to the working keyspace for the database.
 func (b *CreateTableOptionsBuilder) SetKeyspace(v string) *CreateTableOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateTableOptions) { o.Keyspace = &v })
 	return b
@@ -496,18 +556,25 @@ func (b *CreateVectorIndexOptionsBuilder) List() []func(*CreateVectorIndexOption
 }
 
 // SetIfNotExists sets the IfNotExists option.
+// IfNotExists if true, the command will silently succeed even if an index
+// with the given name already exists. This only checks index names, not definitions.
 func (b *CreateVectorIndexOptionsBuilder) SetIfNotExists(v bool) *CreateVectorIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.IfNotExists = &v })
 	return b
 }
 
 // SetMetric sets the Metric option.
+// Metric is the similarity measurement for vector search.
+// Valid values: "cosine" (default), "dot_product", "euclidean"
 func (b *CreateVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *CreateVectorIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.Metric = &v })
 	return b
 }
 
 // SetSourceModel sets the SourceModel option.
+// SourceModel is the embedding generation model, enabling optimizations.
+// Valid values: "ada002", "bert", "cohere-v3", "gecko", "nv-qa-4",
+// "openai-v3-large", "openai-v3-small", "other" (default)
 func (b *CreateVectorIndexOptionsBuilder) SetSourceModel(v string) *CreateVectorIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.SourceModel = &v })
 	return b
@@ -538,12 +605,16 @@ func (b *DropDatabaseOptionsBuilder) List() []func(*DropDatabaseOptions) {
 }
 
 // SetBlocking sets the Blocking option.
+// Blocking controls whether to wait for the database to be fully terminated.
+// Defaults to true.
 func (b *DropDatabaseOptionsBuilder) SetBlocking(v bool) *DropDatabaseOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *DropDatabaseOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
+// PollInterval is how often to check the database status when blocking.
+// Defaults to DefaultDatabasePollInterval (10 seconds).
 func (b *DropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *DropDatabaseOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *DropDatabaseOptions) { o.PollInterval = &v })
 	return b
@@ -574,12 +645,16 @@ func (b *DropKeyspaceOptionsBuilder) List() []func(*DropKeyspaceOptions) {
 }
 
 // SetBlocking sets the Blocking option.
+// Blocking controls whether to wait for the keyspace to be fully terminated.
+// Defaults to true.
 func (b *DropKeyspaceOptionsBuilder) SetBlocking(v bool) *DropKeyspaceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *DropKeyspaceOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
+// PollInterval is how often to check the keyspace status when blocking.
+// Defaults to DefaultKeyspacePollInterval (1 second).
 func (b *DropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *DropKeyspaceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *DropKeyspaceOptions) { o.PollInterval = &v })
 	return b
@@ -610,6 +685,8 @@ func (b *FindAvailableRegionsOptionsBuilder) List() []func(*FindAvailableRegions
 }
 
 // SetFilterByOrg sets the FilterByOrg option.
+// FilterByOrg filters by organization access. Whether to only return regions that
+// can be used by the caller's organization.
 func (b *FindAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *FindAvailableRegionsOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *FindAvailableRegionsOptions) { o.FilterByOrg = &v })
 	return b
@@ -637,12 +714,16 @@ func (b *IndexingOptionsBuilder) List() []func(*IndexingOptions) {
 }
 
 // SetAllow sets the Allow option.
+// Allow is a list of field paths to index, or ["*"] to index all fields.
+// Mutually exclusive with Deny.
 func (b *IndexingOptionsBuilder) SetAllow(v ...string) *IndexingOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *IndexingOptions) { o.Allow = v })
 	return b
 }
 
 // SetDeny sets the Deny option.
+// Deny is a list of field paths to exclude from indexing, or ["*"] to disable indexing entirely.
+// Mutually exclusive with Allow.
 func (b *IndexingOptionsBuilder) SetDeny(v ...string) *IndexingOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *IndexingOptions) { o.Deny = v })
 	return b
@@ -673,12 +754,14 @@ func (b *InsertOneOptionsBuilder) List() []func(*InsertOneOptions) {
 }
 
 // SetOrdered sets the Ordered option.
+// Method Options (sent in JSON)
 func (b *InsertOneOptionsBuilder) SetOrdered(v bool) *InsertOneOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *InsertOneOptions) { o.Ordered = &v })
 	return b
 }
 
 // SetTimeout sets the Timeout option.
+// Request Options (handled by client)
 func (b *InsertOneOptionsBuilder) SetTimeout(v time.Duration) *InsertOneOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *InsertOneOptions) { o.Timeout = &v })
 	return b
@@ -733,24 +816,29 @@ func (b *ListDatabasesOptionsBuilder) List() []func(*ListDatabasesOptions) {
 }
 
 // SetInclude sets the Include option.
+// Include filters databases by status. Defaults to DatabaseStatusNonTerminated.
 func (b *ListDatabasesOptionsBuilder) SetInclude(v DatabaseStatus) *ListDatabasesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Include = &v })
 	return b
 }
 
 // SetProvider sets the Provider option.
+// Provider filters databases by cloud provider. Defaults to "ALL".
 func (b *ListDatabasesOptionsBuilder) SetProvider(v CloudProviderFilter) *ListDatabasesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Provider = &v })
 	return b
 }
 
 // SetLimit sets the Limit option.
+// Limit is the maximum number of databases to return (1-100). Defaults to 25.
 func (b *ListDatabasesOptionsBuilder) SetLimit(v int) *ListDatabasesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Limit = &v })
 	return b
 }
 
 // SetStartingAfter sets the StartingAfter option.
+// StartingAfter is a database ID to use with pagination. Pass the DB ID of the
+// last item on the previous page to get the next page.
 func (b *ListDatabasesOptionsBuilder) SetStartingAfter(v string) *ListDatabasesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.StartingAfter = &v })
 	return b
@@ -781,6 +869,8 @@ func (b *ListIndexesOptionsBuilder) List() []func(*ListIndexesOptions) {
 }
 
 // SetExplain sets the Explain option.
+// Explain if true, returns full index metadata including definitions.
+// If false (default), only returns index names.
 func (b *ListIndexesOptionsBuilder) SetExplain(v bool) *ListIndexesOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *ListIndexesOptions) { o.Explain = &v })
 	return b
@@ -859,36 +949,48 @@ func (b *TableFindOptionsBuilder) List() []func(*TableFindOptions) {
 }
 
 // SetSort sets the Sort option.
+// Sort specifies how to sort the results. Can be used for:
+// - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
+// - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
+// - Vector search with vectorize (e.g., {"vector_column": "search text"})
 func (b *TableFindOptionsBuilder) SetSort(v map[string]any) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Sort = v })
 	return b
 }
 
 // SetProjection sets the Projection option.
+// Projection controls which columns are included or excluded in the returned rows
+// Use true to include a column, false to exclude it
 func (b *TableFindOptionsBuilder) SetProjection(v map[string]bool) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Projection = v })
 	return b
 }
 
 // SetLimit sets the Limit option.
+// Limit limits the total number of rows returned
 func (b *TableFindOptionsBuilder) SetLimit(v int) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Limit = &v })
 	return b
 }
 
 // SetSkip sets the Skip option.
+// Skip specifies the number of rows to bypass before returning rows.
+// Only valid with ascending/descending sort, not with vector search.
 func (b *TableFindOptionsBuilder) SetSkip(v int) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Skip = &v })
 	return b
 }
 
 // SetIncludeSimilarity sets the IncludeSimilarity option.
+// IncludeSimilarity if true, includes a $similarity property in the response
+// for vector searches. Only works with direct vector search, not vectorize.
 func (b *TableFindOptionsBuilder) SetIncludeSimilarity(v bool) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.IncludeSimilarity = &v })
 	return b
 }
 
 // SetInitialPageState sets the InitialPageState option.
+// InitialPageState is used for pagination to fetch the next page of results
 func (b *TableFindOptionsBuilder) SetInitialPageState(v string) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.InitialPageState = &v })
 	return b
@@ -919,18 +1021,21 @@ func (b *TimeoutOptionsBuilder) List() []func(*TimeoutOptions) {
 }
 
 // SetRequest sets the Request option.
+// Request is the timeout for individual HTTP requests
 func (b *TimeoutOptionsBuilder) SetRequest(v time.Duration) *TimeoutOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TimeoutOptions) { o.Request = &v })
 	return b
 }
 
 // SetConnection sets the Connection option.
+// Connection is the timeout for establishing connections
 func (b *TimeoutOptionsBuilder) SetConnection(v time.Duration) *TimeoutOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TimeoutOptions) { o.Connection = &v })
 	return b
 }
 
 // SetBulkOperation sets the BulkOperation option.
+// BulkOperation is the timeout for bulk operations like insertMany
 func (b *TimeoutOptionsBuilder) SetBulkOperation(v time.Duration) *TimeoutOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TimeoutOptions) { o.BulkOperation = &v })
 	return b
@@ -961,18 +1066,24 @@ func (b *VectorOptionsBuilder) List() []func(*VectorOptions) {
 }
 
 // SetDimension sets the Dimension option.
+// Dimension specifies the dimension of vectors stored in this collection.
+// Required for vector-enabled collections.
 func (b *VectorOptionsBuilder) SetDimension(v int) *VectorOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *VectorOptions) { o.Dimension = &v })
 	return b
 }
 
 // SetMetric sets the Metric option.
+// Metric specifies the similarity metric used for vector search.
+// Valid values are "cosine", "euclidean", or "dot_product".
+// Default is "cosine".
 func (b *VectorOptionsBuilder) SetMetric(v string) *VectorOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *VectorOptions) { o.Metric = &v })
 	return b
 }
 
 // SetService sets the Service option.
+// Service configures automatic vector embedding generation (vectorize).
 func (b *VectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *VectorOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *VectorOptions) {
 		merged, _ := MergeOptions(v...)
@@ -1003,12 +1114,14 @@ func (b *VectorServiceOptionsBuilder) List() []func(*VectorServiceOptions) {
 }
 
 // SetProvider sets the Provider option.
+// Provider is the embedding provider name (e.g., "openai", "huggingface").
 func (b *VectorServiceOptionsBuilder) SetProvider(v string) *VectorServiceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *VectorServiceOptions) { o.Provider = &v })
 	return b
 }
 
 // SetModelName sets the ModelName option.
+// ModelName is the name of the embedding model to use.
 func (b *VectorServiceOptionsBuilder) SetModelName(v string) *VectorServiceOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *VectorServiceOptions) { o.ModelName = &v })
 	return b
