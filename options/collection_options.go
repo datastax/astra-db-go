@@ -34,38 +34,6 @@ type CreateCollectionOptions struct {
 	Rerank *RerankOptions `json:"rerank,omitempty"`
 }
 
-// validate calls Validate on v if it is non-nil.
-// TODO: probably will end up moving this. It's undecided what approach we
-// want to take for child struct validation still so leaving it here until that
-// conversation is resolved.
-func validate[T Validator](v *T) error {
-	if v == nil {
-		return nil
-	}
-	return (*v).Validate()
-}
-
-// Just a helper to return first error in variadic input to prevent a bunch of if err != nil.
-func firstErr(errs ...error) error {
-	for _, err := range errs {
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (o CreateCollectionOptions) Validate() error {
-	err := firstErr(
-		validate(o.DefaultId),
-		validate(o.Vector),
-		validate(o.Indexing),
-		validate(o.Lexical),
-		validate(o.Rerank),
-	)
-	return err
-}
-
 // SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
 // Mutually exclusive with SetIndexingDeny.
 func (b *CreateCollectionOptionsBuilder) SetIndexingAllow(v ...string) *CreateCollectionOptionsBuilder {
