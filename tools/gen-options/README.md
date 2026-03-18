@@ -29,7 +29,7 @@ func (o *TestOptions) List() []func(*TestOptions) {
 }
 
 // Validate implements Validator for TestOptions.
-func (o TestOptions) Validate() error { return nil }
+func (o *TestOptions) Validate() error { return nil }
 
 // TestOptionsBuilder is a builder for TestOptions.
 type TestOptionsBuilder struct {
@@ -60,7 +60,7 @@ If you implement `Validator`, it will be excluded from boilerplate:
 ```go
 // Validate implements Validator for TestOptions. Implementing this by hand
 // will exclude it from being generated.
-func (o TestOptions) Validate() error {
+func (o *TestOptions) Validate() error {
 	if o.TestVersion == nil {
 		return errors.New("TestVersion is required")
 	}

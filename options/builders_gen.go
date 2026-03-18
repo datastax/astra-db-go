@@ -28,7 +28,7 @@ func (o *APIOptions) List() []func(*APIOptions) {
 }
 
 // Validate implements Validator for APIOptions.
-func (o APIOptions) Validate() error { return nil }
+func (o *APIOptions) Validate() error { return nil }
 
 // APIOptionsBuilder is a builder for APIOptions.
 type APIOptionsBuilder struct {
@@ -124,7 +124,7 @@ func (o *CollectionDefaultIdOptions) List() []func(*CollectionDefaultIdOptions) 
 }
 
 // Validate implements Validator for CollectionDefaultIdOptions.
-func (o CollectionDefaultIdOptions) Validate() error { return nil }
+func (o *CollectionDefaultIdOptions) Validate() error { return nil }
 
 // CollectionDefaultIdOptionsBuilder is a builder for CollectionDefaultIdOptions.
 type CollectionDefaultIdOptionsBuilder struct {
@@ -157,7 +157,7 @@ func (o *CollectionFindOptions) List() []func(*CollectionFindOptions) {
 }
 
 // Validate implements Validator for CollectionFindOptions.
-func (o CollectionFindOptions) Validate() error { return nil }
+func (o *CollectionFindOptions) Validate() error { return nil }
 
 // CollectionFindOptionsBuilder is a builder for CollectionFindOptions.
 type CollectionFindOptionsBuilder struct {
@@ -237,7 +237,7 @@ func (o *CollectionUpdateOneOptions) List() []func(*CollectionUpdateOneOptions) 
 }
 
 // Validate implements Validator for CollectionUpdateOneOptions.
-func (o CollectionUpdateOneOptions) Validate() error { return nil }
+func (o *CollectionUpdateOneOptions) Validate() error { return nil }
 
 // CollectionUpdateOneOptionsBuilder is a builder for CollectionUpdateOneOptions.
 type CollectionUpdateOneOptionsBuilder struct {
@@ -273,7 +273,7 @@ func (o *CreateCollectionOptions) List() []func(*CreateCollectionOptions) {
 }
 
 // Validate implements Validator for CreateCollectionOptions.
-func (o CreateCollectionOptions) Validate() error { return nil }
+func (o *CreateCollectionOptions) Validate() error { return nil }
 
 // CreateCollectionOptionsBuilder is a builder for CreateCollectionOptions.
 type CreateCollectionOptionsBuilder struct {
@@ -347,7 +347,7 @@ func (o *CreateDatabaseOptions) List() []func(*CreateDatabaseOptions) {
 }
 
 // Validate implements Validator for CreateDatabaseOptions.
-func (o CreateDatabaseOptions) Validate() error { return nil }
+func (o *CreateDatabaseOptions) Validate() error { return nil }
 
 // CreateDatabaseOptionsBuilder is a builder for CreateDatabaseOptions.
 type CreateDatabaseOptionsBuilder struct {
@@ -394,7 +394,7 @@ func (o *CreateIndexOptions) List() []func(*CreateIndexOptions) {
 }
 
 // Validate implements Validator for CreateIndexOptions.
-func (o CreateIndexOptions) Validate() error { return nil }
+func (o *CreateIndexOptions) Validate() error { return nil }
 
 // CreateIndexOptionsBuilder is a builder for CreateIndexOptions.
 type CreateIndexOptionsBuilder struct {
@@ -450,7 +450,7 @@ func (o *CreateKeyspaceOptions) List() []func(*CreateKeyspaceOptions) {
 }
 
 // Validate implements Validator for CreateKeyspaceOptions.
-func (o CreateKeyspaceOptions) Validate() error { return nil }
+func (o *CreateKeyspaceOptions) Validate() error { return nil }
 
 // CreateKeyspaceOptionsBuilder is a builder for CreateKeyspaceOptions.
 type CreateKeyspaceOptionsBuilder struct {
@@ -498,7 +498,7 @@ func (o *CreateTableOptions) List() []func(*CreateTableOptions) {
 }
 
 // Validate implements Validator for CreateTableOptions.
-func (o CreateTableOptions) Validate() error { return nil }
+func (o *CreateTableOptions) Validate() error { return nil }
 
 // CreateTableOptionsBuilder is a builder for CreateTableOptions.
 type CreateTableOptionsBuilder struct {
@@ -538,7 +538,7 @@ func (o *CreateVectorIndexOptions) List() []func(*CreateVectorIndexOptions) {
 }
 
 // Validate implements Validator for CreateVectorIndexOptions.
-func (o CreateVectorIndexOptions) Validate() error { return nil }
+func (o *CreateVectorIndexOptions) Validate() error { return nil }
 
 // CreateVectorIndexOptionsBuilder is a builder for CreateVectorIndexOptions.
 type CreateVectorIndexOptionsBuilder struct {
@@ -587,7 +587,7 @@ func (o *DropDatabaseOptions) List() []func(*DropDatabaseOptions) {
 }
 
 // Validate implements Validator for DropDatabaseOptions.
-func (o DropDatabaseOptions) Validate() error { return nil }
+func (o *DropDatabaseOptions) Validate() error { return nil }
 
 // DropDatabaseOptionsBuilder is a builder for DropDatabaseOptions.
 type DropDatabaseOptionsBuilder struct {
@@ -627,7 +627,7 @@ func (o *DropKeyspaceOptions) List() []func(*DropKeyspaceOptions) {
 }
 
 // Validate implements Validator for DropKeyspaceOptions.
-func (o DropKeyspaceOptions) Validate() error { return nil }
+func (o *DropKeyspaceOptions) Validate() error { return nil }
 
 // DropKeyspaceOptionsBuilder is a builder for DropKeyspaceOptions.
 type DropKeyspaceOptionsBuilder struct {
@@ -667,7 +667,7 @@ func (o *FindAvailableRegionsOptions) List() []func(*FindAvailableRegionsOptions
 }
 
 // Validate implements Validator for FindAvailableRegionsOptions.
-func (o FindAvailableRegionsOptions) Validate() error { return nil }
+func (o *FindAvailableRegionsOptions) Validate() error { return nil }
 
 // FindAvailableRegionsOptionsBuilder is a builder for FindAvailableRegionsOptions.
 type FindAvailableRegionsOptionsBuilder struct {
@@ -736,7 +736,7 @@ func (o *InsertOneOptions) List() []func(*InsertOneOptions) {
 }
 
 // Validate implements Validator for InsertOneOptions.
-func (o InsertOneOptions) Validate() error { return nil }
+func (o *InsertOneOptions) Validate() error { return nil }
 
 // InsertOneOptionsBuilder is a builder for InsertOneOptions.
 type InsertOneOptionsBuilder struct {
@@ -774,7 +774,7 @@ func (o *LexicalOptions) List() []func(*LexicalOptions) {
 }
 
 // Validate implements Validator for LexicalOptions.
-func (o LexicalOptions) Validate() error { return nil }
+func (o *LexicalOptions) Validate() error { return nil }
 
 // LexicalOptionsBuilder is a builder for LexicalOptions.
 type LexicalOptionsBuilder struct {
@@ -798,7 +798,7 @@ func (o *ListDatabasesOptions) List() []func(*ListDatabasesOptions) {
 }
 
 // Validate implements Validator for ListDatabasesOptions.
-func (o ListDatabasesOptions) Validate() error { return nil }
+func (o *ListDatabasesOptions) Validate() error { return nil }
 
 // ListDatabasesOptionsBuilder is a builder for ListDatabasesOptions.
 type ListDatabasesOptionsBuilder struct {
@@ -851,7 +851,7 @@ func (o *ListIndexesOptions) List() []func(*ListIndexesOptions) {
 }
 
 // Validate implements Validator for ListIndexesOptions.
-func (o ListIndexesOptions) Validate() error { return nil }
+func (o *ListIndexesOptions) Validate() error { return nil }
 
 // ListIndexesOptionsBuilder is a builder for ListIndexesOptions.
 type ListIndexesOptionsBuilder struct {
@@ -883,7 +883,7 @@ func (o *RerankOptions) List() []func(*RerankOptions) {
 }
 
 // Validate implements Validator for RerankOptions.
-func (o RerankOptions) Validate() error { return nil }
+func (o *RerankOptions) Validate() error { return nil }
 
 // RerankOptionsBuilder is a builder for RerankOptions.
 type RerankOptionsBuilder struct {
@@ -907,7 +907,7 @@ func (o *SerdesOptions) List() []func(*SerdesOptions) {
 }
 
 // Validate implements Validator for SerdesOptions.
-func (o SerdesOptions) Validate() error { return nil }
+func (o *SerdesOptions) Validate() error { return nil }
 
 // SerdesOptionsBuilder is a builder for SerdesOptions.
 type SerdesOptionsBuilder struct {
@@ -931,7 +931,7 @@ func (o *TableFindOptions) List() []func(*TableFindOptions) {
 }
 
 // Validate implements Validator for TableFindOptions.
-func (o TableFindOptions) Validate() error { return nil }
+func (o *TableFindOptions) Validate() error { return nil }
 
 // TableFindOptionsBuilder is a builder for TableFindOptions.
 type TableFindOptionsBuilder struct {
@@ -1003,7 +1003,7 @@ func (o *TimeoutOptions) List() []func(*TimeoutOptions) {
 }
 
 // Validate implements Validator for TimeoutOptions.
-func (o TimeoutOptions) Validate() error { return nil }
+func (o *TimeoutOptions) Validate() error { return nil }
 
 // TimeoutOptionsBuilder is a builder for TimeoutOptions.
 type TimeoutOptionsBuilder struct {
@@ -1048,7 +1048,7 @@ func (o *VectorOptions) List() []func(*VectorOptions) {
 }
 
 // Validate implements Validator for VectorOptions.
-func (o VectorOptions) Validate() error { return nil }
+func (o *VectorOptions) Validate() error { return nil }
 
 // VectorOptionsBuilder is a builder for VectorOptions.
 type VectorOptionsBuilder struct {

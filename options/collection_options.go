@@ -121,7 +121,7 @@ type VectorServiceOptions struct {
 
 // Validate implements Validator for VectorServiceOptions.
 // Provider and ModelName must both be set or both be unset.
-func (o VectorServiceOptions) Validate() error {
+func (o *VectorServiceOptions) Validate() error {
 	if (o.Provider != nil) != (o.ModelName != nil) {
 		return fmt.Errorf("vectorize service: provider and modelName must both be set or both be unset")
 	}
@@ -140,7 +140,7 @@ type IndexingOptions struct {
 }
 
 // Validate implements Validator for IndexingOptions.
-func (o IndexingOptions) Validate() error {
+func (o *IndexingOptions) Validate() error {
 	// Allow/Deny must be mutually exclusive. If both are set, return an error.
 	if o.Allow != nil && o.Deny != nil {
 		return fmt.Errorf("allow and deny cannot both be set")

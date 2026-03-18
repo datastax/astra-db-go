@@ -507,7 +507,7 @@ func (o *{{ .OptsType }}) List() []func(*{{ .OptsType }}) {
 }
 {{ if .GenValidate }}
 // Validate implements Validator for {{ .OptsType }}.
-func (o {{ .OptsType }}) Validate() error { return nil }
+func (o *{{ .OptsType }}) Validate() error { return nil }
 {{ end }}
 {{- if .HasBuilder }}
 // {{ .BuilderType }} is a builder for {{ .OptsType }}.
