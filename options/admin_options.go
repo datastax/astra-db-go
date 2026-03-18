@@ -97,9 +97,9 @@ const (
 
 // ListDatabasesOptions represents options for the ListDatabases operation.
 type ListDatabasesOptions struct {
-	// Include filters databases by status. Defaults to DatabaseStatusNonTerminated.
+	// Include filters databases by status. Defaults to [DatabaseStatusNonTerminated].
 	Include *DatabaseStatus
-	// Provider filters databases by cloud provider. Defaults to "ALL".
+	// Provider filters databases by cloud provider. Defaults to [CloudProviderAll].
 	Provider *CloudProviderFilter
 	// Limit is the maximum number of databases to return (1-100). Defaults to 25.
 	Limit *int
