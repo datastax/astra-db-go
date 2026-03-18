@@ -54,17 +54,31 @@ import (
 func main() {
 	pkgDir := flag.String("pkg", ".", "package directory to inspect")
 	flag.Parse()
+	// Since children relies on builders, we generate builders first
+	// then reload symbols.
+	loadAndGenerateBuilders(*pkgDir)
+	loadAndGenerateChildren(*pkgDir)
+}
 
-	pkg, err := load(*pkgDir)
+func loadAndGenerateBuilders(pkgDir string) {
+	pkg, err := load(pkgDir)
 	if err != nil {
 		log.Fatalf("load: %v", err)
 	}
 
-	if err := writeFile(*pkgDir, "children_gen.go", childrenSrc(pkg)); err != nil {
-		log.Fatalf("children: %v", err)
-	}
-	if err := writeFile(*pkgDir, "builders_gen.go", buildersSrc(pkg)); err != nil {
+	if err := writeFile(pkgDir, "builders_gen.go", buildersSrc(pkg)); err != nil {
 		log.Fatalf("builders: %v", err)
+	}
+}
+
+func loadAndGenerateChildren(pkgDir string) {
+	pkg, err := load(pkgDir)
+	if err != nil {
+		log.Fatalf("load: %v", err)
+	}
+
+	if err := writeFile(pkgDir, "children_gen.go", childrenSrc(pkg)); err != nil {
+		log.Fatalf("children: %v", err)
 	}
 }
 
