@@ -221,6 +221,21 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 	hwMethods := handWrittenMethods(pkg)
 	scope := pkg.types.Scope()
 
+	// Pre-scan: collect all Options struct names. Every Options type gets a
+	// Validate() method (either hand-written or generated), so they will all
+	// satisfy the Validator interface once codegen completes. This set lets
+	// setterForField fall back to builder-style setters even on a clean first
+	// run when the generated Validate() stubs don't exist yet.
+	futureValidators := make(map[string]bool)
+	for _, name := range scope.Names() {
+		if !strings.HasSuffix(name, "Options") || strings.HasSuffix(name, "OptionsBuilder") {
+			continue
+		}
+		if _, ok := namedStruct(scope.Lookup(name)); ok {
+			futureValidators[name] = true
+		}
+	}
+
 	var defs []optsDef
 	for _, name := range scope.Names() {
 		if !strings.HasSuffix(name, "Options") || strings.HasSuffix(name, "OptionsBuilder") {
@@ -239,7 +254,7 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 			HasBuilder:  true,
 			BuilderType: builderName,
 			Constructor: strings.TrimSuffix(name, "Options"),
-			Setters:     settersFor(optsStruct, pkg.validator),
+			Setters:     settersFor(optsStruct, pkg.validator, futureValidators),
 		}
 
 		defs = append(defs, def)
@@ -251,25 +266,33 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 // settersFor inspects every field of s and returns a setterDef for each one we
 // know how to generate. Unrecognised field kinds are silently skipped — they can
 // be written by hand as convenience methods that delegate to the generated ones.
-func settersFor(s *types.Struct, validator *types.Interface) []setterDef {
+func settersFor(s *types.Struct, validator *types.Interface, futureValidators map[string]bool) []setterDef {
 	var setters []setterDef
 	for i := range s.NumFields() {
-		if sd, ok := setterForField(s.Field(i), validator); ok {
+		if sd, ok := setterForField(s.Field(i), validator, futureValidators); ok {
 			setters = append(setters, sd)
 		}
 	}
 	return setters
 }
 
-func setterForField(f *types.Var, validator *types.Interface) (setterDef, bool) {
+func setterForField(f *types.Var, validator *types.Interface, futureValidators map[string]bool) (setterDef, bool) {
 	method := "Set" + f.Name()
 
 	switch t := f.Type().(type) {
 
 	case *types.Pointer:
-		// *Validator child → variadic builder setter using MergeOptions
-		if types.Implements(t, validator) {
-			inner := t.Elem().(*types.Named).Obj().Name()
+		// *Validator child → variadic builder setter using MergeOptions.
+		// On a clean first run the generated Validate() stubs don't exist
+		// yet, so types.Implements may return false for our own Options
+		// types. Fall back to futureValidators for those.
+		named, isNamed := t.Elem().(*types.Named)
+		isValidator := types.Implements(t, validator)
+		if !isValidator && isNamed {
+			isValidator = futureValidators[named.Obj().Name()]
+		}
+		if isValidator && isNamed {
+			inner := named.Obj().Name()
 			return setterDef{
 				Method:            method,
 				Field:             f.Name(),
