@@ -191,6 +191,9 @@ func (b *CollectionFindOptionsBuilder) SetPageState(pageState string) *Collectio
 
 // CollectionUpdateOneOptions represents options for an updateOne operation.
 type CollectionUpdateOneOptions struct {
-	Sort   map[string]any
+	// Sort specifies the sort order to apply before selecting the document to update.
+	// This determines which document is updated when the filter matches multiple documents.
+	Sort map[string]any
+	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool
 }

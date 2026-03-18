@@ -18,9 +18,9 @@ import "time"
 
 // InsertOneOptions contains both Method options (sent to DB) and Request options (client side).
 type InsertOneOptions struct {
-	// Method Options (sent in JSON)
+	// Ordered controls whether the insert should be ordered.
 	Ordered *bool `json:"ordered,omitempty"`
 
-	// Request Options (handled by client)
+	// Timeout sets the timeout for the insert operation (client-side, not sent to the API).
 	Timeout *time.Duration
 }

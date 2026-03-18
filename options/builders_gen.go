@@ -255,12 +255,15 @@ func (b *CollectionUpdateOneOptionsBuilder) List() []func(*CollectionUpdateOneOp
 }
 
 // SetSort sets the Sort option.
+// Sort specifies the sort order to apply before selecting the document to update.
+// This determines which document is updated when the filter matches multiple documents.
 func (b *CollectionUpdateOneOptionsBuilder) SetSort(v map[string]any) *CollectionUpdateOneOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionUpdateOneOptions) { o.Sort = v })
 	return b
 }
 
 // SetUpsert sets the Upsert option.
+// Upsert if true, inserts a new document if no document matches the filter.
 func (b *CollectionUpdateOneOptionsBuilder) SetUpsert(v bool) *CollectionUpdateOneOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CollectionUpdateOneOptions) { o.Upsert = &v })
 	return b
@@ -575,6 +578,10 @@ func (b *CreateVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *CreateVecto
 // SourceModel is the embedding generation model, enabling optimizations.
 // Valid values: "ada002", "bert", "cohere-v3", "gecko", "nv-qa-4",
 // "openai-v3-large", "openai-v3-small", "other" (default)
+//
+// NOTE: following the other libraries' patterns, we are using a enum-like option for Metric, but
+// this is a string. For reference:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#parameters
 func (b *CreateVectorIndexOptionsBuilder) SetSourceModel(v string) *CreateVectorIndexOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.SourceModel = &v })
 	return b
@@ -754,14 +761,14 @@ func (b *InsertOneOptionsBuilder) List() []func(*InsertOneOptions) {
 }
 
 // SetOrdered sets the Ordered option.
-// Method Options (sent in JSON)
+// Ordered controls whether the insert should be ordered.
 func (b *InsertOneOptionsBuilder) SetOrdered(v bool) *InsertOneOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *InsertOneOptions) { o.Ordered = &v })
 	return b
 }
 
 // SetTimeout sets the Timeout option.
-// Request Options (handled by client)
+// Timeout sets the timeout for the insert operation (client-side, not sent to the API).
 func (b *InsertOneOptionsBuilder) SetTimeout(v time.Duration) *InsertOneOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *InsertOneOptions) { o.Timeout = &v })
 	return b

@@ -56,6 +56,10 @@ type CreateVectorIndexOptions struct {
 	// SourceModel is the embedding generation model, enabling optimizations.
 	// Valid values: "ada002", "bert", "cohere-v3", "gecko", "nv-qa-4",
 	// "openai-v3-large", "openai-v3-small", "other" (default)
+	//
+	// NOTE: following the other libraries' patterns, we are using a enum-like option for Metric, but
+	// this is a string. For reference:
+	// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#parameters
 	SourceModel *string
 }
 
