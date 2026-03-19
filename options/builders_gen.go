@@ -957,9 +957,9 @@ func (b *TableFindOptionsBuilder) List() []func(*TableFindOptions) {
 
 // SetSort sets the Sort option.
 // Sort specifies how to sort the results. Can be used for:
-// - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
-// - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
-// - Vector search with vectorize (e.g., {"vector_column": "search text"})
+//   - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
+//   - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
+//   - Vector search with vectorize (e.g., {"vector_column": "search text"})
 func (b *TableFindOptionsBuilder) SetSort(v map[string]any) *TableFindOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Sort = v })
 	return b

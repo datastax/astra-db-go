@@ -28,9 +28,9 @@ type CreateTableOptions struct {
 // TableFindOptions represents options for finding rows in a table
 type TableFindOptions struct {
 	// Sort specifies how to sort the results. Can be used for:
-	// - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
-	// - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
-	// - Vector search with vectorize (e.g., {"vector_column": "search text"})
+	//  - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
+	//  - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
+	//  - Vector search with vectorize (e.g., {"vector_column": "search text"})
 	Sort map[string]any `json:"sort,omitempty"`
 
 	// Projection controls which columns are included or excluded in the returned rows
