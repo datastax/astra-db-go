@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	astradb "github.com/datastax/astra-db-go"
@@ -186,13 +187,7 @@ func AdminKeyspaceCreateListDrop(e *harness.TestEnv) error {
 	}
 	slog.Info("Listed keyspaces", "count", len(keyspaces), "keyspaces", keyspaces)
 
-	found := false
-	for _, ks := range keyspaces {
-		if ks == ksName {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(keyspaces, ksName)
 	if !found {
 		return fmt.Errorf("keyspace %q not found in ListKeyspaces result", ksName)
 	}
