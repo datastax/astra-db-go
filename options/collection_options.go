@@ -36,8 +36,8 @@ type CreateCollectionOptions struct {
 
 // SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
 // Mutually exclusive with SetIndexingDeny.
-func (b *CreateCollectionOptionsBuilder) SetIndexingAllow(v ...string) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetIndexingAllow(v ...string) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
 		}
@@ -48,8 +48,8 @@ func (b *CreateCollectionOptionsBuilder) SetIndexingAllow(v ...string) *CreateCo
 
 // SetIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
 // disable indexing entirely. Mutually exclusive with SetIndexingAllow.
-func (b *CreateCollectionOptionsBuilder) SetIndexingDeny(v ...string) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetIndexingDeny(v ...string) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
 		}
@@ -184,8 +184,8 @@ type CollectionFindOptions struct {
 }
 
 // SetPageState sets the initial page state for pagination.
-func (b *CollectionFindOptionsBuilder) SetPageState(pageState string) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.InitialPageState = &pageState })
+func (b *collectionFindOptionsBuilder) SetPageState(pageState string) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.InitialPageState = &pageState })
 	return b
 }
 

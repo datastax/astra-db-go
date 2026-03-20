@@ -53,8 +53,8 @@ type TableFindOptions struct {
 }
 
 // SetPageState sets the initial page state for pagination.
-func (b *TableFindOptionsBuilder) SetPageState(pageState string) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.InitialPageState = &pageState })
+func (b *tableFindOptionsBuilder) SetPageState(pageState string) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.InitialPageState = &pageState })
 	return b
 }
 

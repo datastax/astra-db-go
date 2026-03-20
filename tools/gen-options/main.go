@@ -46,6 +46,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"unicode"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
@@ -227,7 +228,7 @@ type optsDef struct {
 	GenValidate bool   // true → generate trivial Validate()
 	GenAlias    bool   // true → generate type alias (e.g. CreateCollectionOption)
 	HasBuilder  bool   // true → generate builder struct, constructor, setters
-	BuilderType string // e.g. "CreateCollectionOptionsBuilder"
+	BuilderType string // e.g. "createCollectionOptionsBuilder"
 	Constructor string // e.g. "CreateCollection"
 	Setters     []setterDef
 }
@@ -285,7 +286,7 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 			GenValidate: !hwMethods[name+".Validate"],
 			GenAlias:    !hwTypes[aliasName],
 			HasBuilder:  true,
-			BuilderType: builderName,
+			BuilderType: lowerFirst(builderName),
 			Constructor: constructor,
 			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
 		}
@@ -455,6 +456,14 @@ func namedStruct(obj types.Object) (*types.Struct, bool) {
 	return s, ok
 }
 
+// lowerFirst returns s with its first rune lowercased.
+func lowerFirst(s string) string {
+	for i, v := range s {
+		return string(unicode.ToLower(v)) + s[i+len(string(v)):]
+	}
+	return ""
+}
+
 // ----- Rendering -----
 
 type renderJob struct {
@@ -546,24 +555,24 @@ func (o *{{ .OptsType }}) Validate() error { return nil }
 {{- if .HasBuilder }}
 // {{ .BuilderType }} is a builder for {{ .OptsType }}.
 type {{ .BuilderType }} struct {
-	Opts []func(*{{ .OptsType }})
+	setters []func(*{{ .OptsType }})
 }
 
-// {{ .Constructor }} creates a new {{ .BuilderType }}.
+// {{ .Constructor }} creates a new builder for {{ .OptsType }}.
 func {{ .Constructor }}() *{{ .BuilderType }} {
 	return &{{ .BuilderType }}{}
 }
 
 // Setters implements Builder[{{ .OptsType }}].
 func (b *{{ .BuilderType }}) Setters() []func(*{{ .OptsType }}) {
-	return b.Opts
+	return b.setters
 }
 {{ range .Setters }}
 {{- if .IsVariadicBuilder }}
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.BuilderType }} {
-	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) {
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) {
 		o.{{ .Field }} = Merge(v...)
 	})
 	return b
@@ -572,21 +581,21 @@ func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.Build
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ElemType }}) *{{ $o.BuilderType }} {
-	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
 	return b
 }
 {{ else if .IsMap }}
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {
-	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
 	return b
 }
 {{ else }}
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {
-	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = &v })
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = &v })
 	return b
 }
 {{ end -}}

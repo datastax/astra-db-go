@@ -30,61 +30,61 @@ func (o *APIOptions) Setters() []func(*APIOptions) {
 // Validate implements Validator for APIOptions.
 func (o *APIOptions) Validate() error { return nil }
 
-// APIOptionsBuilder is a builder for APIOptions.
-type APIOptionsBuilder struct {
-	Opts []func(*APIOptions)
+// aPIOptionsBuilder is a builder for APIOptions.
+type aPIOptionsBuilder struct {
+	setters []func(*APIOptions)
 }
 
-// API creates a new APIOptionsBuilder.
-func API() *APIOptionsBuilder {
-	return &APIOptionsBuilder{}
+// API creates a new builder for APIOptions.
+func API() *aPIOptionsBuilder {
+	return &aPIOptionsBuilder{}
 }
 
 // Setters implements Builder[APIOptions].
-func (b *APIOptionsBuilder) Setters() []func(*APIOptions) {
-	return b.Opts
+func (b *aPIOptionsBuilder) Setters() []func(*APIOptions) {
+	return b.setters
 }
 
 // SetToken sets the Token option.
 // Token is the authentication token for Astra DB
-func (b *APIOptionsBuilder) SetToken(v string) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.Token = &v })
+func (b *aPIOptionsBuilder) SetToken(v string) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.Token = &v })
 	return b
 }
 
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the keyspace to use for operations
-func (b *APIOptionsBuilder) SetKeyspace(v string) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.Keyspace = &v })
+func (b *aPIOptionsBuilder) SetKeyspace(v string) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.Keyspace = &v })
 	return b
 }
 
 // SetAPIVersion sets the APIVersion option.
 // APIVersion is the Data API version (e.g., "v1")
-func (b *APIOptionsBuilder) SetAPIVersion(v string) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.APIVersion = &v })
+func (b *aPIOptionsBuilder) SetAPIVersion(v string) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.APIVersion = &v })
 	return b
 }
 
 // SetHTTPClient sets the HTTPClient option.
 // HTTPClient is the HTTP client to use for requests
-func (b *APIOptionsBuilder) SetHTTPClient(v http.Client) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.HTTPClient = &v })
+func (b *aPIOptionsBuilder) SetHTTPClient(v http.Client) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.HTTPClient = &v })
 	return b
 }
 
 // SetHeaders sets the Headers option.
 // Headers contains custom headers to include in requests
 // (e.g., for embedding API keys like "x-embedding-api-key")
-func (b *APIOptionsBuilder) SetHeaders(v map[string]string) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.Headers = v })
+func (b *aPIOptionsBuilder) SetHeaders(v map[string]string) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.Headers = v })
 	return b
 }
 
 // SetTimeout sets the Timeout option.
 // Timeout contains timeout configuration
-func (b *APIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) {
+func (b *aPIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
 		o.Timeout = Merge(v...)
 	})
 	return b
@@ -92,8 +92,8 @@ func (b *APIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *APIOptions
 
 // SetSerdes sets the Serdes option.
 // Serdes contains serialization/deserialization options
-func (b *APIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) {
+func (b *aPIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
 		o.Serdes = Merge(v...)
 	})
 	return b
@@ -102,16 +102,16 @@ func (b *APIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *APIOptionsBu
 // SetAstraEnvironment sets the AstraEnvironment option.
 // AstraEnvironment is the Astra environment (prod, dev, test).
 // Controls the DevOps API URL. Defaults to prod.
-func (b *APIOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.AstraEnvironment = &v })
+func (b *aPIOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.AstraEnvironment = &v })
 	return b
 }
 
 // SetDataAPIBackend sets the DataAPIBackend option.
 // DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
 // Controls the Data API path. Defaults to astra.
-func (b *APIOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *APIOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *APIOptions) { o.DataAPIBackend = &v })
+func (b *aPIOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *aPIOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) { o.DataAPIBackend = &v })
 	return b
 }
 
@@ -127,27 +127,27 @@ func (o *CollectionDefaultIdOptions) Setters() []func(*CollectionDefaultIdOption
 // Validate implements Validator for CollectionDefaultIdOptions.
 func (o *CollectionDefaultIdOptions) Validate() error { return nil }
 
-// CollectionDefaultIdOptionsBuilder is a builder for CollectionDefaultIdOptions.
-type CollectionDefaultIdOptionsBuilder struct {
-	Opts []func(*CollectionDefaultIdOptions)
+// collectionDefaultIdOptionsBuilder is a builder for CollectionDefaultIdOptions.
+type collectionDefaultIdOptionsBuilder struct {
+	setters []func(*CollectionDefaultIdOptions)
 }
 
-// CollectionDefaultId creates a new CollectionDefaultIdOptionsBuilder.
-func CollectionDefaultId() *CollectionDefaultIdOptionsBuilder {
-	return &CollectionDefaultIdOptionsBuilder{}
+// CollectionDefaultId creates a new builder for CollectionDefaultIdOptions.
+func CollectionDefaultId() *collectionDefaultIdOptionsBuilder {
+	return &collectionDefaultIdOptionsBuilder{}
 }
 
 // Setters implements Builder[CollectionDefaultIdOptions].
-func (b *CollectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultIdOptions) {
-	return b.Opts
+func (b *collectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultIdOptions) {
+	return b.setters
 }
 
 // SetType sets the Type option.
 // Type is the type of the default ID that the API should generate if no ID is provided in the inserted document.
 // Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
 // If not specified, the default ID will be a string UUID.
-func (b *CollectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *CollectionDefaultIdOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionDefaultIdOptions) { o.Type = &v })
+func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collectionDefaultIdOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionDefaultIdOptions) { o.Type = &v })
 	return b
 }
 
@@ -163,19 +163,19 @@ func (o *CollectionFindOptions) Setters() []func(*CollectionFindOptions) {
 // Validate implements Validator for CollectionFindOptions.
 func (o *CollectionFindOptions) Validate() error { return nil }
 
-// CollectionFindOptionsBuilder is a builder for CollectionFindOptions.
-type CollectionFindOptionsBuilder struct {
-	Opts []func(*CollectionFindOptions)
+// collectionFindOptionsBuilder is a builder for CollectionFindOptions.
+type collectionFindOptionsBuilder struct {
+	setters []func(*CollectionFindOptions)
 }
 
-// CollectionFind creates a new CollectionFindOptionsBuilder.
-func CollectionFind() *CollectionFindOptionsBuilder {
-	return &CollectionFindOptionsBuilder{}
+// CollectionFind creates a new builder for CollectionFindOptions.
+func CollectionFind() *collectionFindOptionsBuilder {
+	return &collectionFindOptionsBuilder{}
 }
 
 // Setters implements Builder[CollectionFindOptions].
-func (b *CollectionFindOptionsBuilder) Setters() []func(*CollectionFindOptions) {
-	return b.Opts
+func (b *collectionFindOptionsBuilder) Setters() []func(*CollectionFindOptions) {
+	return b.setters
 }
 
 // SetSort sets the Sort option.
@@ -183,54 +183,54 @@ func (b *CollectionFindOptionsBuilder) Setters() []func(*CollectionFindOptions) 
 //   - Ascending/descending sort on fields (e.g., {"rating": 1, "title": -1})
 //   - Vector search with a vector (e.g., {"$vector": [0.1, 0.2, 0.3]})
 //   - Vector search with vectorize (e.g., {"$vectorize": "search text"})
-func (b *CollectionFindOptionsBuilder) SetSort(v map[string]any) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Sort = v })
+func (b *collectionFindOptionsBuilder) SetSort(v map[string]any) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Sort = v })
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned documents
 // Use true to include a field, false to exclude it
-func (b *CollectionFindOptionsBuilder) SetProjection(v map[string]any) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Projection = v })
+func (b *collectionFindOptionsBuilder) SetProjection(v map[string]any) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Projection = v })
 	return b
 }
 
 // SetLimit sets the Limit option.
 // Limit limits the total number of documents returned
-func (b *CollectionFindOptionsBuilder) SetLimit(v int) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Limit = &v })
+func (b *collectionFindOptionsBuilder) SetLimit(v int) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Limit = &v })
 	return b
 }
 
 // SetSkip sets the Skip option.
 // Skip specifies the number of documents to bypass before returning results.
 // Only valid with ascending/descending sort, not with vector search.
-func (b *CollectionFindOptionsBuilder) SetSkip(v int) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.Skip = &v })
+func (b *collectionFindOptionsBuilder) SetSkip(v int) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Skip = &v })
 	return b
 }
 
 // SetIncludeSimilarity sets the IncludeSimilarity option.
 // IncludeSimilarity if true, includes a $similarity property in the response
 // for vector searches.
-func (b *CollectionFindOptionsBuilder) SetIncludeSimilarity(v bool) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.IncludeSimilarity = &v })
+func (b *collectionFindOptionsBuilder) SetIncludeSimilarity(v bool) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.IncludeSimilarity = &v })
 	return b
 }
 
 // SetIncludeSortVector sets the IncludeSortVector option.
 // IncludeSortVector if true, includes the sort vector in the response.
 // Useful for vector searches using $vectorize.
-func (b *CollectionFindOptionsBuilder) SetIncludeSortVector(v bool) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.IncludeSortVector = &v })
+func (b *collectionFindOptionsBuilder) SetIncludeSortVector(v bool) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.IncludeSortVector = &v })
 	return b
 }
 
 // SetInitialPageState sets the InitialPageState option.
 // InitialPageState is used for pagination to fetch the next page of results
-func (b *CollectionFindOptionsBuilder) SetInitialPageState(v string) *CollectionFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionFindOptions) { o.InitialPageState = &v })
+func (b *collectionFindOptionsBuilder) SetInitialPageState(v string) *collectionFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.InitialPageState = &v })
 	return b
 }
 
@@ -246,33 +246,33 @@ func (o *CollectionUpdateOneOptions) Setters() []func(*CollectionUpdateOneOption
 // Validate implements Validator for CollectionUpdateOneOptions.
 func (o *CollectionUpdateOneOptions) Validate() error { return nil }
 
-// CollectionUpdateOneOptionsBuilder is a builder for CollectionUpdateOneOptions.
-type CollectionUpdateOneOptionsBuilder struct {
-	Opts []func(*CollectionUpdateOneOptions)
+// collectionUpdateOneOptionsBuilder is a builder for CollectionUpdateOneOptions.
+type collectionUpdateOneOptionsBuilder struct {
+	setters []func(*CollectionUpdateOneOptions)
 }
 
-// CollectionUpdateOne creates a new CollectionUpdateOneOptionsBuilder.
-func CollectionUpdateOne() *CollectionUpdateOneOptionsBuilder {
-	return &CollectionUpdateOneOptionsBuilder{}
+// CollectionUpdateOne creates a new builder for CollectionUpdateOneOptions.
+func CollectionUpdateOne() *collectionUpdateOneOptionsBuilder {
+	return &collectionUpdateOneOptionsBuilder{}
 }
 
 // Setters implements Builder[CollectionUpdateOneOptions].
-func (b *CollectionUpdateOneOptionsBuilder) Setters() []func(*CollectionUpdateOneOptions) {
-	return b.Opts
+func (b *collectionUpdateOneOptionsBuilder) Setters() []func(*CollectionUpdateOneOptions) {
+	return b.setters
 }
 
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to update.
 // This determines which document is updated when the filter matches multiple documents.
-func (b *CollectionUpdateOneOptionsBuilder) SetSort(v map[string]any) *CollectionUpdateOneOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionUpdateOneOptions) { o.Sort = v })
+func (b *collectionUpdateOneOptionsBuilder) SetSort(v map[string]any) *collectionUpdateOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) { o.Sort = v })
 	return b
 }
 
 // SetUpsert sets the Upsert option.
 // Upsert if true, inserts a new document if no document matches the filter.
-func (b *CollectionUpdateOneOptionsBuilder) SetUpsert(v bool) *CollectionUpdateOneOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CollectionUpdateOneOptions) { o.Upsert = &v })
+func (b *collectionUpdateOneOptionsBuilder) SetUpsert(v bool) *collectionUpdateOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) { o.Upsert = &v })
 	return b
 }
 
@@ -288,25 +288,25 @@ func (o *CreateCollectionOptions) Setters() []func(*CreateCollectionOptions) {
 // Validate implements Validator for CreateCollectionOptions.
 func (o *CreateCollectionOptions) Validate() error { return nil }
 
-// CreateCollectionOptionsBuilder is a builder for CreateCollectionOptions.
-type CreateCollectionOptionsBuilder struct {
-	Opts []func(*CreateCollectionOptions)
+// createCollectionOptionsBuilder is a builder for CreateCollectionOptions.
+type createCollectionOptionsBuilder struct {
+	setters []func(*CreateCollectionOptions)
 }
 
-// CreateCollection creates a new CreateCollectionOptionsBuilder.
-func CreateCollection() *CreateCollectionOptionsBuilder {
-	return &CreateCollectionOptionsBuilder{}
+// CreateCollection creates a new builder for CreateCollectionOptions.
+func CreateCollection() *createCollectionOptionsBuilder {
+	return &createCollectionOptionsBuilder{}
 }
 
 // Setters implements Builder[CreateCollectionOptions].
-func (b *CreateCollectionOptionsBuilder) Setters() []func(*CreateCollectionOptions) {
-	return b.Opts
+func (b *createCollectionOptionsBuilder) Setters() []func(*CreateCollectionOptions) {
+	return b.setters
 }
 
 // SetDefaultId sets the DefaultId option.
 // Settings for generating ids
-func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDefaultIdOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDefaultIdOptions]) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		o.DefaultId = Merge(v...)
 	})
 	return b
@@ -314,8 +314,8 @@ func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDef
 
 // SetVector sets the Vector option.
 // Vector specifications for the collection
-func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		o.Vector = Merge(v...)
 	})
 	return b
@@ -323,8 +323,8 @@ func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) 
 
 // SetIndexing sets the Indexing option.
 // Overrides for document indexing
-func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		o.Indexing = Merge(v...)
 	})
 	return b
@@ -332,8 +332,8 @@ func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOption
 
 // SetLexical sets the Lexical option.
 // Lexical analysis options for the collection
-func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		o.Lexical = Merge(v...)
 	})
 	return b
@@ -341,8 +341,8 @@ func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]
 
 // SetRerank sets the Rerank option.
 // Reranking options for the collection
-func (b *CreateCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *CreateCollectionOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
+func (b *createCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		o.Rerank = Merge(v...)
 	})
 	return b
@@ -360,41 +360,41 @@ func (o *CreateDatabaseOptions) Setters() []func(*CreateDatabaseOptions) {
 // Validate implements Validator for CreateDatabaseOptions.
 func (o *CreateDatabaseOptions) Validate() error { return nil }
 
-// CreateDatabaseOptionsBuilder is a builder for CreateDatabaseOptions.
-type CreateDatabaseOptionsBuilder struct {
-	Opts []func(*CreateDatabaseOptions)
+// createDatabaseOptionsBuilder is a builder for CreateDatabaseOptions.
+type createDatabaseOptionsBuilder struct {
+	setters []func(*CreateDatabaseOptions)
 }
 
-// CreateDatabase creates a new CreateDatabaseOptionsBuilder.
-func CreateDatabase() *CreateDatabaseOptionsBuilder {
-	return &CreateDatabaseOptionsBuilder{}
+// CreateDatabase creates a new builder for CreateDatabaseOptions.
+func CreateDatabase() *createDatabaseOptionsBuilder {
+	return &createDatabaseOptionsBuilder{}
 }
 
 // Setters implements Builder[CreateDatabaseOptions].
-func (b *CreateDatabaseOptionsBuilder) Setters() []func(*CreateDatabaseOptions) {
-	return b.Opts
+func (b *createDatabaseOptionsBuilder) Setters() []func(*CreateDatabaseOptions) {
+	return b.setters
 }
 
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the initial keyspace name. Defaults to "default_keyspace" if not specified.
-func (b *CreateDatabaseOptionsBuilder) SetKeyspace(v string) *CreateDatabaseOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateDatabaseOptions) { o.Keyspace = &v })
+func (b *createDatabaseOptionsBuilder) SetKeyspace(v string) *createDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) { o.Keyspace = &v })
 	return b
 }
 
 // SetBlocking sets the Blocking option.
 // Blocking controls whether to wait for the database to become ACTIVE.
 // Defaults to true.
-func (b *CreateDatabaseOptionsBuilder) SetBlocking(v bool) *CreateDatabaseOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateDatabaseOptions) { o.Blocking = &v })
+func (b *createDatabaseOptionsBuilder) SetBlocking(v bool) *createDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
 // PollInterval is how often to check the database status when blocking.
 // Defaults to DefaultDatabasePollInterval (10 seconds).
-func (b *CreateDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *CreateDatabaseOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateDatabaseOptions) { o.PollInterval = &v })
+func (b *createDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *createDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) { o.PollInterval = &v })
 	return b
 }
 
@@ -410,50 +410,50 @@ func (o *CreateIndexOptions) Setters() []func(*CreateIndexOptions) {
 // Validate implements Validator for CreateIndexOptions.
 func (o *CreateIndexOptions) Validate() error { return nil }
 
-// CreateIndexOptionsBuilder is a builder for CreateIndexOptions.
-type CreateIndexOptionsBuilder struct {
-	Opts []func(*CreateIndexOptions)
+// createIndexOptionsBuilder is a builder for CreateIndexOptions.
+type createIndexOptionsBuilder struct {
+	setters []func(*CreateIndexOptions)
 }
 
-// CreateIndex creates a new CreateIndexOptionsBuilder.
-func CreateIndex() *CreateIndexOptionsBuilder {
-	return &CreateIndexOptionsBuilder{}
+// CreateIndex creates a new builder for CreateIndexOptions.
+func CreateIndex() *createIndexOptionsBuilder {
+	return &createIndexOptionsBuilder{}
 }
 
 // Setters implements Builder[CreateIndexOptions].
-func (b *CreateIndexOptionsBuilder) Setters() []func(*CreateIndexOptions) {
-	return b.Opts
+func (b *createIndexOptionsBuilder) Setters() []func(*CreateIndexOptions) {
+	return b.setters
 }
 
 // SetIfNotExists sets the IfNotExists option.
 // IfNotExists if true, the command will silently succeed even if an index
 // with the given name already exists. This only checks index names, not definitions.
-func (b *CreateIndexOptionsBuilder) SetIfNotExists(v bool) *CreateIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.IfNotExists = &v })
+func (b *createIndexOptionsBuilder) SetIfNotExists(v bool) *createIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.IfNotExists = &v })
 	return b
 }
 
 // SetAscii sets the Ascii option.
 // Ascii if true, converts non-ASCII characters to US-ASCII before indexing.
 // Only applicable to text columns.
-func (b *CreateIndexOptionsBuilder) SetAscii(v bool) *CreateIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.Ascii = &v })
+func (b *createIndexOptionsBuilder) SetAscii(v bool) *createIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.Ascii = &v })
 	return b
 }
 
 // SetNormalize sets the Normalize option.
 // Normalize if true, applies Unicode character normalization before indexing.
 // Only applicable to text columns.
-func (b *CreateIndexOptionsBuilder) SetNormalize(v bool) *CreateIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.Normalize = &v })
+func (b *createIndexOptionsBuilder) SetNormalize(v bool) *createIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.Normalize = &v })
 	return b
 }
 
 // SetCaseSensitive sets the CaseSensitive option.
 // CaseSensitive if true (default), enforces case-sensitive matching.
 // Only applicable to text columns.
-func (b *CreateIndexOptionsBuilder) SetCaseSensitive(v bool) *CreateIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateIndexOptions) { o.CaseSensitive = &v })
+func (b *createIndexOptionsBuilder) SetCaseSensitive(v bool) *createIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.CaseSensitive = &v })
 	return b
 }
 
@@ -469,42 +469,42 @@ func (o *CreateKeyspaceOptions) Setters() []func(*CreateKeyspaceOptions) {
 // Validate implements Validator for CreateKeyspaceOptions.
 func (o *CreateKeyspaceOptions) Validate() error { return nil }
 
-// CreateKeyspaceOptionsBuilder is a builder for CreateKeyspaceOptions.
-type CreateKeyspaceOptionsBuilder struct {
-	Opts []func(*CreateKeyspaceOptions)
+// createKeyspaceOptionsBuilder is a builder for CreateKeyspaceOptions.
+type createKeyspaceOptionsBuilder struct {
+	setters []func(*CreateKeyspaceOptions)
 }
 
-// CreateKeyspace creates a new CreateKeyspaceOptionsBuilder.
-func CreateKeyspace() *CreateKeyspaceOptionsBuilder {
-	return &CreateKeyspaceOptionsBuilder{}
+// CreateKeyspace creates a new builder for CreateKeyspaceOptions.
+func CreateKeyspace() *createKeyspaceOptionsBuilder {
+	return &createKeyspaceOptionsBuilder{}
 }
 
 // Setters implements Builder[CreateKeyspaceOptions].
-func (b *CreateKeyspaceOptionsBuilder) Setters() []func(*CreateKeyspaceOptions) {
-	return b.Opts
+func (b *createKeyspaceOptionsBuilder) Setters() []func(*CreateKeyspaceOptions) {
+	return b.setters
 }
 
 // SetBlocking sets the Blocking option.
 // Blocking controls whether to wait for the keyspace to become visible.
 // Defaults to true. Only used by the Astra (DevOps API) path.
-func (b *CreateKeyspaceOptionsBuilder) SetBlocking(v bool) *CreateKeyspaceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateKeyspaceOptions) { o.Blocking = &v })
+func (b *createKeyspaceOptionsBuilder) SetBlocking(v bool) *createKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
 // PollInterval is how often to check whether the keyspace exists when blocking.
 // Defaults to DefaultKeyspacePollInterval (1 second). Only used by the Astra (DevOps API) path.
-func (b *CreateKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *CreateKeyspaceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateKeyspaceOptions) { o.PollInterval = &v })
+func (b *createKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *createKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) { o.PollInterval = &v })
 	return b
 }
 
 // SetReplicationFactor sets the ReplicationFactor option.
 // ReplicationFactor sets the replication factor for the keyspace.
 // Only used by the Data API path (non-Astra environments).
-func (b *CreateKeyspaceOptionsBuilder) SetReplicationFactor(v int) *CreateKeyspaceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateKeyspaceOptions) { o.ReplicationFactor = &v })
+func (b *createKeyspaceOptionsBuilder) SetReplicationFactor(v int) *createKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) { o.ReplicationFactor = &v })
 	return b
 }
 
@@ -520,34 +520,34 @@ func (o *CreateTableOptions) Setters() []func(*CreateTableOptions) {
 // Validate implements Validator for CreateTableOptions.
 func (o *CreateTableOptions) Validate() error { return nil }
 
-// CreateTableOptionsBuilder is a builder for CreateTableOptions.
-type CreateTableOptionsBuilder struct {
-	Opts []func(*CreateTableOptions)
+// createTableOptionsBuilder is a builder for CreateTableOptions.
+type createTableOptionsBuilder struct {
+	setters []func(*CreateTableOptions)
 }
 
-// CreateTable creates a new CreateTableOptionsBuilder.
-func CreateTable() *CreateTableOptionsBuilder {
-	return &CreateTableOptionsBuilder{}
+// CreateTable creates a new builder for CreateTableOptions.
+func CreateTable() *createTableOptionsBuilder {
+	return &createTableOptionsBuilder{}
 }
 
 // Setters implements Builder[CreateTableOptions].
-func (b *CreateTableOptionsBuilder) Setters() []func(*CreateTableOptions) {
-	return b.Opts
+func (b *createTableOptionsBuilder) Setters() []func(*CreateTableOptions) {
+	return b.setters
 }
 
 // SetIfNotExists sets the IfNotExists option.
 // IfNotExists if true, the command will silently succeed even if a table
 // with the given name already exists. This only checks table names, not schemas.
-func (b *CreateTableOptionsBuilder) SetIfNotExists(v bool) *CreateTableOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateTableOptions) { o.IfNotExists = &v })
+func (b *createTableOptionsBuilder) SetIfNotExists(v bool) *createTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTableOptions) { o.IfNotExists = &v })
 	return b
 }
 
 // SetKeyspace sets the Keyspace option.
 // Keyspace specifies the keyspace in which to create the table.
 // If not provided, defaults to the working keyspace for the database.
-func (b *CreateTableOptionsBuilder) SetKeyspace(v string) *CreateTableOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateTableOptions) { o.Keyspace = &v })
+func (b *createTableOptionsBuilder) SetKeyspace(v string) *createTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTableOptions) { o.Keyspace = &v })
 	return b
 }
 
@@ -563,34 +563,34 @@ func (o *CreateVectorIndexOptions) Setters() []func(*CreateVectorIndexOptions) {
 // Validate implements Validator for CreateVectorIndexOptions.
 func (o *CreateVectorIndexOptions) Validate() error { return nil }
 
-// CreateVectorIndexOptionsBuilder is a builder for CreateVectorIndexOptions.
-type CreateVectorIndexOptionsBuilder struct {
-	Opts []func(*CreateVectorIndexOptions)
+// createVectorIndexOptionsBuilder is a builder for CreateVectorIndexOptions.
+type createVectorIndexOptionsBuilder struct {
+	setters []func(*CreateVectorIndexOptions)
 }
 
-// CreateVectorIndex creates a new CreateVectorIndexOptionsBuilder.
-func CreateVectorIndex() *CreateVectorIndexOptionsBuilder {
-	return &CreateVectorIndexOptionsBuilder{}
+// CreateVectorIndex creates a new builder for CreateVectorIndexOptions.
+func CreateVectorIndex() *createVectorIndexOptionsBuilder {
+	return &createVectorIndexOptionsBuilder{}
 }
 
 // Setters implements Builder[CreateVectorIndexOptions].
-func (b *CreateVectorIndexOptionsBuilder) Setters() []func(*CreateVectorIndexOptions) {
-	return b.Opts
+func (b *createVectorIndexOptionsBuilder) Setters() []func(*CreateVectorIndexOptions) {
+	return b.setters
 }
 
 // SetIfNotExists sets the IfNotExists option.
 // IfNotExists if true, the command will silently succeed even if an index
 // with the given name already exists. This only checks index names, not definitions.
-func (b *CreateVectorIndexOptionsBuilder) SetIfNotExists(v bool) *CreateVectorIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.IfNotExists = &v })
+func (b *createVectorIndexOptionsBuilder) SetIfNotExists(v bool) *createVectorIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) { o.IfNotExists = &v })
 	return b
 }
 
 // SetMetric sets the Metric option.
 // Metric is the similarity measurement for vector search.
 // Valid values: "cosine" (default), "dot_product", "euclidean"
-func (b *CreateVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *CreateVectorIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.Metric = &v })
+func (b *createVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *createVectorIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) { o.Metric = &v })
 	return b
 }
 
@@ -602,8 +602,8 @@ func (b *CreateVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *CreateVecto
 // NOTE: following the other libraries' patterns, we are using a enum-like option for Metric, but
 // this is a string. For reference:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#parameters
-func (b *CreateVectorIndexOptionsBuilder) SetSourceModel(v string) *CreateVectorIndexOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *CreateVectorIndexOptions) { o.SourceModel = &v })
+func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVectorIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) { o.SourceModel = &v })
 	return b
 }
 
@@ -619,34 +619,34 @@ func (o *DropDatabaseOptions) Setters() []func(*DropDatabaseOptions) {
 // Validate implements Validator for DropDatabaseOptions.
 func (o *DropDatabaseOptions) Validate() error { return nil }
 
-// DropDatabaseOptionsBuilder is a builder for DropDatabaseOptions.
-type DropDatabaseOptionsBuilder struct {
-	Opts []func(*DropDatabaseOptions)
+// dropDatabaseOptionsBuilder is a builder for DropDatabaseOptions.
+type dropDatabaseOptionsBuilder struct {
+	setters []func(*DropDatabaseOptions)
 }
 
-// DropDatabase creates a new DropDatabaseOptionsBuilder.
-func DropDatabase() *DropDatabaseOptionsBuilder {
-	return &DropDatabaseOptionsBuilder{}
+// DropDatabase creates a new builder for DropDatabaseOptions.
+func DropDatabase() *dropDatabaseOptionsBuilder {
+	return &dropDatabaseOptionsBuilder{}
 }
 
 // Setters implements Builder[DropDatabaseOptions].
-func (b *DropDatabaseOptionsBuilder) Setters() []func(*DropDatabaseOptions) {
-	return b.Opts
+func (b *dropDatabaseOptionsBuilder) Setters() []func(*DropDatabaseOptions) {
+	return b.setters
 }
 
 // SetBlocking sets the Blocking option.
 // Blocking controls whether to wait for the database to be fully terminated.
 // Defaults to true.
-func (b *DropDatabaseOptionsBuilder) SetBlocking(v bool) *DropDatabaseOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *DropDatabaseOptions) { o.Blocking = &v })
+func (b *dropDatabaseOptionsBuilder) SetBlocking(v bool) *dropDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropDatabaseOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
 // PollInterval is how often to check the database status when blocking.
 // Defaults to DefaultDatabasePollInterval (10 seconds).
-func (b *DropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *DropDatabaseOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *DropDatabaseOptions) { o.PollInterval = &v })
+func (b *dropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *dropDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropDatabaseOptions) { o.PollInterval = &v })
 	return b
 }
 
@@ -662,34 +662,34 @@ func (o *DropKeyspaceOptions) Setters() []func(*DropKeyspaceOptions) {
 // Validate implements Validator for DropKeyspaceOptions.
 func (o *DropKeyspaceOptions) Validate() error { return nil }
 
-// DropKeyspaceOptionsBuilder is a builder for DropKeyspaceOptions.
-type DropKeyspaceOptionsBuilder struct {
-	Opts []func(*DropKeyspaceOptions)
+// dropKeyspaceOptionsBuilder is a builder for DropKeyspaceOptions.
+type dropKeyspaceOptionsBuilder struct {
+	setters []func(*DropKeyspaceOptions)
 }
 
-// DropKeyspace creates a new DropKeyspaceOptionsBuilder.
-func DropKeyspace() *DropKeyspaceOptionsBuilder {
-	return &DropKeyspaceOptionsBuilder{}
+// DropKeyspace creates a new builder for DropKeyspaceOptions.
+func DropKeyspace() *dropKeyspaceOptionsBuilder {
+	return &dropKeyspaceOptionsBuilder{}
 }
 
 // Setters implements Builder[DropKeyspaceOptions].
-func (b *DropKeyspaceOptionsBuilder) Setters() []func(*DropKeyspaceOptions) {
-	return b.Opts
+func (b *dropKeyspaceOptionsBuilder) Setters() []func(*DropKeyspaceOptions) {
+	return b.setters
 }
 
 // SetBlocking sets the Blocking option.
 // Blocking controls whether to wait for the keyspace to be fully terminated.
 // Defaults to true.
-func (b *DropKeyspaceOptionsBuilder) SetBlocking(v bool) *DropKeyspaceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *DropKeyspaceOptions) { o.Blocking = &v })
+func (b *dropKeyspaceOptionsBuilder) SetBlocking(v bool) *dropKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropKeyspaceOptions) { o.Blocking = &v })
 	return b
 }
 
 // SetPollInterval sets the PollInterval option.
 // PollInterval is how often to check the keyspace status when blocking.
 // Defaults to DefaultKeyspacePollInterval (1 second).
-func (b *DropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *DropKeyspaceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *DropKeyspaceOptions) { o.PollInterval = &v })
+func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropKeyspaceOptions) { o.PollInterval = &v })
 	return b
 }
 
@@ -705,26 +705,26 @@ func (o *FindAvailableRegionsOptions) Setters() []func(*FindAvailableRegionsOpti
 // Validate implements Validator for FindAvailableRegionsOptions.
 func (o *FindAvailableRegionsOptions) Validate() error { return nil }
 
-// FindAvailableRegionsOptionsBuilder is a builder for FindAvailableRegionsOptions.
-type FindAvailableRegionsOptionsBuilder struct {
-	Opts []func(*FindAvailableRegionsOptions)
+// findAvailableRegionsOptionsBuilder is a builder for FindAvailableRegionsOptions.
+type findAvailableRegionsOptionsBuilder struct {
+	setters []func(*FindAvailableRegionsOptions)
 }
 
-// FindAvailableRegions creates a new FindAvailableRegionsOptionsBuilder.
-func FindAvailableRegions() *FindAvailableRegionsOptionsBuilder {
-	return &FindAvailableRegionsOptionsBuilder{}
+// FindAvailableRegions creates a new builder for FindAvailableRegionsOptions.
+func FindAvailableRegions() *findAvailableRegionsOptionsBuilder {
+	return &findAvailableRegionsOptionsBuilder{}
 }
 
 // Setters implements Builder[FindAvailableRegionsOptions].
-func (b *FindAvailableRegionsOptionsBuilder) Setters() []func(*FindAvailableRegionsOptions) {
-	return b.Opts
+func (b *findAvailableRegionsOptionsBuilder) Setters() []func(*FindAvailableRegionsOptions) {
+	return b.setters
 }
 
 // SetFilterByOrg sets the FilterByOrg option.
 // FilterByOrg filters by organization access. Whether to only return regions that
 // can be used by the caller's organization.
-func (b *FindAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *FindAvailableRegionsOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *FindAvailableRegionsOptions) { o.FilterByOrg = &v })
+func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailableRegionsOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindAvailableRegionsOptions) { o.FilterByOrg = &v })
 	return b
 }
 
@@ -737,34 +737,34 @@ func (o *IndexingOptions) Setters() []func(*IndexingOptions) {
 	return NoopBuilder(o)
 }
 
-// IndexingOptionsBuilder is a builder for IndexingOptions.
-type IndexingOptionsBuilder struct {
-	Opts []func(*IndexingOptions)
+// indexingOptionsBuilder is a builder for IndexingOptions.
+type indexingOptionsBuilder struct {
+	setters []func(*IndexingOptions)
 }
 
-// Indexing creates a new IndexingOptionsBuilder.
-func Indexing() *IndexingOptionsBuilder {
-	return &IndexingOptionsBuilder{}
+// Indexing creates a new builder for IndexingOptions.
+func Indexing() *indexingOptionsBuilder {
+	return &indexingOptionsBuilder{}
 }
 
 // Setters implements Builder[IndexingOptions].
-func (b *IndexingOptionsBuilder) Setters() []func(*IndexingOptions) {
-	return b.Opts
+func (b *indexingOptionsBuilder) Setters() []func(*IndexingOptions) {
+	return b.setters
 }
 
 // SetAllow sets the Allow option.
 // Allow is a list of field paths to index, or ["*"] to index all fields.
 // Mutually exclusive with Deny.
-func (b *IndexingOptionsBuilder) SetAllow(v ...string) *IndexingOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *IndexingOptions) { o.Allow = v })
+func (b *indexingOptionsBuilder) SetAllow(v ...string) *indexingOptionsBuilder {
+	b.setters = append(b.setters, func(o *IndexingOptions) { o.Allow = v })
 	return b
 }
 
 // SetDeny sets the Deny option.
 // Deny is a list of field paths to exclude from indexing, or ["*"] to disable indexing entirely.
 // Mutually exclusive with Allow.
-func (b *IndexingOptionsBuilder) SetDeny(v ...string) *IndexingOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *IndexingOptions) { o.Deny = v })
+func (b *indexingOptionsBuilder) SetDeny(v ...string) *indexingOptionsBuilder {
+	b.setters = append(b.setters, func(o *IndexingOptions) { o.Deny = v })
 	return b
 }
 
@@ -780,32 +780,32 @@ func (o *InsertOneOptions) Setters() []func(*InsertOneOptions) {
 // Validate implements Validator for InsertOneOptions.
 func (o *InsertOneOptions) Validate() error { return nil }
 
-// InsertOneOptionsBuilder is a builder for InsertOneOptions.
-type InsertOneOptionsBuilder struct {
-	Opts []func(*InsertOneOptions)
+// insertOneOptionsBuilder is a builder for InsertOneOptions.
+type insertOneOptionsBuilder struct {
+	setters []func(*InsertOneOptions)
 }
 
-// InsertOne creates a new InsertOneOptionsBuilder.
-func InsertOne() *InsertOneOptionsBuilder {
-	return &InsertOneOptionsBuilder{}
+// InsertOne creates a new builder for InsertOneOptions.
+func InsertOne() *insertOneOptionsBuilder {
+	return &insertOneOptionsBuilder{}
 }
 
 // Setters implements Builder[InsertOneOptions].
-func (b *InsertOneOptionsBuilder) Setters() []func(*InsertOneOptions) {
-	return b.Opts
+func (b *insertOneOptionsBuilder) Setters() []func(*InsertOneOptions) {
+	return b.setters
 }
 
 // SetOrdered sets the Ordered option.
 // Ordered controls whether the insert should be ordered.
-func (b *InsertOneOptionsBuilder) SetOrdered(v bool) *InsertOneOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *InsertOneOptions) { o.Ordered = &v })
+func (b *insertOneOptionsBuilder) SetOrdered(v bool) *insertOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *InsertOneOptions) { o.Ordered = &v })
 	return b
 }
 
 // SetTimeout sets the Timeout option.
 // Timeout sets the timeout for the insert operation (client-side, not sent to the API).
-func (b *InsertOneOptionsBuilder) SetTimeout(v time.Duration) *InsertOneOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *InsertOneOptions) { o.Timeout = &v })
+func (b *insertOneOptionsBuilder) SetTimeout(v time.Duration) *insertOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *InsertOneOptions) { o.Timeout = &v })
 	return b
 }
 
@@ -821,19 +821,19 @@ func (o *LexicalOptions) Setters() []func(*LexicalOptions) {
 // Validate implements Validator for LexicalOptions.
 func (o *LexicalOptions) Validate() error { return nil }
 
-// LexicalOptionsBuilder is a builder for LexicalOptions.
-type LexicalOptionsBuilder struct {
-	Opts []func(*LexicalOptions)
+// lexicalOptionsBuilder is a builder for LexicalOptions.
+type lexicalOptionsBuilder struct {
+	setters []func(*LexicalOptions)
 }
 
-// Lexical creates a new LexicalOptionsBuilder.
-func Lexical() *LexicalOptionsBuilder {
-	return &LexicalOptionsBuilder{}
+// Lexical creates a new builder for LexicalOptions.
+func Lexical() *lexicalOptionsBuilder {
+	return &lexicalOptionsBuilder{}
 }
 
 // Setters implements Builder[LexicalOptions].
-func (b *LexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
-	return b.Opts
+func (b *lexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
+	return b.setters
 }
 
 // ListDatabasesOption is a convenience alias for Builder[ListDatabasesOptions].
@@ -848,47 +848,47 @@ func (o *ListDatabasesOptions) Setters() []func(*ListDatabasesOptions) {
 // Validate implements Validator for ListDatabasesOptions.
 func (o *ListDatabasesOptions) Validate() error { return nil }
 
-// ListDatabasesOptionsBuilder is a builder for ListDatabasesOptions.
-type ListDatabasesOptionsBuilder struct {
-	Opts []func(*ListDatabasesOptions)
+// listDatabasesOptionsBuilder is a builder for ListDatabasesOptions.
+type listDatabasesOptionsBuilder struct {
+	setters []func(*ListDatabasesOptions)
 }
 
-// ListDatabases creates a new ListDatabasesOptionsBuilder.
-func ListDatabases() *ListDatabasesOptionsBuilder {
-	return &ListDatabasesOptionsBuilder{}
+// ListDatabases creates a new builder for ListDatabasesOptions.
+func ListDatabases() *listDatabasesOptionsBuilder {
+	return &listDatabasesOptionsBuilder{}
 }
 
 // Setters implements Builder[ListDatabasesOptions].
-func (b *ListDatabasesOptionsBuilder) Setters() []func(*ListDatabasesOptions) {
-	return b.Opts
+func (b *listDatabasesOptionsBuilder) Setters() []func(*ListDatabasesOptions) {
+	return b.setters
 }
 
 // SetInclude sets the Include option.
 // Include filters databases by status. Defaults to [DatabaseStatusNonTerminated].
-func (b *ListDatabasesOptionsBuilder) SetInclude(v DatabaseStatus) *ListDatabasesOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Include = &v })
+func (b *listDatabasesOptionsBuilder) SetInclude(v DatabaseStatus) *listDatabasesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.Include = &v })
 	return b
 }
 
 // SetProvider sets the Provider option.
 // Provider filters databases by cloud provider. Defaults to [CloudProviderAll].
-func (b *ListDatabasesOptionsBuilder) SetProvider(v CloudProviderFilter) *ListDatabasesOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Provider = &v })
+func (b *listDatabasesOptionsBuilder) SetProvider(v CloudProviderFilter) *listDatabasesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.Provider = &v })
 	return b
 }
 
 // SetLimit sets the Limit option.
 // Limit is the maximum number of databases to return (1-100). Defaults to 25.
-func (b *ListDatabasesOptionsBuilder) SetLimit(v int) *ListDatabasesOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.Limit = &v })
+func (b *listDatabasesOptionsBuilder) SetLimit(v int) *listDatabasesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.Limit = &v })
 	return b
 }
 
 // SetStartingAfter sets the StartingAfter option.
 // StartingAfter is a database ID to use with pagination. Pass the DB ID of the
 // last item on the previous page to get the next page.
-func (b *ListDatabasesOptionsBuilder) SetStartingAfter(v string) *ListDatabasesOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *ListDatabasesOptions) { o.StartingAfter = &v })
+func (b *listDatabasesOptionsBuilder) SetStartingAfter(v string) *listDatabasesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.StartingAfter = &v })
 	return b
 }
 
@@ -904,26 +904,26 @@ func (o *ListIndexesOptions) Setters() []func(*ListIndexesOptions) {
 // Validate implements Validator for ListIndexesOptions.
 func (o *ListIndexesOptions) Validate() error { return nil }
 
-// ListIndexesOptionsBuilder is a builder for ListIndexesOptions.
-type ListIndexesOptionsBuilder struct {
-	Opts []func(*ListIndexesOptions)
+// listIndexesOptionsBuilder is a builder for ListIndexesOptions.
+type listIndexesOptionsBuilder struct {
+	setters []func(*ListIndexesOptions)
 }
 
-// ListIndexes creates a new ListIndexesOptionsBuilder.
-func ListIndexes() *ListIndexesOptionsBuilder {
-	return &ListIndexesOptionsBuilder{}
+// ListIndexes creates a new builder for ListIndexesOptions.
+func ListIndexes() *listIndexesOptionsBuilder {
+	return &listIndexesOptionsBuilder{}
 }
 
 // Setters implements Builder[ListIndexesOptions].
-func (b *ListIndexesOptionsBuilder) Setters() []func(*ListIndexesOptions) {
-	return b.Opts
+func (b *listIndexesOptionsBuilder) Setters() []func(*ListIndexesOptions) {
+	return b.setters
 }
 
 // SetExplain sets the Explain option.
 // Explain if true, returns full index metadata including definitions.
 // If false (default), only returns index names.
-func (b *ListIndexesOptionsBuilder) SetExplain(v bool) *ListIndexesOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *ListIndexesOptions) { o.Explain = &v })
+func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListIndexesOptions) { o.Explain = &v })
 	return b
 }
 
@@ -939,19 +939,19 @@ func (o *RerankOptions) Setters() []func(*RerankOptions) {
 // Validate implements Validator for RerankOptions.
 func (o *RerankOptions) Validate() error { return nil }
 
-// RerankOptionsBuilder is a builder for RerankOptions.
-type RerankOptionsBuilder struct {
-	Opts []func(*RerankOptions)
+// rerankOptionsBuilder is a builder for RerankOptions.
+type rerankOptionsBuilder struct {
+	setters []func(*RerankOptions)
 }
 
-// Rerank creates a new RerankOptionsBuilder.
-func Rerank() *RerankOptionsBuilder {
-	return &RerankOptionsBuilder{}
+// Rerank creates a new builder for RerankOptions.
+func Rerank() *rerankOptionsBuilder {
+	return &rerankOptionsBuilder{}
 }
 
 // Setters implements Builder[RerankOptions].
-func (b *RerankOptionsBuilder) Setters() []func(*RerankOptions) {
-	return b.Opts
+func (b *rerankOptionsBuilder) Setters() []func(*RerankOptions) {
+	return b.setters
 }
 
 // SerdesOption is a convenience alias for Builder[SerdesOptions].
@@ -966,19 +966,19 @@ func (o *SerdesOptions) Setters() []func(*SerdesOptions) {
 // Validate implements Validator for SerdesOptions.
 func (o *SerdesOptions) Validate() error { return nil }
 
-// SerdesOptionsBuilder is a builder for SerdesOptions.
-type SerdesOptionsBuilder struct {
-	Opts []func(*SerdesOptions)
+// serdesOptionsBuilder is a builder for SerdesOptions.
+type serdesOptionsBuilder struct {
+	setters []func(*SerdesOptions)
 }
 
-// Serdes creates a new SerdesOptionsBuilder.
-func Serdes() *SerdesOptionsBuilder {
-	return &SerdesOptionsBuilder{}
+// Serdes creates a new builder for SerdesOptions.
+func Serdes() *serdesOptionsBuilder {
+	return &serdesOptionsBuilder{}
 }
 
 // Setters implements Builder[SerdesOptions].
-func (b *SerdesOptionsBuilder) Setters() []func(*SerdesOptions) {
-	return b.Opts
+func (b *serdesOptionsBuilder) Setters() []func(*SerdesOptions) {
+	return b.setters
 }
 
 // TableFindOption is a convenience alias for Builder[TableFindOptions].
@@ -993,19 +993,19 @@ func (o *TableFindOptions) Setters() []func(*TableFindOptions) {
 // Validate implements Validator for TableFindOptions.
 func (o *TableFindOptions) Validate() error { return nil }
 
-// TableFindOptionsBuilder is a builder for TableFindOptions.
-type TableFindOptionsBuilder struct {
-	Opts []func(*TableFindOptions)
+// tableFindOptionsBuilder is a builder for TableFindOptions.
+type tableFindOptionsBuilder struct {
+	setters []func(*TableFindOptions)
 }
 
-// TableFind creates a new TableFindOptionsBuilder.
-func TableFind() *TableFindOptionsBuilder {
-	return &TableFindOptionsBuilder{}
+// TableFind creates a new builder for TableFindOptions.
+func TableFind() *tableFindOptionsBuilder {
+	return &tableFindOptionsBuilder{}
 }
 
 // Setters implements Builder[TableFindOptions].
-func (b *TableFindOptionsBuilder) Setters() []func(*TableFindOptions) {
-	return b.Opts
+func (b *tableFindOptionsBuilder) Setters() []func(*TableFindOptions) {
+	return b.setters
 }
 
 // SetSort sets the Sort option.
@@ -1013,46 +1013,46 @@ func (b *TableFindOptionsBuilder) Setters() []func(*TableFindOptions) {
 //   - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
 //   - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
 //   - Vector search with vectorize (e.g., {"vector_column": "search text"})
-func (b *TableFindOptionsBuilder) SetSort(v map[string]any) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Sort = v })
+func (b *tableFindOptionsBuilder) SetSort(v map[string]any) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.Sort = v })
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which columns are included or excluded in the returned rows
 // Use true to include a column, false to exclude it
-func (b *TableFindOptionsBuilder) SetProjection(v map[string]bool) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Projection = v })
+func (b *tableFindOptionsBuilder) SetProjection(v map[string]bool) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.Projection = v })
 	return b
 }
 
 // SetLimit sets the Limit option.
 // Limit limits the total number of rows returned
-func (b *TableFindOptionsBuilder) SetLimit(v int) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Limit = &v })
+func (b *tableFindOptionsBuilder) SetLimit(v int) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.Limit = &v })
 	return b
 }
 
 // SetSkip sets the Skip option.
 // Skip specifies the number of rows to bypass before returning rows.
 // Only valid with ascending/descending sort, not with vector search.
-func (b *TableFindOptionsBuilder) SetSkip(v int) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.Skip = &v })
+func (b *tableFindOptionsBuilder) SetSkip(v int) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.Skip = &v })
 	return b
 }
 
 // SetIncludeSimilarity sets the IncludeSimilarity option.
 // IncludeSimilarity if true, includes a $similarity property in the response
 // for vector searches. Only works with direct vector search, not vectorize.
-func (b *TableFindOptionsBuilder) SetIncludeSimilarity(v bool) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.IncludeSimilarity = &v })
+func (b *tableFindOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.IncludeSimilarity = &v })
 	return b
 }
 
 // SetInitialPageState sets the InitialPageState option.
 // InitialPageState is used for pagination to fetch the next page of results
-func (b *TableFindOptionsBuilder) SetInitialPageState(v string) *TableFindOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TableFindOptions) { o.InitialPageState = &v })
+func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOptions) { o.InitialPageState = &v })
 	return b
 }
 
@@ -1068,39 +1068,39 @@ func (o *TimeoutOptions) Setters() []func(*TimeoutOptions) {
 // Validate implements Validator for TimeoutOptions.
 func (o *TimeoutOptions) Validate() error { return nil }
 
-// TimeoutOptionsBuilder is a builder for TimeoutOptions.
-type TimeoutOptionsBuilder struct {
-	Opts []func(*TimeoutOptions)
+// timeoutOptionsBuilder is a builder for TimeoutOptions.
+type timeoutOptionsBuilder struct {
+	setters []func(*TimeoutOptions)
 }
 
-// Timeout creates a new TimeoutOptionsBuilder.
-func Timeout() *TimeoutOptionsBuilder {
-	return &TimeoutOptionsBuilder{}
+// Timeout creates a new builder for TimeoutOptions.
+func Timeout() *timeoutOptionsBuilder {
+	return &timeoutOptionsBuilder{}
 }
 
 // Setters implements Builder[TimeoutOptions].
-func (b *TimeoutOptionsBuilder) Setters() []func(*TimeoutOptions) {
-	return b.Opts
+func (b *timeoutOptionsBuilder) Setters() []func(*TimeoutOptions) {
+	return b.setters
 }
 
 // SetRequest sets the Request option.
 // Request is the timeout for individual HTTP requests
-func (b *TimeoutOptionsBuilder) SetRequest(v time.Duration) *TimeoutOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TimeoutOptions) { o.Request = &v })
+func (b *timeoutOptionsBuilder) SetRequest(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) { o.Request = &v })
 	return b
 }
 
 // SetConnection sets the Connection option.
 // Connection is the timeout for establishing connections
-func (b *TimeoutOptionsBuilder) SetConnection(v time.Duration) *TimeoutOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TimeoutOptions) { o.Connection = &v })
+func (b *timeoutOptionsBuilder) SetConnection(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) { o.Connection = &v })
 	return b
 }
 
 // SetBulkOperation sets the BulkOperation option.
 // BulkOperation is the timeout for bulk operations like insertMany
-func (b *TimeoutOptionsBuilder) SetBulkOperation(v time.Duration) *TimeoutOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *TimeoutOptions) { o.BulkOperation = &v })
+func (b *timeoutOptionsBuilder) SetBulkOperation(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) { o.BulkOperation = &v })
 	return b
 }
 
@@ -1116,26 +1116,26 @@ func (o *VectorOptions) Setters() []func(*VectorOptions) {
 // Validate implements Validator for VectorOptions.
 func (o *VectorOptions) Validate() error { return nil }
 
-// VectorOptionsBuilder is a builder for VectorOptions.
-type VectorOptionsBuilder struct {
-	Opts []func(*VectorOptions)
+// vectorOptionsBuilder is a builder for VectorOptions.
+type vectorOptionsBuilder struct {
+	setters []func(*VectorOptions)
 }
 
-// Vector creates a new VectorOptionsBuilder.
-func Vector() *VectorOptionsBuilder {
-	return &VectorOptionsBuilder{}
+// Vector creates a new builder for VectorOptions.
+func Vector() *vectorOptionsBuilder {
+	return &vectorOptionsBuilder{}
 }
 
 // Setters implements Builder[VectorOptions].
-func (b *VectorOptionsBuilder) Setters() []func(*VectorOptions) {
-	return b.Opts
+func (b *vectorOptionsBuilder) Setters() []func(*VectorOptions) {
+	return b.setters
 }
 
 // SetDimension sets the Dimension option.
 // Dimension specifies the dimension of vectors stored in this collection.
 // Required for vector-enabled collections.
-func (b *VectorOptionsBuilder) SetDimension(v int) *VectorOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorOptions) { o.Dimension = &v })
+func (b *vectorOptionsBuilder) SetDimension(v int) *vectorOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorOptions) { o.Dimension = &v })
 	return b
 }
 
@@ -1143,15 +1143,15 @@ func (b *VectorOptionsBuilder) SetDimension(v int) *VectorOptionsBuilder {
 // Metric specifies the similarity metric used for vector search.
 // Valid values are "cosine", "euclidean", or "dot_product".
 // Default is "cosine".
-func (b *VectorOptionsBuilder) SetMetric(v string) *VectorOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorOptions) { o.Metric = &v })
+func (b *vectorOptionsBuilder) SetMetric(v string) *vectorOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorOptions) { o.Metric = &v })
 	return b
 }
 
 // SetService sets the Service option.
 // Service configures automatic vector embedding generation (vectorize).
-func (b *VectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *VectorOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorOptions) {
+func (b *vectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *vectorOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorOptions) {
 		o.Service = Merge(v...)
 	})
 	return b
@@ -1166,31 +1166,31 @@ func (o *VectorServiceOptions) Setters() []func(*VectorServiceOptions) {
 	return NoopBuilder(o)
 }
 
-// VectorServiceOptionsBuilder is a builder for VectorServiceOptions.
-type VectorServiceOptionsBuilder struct {
-	Opts []func(*VectorServiceOptions)
+// vectorServiceOptionsBuilder is a builder for VectorServiceOptions.
+type vectorServiceOptionsBuilder struct {
+	setters []func(*VectorServiceOptions)
 }
 
-// VectorService creates a new VectorServiceOptionsBuilder.
-func VectorService() *VectorServiceOptionsBuilder {
-	return &VectorServiceOptionsBuilder{}
+// VectorService creates a new builder for VectorServiceOptions.
+func VectorService() *vectorServiceOptionsBuilder {
+	return &vectorServiceOptionsBuilder{}
 }
 
 // Setters implements Builder[VectorServiceOptions].
-func (b *VectorServiceOptionsBuilder) Setters() []func(*VectorServiceOptions) {
-	return b.Opts
+func (b *vectorServiceOptionsBuilder) Setters() []func(*VectorServiceOptions) {
+	return b.setters
 }
 
 // SetProvider sets the Provider option.
 // Provider is the embedding provider name (e.g., "openai", "huggingface").
-func (b *VectorServiceOptionsBuilder) SetProvider(v string) *VectorServiceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorServiceOptions) { o.Provider = &v })
+func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Provider = &v })
 	return b
 }
 
 // SetModelName sets the ModelName option.
 // ModelName is the name of the embedding model to use.
-func (b *VectorServiceOptionsBuilder) SetModelName(v string) *VectorServiceOptionsBuilder {
-	b.Opts = append(b.Opts, func(o *VectorServiceOptions) { o.ModelName = &v })
+func (b *vectorServiceOptionsBuilder) SetModelName(v string) *vectorServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.ModelName = &v })
 	return b
 }

@@ -12,19 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options_test
+package options
 
 import (
 	"testing"
-
-	"github.com/datastax/astra-db-go/options"
 )
 
 func TestMergeAndValidate_TypedNilBuilder(t *testing.T) {
-	// A typed nil: the interface is non-nil but wraps a nil *DropKeyspaceOptionsBuilder.
+	// A typed nil: the interface is non-nil but wraps a nil *dropKeyspaceOptionsBuilder.
 	// This can happen when a caller conditionally assigns a builder variable.
-	var nilBuilder *options.DropKeyspaceOptionsBuilder
-	opts, err := options.MergeAndValidate(nilBuilder)
+	var nilBuilder *dropKeyspaceOptionsBuilder
+	opts, err := MergeAndValidate(nilBuilder)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -32,7 +30,7 @@ func TestMergeAndValidate_TypedNilBuilder(t *testing.T) {
 	if opts.Blocking == nil || *opts.Blocking != true {
 		t.Errorf("expected Blocking default true, got %v", opts.Blocking)
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != options.DefaultKeyspacePollInterval {
+	if opts.PollInterval == nil || *opts.PollInterval != DefaultKeyspacePollInterval {
 		t.Errorf("expected PollInterval default, got %v", opts.PollInterval)
 	}
 }
