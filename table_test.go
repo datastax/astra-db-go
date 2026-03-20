@@ -493,7 +493,7 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 
 func TestTableFindOptions(t *testing.T) {
 	t.Run("with all options", func(t *testing.T) {
-		opts, err := options.MergeOptions(
+		opts, err := options.MergeAndValidate(
 			options.TableFind().
 				SetSort(map[string]any{"rating": options.SortAscending}).
 				SetProjection(map[string]bool{"title": true}).

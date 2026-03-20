@@ -262,7 +262,7 @@ func (a *AstraAdmin) resolveOptions() *options.APIOptions {
 	if a.client != nil {
 		clientOpts = a.client.Options()
 	}
-	return options.Merge(clientOpts, a.options)
+	return options.MergeAPILayers(clientOpts, a.options)
 }
 
 // FindAvailableRegions retrieves available serverless regions from the DevOps API.
@@ -276,9 +276,9 @@ func (a *AstraAdmin) resolveOptions() *options.APIOptions {
 //
 //	regions, err := admin.FindAvailableRegions(ctx,
 //	    options.FindAvailableRegions().SetFilterByOrg(true))
-func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.Builder[options.FindAvailableRegionsOptions]) ([]Region, error) {
+func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.FindAvailableRegionsOption) ([]Region, error) {
 	// Merge options
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -343,8 +343,8 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.B
 //		}
 //		return all, nil
 //	}
-func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.Builder[options.ListDatabasesOptions]) ([]DatabaseInfo, error) {
-	merged, err := options.MergeOptions(opts...)
+func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListDatabasesOption) ([]DatabaseInfo, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -543,9 +543,9 @@ func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts Aw
 //	}, options.CreateDatabase().
 //	    SetKeyspace("my_keyspace").
 //	    SetPollInterval(5 * time.Second))
-func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabaseParams, opts ...options.Builder[options.CreateDatabaseOptions]) (*AstraDbAdmin, error) {
+func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabaseParams, opts ...options.CreateDatabaseOption) (*AstraDbAdmin, error) {
 	// Merge options
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -611,9 +611,9 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 //
 //	err := admin.DropDatabase(ctx, "database-id",
 //	    options.DropDatabase().SetBlocking(false))
-func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts ...options.Builder[options.DropDatabaseOptions]) error {
+func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts ...options.DropDatabaseOption) error {
 	// Merge options
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
 	}

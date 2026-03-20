@@ -60,7 +60,7 @@ func TestMerge_SingleLayer(t *testing.T) {
 	token := "layer-token"
 	layer := options.NewAPIOptions(options.WithToken(token))
 
-	result := options.Merge(layer)
+	result := options.MergeAPILayers(layer)
 
 	if result.GetToken() != token {
 		t.Errorf("expected token %q, got %q", token, result.GetToken())
@@ -80,7 +80,7 @@ func TestMerge_MultipleLayers(t *testing.T) {
 	dbOpts := options.NewAPIOptions(options.WithKeyspace(dbKeyspace))
 	collOpts := options.NewAPIOptions(options.WithRequestTimeout(collectionTimeout))
 
-	result := options.Merge(clientOpts, dbOpts, collOpts)
+	result := options.MergeAPILayers(clientOpts, dbOpts, collOpts)
 
 	// Token from client layer
 	if result.GetToken() != clientToken {
@@ -103,7 +103,7 @@ func TestMerge_LaterLayerOverrides(t *testing.T) {
 	clientOpts := options.NewAPIOptions(options.WithKeyspace(clientKeyspace))
 	dbOpts := options.NewAPIOptions(options.WithKeyspace(dbKeyspace))
 
-	result := options.Merge(clientOpts, dbOpts)
+	result := options.MergeAPILayers(clientOpts, dbOpts)
 
 	// DB keyspace should override client keyspace
 	if result.GetKeyspace() != dbKeyspace {
@@ -116,7 +116,7 @@ func TestMerge_NilLayers(t *testing.T) {
 	opts := options.NewAPIOptions(options.WithToken(token))
 
 	// Should handle nil layers gracefully
-	result := options.Merge(nil, opts, nil)
+	result := options.MergeAPILayers(nil, opts, nil)
 
 	if result.GetToken() != token {
 		t.Errorf("expected token %q, got %q", token, result.GetToken())
@@ -133,7 +133,7 @@ func TestMerge_Headers(t *testing.T) {
 		options.WithHeader("X-Shared-Header", "db-shared"), // Override
 	)
 
-	result := options.Merge(clientOpts, dbOpts)
+	result := options.MergeAPILayers(clientOpts, dbOpts)
 
 	// Client header preserved
 	if result.Headers["X-Client-Header"] != "client-value" {
@@ -224,7 +224,7 @@ func TestMerge_FullHierarchy(t *testing.T) {
 		options.WithTimeout(5 * time.Second), // Override for specific command
 	)
 
-	result := options.Merge(clientOpts, dbOpts, collOpts, cmdOpts)
+	result := options.MergeAPILayers(clientOpts, dbOpts, collOpts, cmdOpts)
 
 	// Token from client (unchanged)
 	if result.GetToken() != "client-token" {

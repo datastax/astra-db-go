@@ -26,8 +26,8 @@ import (
 //   - Non-Astra environments use [DataAPIDatabaseAdmin] (Data API)
 type DatabaseAdmin interface {
 	ListKeyspaces(ctx context.Context) ([]string, error)
-	CreateKeyspace(ctx context.Context, keyspace string, opts ...options.Builder[options.CreateKeyspaceOptions]) error
-	DropKeyspace(ctx context.Context, keyspace string, opts ...options.Builder[options.DropKeyspaceOptions]) error
+	CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error
+	DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error
 }
 
 // Compile-time interface checks

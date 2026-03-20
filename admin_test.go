@@ -96,9 +96,9 @@ func TestRegionUnmarshal(t *testing.T) {
 func TestFindAvailableRegionsOptionsBuilder(t *testing.T) {
 	t.Run("filter by org", func(t *testing.T) {
 		opts := options.FindAvailableRegions().SetFilterByOrg(true)
-		merged, err := options.MergeOptions(opts)
+		merged, err := options.MergeAndValidate(opts)
 		if err != nil {
-			t.Fatalf("MergeOptions: %v", err)
+			t.Fatalf("MergeAndValidate: %v", err)
 		}
 		if merged.FilterByOrg == nil || *merged.FilterByOrg != true {
 			t.Error("expected FilterByOrg to be true")
@@ -108,9 +108,9 @@ func TestFindAvailableRegionsOptionsBuilder(t *testing.T) {
 	t.Run("combined options", func(t *testing.T) {
 		opts := options.FindAvailableRegions().
 			SetFilterByOrg(true)
-		merged, err := options.MergeOptions(opts)
+		merged, err := options.MergeAndValidate(opts)
 		if err != nil {
-			t.Fatalf("MergeOptions: %v", err)
+			t.Fatalf("MergeAndValidate: %v", err)
 		}
 		if merged.FilterByOrg == nil || *merged.FilterByOrg != true {
 			t.Error("expected FilterByOrg to be true")
@@ -152,9 +152,9 @@ func TestFindAvailableRegionsOptionsStruct(t *testing.T) {
 		FilterByOrg: boolPtr(true),
 	}
 
-	merged, err := options.MergeOptions(opts)
+	merged, err := options.MergeAndValidate(opts)
 	if err != nil {
-		t.Fatalf("MergeOptions: %v", err)
+		t.Fatalf("MergeAndValidate: %v", err)
 	}
 	if merged.FilterByOrg == nil || *merged.FilterByOrg != true {
 		t.Error("expected FilterByOrg to be true")

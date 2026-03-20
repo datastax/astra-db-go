@@ -117,9 +117,9 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 //		},
 //	}
 //	tbl, err := db.CreateTable(ctx, "my_table", definition)
-func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.Builder[options.CreateTableOptions]) (*Table, error) {
+func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.CreateTableOption) (*Table, error) {
 	// Apply options
-	tableOpts, err := options.MergeOptions(opts...)
+	tableOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ type tableFindResponse struct {
 //	        SetSort(map[string]any{"vector_column": []float32{0.1, 0.2, 0.3}}).
 //	        SetIncludeSimilarity(true),
 //	)
-func (t *Table) Find(ctx context.Context, f any, opts ...options.Builder[options.TableFindOptions]) *cursor.Cursor {
+func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption) *cursor.Cursor {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter, map[string]any, nil:
@@ -272,7 +272,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.Builder[options
 	}
 
 	// Build the find options once (they don't change between pages)
-	findOpts, err := options.MergeOptions(opts...)
+	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return cursor.NewWithError(fmt.Errorf("invalid options: %w", err))
 	}
@@ -338,7 +338,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.Builder[options
 //	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
 //	var row MyRow
 //	err := result.Decode(&row)
-func (t *Table) FindOne(ctx context.Context, f any, opts ...options.Builder[options.TableFindOptions]) *results.SingleResult {
+func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOption) *results.SingleResult {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter, map[string]any, nil:
@@ -348,7 +348,7 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.Builder[opti
 	}
 
 	// Build the find options
-	findOpts, err := options.MergeOptions(opts...)
+	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid options: %w", err))
 	}
@@ -554,7 +554,7 @@ type vectorIndexDefOpts struct {
 //	err := tbl.CreateIndex(ctx, "title_idx", "title",
 //	    options.CreateIndex().SetAscii(true),
 //	    options.CreateIndex().SetIfNotExists(true))
-func (t *Table) CreateIndex(ctx context.Context, name string, column any, opts ...options.Builder[options.CreateIndexOptions]) error {
+func (t *Table) CreateIndex(ctx context.Context, name string, column any, opts ...options.CreateIndexOption) error {
 	cmd, err := createIndexCommand(t, name, column, opts...)
 	if err != nil {
 		return err
@@ -600,7 +600,7 @@ func validateIndexColumn(column any) error {
 }
 
 // createIndexCommand builds the createIndex command for the table
-func createIndexCommand(t *Table, name string, column any, opts ...options.Builder[options.CreateIndexOptions]) (command, error) {
+func createIndexCommand(t *Table, name string, column any, opts ...options.CreateIndexOption) (command, error) {
 	if err := validateIndexName(name); err != nil {
 		return command{}, err
 	}
@@ -614,7 +614,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Build
 		},
 	}
 
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
@@ -656,7 +656,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Build
 //
 //	err := tbl.CreateVectorIndex(ctx, "embedding_idx", "embedding",
 //	    options.CreateVectorIndex().SetIfNotExists(true))
-func (t *Table) CreateVectorIndex(ctx context.Context, name string, column string, opts ...options.Builder[options.CreateVectorIndexOptions]) error {
+func (t *Table) CreateVectorIndex(ctx context.Context, name string, column string, opts ...options.CreateVectorIndexOption) error {
 	cmd, err := createVectorIndexCommand(t, name, column, opts...)
 	if err != nil {
 		return err
@@ -667,7 +667,7 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 }
 
 // createVectorIndexCommand builds the createVectorIndex command for the table
-func createVectorIndexCommand(t *Table, name string, column string, opts ...options.Builder[options.CreateVectorIndexOptions]) (command, error) {
+func createVectorIndexCommand(t *Table, name string, column string, opts ...options.CreateVectorIndexOption) (command, error) {
 	if err := validateIndexName(name); err != nil {
 		return command{}, err
 	}
@@ -681,7 +681,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		},
 	}
 
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
@@ -801,7 +801,7 @@ type listIndexesResponse struct {
 //	    fmt.Printf("Index %s on column %s (type: %s)\n",
 //	        idx.Name, idx.Definition.Column, idx.IndexType)
 //	}
-func (t *Table) ListIndexes(ctx context.Context, opts ...options.Builder[options.ListIndexesOptions]) ([]IndexDescriptor, error) {
+func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]IndexDescriptor, error) {
 	cmd, err := listIndexesCommand(t, opts...)
 	if err != nil {
 		return nil, err
@@ -820,10 +820,10 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.Builder[options
 }
 
 // listIndexesCommand builds the listIndexes command for the table
-func listIndexesCommand(t *Table, opts ...options.Builder[options.ListIndexesOptions]) (command, error) {
+func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, error) {
 	payload := listIndexesPayload{}
 
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}

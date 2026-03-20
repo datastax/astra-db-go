@@ -20,11 +20,11 @@ import (
 	"github.com/datastax/astra-db-go/options"
 )
 
-func TestMergeOptions_TypedNilBuilder(t *testing.T) {
+func TestMergeAndValidate_TypedNilBuilder(t *testing.T) {
 	// A typed nil: the interface is non-nil but wraps a nil *DropKeyspaceOptionsBuilder.
 	// This can happen when a caller conditionally assigns a builder variable.
 	var nilBuilder *options.DropKeyspaceOptionsBuilder
-	opts, err := options.MergeOptions(nilBuilder)
+	opts, err := options.MergeAndValidate(nilBuilder)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

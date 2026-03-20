@@ -10,7 +10,7 @@ type SimpleOptions struct {
 Since our options must implement the `Builder` interface, we have a `NoopBuilder` that returns a func that automatically copies non-nil fields:
 
 ```go
-func (o *SimpleOptions) List() []func(*SimpleOptions) {
+func (o *SimpleOptions) Setters() []func(*SimpleOptions) {
 	return NoopBuilder(o)
 }
 ```
@@ -41,8 +41,8 @@ func Simple() *SimpleOptionsBuilder {
 	return &SimpleOptionsBuilder{}
 }
 
-// List implements Builder[SimpleOptions].
-func (b *SimpleOptionsBuilder) List() []func(*SimpleOptions) {
+// Setters implements Builder[SimpleOptions].
+func (b *SimpleOptionsBuilder) Setters() []func(*SimpleOptions) {
 	return b.Opts
 }
 

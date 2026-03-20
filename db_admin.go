@@ -72,7 +72,7 @@ func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
 // Example:
 //
 //	err := dbAdmin.Drop(ctx)
-func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.Builder[options.DropDatabaseOptions]) error {
+func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOption) error {
 	return d.admin.DropDatabase(ctx, d.id, opts...)
 }
 
@@ -98,8 +98,8 @@ func (d *AstraDbAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
 // Example:
 //
 //	err := dbAdmin.CreateKeyspace(ctx, "my_keyspace")
-func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts ...options.Builder[options.CreateKeyspaceOptions]) error {
-	merged, err := options.MergeOptions(opts...)
+func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
 	}
@@ -128,8 +128,8 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 // Example:
 //
 //	err := dbAdmin.DropKeyspace(ctx, "my_keyspace")
-func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.Builder[options.DropKeyspaceOptions]) error {
-	merged, err := options.MergeOptions(opts...)
+func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
 	}

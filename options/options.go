@@ -27,25 +27,25 @@ type Validator interface {
 
 // ChildValidator is an optional interface that options types can implement
 // to return nested validators for hierarchical validation. If a type implements
-// ChildValidator, MergeOptions calls Validate on all children.
+// ChildValidator, MergeAndValidate calls Validate on all children.
 // This will be codegen'd for any struct with nested [Validator] structs.
 type ChildValidator interface {
 	Children() []Validator
 }
 
 // Defaulter is an optional interface that options types can implement
-// to populate default values. If a type implements Defaulter, MergeOptions
+// to populate default values. If a type implements Defaulter, Merge
 // calls SetDefaults before applying user-provided setters, so user values
 // always override defaults.
 type Defaulter interface {
 	SetDefaults()
 }
 
-// Builder is an interface that wraps a List method to return a
+// Builder is an interface that wraps a Setters method to return a
 // slice of option setters. This follows the MongoDB Go driver pattern
 // for composable options.
 type Builder[T any] interface {
-	List() []func(*T)
+	Setters() []func(*T)
 }
 
 // NoopBuilder returns a [Builder] implementation that just copies
@@ -60,7 +60,7 @@ func NoopBuilder[T any](src *T) []func(*T) {
 
 // validateRecursive walks the ChildValidator tree depth-first, validating
 // children before the parent. This ensures grandchildren (and deeper) are
-// validated even when MergeOptions only sees the top-level result.
+// validated even when MergeAndValidate only sees the top-level result.
 func validateRecursive(v Validator) error {
 	if cv, ok := v.(ChildValidator); ok {
 		for _, child := range cv.Children() {
@@ -72,12 +72,11 @@ func validateRecursive(v Validator) error {
 	return v.Validate()
 }
 
-// MergeOptions merges multiple Builder options into a single options struct.
+// Merge merges multiple Builder options into a single options struct.
 // It applies each option's setters sequentially, with later options overriding
-// earlier ones for the same fields. Calls `Validate` on the result and returns
-// errors (if any).
+// earlier ones for the same fields. No validation is performed.
 // Note: result will never be nil.
-func MergeOptions[T any](opts ...Builder[T]) (*T, error) {
+func Merge[T any](opts ...Builder[T]) *T {
 	result := new(T)
 	if d, ok := any(result).(Defaulter); ok {
 		d.SetDefaults()
@@ -86,16 +85,24 @@ func MergeOptions[T any](opts ...Builder[T]) (*T, error) {
 		// Guard against both plain nil and typed nil (a non-nil interface
 		// wrapping a nil concrete pointer), which can happen when a caller
 		// declares a typed builder variable but never initializes it.
-		// See also: TestMergeOptions_TypedNilBuilder - which will panic
+		// See also: TestMergeAndValidate_TypedNilBuilder - which will panic
 		// without this check.
 		if opt == nil || reflect.ValueOf(opt).IsNil() {
 			continue
 		}
-		for _, setter := range opt.List() {
+		for _, setter := range opt.Setters() {
 			setter(result)
 		}
 	}
-	// Recursively validate the result and all nested children.
+	return result
+}
+
+// MergeAndValidate merges multiple Builder options into a single options struct,
+// then recursively validates the result. It applies each option's setters
+// sequentially, with later options overriding earlier ones for the same fields.
+// Note: result will never be nil.
+func MergeAndValidate[T any](opts ...Builder[T]) (*T, error) {
+	result := Merge(opts...)
 	if v, ok := any(result).(Validator); ok {
 		if err := validateRecursive(v); err != nil {
 			return result, err

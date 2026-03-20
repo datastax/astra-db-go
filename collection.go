@@ -198,7 +198,7 @@ type collectionFindResponse struct {
 //	        SetSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}).
 //	        SetIncludeSimilarity(true),
 //	)
-func (c *Collection) Find(ctx context.Context, f any, opts ...options.Builder[options.CollectionFindOptions]) *cursor.Cursor {
+func (c *Collection) Find(ctx context.Context, f any, opts ...options.CollectionFindOption) *cursor.Cursor {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter:
@@ -208,7 +208,7 @@ func (c *Collection) Find(ctx context.Context, f any, opts ...options.Builder[op
 	}
 
 	// Build the find options once (they don't change between pages)
-	findOpts, err := options.MergeOptions(opts...)
+	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return cursor.NewWithError(err)
 	}
@@ -293,8 +293,8 @@ type collectionUpdateOneResponse struct {
 // The update parameter should be an update expression (e.g., map[string]any{"$set": ...}).
 //
 // Options passed here override those set on the collection.
-func (c *Collection) UpdateOne(ctx context.Context, f any, update any, opts ...options.Builder[options.CollectionUpdateOneOptions]) (*results.UpdateResult, error) {
-	merged, err := options.MergeOptions(opts...)
+func (c *Collection) UpdateOne(ctx context.Context, f any, update any, opts ...options.CollectionUpdateOneOption) (*results.UpdateResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}

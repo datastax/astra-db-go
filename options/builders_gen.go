@@ -21,9 +21,9 @@ import (
 	"time"
 )
 
-// List implements Builder[APIOptions] allowing the raw struct to be
+// Setters implements Builder[APIOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[APIOptions].
-func (o *APIOptions) List() []func(*APIOptions) {
+func (o *APIOptions) Setters() []func(*APIOptions) {
 	return NoopBuilder(o)
 }
 
@@ -40,8 +40,8 @@ func API() *APIOptionsBuilder {
 	return &APIOptionsBuilder{}
 }
 
-// List implements Builder[APIOptions].
-func (b *APIOptionsBuilder) List() []func(*APIOptions) {
+// Setters implements Builder[APIOptions].
+func (b *APIOptionsBuilder) Setters() []func(*APIOptions) {
 	return b.Opts
 }
 
@@ -85,8 +85,7 @@ func (b *APIOptionsBuilder) SetHeaders(v map[string]string) *APIOptionsBuilder {
 // Timeout contains timeout configuration
 func (b *APIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Timeout = merged
+		o.Timeout = Merge(v...)
 	})
 	return b
 }
@@ -95,8 +94,7 @@ func (b *APIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *APIOptions
 // Serdes contains serialization/deserialization options
 func (b *APIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *APIOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *APIOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Serdes = merged
+		o.Serdes = Merge(v...)
 	})
 	return b
 }
@@ -117,9 +115,12 @@ func (b *APIOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *APIOptionsBuild
 	return b
 }
 
-// List implements Builder[CollectionDefaultIdOptions] allowing the raw struct to be
+// CollectionDefaultIdOption is a convenience alias for Builder[CollectionDefaultIdOptions].
+type CollectionDefaultIdOption = Builder[CollectionDefaultIdOptions]
+
+// Setters implements Builder[CollectionDefaultIdOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CollectionDefaultIdOptions].
-func (o *CollectionDefaultIdOptions) List() []func(*CollectionDefaultIdOptions) {
+func (o *CollectionDefaultIdOptions) Setters() []func(*CollectionDefaultIdOptions) {
 	return NoopBuilder(o)
 }
 
@@ -136,8 +137,8 @@ func CollectionDefaultId() *CollectionDefaultIdOptionsBuilder {
 	return &CollectionDefaultIdOptionsBuilder{}
 }
 
-// List implements Builder[CollectionDefaultIdOptions].
-func (b *CollectionDefaultIdOptionsBuilder) List() []func(*CollectionDefaultIdOptions) {
+// Setters implements Builder[CollectionDefaultIdOptions].
+func (b *CollectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultIdOptions) {
 	return b.Opts
 }
 
@@ -150,9 +151,12 @@ func (b *CollectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *Collection
 	return b
 }
 
-// List implements Builder[CollectionFindOptions] allowing the raw struct to be
+// CollectionFindOption is a convenience alias for Builder[CollectionFindOptions].
+type CollectionFindOption = Builder[CollectionFindOptions]
+
+// Setters implements Builder[CollectionFindOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CollectionFindOptions].
-func (o *CollectionFindOptions) List() []func(*CollectionFindOptions) {
+func (o *CollectionFindOptions) Setters() []func(*CollectionFindOptions) {
 	return NoopBuilder(o)
 }
 
@@ -169,8 +173,8 @@ func CollectionFind() *CollectionFindOptionsBuilder {
 	return &CollectionFindOptionsBuilder{}
 }
 
-// List implements Builder[CollectionFindOptions].
-func (b *CollectionFindOptionsBuilder) List() []func(*CollectionFindOptions) {
+// Setters implements Builder[CollectionFindOptions].
+func (b *CollectionFindOptionsBuilder) Setters() []func(*CollectionFindOptions) {
 	return b.Opts
 }
 
@@ -230,9 +234,12 @@ func (b *CollectionFindOptionsBuilder) SetInitialPageState(v string) *Collection
 	return b
 }
 
-// List implements Builder[CollectionUpdateOneOptions] allowing the raw struct to be
+// CollectionUpdateOneOption is a convenience alias for Builder[CollectionUpdateOneOptions].
+type CollectionUpdateOneOption = Builder[CollectionUpdateOneOptions]
+
+// Setters implements Builder[CollectionUpdateOneOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CollectionUpdateOneOptions].
-func (o *CollectionUpdateOneOptions) List() []func(*CollectionUpdateOneOptions) {
+func (o *CollectionUpdateOneOptions) Setters() []func(*CollectionUpdateOneOptions) {
 	return NoopBuilder(o)
 }
 
@@ -249,8 +256,8 @@ func CollectionUpdateOne() *CollectionUpdateOneOptionsBuilder {
 	return &CollectionUpdateOneOptionsBuilder{}
 }
 
-// List implements Builder[CollectionUpdateOneOptions].
-func (b *CollectionUpdateOneOptionsBuilder) List() []func(*CollectionUpdateOneOptions) {
+// Setters implements Builder[CollectionUpdateOneOptions].
+func (b *CollectionUpdateOneOptionsBuilder) Setters() []func(*CollectionUpdateOneOptions) {
 	return b.Opts
 }
 
@@ -269,9 +276,12 @@ func (b *CollectionUpdateOneOptionsBuilder) SetUpsert(v bool) *CollectionUpdateO
 	return b
 }
 
-// List implements Builder[CreateCollectionOptions] allowing the raw struct to be
+// CreateCollectionOption is a convenience alias for Builder[CreateCollectionOptions].
+type CreateCollectionOption = Builder[CreateCollectionOptions]
+
+// Setters implements Builder[CreateCollectionOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CreateCollectionOptions].
-func (o *CreateCollectionOptions) List() []func(*CreateCollectionOptions) {
+func (o *CreateCollectionOptions) Setters() []func(*CreateCollectionOptions) {
 	return NoopBuilder(o)
 }
 
@@ -288,8 +298,8 @@ func CreateCollection() *CreateCollectionOptionsBuilder {
 	return &CreateCollectionOptionsBuilder{}
 }
 
-// List implements Builder[CreateCollectionOptions].
-func (b *CreateCollectionOptionsBuilder) List() []func(*CreateCollectionOptions) {
+// Setters implements Builder[CreateCollectionOptions].
+func (b *CreateCollectionOptionsBuilder) Setters() []func(*CreateCollectionOptions) {
 	return b.Opts
 }
 
@@ -297,8 +307,7 @@ func (b *CreateCollectionOptionsBuilder) List() []func(*CreateCollectionOptions)
 // Settings for generating ids
 func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDefaultIdOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.DefaultId = merged
+		o.DefaultId = Merge(v...)
 	})
 	return b
 }
@@ -307,8 +316,7 @@ func (b *CreateCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDef
 // Vector specifications for the collection
 func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Vector = merged
+		o.Vector = Merge(v...)
 	})
 	return b
 }
@@ -317,8 +325,7 @@ func (b *CreateCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) 
 // Overrides for document indexing
 func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Indexing = merged
+		o.Indexing = Merge(v...)
 	})
 	return b
 }
@@ -327,8 +334,7 @@ func (b *CreateCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOption
 // Lexical analysis options for the collection
 func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Lexical = merged
+		o.Lexical = Merge(v...)
 	})
 	return b
 }
@@ -337,15 +343,17 @@ func (b *CreateCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]
 // Reranking options for the collection
 func (b *CreateCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *CreateCollectionOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *CreateCollectionOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Rerank = merged
+		o.Rerank = Merge(v...)
 	})
 	return b
 }
 
-// List implements Builder[CreateDatabaseOptions] allowing the raw struct to be
+// CreateDatabaseOption is a convenience alias for Builder[CreateDatabaseOptions].
+type CreateDatabaseOption = Builder[CreateDatabaseOptions]
+
+// Setters implements Builder[CreateDatabaseOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CreateDatabaseOptions].
-func (o *CreateDatabaseOptions) List() []func(*CreateDatabaseOptions) {
+func (o *CreateDatabaseOptions) Setters() []func(*CreateDatabaseOptions) {
 	return NoopBuilder(o)
 }
 
@@ -362,8 +370,8 @@ func CreateDatabase() *CreateDatabaseOptionsBuilder {
 	return &CreateDatabaseOptionsBuilder{}
 }
 
-// List implements Builder[CreateDatabaseOptions].
-func (b *CreateDatabaseOptionsBuilder) List() []func(*CreateDatabaseOptions) {
+// Setters implements Builder[CreateDatabaseOptions].
+func (b *CreateDatabaseOptionsBuilder) Setters() []func(*CreateDatabaseOptions) {
 	return b.Opts
 }
 
@@ -390,9 +398,12 @@ func (b *CreateDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *CreateD
 	return b
 }
 
-// List implements Builder[CreateIndexOptions] allowing the raw struct to be
+// CreateIndexOption is a convenience alias for Builder[CreateIndexOptions].
+type CreateIndexOption = Builder[CreateIndexOptions]
+
+// Setters implements Builder[CreateIndexOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CreateIndexOptions].
-func (o *CreateIndexOptions) List() []func(*CreateIndexOptions) {
+func (o *CreateIndexOptions) Setters() []func(*CreateIndexOptions) {
 	return NoopBuilder(o)
 }
 
@@ -409,8 +420,8 @@ func CreateIndex() *CreateIndexOptionsBuilder {
 	return &CreateIndexOptionsBuilder{}
 }
 
-// List implements Builder[CreateIndexOptions].
-func (b *CreateIndexOptionsBuilder) List() []func(*CreateIndexOptions) {
+// Setters implements Builder[CreateIndexOptions].
+func (b *CreateIndexOptionsBuilder) Setters() []func(*CreateIndexOptions) {
 	return b.Opts
 }
 
@@ -446,9 +457,12 @@ func (b *CreateIndexOptionsBuilder) SetCaseSensitive(v bool) *CreateIndexOptions
 	return b
 }
 
-// List implements Builder[CreateKeyspaceOptions] allowing the raw struct to be
+// CreateKeyspaceOption is a convenience alias for Builder[CreateKeyspaceOptions].
+type CreateKeyspaceOption = Builder[CreateKeyspaceOptions]
+
+// Setters implements Builder[CreateKeyspaceOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CreateKeyspaceOptions].
-func (o *CreateKeyspaceOptions) List() []func(*CreateKeyspaceOptions) {
+func (o *CreateKeyspaceOptions) Setters() []func(*CreateKeyspaceOptions) {
 	return NoopBuilder(o)
 }
 
@@ -465,8 +479,8 @@ func CreateKeyspace() *CreateKeyspaceOptionsBuilder {
 	return &CreateKeyspaceOptionsBuilder{}
 }
 
-// List implements Builder[CreateKeyspaceOptions].
-func (b *CreateKeyspaceOptionsBuilder) List() []func(*CreateKeyspaceOptions) {
+// Setters implements Builder[CreateKeyspaceOptions].
+func (b *CreateKeyspaceOptionsBuilder) Setters() []func(*CreateKeyspaceOptions) {
 	return b.Opts
 }
 
@@ -494,9 +508,12 @@ func (b *CreateKeyspaceOptionsBuilder) SetReplicationFactor(v int) *CreateKeyspa
 	return b
 }
 
-// List implements Builder[CreateTableOptions] allowing the raw struct to be
+// CreateTableOption is a convenience alias for Builder[CreateTableOptions].
+type CreateTableOption = Builder[CreateTableOptions]
+
+// Setters implements Builder[CreateTableOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CreateTableOptions].
-func (o *CreateTableOptions) List() []func(*CreateTableOptions) {
+func (o *CreateTableOptions) Setters() []func(*CreateTableOptions) {
 	return NoopBuilder(o)
 }
 
@@ -513,8 +530,8 @@ func CreateTable() *CreateTableOptionsBuilder {
 	return &CreateTableOptionsBuilder{}
 }
 
-// List implements Builder[CreateTableOptions].
-func (b *CreateTableOptionsBuilder) List() []func(*CreateTableOptions) {
+// Setters implements Builder[CreateTableOptions].
+func (b *CreateTableOptionsBuilder) Setters() []func(*CreateTableOptions) {
 	return b.Opts
 }
 
@@ -534,9 +551,12 @@ func (b *CreateTableOptionsBuilder) SetKeyspace(v string) *CreateTableOptionsBui
 	return b
 }
 
-// List implements Builder[CreateVectorIndexOptions] allowing the raw struct to be
+// CreateVectorIndexOption is a convenience alias for Builder[CreateVectorIndexOptions].
+type CreateVectorIndexOption = Builder[CreateVectorIndexOptions]
+
+// Setters implements Builder[CreateVectorIndexOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[CreateVectorIndexOptions].
-func (o *CreateVectorIndexOptions) List() []func(*CreateVectorIndexOptions) {
+func (o *CreateVectorIndexOptions) Setters() []func(*CreateVectorIndexOptions) {
 	return NoopBuilder(o)
 }
 
@@ -553,8 +573,8 @@ func CreateVectorIndex() *CreateVectorIndexOptionsBuilder {
 	return &CreateVectorIndexOptionsBuilder{}
 }
 
-// List implements Builder[CreateVectorIndexOptions].
-func (b *CreateVectorIndexOptionsBuilder) List() []func(*CreateVectorIndexOptions) {
+// Setters implements Builder[CreateVectorIndexOptions].
+func (b *CreateVectorIndexOptionsBuilder) Setters() []func(*CreateVectorIndexOptions) {
 	return b.Opts
 }
 
@@ -587,9 +607,12 @@ func (b *CreateVectorIndexOptionsBuilder) SetSourceModel(v string) *CreateVector
 	return b
 }
 
-// List implements Builder[DropDatabaseOptions] allowing the raw struct to be
+// DropDatabaseOption is a convenience alias for Builder[DropDatabaseOptions].
+type DropDatabaseOption = Builder[DropDatabaseOptions]
+
+// Setters implements Builder[DropDatabaseOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[DropDatabaseOptions].
-func (o *DropDatabaseOptions) List() []func(*DropDatabaseOptions) {
+func (o *DropDatabaseOptions) Setters() []func(*DropDatabaseOptions) {
 	return NoopBuilder(o)
 }
 
@@ -606,8 +629,8 @@ func DropDatabase() *DropDatabaseOptionsBuilder {
 	return &DropDatabaseOptionsBuilder{}
 }
 
-// List implements Builder[DropDatabaseOptions].
-func (b *DropDatabaseOptionsBuilder) List() []func(*DropDatabaseOptions) {
+// Setters implements Builder[DropDatabaseOptions].
+func (b *DropDatabaseOptionsBuilder) Setters() []func(*DropDatabaseOptions) {
 	return b.Opts
 }
 
@@ -627,9 +650,12 @@ func (b *DropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *DropDatab
 	return b
 }
 
-// List implements Builder[DropKeyspaceOptions] allowing the raw struct to be
+// DropKeyspaceOption is a convenience alias for Builder[DropKeyspaceOptions].
+type DropKeyspaceOption = Builder[DropKeyspaceOptions]
+
+// Setters implements Builder[DropKeyspaceOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[DropKeyspaceOptions].
-func (o *DropKeyspaceOptions) List() []func(*DropKeyspaceOptions) {
+func (o *DropKeyspaceOptions) Setters() []func(*DropKeyspaceOptions) {
 	return NoopBuilder(o)
 }
 
@@ -646,8 +672,8 @@ func DropKeyspace() *DropKeyspaceOptionsBuilder {
 	return &DropKeyspaceOptionsBuilder{}
 }
 
-// List implements Builder[DropKeyspaceOptions].
-func (b *DropKeyspaceOptionsBuilder) List() []func(*DropKeyspaceOptions) {
+// Setters implements Builder[DropKeyspaceOptions].
+func (b *DropKeyspaceOptionsBuilder) Setters() []func(*DropKeyspaceOptions) {
 	return b.Opts
 }
 
@@ -667,9 +693,12 @@ func (b *DropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *DropKeysp
 	return b
 }
 
-// List implements Builder[FindAvailableRegionsOptions] allowing the raw struct to be
+// FindAvailableRegionsOption is a convenience alias for Builder[FindAvailableRegionsOptions].
+type FindAvailableRegionsOption = Builder[FindAvailableRegionsOptions]
+
+// Setters implements Builder[FindAvailableRegionsOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[FindAvailableRegionsOptions].
-func (o *FindAvailableRegionsOptions) List() []func(*FindAvailableRegionsOptions) {
+func (o *FindAvailableRegionsOptions) Setters() []func(*FindAvailableRegionsOptions) {
 	return NoopBuilder(o)
 }
 
@@ -686,8 +715,8 @@ func FindAvailableRegions() *FindAvailableRegionsOptionsBuilder {
 	return &FindAvailableRegionsOptionsBuilder{}
 }
 
-// List implements Builder[FindAvailableRegionsOptions].
-func (b *FindAvailableRegionsOptionsBuilder) List() []func(*FindAvailableRegionsOptions) {
+// Setters implements Builder[FindAvailableRegionsOptions].
+func (b *FindAvailableRegionsOptionsBuilder) Setters() []func(*FindAvailableRegionsOptions) {
 	return b.Opts
 }
 
@@ -699,9 +728,12 @@ func (b *FindAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *FindAvailab
 	return b
 }
 
-// List implements Builder[IndexingOptions] allowing the raw struct to be
+// IndexingOption is a convenience alias for Builder[IndexingOptions].
+type IndexingOption = Builder[IndexingOptions]
+
+// Setters implements Builder[IndexingOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[IndexingOptions].
-func (o *IndexingOptions) List() []func(*IndexingOptions) {
+func (o *IndexingOptions) Setters() []func(*IndexingOptions) {
 	return NoopBuilder(o)
 }
 
@@ -715,8 +747,8 @@ func Indexing() *IndexingOptionsBuilder {
 	return &IndexingOptionsBuilder{}
 }
 
-// List implements Builder[IndexingOptions].
-func (b *IndexingOptionsBuilder) List() []func(*IndexingOptions) {
+// Setters implements Builder[IndexingOptions].
+func (b *IndexingOptionsBuilder) Setters() []func(*IndexingOptions) {
 	return b.Opts
 }
 
@@ -736,9 +768,12 @@ func (b *IndexingOptionsBuilder) SetDeny(v ...string) *IndexingOptionsBuilder {
 	return b
 }
 
-// List implements Builder[InsertOneOptions] allowing the raw struct to be
+// InsertOneOption is a convenience alias for Builder[InsertOneOptions].
+type InsertOneOption = Builder[InsertOneOptions]
+
+// Setters implements Builder[InsertOneOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[InsertOneOptions].
-func (o *InsertOneOptions) List() []func(*InsertOneOptions) {
+func (o *InsertOneOptions) Setters() []func(*InsertOneOptions) {
 	return NoopBuilder(o)
 }
 
@@ -755,8 +790,8 @@ func InsertOne() *InsertOneOptionsBuilder {
 	return &InsertOneOptionsBuilder{}
 }
 
-// List implements Builder[InsertOneOptions].
-func (b *InsertOneOptionsBuilder) List() []func(*InsertOneOptions) {
+// Setters implements Builder[InsertOneOptions].
+func (b *InsertOneOptionsBuilder) Setters() []func(*InsertOneOptions) {
 	return b.Opts
 }
 
@@ -774,9 +809,12 @@ func (b *InsertOneOptionsBuilder) SetTimeout(v time.Duration) *InsertOneOptionsB
 	return b
 }
 
-// List implements Builder[LexicalOptions] allowing the raw struct to be
+// LexicalOption is a convenience alias for Builder[LexicalOptions].
+type LexicalOption = Builder[LexicalOptions]
+
+// Setters implements Builder[LexicalOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[LexicalOptions].
-func (o *LexicalOptions) List() []func(*LexicalOptions) {
+func (o *LexicalOptions) Setters() []func(*LexicalOptions) {
 	return NoopBuilder(o)
 }
 
@@ -793,14 +831,17 @@ func Lexical() *LexicalOptionsBuilder {
 	return &LexicalOptionsBuilder{}
 }
 
-// List implements Builder[LexicalOptions].
-func (b *LexicalOptionsBuilder) List() []func(*LexicalOptions) {
+// Setters implements Builder[LexicalOptions].
+func (b *LexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
 	return b.Opts
 }
 
-// List implements Builder[ListDatabasesOptions] allowing the raw struct to be
+// ListDatabasesOption is a convenience alias for Builder[ListDatabasesOptions].
+type ListDatabasesOption = Builder[ListDatabasesOptions]
+
+// Setters implements Builder[ListDatabasesOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[ListDatabasesOptions].
-func (o *ListDatabasesOptions) List() []func(*ListDatabasesOptions) {
+func (o *ListDatabasesOptions) Setters() []func(*ListDatabasesOptions) {
 	return NoopBuilder(o)
 }
 
@@ -817,8 +858,8 @@ func ListDatabases() *ListDatabasesOptionsBuilder {
 	return &ListDatabasesOptionsBuilder{}
 }
 
-// List implements Builder[ListDatabasesOptions].
-func (b *ListDatabasesOptionsBuilder) List() []func(*ListDatabasesOptions) {
+// Setters implements Builder[ListDatabasesOptions].
+func (b *ListDatabasesOptionsBuilder) Setters() []func(*ListDatabasesOptions) {
 	return b.Opts
 }
 
@@ -851,9 +892,12 @@ func (b *ListDatabasesOptionsBuilder) SetStartingAfter(v string) *ListDatabasesO
 	return b
 }
 
-// List implements Builder[ListIndexesOptions] allowing the raw struct to be
+// ListIndexesOption is a convenience alias for Builder[ListIndexesOptions].
+type ListIndexesOption = Builder[ListIndexesOptions]
+
+// Setters implements Builder[ListIndexesOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[ListIndexesOptions].
-func (o *ListIndexesOptions) List() []func(*ListIndexesOptions) {
+func (o *ListIndexesOptions) Setters() []func(*ListIndexesOptions) {
 	return NoopBuilder(o)
 }
 
@@ -870,8 +914,8 @@ func ListIndexes() *ListIndexesOptionsBuilder {
 	return &ListIndexesOptionsBuilder{}
 }
 
-// List implements Builder[ListIndexesOptions].
-func (b *ListIndexesOptionsBuilder) List() []func(*ListIndexesOptions) {
+// Setters implements Builder[ListIndexesOptions].
+func (b *ListIndexesOptionsBuilder) Setters() []func(*ListIndexesOptions) {
 	return b.Opts
 }
 
@@ -883,9 +927,12 @@ func (b *ListIndexesOptionsBuilder) SetExplain(v bool) *ListIndexesOptionsBuilde
 	return b
 }
 
-// List implements Builder[RerankOptions] allowing the raw struct to be
+// RerankOption is a convenience alias for Builder[RerankOptions].
+type RerankOption = Builder[RerankOptions]
+
+// Setters implements Builder[RerankOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[RerankOptions].
-func (o *RerankOptions) List() []func(*RerankOptions) {
+func (o *RerankOptions) Setters() []func(*RerankOptions) {
 	return NoopBuilder(o)
 }
 
@@ -902,14 +949,17 @@ func Rerank() *RerankOptionsBuilder {
 	return &RerankOptionsBuilder{}
 }
 
-// List implements Builder[RerankOptions].
-func (b *RerankOptionsBuilder) List() []func(*RerankOptions) {
+// Setters implements Builder[RerankOptions].
+func (b *RerankOptionsBuilder) Setters() []func(*RerankOptions) {
 	return b.Opts
 }
 
-// List implements Builder[SerdesOptions] allowing the raw struct to be
+// SerdesOption is a convenience alias for Builder[SerdesOptions].
+type SerdesOption = Builder[SerdesOptions]
+
+// Setters implements Builder[SerdesOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[SerdesOptions].
-func (o *SerdesOptions) List() []func(*SerdesOptions) {
+func (o *SerdesOptions) Setters() []func(*SerdesOptions) {
 	return NoopBuilder(o)
 }
 
@@ -926,14 +976,17 @@ func Serdes() *SerdesOptionsBuilder {
 	return &SerdesOptionsBuilder{}
 }
 
-// List implements Builder[SerdesOptions].
-func (b *SerdesOptionsBuilder) List() []func(*SerdesOptions) {
+// Setters implements Builder[SerdesOptions].
+func (b *SerdesOptionsBuilder) Setters() []func(*SerdesOptions) {
 	return b.Opts
 }
 
-// List implements Builder[TableFindOptions] allowing the raw struct to be
+// TableFindOption is a convenience alias for Builder[TableFindOptions].
+type TableFindOption = Builder[TableFindOptions]
+
+// Setters implements Builder[TableFindOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[TableFindOptions].
-func (o *TableFindOptions) List() []func(*TableFindOptions) {
+func (o *TableFindOptions) Setters() []func(*TableFindOptions) {
 	return NoopBuilder(o)
 }
 
@@ -950,8 +1003,8 @@ func TableFind() *TableFindOptionsBuilder {
 	return &TableFindOptionsBuilder{}
 }
 
-// List implements Builder[TableFindOptions].
-func (b *TableFindOptionsBuilder) List() []func(*TableFindOptions) {
+// Setters implements Builder[TableFindOptions].
+func (b *TableFindOptionsBuilder) Setters() []func(*TableFindOptions) {
 	return b.Opts
 }
 
@@ -1003,9 +1056,12 @@ func (b *TableFindOptionsBuilder) SetInitialPageState(v string) *TableFindOption
 	return b
 }
 
-// List implements Builder[TimeoutOptions] allowing the raw struct to be
+// TimeoutOption is a convenience alias for Builder[TimeoutOptions].
+type TimeoutOption = Builder[TimeoutOptions]
+
+// Setters implements Builder[TimeoutOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[TimeoutOptions].
-func (o *TimeoutOptions) List() []func(*TimeoutOptions) {
+func (o *TimeoutOptions) Setters() []func(*TimeoutOptions) {
 	return NoopBuilder(o)
 }
 
@@ -1022,8 +1078,8 @@ func Timeout() *TimeoutOptionsBuilder {
 	return &TimeoutOptionsBuilder{}
 }
 
-// List implements Builder[TimeoutOptions].
-func (b *TimeoutOptionsBuilder) List() []func(*TimeoutOptions) {
+// Setters implements Builder[TimeoutOptions].
+func (b *TimeoutOptionsBuilder) Setters() []func(*TimeoutOptions) {
 	return b.Opts
 }
 
@@ -1048,9 +1104,12 @@ func (b *TimeoutOptionsBuilder) SetBulkOperation(v time.Duration) *TimeoutOption
 	return b
 }
 
-// List implements Builder[VectorOptions] allowing the raw struct to be
+// VectorOption is a convenience alias for Builder[VectorOptions].
+type VectorOption = Builder[VectorOptions]
+
+// Setters implements Builder[VectorOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[VectorOptions].
-func (o *VectorOptions) List() []func(*VectorOptions) {
+func (o *VectorOptions) Setters() []func(*VectorOptions) {
 	return NoopBuilder(o)
 }
 
@@ -1067,8 +1126,8 @@ func Vector() *VectorOptionsBuilder {
 	return &VectorOptionsBuilder{}
 }
 
-// List implements Builder[VectorOptions].
-func (b *VectorOptionsBuilder) List() []func(*VectorOptions) {
+// Setters implements Builder[VectorOptions].
+func (b *VectorOptionsBuilder) Setters() []func(*VectorOptions) {
 	return b.Opts
 }
 
@@ -1093,15 +1152,17 @@ func (b *VectorOptionsBuilder) SetMetric(v string) *VectorOptionsBuilder {
 // Service configures automatic vector embedding generation (vectorize).
 func (b *VectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *VectorOptionsBuilder {
 	b.Opts = append(b.Opts, func(o *VectorOptions) {
-		merged, _ := MergeOptions(v...)
-		o.Service = merged
+		o.Service = Merge(v...)
 	})
 	return b
 }
 
-// List implements Builder[VectorServiceOptions] allowing the raw struct to be
+// VectorServiceOption is a convenience alias for Builder[VectorServiceOptions].
+type VectorServiceOption = Builder[VectorServiceOptions]
+
+// Setters implements Builder[VectorServiceOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[VectorServiceOptions].
-func (o *VectorServiceOptions) List() []func(*VectorServiceOptions) {
+func (o *VectorServiceOptions) Setters() []func(*VectorServiceOptions) {
 	return NoopBuilder(o)
 }
 
@@ -1115,8 +1176,8 @@ func VectorService() *VectorServiceOptionsBuilder {
 	return &VectorServiceOptionsBuilder{}
 }
 
-// List implements Builder[VectorServiceOptions].
-func (b *VectorServiceOptionsBuilder) List() []func(*VectorServiceOptions) {
+// Setters implements Builder[VectorServiceOptions].
+func (b *VectorServiceOptionsBuilder) Setters() []func(*VectorServiceOptions) {
 	return b.Opts
 }
 

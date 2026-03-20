@@ -100,7 +100,7 @@ func (c *command) resolveOptions() *options.APIOptions {
 		}
 	}
 
-	return options.Merge(
+	return options.MergeAPILayers(
 		clientOpts,        // Client level
 		dbOpts,            // Database level
 		c.resourceOptions, // Collection/Table level

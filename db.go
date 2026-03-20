@@ -96,7 +96,7 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 //	coll, err := db.CreateCollection(ctx, "my_collection", options.WithCreateCollectionOptions(opts))
 //
 // Note: Warnings are accessible via the WarningHandler option callback only.
-func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.Builder[options.CreateCollectionOptions]) (*Collection, error) {
+func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.CreateCollectionOption) (*Collection, error) {
 	cmd, err := createCollectionCommand(d, name, opts...)
 	if err != nil {
 		return nil, err
@@ -118,12 +118,12 @@ type createCollectionPayload struct {
 }
 
 // createCollectionCommand builds the createCollection command for the database
-func createCollectionCommand(d *Db, name string, opts ...options.Builder[options.CreateCollectionOptions]) (command, error) {
+func createCollectionCommand(d *Db, name string, opts ...options.CreateCollectionOption) (command, error) {
 	payload := createCollectionPayload{
 		Name: name,
 	}
 
-	merged, err := options.MergeOptions(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}

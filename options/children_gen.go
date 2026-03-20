@@ -17,7 +17,7 @@
 package options
 
 // Children implements ChildValidator for APIOptions.
-// Returns all non-nil Validator fields for recursive validation in MergeOptions.
+// Returns all non-nil Validator fields for recursive validation in MergeAndValidate.
 func (o *APIOptions) Children() []Validator {
 	var children []Validator
 	if o.Timeout != nil {
@@ -30,7 +30,7 @@ func (o *APIOptions) Children() []Validator {
 }
 
 // Children implements ChildValidator for CreateCollectionOptions.
-// Returns all non-nil Validator fields for recursive validation in MergeOptions.
+// Returns all non-nil Validator fields for recursive validation in MergeAndValidate.
 func (o *CreateCollectionOptions) Children() []Validator {
 	var children []Validator
 	if o.DefaultId != nil {
@@ -52,7 +52,7 @@ func (o *CreateCollectionOptions) Children() []Validator {
 }
 
 // Children implements ChildValidator for VectorOptions.
-// Returns all non-nil Validator fields for recursive validation in MergeOptions.
+// Returns all non-nil Validator fields for recursive validation in MergeAndValidate.
 func (o *VectorOptions) Children() []Validator {
 	var children []Validator
 	if o.Service != nil {

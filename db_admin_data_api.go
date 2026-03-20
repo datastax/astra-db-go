@@ -49,8 +49,8 @@ func (d *DataAPIDatabaseAdmin) ListKeyspaces(ctx context.Context) ([]string, err
 }
 
 // CreateKeyspace creates a new keyspace via the Data API.
-func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts ...options.Builder[options.CreateKeyspaceOptions]) error {
-	merged, err := options.MergeOptions(opts...)
+func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 }
 
 // DropKeyspace drops a keyspace via the Data API.
-func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.Builder[options.DropKeyspaceOptions]) error {
+func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error {
 	payload := struct {
 		Name string `json:"name"`
 	}{Name: keyspace}

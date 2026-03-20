@@ -23,7 +23,7 @@ import (
 )
 
 func TestCreateDatabase_Defaults(t *testing.T) {
-	opts, err := options.MergeOptions[options.CreateDatabaseOptions]()
+	opts, err := options.MergeAndValidate[options.CreateDatabaseOptions]()
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestCreateDatabase_Defaults(t *testing.T) {
 }
 
 func TestDropDatabase_Defaults(t *testing.T) {
-	opts, err := options.MergeOptions[options.DropDatabaseOptions]()
+	opts, err := options.MergeAndValidate[options.DropDatabaseOptions]()
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
@@ -55,7 +55,7 @@ func TestDropDatabase_Defaults(t *testing.T) {
 }
 
 func TestCreateKeyspace_Defaults(t *testing.T) {
-	opts, err := options.MergeOptions[options.CreateKeyspaceOptions]()
+	opts, err := options.MergeAndValidate[options.CreateKeyspaceOptions]()
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestCreateKeyspace_Defaults(t *testing.T) {
 }
 
 func TestDropKeyspace_Defaults(t *testing.T) {
-	opts, err := options.MergeOptions[options.DropKeyspaceOptions]()
+	opts, err := options.MergeAndValidate[options.DropKeyspaceOptions]()
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestDropKeyspace_Defaults(t *testing.T) {
 }
 
 func TestCreateDatabase_Override(t *testing.T) {
-	opts, err := options.MergeOptions(
+	opts, err := options.MergeAndValidate(
 		options.CreateDatabase().SetBlocking(false).SetPollInterval(30 * time.Second),
 	)
 	if err != nil {
@@ -102,7 +102,7 @@ func TestCreateDatabase_Override(t *testing.T) {
 }
 
 func TestCreateDatabase_OverrideAll(t *testing.T) {
-	opts, err := options.MergeOptions(
+	opts, err := options.MergeAndValidate(
 		options.CreateDatabase().SetBlocking(false).SetPollInterval(45 * time.Second).SetKeyspace("my_keyspace"),
 	)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestDropKeyspace_MergeMultiple(t *testing.T) {
 
 	third := options.DropKeyspace().SetPollInterval(5 * time.Second)
 
-	opts, err := options.MergeOptions(first, second, third)
+	opts, err := options.MergeAndValidate(first, second, third)
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestDropKeyspace_MergeMultiple(t *testing.T) {
 
 func TestDropKeyspace_WithDirectStruct(t *testing.T) {
 	// Make sure direct struct can be merged and that defaults are applied for missing fields
-	opts, err := options.MergeOptions(
+	opts, err := options.MergeAndValidate(
 		&options.DropKeyspaceOptions{PollInterval: ptr.To(10 * time.Minute)},
 	)
 	if err != nil {
@@ -161,6 +161,29 @@ func TestDropKeyspace_WithDirectStruct(t *testing.T) {
 	if opts.Blocking == nil || *opts.Blocking != true {
 		t.Errorf("expected Blocking to be true, got %v", opts.Blocking)
 	}
+	if opts.PollInterval == nil || *opts.PollInterval != 10*time.Minute {
+		t.Errorf("expected PollInterval to be 10m, got %v", opts.PollInterval)
+	}
+}
+
+func TestMultipleDirectStruct(t *testing.T) {
+	// Just wanted to create a test that combines multiple raw/direct struct instances
+	// AND a flient builder.
+	opts, err := options.MergeAndValidate(
+		&options.DropKeyspaceOptions{PollInterval: ptr.To(1 * time.Minute)},
+		&options.DropKeyspaceOptions{PollInterval: ptr.To(10 * time.Minute)},
+		options.DropKeyspace().SetBlocking(false),
+	)
+	if err != nil {
+		t.Fatalf("failed to merge options: %v", err)
+	}
+	if opts == nil {
+		t.Fatal("expected non-nil options")
+	}
+	if opts.Blocking == nil || *opts.Blocking != false {
+		t.Errorf("expected Blocking to be false, got %v", opts.Blocking)
+	}
+	// Now verify even with multiple direct structs, the last one wins for overlapping fields
 	if opts.PollInterval == nil || *opts.PollInterval != 10*time.Minute {
 		t.Errorf("expected PollInterval to be 10m, got %v", opts.PollInterval)
 	}

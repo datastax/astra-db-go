@@ -2,8 +2,8 @@
 
 Code generator that produces boilerplate for the `options` package. It inspects the options structs and emits two files:
 
-- **`builders_gen.go`** — `Builder` implementations (`List()`, `Validate()`, `Set*` methods) for every `XxxOptions` struct that has a corresponding `XxxOptionsBuilder`.
-- **`children_gen.go`** — `Children() []Validator` methods for structs that contain `*Validator` fields, enabling recursive validation in `MergeOptions`.
+- **`builders_gen.go`** — `Builder` implementations (`Setters()`, `Validate()`, `Set*` methods) for every `XxxOptions` struct that has a corresponding `XxxOptionsBuilder`. Also generates type aliases (`XxxOption = Builder[XxxOptions]`) for cleaner public signatures.
+- **`children_gen.go`** — `Children() []Validator` methods for structs that contain `*Validator` fields, enabling recursive validation in `MergeAndValidate`.
 
 Hand-written convenience methods (e.g. `SetIndexingAllow`) are left untouched and layer on top of the generated setters. Similarly, if you implement `Validator`, we won't code-gen a boilerplate `Validator` func.
 
@@ -22,9 +22,12 @@ type TestOptions struct {
 This tool will codegen the boilerplate:
 
 ```go
-// List implements Builder[TestOptions] allowing the raw struct to be
+// TestOption is a convenience alias for Builder[TestOptions].
+type TestOption = Builder[TestOptions]
+
+// Setters implements Builder[TestOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[TestOptions].
-func (o *TestOptions) List() []func(*TestOptions) {
+func (o *TestOptions) Setters() []func(*TestOptions) {
 	return NoopBuilder(o)
 }
 
@@ -41,8 +44,8 @@ func Test() *TestOptionsBuilder {
 	return &TestOptionsBuilder{}
 }
 
-// List implements Builder[TestOptions].
-func (b *TestOptionsBuilder) List() []func(*TestOptions) {
+// Setters implements Builder[TestOptions].
+func (b *TestOptionsBuilder) Setters() []func(*TestOptions) {
 	return b.Opts
 }
 

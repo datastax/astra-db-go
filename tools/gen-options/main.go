@@ -15,11 +15,11 @@
 // gen-options generates boilerplate for the options package:
 //
 //  1. Children() methods — for each struct with *Validator fields, emits a
-//     Children() []Validator method so MergeOptions can recursively validate them.
+//     Children() []Validator method so MergeAndValidate can recursively validate them.
 //
 //  2. Builder implementations — for each XxxOptions struct that has a corresponding
 //     XxxOptionsBuilder struct, emits the builder struct definition, constructor,
-//     List(), and all Set* methods. Also emits the options struct's List() method
+//     Setters(), and all Set* methods. Also emits the options struct's Setters() method
 //     and trivial Validate() stubs (when no hand-written Validate exists).
 //     Hand-written convenience methods (e.g. SetIndexingAllow) are left alone in their
 //     original files and simply layer on top of the generated setters.
@@ -158,6 +158,32 @@ func handWrittenMethods(pkg *loadedPkg) map[string]bool {
 	return methods
 }
 
+// handWrittenTypes scans non-generated source files and returns a set of
+// type names that are manually defined (not generated).
+func handWrittenTypes(pkg *loadedPkg) map[string]bool {
+	types := make(map[string]bool)
+	for _, file := range pkg.syntax {
+		filename := filepath.Base(pkg.fset.File(file.Pos()).Name())
+		if strings.Contains(filename, "_gen") {
+			continue
+		}
+		for _, decl := range file.Decls {
+			gen, ok := decl.(*ast.GenDecl)
+			if !ok || gen.Tok != token.TYPE {
+				continue
+			}
+			for _, spec := range gen.Specs {
+				ts, ok := spec.(*ast.TypeSpec)
+				if !ok {
+					continue
+				}
+				types[ts.Name.Name] = true
+			}
+		}
+	}
+	return types
+}
+
 // ----- Children generation -----
 
 // childStruct is an options struct that has at least one *Validator field.
@@ -199,6 +225,7 @@ func validatorPtrFields(s *types.Struct, validator *types.Interface) []string {
 type optsDef struct {
 	OptsType    string // e.g. "CreateCollectionOptions"
 	GenValidate bool   // true → generate trivial Validate()
+	GenAlias    bool   // true → generate type alias (e.g. CreateCollectionOption)
 	HasBuilder  bool   // true → generate builder struct, constructor, setters
 	BuilderType string // e.g. "CreateCollectionOptionsBuilder"
 	Constructor string // e.g. "CreateCollection"
@@ -211,7 +238,7 @@ type setterDef struct {
 	Method            string // e.g. "SetLimit"
 	Field             string // e.g. "Limit"
 	ParamType         string // e.g. "int", "Builder[VectorOptions]", "map[string]any"
-	IsVariadicBuilder bool   // true → takes ...Builder[T], calls MergeOptions
+	IsVariadicBuilder bool   // true → takes ...Builder[T], calls Merge
 	InnerType         string // T in Builder[T] when IsVariadicBuilder is true
 	IsMap             bool   // true → stored directly, no pointer wrapping
 	IsSlice           bool   // true → variadic element setter, stored directly
@@ -220,6 +247,7 @@ type setterDef struct {
 
 func buildersSrc(pkg *loadedPkg) renderJob {
 	hwMethods := handWrittenMethods(pkg)
+	hwTypes := handWrittenTypes(pkg)
 	comments := fieldComments(pkg)
 	scope := pkg.types.Scope()
 
@@ -250,12 +278,15 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 		}
 
 		builderName := name + "Builder"
+		constructor := strings.TrimSuffix(name, "Options")
+		aliasName := constructor + "Option"
 		def := optsDef{
 			OptsType:    name,
 			GenValidate: !hwMethods[name+".Validate"],
+			GenAlias:    !hwTypes[aliasName],
 			HasBuilder:  true,
 			BuilderType: builderName,
-			Constructor: strings.TrimSuffix(name, "Options"),
+			Constructor: constructor,
 			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
 		}
 
@@ -340,7 +371,7 @@ func setterForField(structName string, f *types.Var, validator *types.Interface,
 	switch t := f.Type().(type) {
 
 	case *types.Pointer:
-		// *Validator child → variadic builder setter using MergeOptions.
+		// *Validator child → variadic builder setter using Merge.
 		// On a clean first run the generated Validate() stubs don't exist
 		// yet, so types.Implements may return false for our own Options
 		// types. Fall back to futureValidators for those.
@@ -481,7 +512,7 @@ var childrenTmpl = template.Must(template.New("children").Parse(boilerplate + `
 package {{ .PkgName }}
 {{ range .Data }}
 // Children implements ChildValidator for {{ .Name }}.
-// Returns all non-nil Validator fields for recursive validation in MergeOptions.
+// Returns all non-nil Validator fields.
 func (o *{{ .Name }}) Children() []Validator {
 	var children []Validator
 	{{- range .Fields }}
@@ -500,9 +531,12 @@ var buildersTmpl = template.Must(template.New("builders").Parse(boilerplate + `
 
 package {{ .PkgName }}
 {{ range .Data }}{{ $o := . }}
-// List implements Builder[{{ .OptsType }}] allowing the raw struct to be
+{{ if .GenAlias }}// {{ .Constructor }}Option is a convenience alias for Builder[{{ .OptsType }}].
+type {{ .Constructor }}Option = Builder[{{ .OptsType }}]
+{{ end }}
+// Setters implements Builder[{{ .OptsType }}] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[{{$o.OptsType}}].
-func (o *{{ .OptsType }}) List() []func(*{{ .OptsType }}) {
+func (o *{{ .OptsType }}) Setters() []func(*{{ .OptsType }}) {
 	return NoopBuilder(o)
 }
 {{ if .GenValidate }}
@@ -520,8 +554,8 @@ func {{ .Constructor }}() *{{ .BuilderType }} {
 	return &{{ .BuilderType }}{}
 }
 
-// List implements Builder[{{ .OptsType }}].
-func (b *{{ .BuilderType }}) List() []func(*{{ .OptsType }}) {
+// Setters implements Builder[{{ .OptsType }}].
+func (b *{{ .BuilderType }}) Setters() []func(*{{ .OptsType }}) {
 	return b.Opts
 }
 {{ range .Setters }}
@@ -530,8 +564,7 @@ func (b *{{ .BuilderType }}) List() []func(*{{ .OptsType }}) {
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.BuilderType }} {
 	b.Opts = append(b.Opts, func(o *{{ $o.OptsType }}) {
-		merged, _ := MergeOptions(v...)
-		o.{{ .Field }} = merged
+		o.{{ .Field }} = Merge(v...)
 	})
 	return b
 }

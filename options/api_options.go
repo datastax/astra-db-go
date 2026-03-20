@@ -116,10 +116,10 @@ func NewAPIOptions(opts ...APIOption) *APIOptions {
 	return o
 }
 
-// Merge combines multiple APIOptions layers, with later options overriding earlier ones.
+// MergeAPILayers combines multiple APIOptions layers, with later options overriding earlier ones.
 // The merge order should be: Defaults -> Client -> Database -> Collection/Table -> Command
 // Returns a new APIOptions with all non-nil values from the layers applied.
-func Merge(layers ...*APIOptions) *APIOptions {
+func MergeAPILayers(layers ...*APIOptions) *APIOptions {
 	result := DefaultAPIOptions()
 
 	for _, layer := range layers {

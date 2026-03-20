@@ -24,14 +24,14 @@ import (
 func BenchmarkMergeOptions_WithValidator(b *testing.B) {
 	// IndexingOptions has a real Validate() method.
 	for b.Loop() {
-		options.MergeOptions(options.Indexing().SetAllow("field1", "field2"))
+		options.MergeAndValidate(options.Indexing().SetAllow("field1", "field2"))
 	}
 }
 
 func BenchmarkMergeOptions_WithoutValidator(b *testing.B) {
 	// CreateTableOptions has no Validate() method.
 	for b.Loop() {
-		options.MergeOptions(options.CreateTable().SetIfNotExists(true))
+		options.MergeAndValidate(options.CreateTable().SetIfNotExists(true))
 	}
 }
 
@@ -39,14 +39,14 @@ func BenchmarkMergeOptions_NoopBuilder(b *testing.B) {
 	// Raw struct via NoopBuilder path (reflection-based copy).
 	for b.Loop() {
 		opts := &options.CreateTableOptions{IfNotExists: ptr.To(true)}
-		options.MergeOptions(opts)
+		options.MergeAndValidate(opts)
 	}
 }
 
 func BenchmarkMergeOptions_MultipleBuilders(b *testing.B) {
 	// Multiple builders to measure per-option overhead.
 	for b.Loop() {
-		options.MergeOptions(
+		options.MergeAndValidate(
 			options.CreateTable().SetIfNotExists(true),
 			options.CreateTable().SetKeyspace("ks"),
 		)

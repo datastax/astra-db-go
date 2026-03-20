@@ -94,7 +94,7 @@ func (c *DataAPIClient) Admin(opts ...options.APIOption) (*AstraAdmin, error) {
 		return nil, fmt.Errorf("Admin is only available with the Astra backend (current: %s)", c.dataAPIBackend)
 	}
 	adminOpts := options.NewAPIOptions(opts...)
-	env := options.Merge(c.options, adminOpts).GetAstraEnvironment()
+	env := options.MergeAPILayers(c.options, adminOpts).GetAstraEnvironment()
 	return &AstraAdmin{
 		client:           c,
 		options:          adminOpts,
