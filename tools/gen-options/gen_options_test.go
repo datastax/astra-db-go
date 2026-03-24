@@ -20,6 +20,7 @@ func TestUnexportedName(t *testing.T) {
 		{"AπBuilder", "aπBuilder"}, // a pi builder!
 		{"", ""},
 		{"A", "a"},
+		{"OAuthClient", "oAuthClient"},
 		{"builder", "builder"},           // already unexported, should stay the same
 		{"StatusIMUsed", "statusIMUsed"}, // Real-world example from stdlib.
 		{"HTTP2Config", "http2Config"},   // Real-world example from stdlib.
