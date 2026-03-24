@@ -35,7 +35,7 @@ type aPIOptionsBuilder struct {
 	setters []func(*APIOptions)
 }
 
-// API creates a new builder for APIOptions.
+// API creates a new builder for [APIOptions].
 func API() *aPIOptionsBuilder {
 	return &aPIOptionsBuilder{}
 }
@@ -115,7 +115,16 @@ func (b *aPIOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *aPIOptionsBuild
 	return b
 }
 
-// CollectionDefaultIdOption is a convenience alias for Builder[CollectionDefaultIdOptions].
+// CollectionDefaultIdOption configures a CollectionDefaultId operation.
+// You can use the fluent-style builder or a pointer to [CollectionDefaultIdOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionDefaultId]):
+//
+//	opts := options.CollectionDefaultId().SetType(...)
+//
+// Example using a pointer to [CollectionDefaultIdOptions] without the fluent builder:
+//
+//	opts := &options.CollectionDefaultIdOptions{...}
 type CollectionDefaultIdOption = Builder[CollectionDefaultIdOptions]
 
 // Setters implements Builder[CollectionDefaultIdOptions] allowing the raw struct to be
@@ -132,7 +141,7 @@ type collectionDefaultIdOptionsBuilder struct {
 	setters []func(*CollectionDefaultIdOptions)
 }
 
-// CollectionDefaultId creates a new builder for CollectionDefaultIdOptions.
+// CollectionDefaultId creates a new builder for [CollectionDefaultIdOptions].
 func CollectionDefaultId() *collectionDefaultIdOptionsBuilder {
 	return &collectionDefaultIdOptionsBuilder{}
 }
@@ -151,7 +160,17 @@ func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collection
 	return b
 }
 
-// CollectionFindOption is a convenience alias for Builder[CollectionFindOptions].
+// CollectionFindOption configures a CollectionFind operation.
+// You can use the fluent-style builder or a pointer to [CollectionFindOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionFind]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CollectionFind().SetLimit(42)
+//
+// Example using a pointer to [CollectionFindOptions] without the fluent builder:
+//
+//	opts := &options.CollectionFindOptions{Limit: ptr.To(42)}
 type CollectionFindOption = Builder[CollectionFindOptions]
 
 // Setters implements Builder[CollectionFindOptions] allowing the raw struct to be
@@ -168,7 +187,7 @@ type collectionFindOptionsBuilder struct {
 	setters []func(*CollectionFindOptions)
 }
 
-// CollectionFind creates a new builder for CollectionFindOptions.
+// CollectionFind creates a new builder for [CollectionFindOptions].
 func CollectionFind() *collectionFindOptionsBuilder {
 	return &collectionFindOptionsBuilder{}
 }
@@ -234,7 +253,17 @@ func (b *collectionFindOptionsBuilder) SetInitialPageState(v string) *collection
 	return b
 }
 
-// CollectionUpdateOneOption is a convenience alias for Builder[CollectionUpdateOneOptions].
+// CollectionUpdateOneOption configures a CollectionUpdateOne operation.
+// You can use the fluent-style builder or a pointer to [CollectionUpdateOneOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionUpdateOne]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CollectionUpdateOne().SetUpsert(false)
+//
+// Example using a pointer to [CollectionUpdateOneOptions] without the fluent builder:
+//
+//	opts := &options.CollectionUpdateOneOptions{Upsert: ptr.To(false)}
 type CollectionUpdateOneOption = Builder[CollectionUpdateOneOptions]
 
 // Setters implements Builder[CollectionUpdateOneOptions] allowing the raw struct to be
@@ -251,7 +280,7 @@ type collectionUpdateOneOptionsBuilder struct {
 	setters []func(*CollectionUpdateOneOptions)
 }
 
-// CollectionUpdateOne creates a new builder for CollectionUpdateOneOptions.
+// CollectionUpdateOne creates a new builder for [CollectionUpdateOneOptions].
 func CollectionUpdateOne() *collectionUpdateOneOptionsBuilder {
 	return &collectionUpdateOneOptionsBuilder{}
 }
@@ -276,7 +305,16 @@ func (b *collectionUpdateOneOptionsBuilder) SetUpsert(v bool) *collectionUpdateO
 	return b
 }
 
-// CreateCollectionOption is a convenience alias for Builder[CreateCollectionOptions].
+// CreateCollectionOption configures a CreateCollection operation.
+// You can use the fluent-style builder or a pointer to [CreateCollectionOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateCollection]):
+//
+//	opts := options.CreateCollection().SetDefaultId(...)
+//
+// Example using a pointer to [CreateCollectionOptions] without the fluent builder:
+//
+//	opts := &options.CreateCollectionOptions{...}
 type CreateCollectionOption = Builder[CreateCollectionOptions]
 
 // Setters implements Builder[CreateCollectionOptions] allowing the raw struct to be
@@ -293,7 +331,7 @@ type createCollectionOptionsBuilder struct {
 	setters []func(*CreateCollectionOptions)
 }
 
-// CreateCollection creates a new builder for CreateCollectionOptions.
+// CreateCollection creates a new builder for [CreateCollectionOptions].
 func CreateCollection() *createCollectionOptionsBuilder {
 	return &createCollectionOptionsBuilder{}
 }
@@ -348,7 +386,17 @@ func (b *createCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) 
 	return b
 }
 
-// CreateDatabaseOption is a convenience alias for Builder[CreateDatabaseOptions].
+// CreateDatabaseOption configures a CreateDatabase operation.
+// You can use the fluent-style builder or a pointer to [CreateDatabaseOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateDatabase]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateDatabase().SetKeyspace("value")
+//
+// Example using a pointer to [CreateDatabaseOptions] without the fluent builder:
+//
+//	opts := &options.CreateDatabaseOptions{Keyspace: ptr.To("value")}
 type CreateDatabaseOption = Builder[CreateDatabaseOptions]
 
 // Setters implements Builder[CreateDatabaseOptions] allowing the raw struct to be
@@ -365,7 +413,7 @@ type createDatabaseOptionsBuilder struct {
 	setters []func(*CreateDatabaseOptions)
 }
 
-// CreateDatabase creates a new builder for CreateDatabaseOptions.
+// CreateDatabase creates a new builder for [CreateDatabaseOptions].
 func CreateDatabase() *createDatabaseOptionsBuilder {
 	return &createDatabaseOptionsBuilder{}
 }
@@ -398,7 +446,17 @@ func (b *createDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *createD
 	return b
 }
 
-// CreateIndexOption is a convenience alias for Builder[CreateIndexOptions].
+// CreateIndexOption configures a CreateIndex operation.
+// You can use the fluent-style builder or a pointer to [CreateIndexOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateIndex]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateIndex().SetIfNotExists(false)
+//
+// Example using a pointer to [CreateIndexOptions] without the fluent builder:
+//
+//	opts := &options.CreateIndexOptions{IfNotExists: ptr.To(false)}
 type CreateIndexOption = Builder[CreateIndexOptions]
 
 // Setters implements Builder[CreateIndexOptions] allowing the raw struct to be
@@ -415,7 +473,7 @@ type createIndexOptionsBuilder struct {
 	setters []func(*CreateIndexOptions)
 }
 
-// CreateIndex creates a new builder for CreateIndexOptions.
+// CreateIndex creates a new builder for [CreateIndexOptions].
 func CreateIndex() *createIndexOptionsBuilder {
 	return &createIndexOptionsBuilder{}
 }
@@ -457,7 +515,17 @@ func (b *createIndexOptionsBuilder) SetCaseSensitive(v bool) *createIndexOptions
 	return b
 }
 
-// CreateKeyspaceOption is a convenience alias for Builder[CreateKeyspaceOptions].
+// CreateKeyspaceOption configures a CreateKeyspace operation.
+// You can use the fluent-style builder or a pointer to [CreateKeyspaceOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateKeyspace]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateKeyspace().SetBlocking(false)
+//
+// Example using a pointer to [CreateKeyspaceOptions] without the fluent builder:
+//
+//	opts := &options.CreateKeyspaceOptions{Blocking: ptr.To(false)}
 type CreateKeyspaceOption = Builder[CreateKeyspaceOptions]
 
 // Setters implements Builder[CreateKeyspaceOptions] allowing the raw struct to be
@@ -474,7 +542,7 @@ type createKeyspaceOptionsBuilder struct {
 	setters []func(*CreateKeyspaceOptions)
 }
 
-// CreateKeyspace creates a new builder for CreateKeyspaceOptions.
+// CreateKeyspace creates a new builder for [CreateKeyspaceOptions].
 func CreateKeyspace() *createKeyspaceOptionsBuilder {
 	return &createKeyspaceOptionsBuilder{}
 }
@@ -508,7 +576,17 @@ func (b *createKeyspaceOptionsBuilder) SetReplicationFactor(v int) *createKeyspa
 	return b
 }
 
-// CreateTableOption is a convenience alias for Builder[CreateTableOptions].
+// CreateTableOption configures a CreateTable operation.
+// You can use the fluent-style builder or a pointer to [CreateTableOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateTable]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateTable().SetIfNotExists(false)
+//
+// Example using a pointer to [CreateTableOptions] without the fluent builder:
+//
+//	opts := &options.CreateTableOptions{IfNotExists: ptr.To(false)}
 type CreateTableOption = Builder[CreateTableOptions]
 
 // Setters implements Builder[CreateTableOptions] allowing the raw struct to be
@@ -525,7 +603,7 @@ type createTableOptionsBuilder struct {
 	setters []func(*CreateTableOptions)
 }
 
-// CreateTable creates a new builder for CreateTableOptions.
+// CreateTable creates a new builder for [CreateTableOptions].
 func CreateTable() *createTableOptionsBuilder {
 	return &createTableOptionsBuilder{}
 }
@@ -551,7 +629,17 @@ func (b *createTableOptionsBuilder) SetKeyspace(v string) *createTableOptionsBui
 	return b
 }
 
-// CreateVectorIndexOption is a convenience alias for Builder[CreateVectorIndexOptions].
+// CreateVectorIndexOption configures a CreateVectorIndex operation.
+// You can use the fluent-style builder or a pointer to [CreateVectorIndexOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateVectorIndex]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateVectorIndex().SetIfNotExists(false)
+//
+// Example using a pointer to [CreateVectorIndexOptions] without the fluent builder:
+//
+//	opts := &options.CreateVectorIndexOptions{IfNotExists: ptr.To(false)}
 type CreateVectorIndexOption = Builder[CreateVectorIndexOptions]
 
 // Setters implements Builder[CreateVectorIndexOptions] allowing the raw struct to be
@@ -568,7 +656,7 @@ type createVectorIndexOptionsBuilder struct {
 	setters []func(*CreateVectorIndexOptions)
 }
 
-// CreateVectorIndex creates a new builder for CreateVectorIndexOptions.
+// CreateVectorIndex creates a new builder for [CreateVectorIndexOptions].
 func CreateVectorIndex() *createVectorIndexOptionsBuilder {
 	return &createVectorIndexOptionsBuilder{}
 }
@@ -607,7 +695,17 @@ func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVector
 	return b
 }
 
-// DropDatabaseOption is a convenience alias for Builder[DropDatabaseOptions].
+// DropDatabaseOption configures a DropDatabase operation.
+// You can use the fluent-style builder or a pointer to [DropDatabaseOptions] interchangeably.
+//
+// Example using the fluent builder ([DropDatabase]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.DropDatabase().SetBlocking(false)
+//
+// Example using a pointer to [DropDatabaseOptions] without the fluent builder:
+//
+//	opts := &options.DropDatabaseOptions{Blocking: ptr.To(false)}
 type DropDatabaseOption = Builder[DropDatabaseOptions]
 
 // Setters implements Builder[DropDatabaseOptions] allowing the raw struct to be
@@ -624,7 +722,7 @@ type dropDatabaseOptionsBuilder struct {
 	setters []func(*DropDatabaseOptions)
 }
 
-// DropDatabase creates a new builder for DropDatabaseOptions.
+// DropDatabase creates a new builder for [DropDatabaseOptions].
 func DropDatabase() *dropDatabaseOptionsBuilder {
 	return &dropDatabaseOptionsBuilder{}
 }
@@ -650,7 +748,17 @@ func (b *dropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *dropDatab
 	return b
 }
 
-// DropKeyspaceOption is a convenience alias for Builder[DropKeyspaceOptions].
+// DropKeyspaceOption configures a DropKeyspace operation.
+// You can use the fluent-style builder or a pointer to [DropKeyspaceOptions] interchangeably.
+//
+// Example using the fluent builder ([DropKeyspace]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.DropKeyspace().SetBlocking(false)
+//
+// Example using a pointer to [DropKeyspaceOptions] without the fluent builder:
+//
+//	opts := &options.DropKeyspaceOptions{Blocking: ptr.To(false)}
 type DropKeyspaceOption = Builder[DropKeyspaceOptions]
 
 // Setters implements Builder[DropKeyspaceOptions] allowing the raw struct to be
@@ -667,7 +775,7 @@ type dropKeyspaceOptionsBuilder struct {
 	setters []func(*DropKeyspaceOptions)
 }
 
-// DropKeyspace creates a new builder for DropKeyspaceOptions.
+// DropKeyspace creates a new builder for [DropKeyspaceOptions].
 func DropKeyspace() *dropKeyspaceOptionsBuilder {
 	return &dropKeyspaceOptionsBuilder{}
 }
@@ -693,7 +801,17 @@ func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeysp
 	return b
 }
 
-// FindAvailableRegionsOption is a convenience alias for Builder[FindAvailableRegionsOptions].
+// FindAvailableRegionsOption configures a FindAvailableRegions operation.
+// You can use the fluent-style builder or a pointer to [FindAvailableRegionsOptions] interchangeably.
+//
+// Example using the fluent builder ([FindAvailableRegions]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.FindAvailableRegions().SetFilterByOrg(false)
+//
+// Example using a pointer to [FindAvailableRegionsOptions] without the fluent builder:
+//
+//	opts := &options.FindAvailableRegionsOptions{FilterByOrg: ptr.To(false)}
 type FindAvailableRegionsOption = Builder[FindAvailableRegionsOptions]
 
 // Setters implements Builder[FindAvailableRegionsOptions] allowing the raw struct to be
@@ -710,7 +828,7 @@ type findAvailableRegionsOptionsBuilder struct {
 	setters []func(*FindAvailableRegionsOptions)
 }
 
-// FindAvailableRegions creates a new builder for FindAvailableRegionsOptions.
+// FindAvailableRegions creates a new builder for [FindAvailableRegionsOptions].
 func FindAvailableRegions() *findAvailableRegionsOptionsBuilder {
 	return &findAvailableRegionsOptionsBuilder{}
 }
@@ -728,7 +846,16 @@ func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailab
 	return b
 }
 
-// IndexingOption is a convenience alias for Builder[IndexingOptions].
+// IndexingOption configures a Indexing operation.
+// You can use the fluent-style builder or a pointer to [IndexingOptions] interchangeably.
+//
+// Example using the fluent builder ([Indexing]):
+//
+//	opts := options.Indexing().SetAllow(...)
+//
+// Example using a pointer to [IndexingOptions] without the fluent builder:
+//
+//	opts := &options.IndexingOptions{...}
 type IndexingOption = Builder[IndexingOptions]
 
 // Setters implements Builder[IndexingOptions] allowing the raw struct to be
@@ -742,7 +869,7 @@ type indexingOptionsBuilder struct {
 	setters []func(*IndexingOptions)
 }
 
-// Indexing creates a new builder for IndexingOptions.
+// Indexing creates a new builder for [IndexingOptions].
 func Indexing() *indexingOptionsBuilder {
 	return &indexingOptionsBuilder{}
 }
@@ -768,7 +895,17 @@ func (b *indexingOptionsBuilder) SetDeny(v ...string) *indexingOptionsBuilder {
 	return b
 }
 
-// InsertOneOption is a convenience alias for Builder[InsertOneOptions].
+// InsertOneOption configures a InsertOne operation.
+// You can use the fluent-style builder or a pointer to [InsertOneOptions] interchangeably.
+//
+// Example using the fluent builder ([InsertOne]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.InsertOne().SetOrdered(false)
+//
+// Example using a pointer to [InsertOneOptions] without the fluent builder:
+//
+//	opts := &options.InsertOneOptions{Ordered: ptr.To(false)}
 type InsertOneOption = Builder[InsertOneOptions]
 
 // Setters implements Builder[InsertOneOptions] allowing the raw struct to be
@@ -785,7 +922,7 @@ type insertOneOptionsBuilder struct {
 	setters []func(*InsertOneOptions)
 }
 
-// InsertOne creates a new builder for InsertOneOptions.
+// InsertOne creates a new builder for [InsertOneOptions].
 func InsertOne() *insertOneOptionsBuilder {
 	return &insertOneOptionsBuilder{}
 }
@@ -809,8 +946,7 @@ func (b *insertOneOptionsBuilder) SetTimeout(v time.Duration) *insertOneOptionsB
 	return b
 }
 
-// LexicalOption is a convenience alias for Builder[LexicalOptions].
-type LexicalOption = Builder[LexicalOptions]
+// LexicalOption configures a Lexical operation.
 
 // Setters implements Builder[LexicalOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[LexicalOptions].
@@ -826,7 +962,7 @@ type lexicalOptionsBuilder struct {
 	setters []func(*LexicalOptions)
 }
 
-// Lexical creates a new builder for LexicalOptions.
+// Lexical creates a new builder for [LexicalOptions].
 func Lexical() *lexicalOptionsBuilder {
 	return &lexicalOptionsBuilder{}
 }
@@ -836,7 +972,17 @@ func (b *lexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
 	return b.setters
 }
 
-// ListDatabasesOption is a convenience alias for Builder[ListDatabasesOptions].
+// ListDatabasesOption configures a ListDatabases operation.
+// You can use the fluent-style builder or a pointer to [ListDatabasesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListDatabases]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListDatabases().SetLimit(42)
+//
+// Example using a pointer to [ListDatabasesOptions] without the fluent builder:
+//
+//	opts := &options.ListDatabasesOptions{Limit: ptr.To(42)}
 type ListDatabasesOption = Builder[ListDatabasesOptions]
 
 // Setters implements Builder[ListDatabasesOptions] allowing the raw struct to be
@@ -853,7 +999,7 @@ type listDatabasesOptionsBuilder struct {
 	setters []func(*ListDatabasesOptions)
 }
 
-// ListDatabases creates a new builder for ListDatabasesOptions.
+// ListDatabases creates a new builder for [ListDatabasesOptions].
 func ListDatabases() *listDatabasesOptionsBuilder {
 	return &listDatabasesOptionsBuilder{}
 }
@@ -892,7 +1038,17 @@ func (b *listDatabasesOptionsBuilder) SetStartingAfter(v string) *listDatabasesO
 	return b
 }
 
-// ListIndexesOption is a convenience alias for Builder[ListIndexesOptions].
+// ListIndexesOption configures a ListIndexes operation.
+// You can use the fluent-style builder or a pointer to [ListIndexesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListIndexes]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListIndexes().SetExplain(false)
+//
+// Example using a pointer to [ListIndexesOptions] without the fluent builder:
+//
+//	opts := &options.ListIndexesOptions{Explain: ptr.To(false)}
 type ListIndexesOption = Builder[ListIndexesOptions]
 
 // Setters implements Builder[ListIndexesOptions] allowing the raw struct to be
@@ -909,7 +1065,7 @@ type listIndexesOptionsBuilder struct {
 	setters []func(*ListIndexesOptions)
 }
 
-// ListIndexes creates a new builder for ListIndexesOptions.
+// ListIndexes creates a new builder for [ListIndexesOptions].
 func ListIndexes() *listIndexesOptionsBuilder {
 	return &listIndexesOptionsBuilder{}
 }
@@ -927,8 +1083,7 @@ func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilde
 	return b
 }
 
-// RerankOption is a convenience alias for Builder[RerankOptions].
-type RerankOption = Builder[RerankOptions]
+// RerankOption configures a Rerank operation.
 
 // Setters implements Builder[RerankOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[RerankOptions].
@@ -944,7 +1099,7 @@ type rerankOptionsBuilder struct {
 	setters []func(*RerankOptions)
 }
 
-// Rerank creates a new builder for RerankOptions.
+// Rerank creates a new builder for [RerankOptions].
 func Rerank() *rerankOptionsBuilder {
 	return &rerankOptionsBuilder{}
 }
@@ -954,8 +1109,7 @@ func (b *rerankOptionsBuilder) Setters() []func(*RerankOptions) {
 	return b.setters
 }
 
-// SerdesOption is a convenience alias for Builder[SerdesOptions].
-type SerdesOption = Builder[SerdesOptions]
+// SerdesOption configures a Serdes operation.
 
 // Setters implements Builder[SerdesOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[SerdesOptions].
@@ -971,7 +1125,7 @@ type serdesOptionsBuilder struct {
 	setters []func(*SerdesOptions)
 }
 
-// Serdes creates a new builder for SerdesOptions.
+// Serdes creates a new builder for [SerdesOptions].
 func Serdes() *serdesOptionsBuilder {
 	return &serdesOptionsBuilder{}
 }
@@ -981,7 +1135,17 @@ func (b *serdesOptionsBuilder) Setters() []func(*SerdesOptions) {
 	return b.setters
 }
 
-// TableFindOption is a convenience alias for Builder[TableFindOptions].
+// TableFindOption configures a TableFind operation.
+// You can use the fluent-style builder or a pointer to [TableFindOptions] interchangeably.
+//
+// Example using the fluent builder ([TableFind]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.TableFind().SetLimit(42)
+//
+// Example using a pointer to [TableFindOptions] without the fluent builder:
+//
+//	opts := &options.TableFindOptions{Limit: ptr.To(42)}
 type TableFindOption = Builder[TableFindOptions]
 
 // Setters implements Builder[TableFindOptions] allowing the raw struct to be
@@ -998,7 +1162,7 @@ type tableFindOptionsBuilder struct {
 	setters []func(*TableFindOptions)
 }
 
-// TableFind creates a new builder for TableFindOptions.
+// TableFind creates a new builder for [TableFindOptions].
 func TableFind() *tableFindOptionsBuilder {
 	return &tableFindOptionsBuilder{}
 }
@@ -1056,7 +1220,17 @@ func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOption
 	return b
 }
 
-// TimeoutOption is a convenience alias for Builder[TimeoutOptions].
+// TimeoutOption configures a Timeout operation.
+// You can use the fluent-style builder or a pointer to [TimeoutOptions] interchangeably.
+//
+// Example using the fluent builder ([Timeout]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.Timeout().SetRequest(10 * time.Second)
+//
+// Example using a pointer to [TimeoutOptions] without the fluent builder:
+//
+//	opts := &options.TimeoutOptions{Request: ptr.To(10 * time.Second)}
 type TimeoutOption = Builder[TimeoutOptions]
 
 // Setters implements Builder[TimeoutOptions] allowing the raw struct to be
@@ -1073,7 +1247,7 @@ type timeoutOptionsBuilder struct {
 	setters []func(*TimeoutOptions)
 }
 
-// Timeout creates a new builder for TimeoutOptions.
+// Timeout creates a new builder for [TimeoutOptions].
 func Timeout() *timeoutOptionsBuilder {
 	return &timeoutOptionsBuilder{}
 }
@@ -1104,7 +1278,17 @@ func (b *timeoutOptionsBuilder) SetBulkOperation(v time.Duration) *timeoutOption
 	return b
 }
 
-// VectorOption is a convenience alias for Builder[VectorOptions].
+// VectorOption configures a Vector operation.
+// You can use the fluent-style builder or a pointer to [VectorOptions] interchangeably.
+//
+// Example using the fluent builder ([Vector]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.Vector().SetDimension(42)
+//
+// Example using a pointer to [VectorOptions] without the fluent builder:
+//
+//	opts := &options.VectorOptions{Dimension: ptr.To(42)}
 type VectorOption = Builder[VectorOptions]
 
 // Setters implements Builder[VectorOptions] allowing the raw struct to be
@@ -1121,7 +1305,7 @@ type vectorOptionsBuilder struct {
 	setters []func(*VectorOptions)
 }
 
-// Vector creates a new builder for VectorOptions.
+// Vector creates a new builder for [VectorOptions].
 func Vector() *vectorOptionsBuilder {
 	return &vectorOptionsBuilder{}
 }
@@ -1157,7 +1341,17 @@ func (b *vectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *v
 	return b
 }
 
-// VectorServiceOption is a convenience alias for Builder[VectorServiceOptions].
+// VectorServiceOption configures a VectorService operation.
+// You can use the fluent-style builder or a pointer to [VectorServiceOptions] interchangeably.
+//
+// Example using the fluent builder ([VectorService]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.VectorService().SetProvider("value")
+//
+// Example using a pointer to [VectorServiceOptions] without the fluent builder:
+//
+//	opts := &options.VectorServiceOptions{Provider: ptr.To("value")}
 type VectorServiceOption = Builder[VectorServiceOptions]
 
 // Setters implements Builder[VectorServiceOptions] allowing the raw struct to be
@@ -1171,7 +1365,7 @@ type vectorServiceOptionsBuilder struct {
 	setters []func(*VectorServiceOptions)
 }
 
-// VectorService creates a new builder for VectorServiceOptions.
+// VectorService creates a new builder for [VectorServiceOptions].
 func VectorService() *vectorServiceOptionsBuilder {
 	return &vectorServiceOptionsBuilder{}
 }

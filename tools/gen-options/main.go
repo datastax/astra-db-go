@@ -231,6 +231,7 @@ type optsDef struct {
 	BuilderType string // e.g. "createCollectionOptionsBuilder"
 	Constructor string // e.g. "CreateCollection"
 	Setters     []setterDef
+	Alias       aliasDef
 }
 
 // setterDef describes a single Set* method to generate.
@@ -244,6 +245,99 @@ type setterDef struct {
 	IsMap             bool   // true → stored directly, no pointer wrapping
 	IsSlice           bool   // true → variadic element setter, stored directly
 	ElemType          string // element type when IsSlice is true
+}
+
+// aliasDef holds info for generating a doc comment and type alias for Options builders.
+type aliasDef struct {
+	Constructor    string // e.g. "CreateKeyspace"
+	Alias          string // e.g. "CreateKeyspaceOption"
+	OptsType       string // e.g. "CreateKeyspaceOptions"
+	HasSimpleField bool   // Whether the example has a simple field
+	Method         string // e.g. "SetBlocking"
+	Field          string // e.g. "Blocking"
+	BuilderArg     string // e.g. "false"
+	StructVal      string // e.g. "ptr.To(false)"
+}
+
+// aliasSimpleTmpl is used when a simple scalar field is available for a concrete example.
+var aliasSimpleTmpl = template.Must(template.New("aliasSimple").Parse(
+	`// {{ .Alias }} configures a {{ .Constructor }} operation.
+// You can use the fluent-style builder or a pointer to [{{ .OptsType }}] interchangeably.
+// 
+// Example using the fluent builder ([{{ .Constructor}}]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.{{ .Constructor }}().{{ .Method }}({{ .BuilderArg }})
+//
+// Example using a pointer to [{{ .OptsType }}] without the fluent builder:
+//
+//	opts := &options.{{ .OptsType }}{ {{- .Field}}: {{ .StructVal }}}
+type {{ .Alias }} = Builder[{{ .OptsType }}]`))
+
+// aliasFallbackTmpl is used when there are setters but no simple scalar field.
+var aliasFallbackTmpl = template.Must(template.New("aliasFallback").Parse(
+	`// {{ .Alias }} configures a {{ .Constructor }} operation.
+// You can use the fluent-style builder or a pointer to [{{ .OptsType }}] interchangeably.
+// 
+// Example using the fluent builder ([{{ .Constructor}}]):
+//
+//	opts := options.{{ .Constructor }}().{{ .Method }}(...)
+//
+// Example using a pointer to [{{ .OptsType }}] without the fluent builder:
+//
+//	opts := &options.{{ .OptsType }}{...}
+type {{ .Alias }} = Builder[{{ .OptsType }}]`))
+
+// aliasMinimalTmpl is used when there are no setters at all.
+var aliasMinimalTmpl = template.Must(template.New("aliasMinimal").Parse(
+	`// {{ .Alias }} configures a {{ .Constructor }} operation.
+`))
+
+// String returns the full doc comment block for the type alias.
+func (e aliasDef) String() string {
+	var t *template.Template
+	switch {
+	case e.HasSimpleField:
+		t = aliasSimpleTmpl
+	case e.Method != "":
+		t = aliasFallbackTmpl
+	default:
+		t = aliasMinimalTmpl
+	}
+	var buf strings.Builder
+	t.Execute(&buf, e)
+	return buf.String()
+}
+
+// pickAliasExample selects a simple field from the setters to use as a
+// concrete example in the alias doc comment.
+func pickAliasExample(setters []setterDef) aliasDef {
+	simpleTypes := map[string][2]string{
+		"bool":          {"false", "ptr.To(false)"},
+		"int":           {"42", "ptr.To(42)"},
+		"string":        {`"value"`, `ptr.To("value")`},
+		"time.Duration": {"10 * time.Second", "ptr.To(10 * time.Second)"},
+	}
+	for _, s := range setters {
+		if s.IsVariadicBuilder || s.IsMap || s.IsSlice {
+			continue
+		}
+		if vals, ok := simpleTypes[s.ParamType]; ok {
+			return aliasDef{
+				HasSimpleField: true,
+				Method:         s.Method,
+				Field:          s.Field,
+				BuilderArg:     vals[0],
+				StructVal:      vals[1],
+			}
+		}
+	}
+	// Fallback: use the first setter with a generic form.
+	if len(setters) > 0 {
+		return aliasDef{Method: setters[0].Method}
+	}
+	// Empty options struct with no setters at all. Don't know if/when this is going to happen in the real world.
+	return aliasDef{}
 }
 
 func buildersSrc(pkg *loadedPkg) renderJob {
@@ -291,6 +385,10 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
 		}
 
+		def.Alias = pickAliasExample(def.Setters)
+		def.Alias.Constructor = constructor
+		def.Alias.OptsType = name
+		def.Alias.Alias = aliasName
 		defs = append(defs, def)
 	}
 
@@ -540,8 +638,7 @@ var buildersTmpl = template.Must(template.New("builders").Parse(boilerplate + `
 
 package {{ .PkgName }}
 {{ range .Data }}{{ $o := . }}
-{{ if .GenAlias }}// {{ .Constructor }}Option is a convenience alias for Builder[{{ .OptsType }}].
-type {{ .Constructor }}Option = Builder[{{ .OptsType }}]
+{{ if .GenAlias }}{{ .Alias }}
 {{ end }}
 // Setters implements Builder[{{ .OptsType }}] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[{{$o.OptsType}}].
@@ -558,7 +655,7 @@ type {{ .BuilderType }} struct {
 	setters []func(*{{ .OptsType }})
 }
 
-// {{ .Constructor }} creates a new builder for {{ .OptsType }}.
+// {{ .Constructor }} creates a new builder for [{{ .OptsType }}].
 func {{ .Constructor }}() *{{ .BuilderType }} {
 	return &{{ .BuilderType }}{}
 }
