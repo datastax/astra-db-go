@@ -30,45 +30,45 @@ func (o *APIOptions) Setters() []func(*APIOptions) {
 // Validate implements Validator for APIOptions.
 func (o *APIOptions) Validate() error { return nil }
 
-// aPIOptionsBuilder is a builder for APIOptions.
-type aPIOptionsBuilder struct {
+// apiOptionsBuilder is a builder for APIOptions.
+type apiOptionsBuilder struct {
 	setters []func(*APIOptions)
 }
 
 // API creates a new builder for [APIOptions].
-func API() *aPIOptionsBuilder {
-	return &aPIOptionsBuilder{}
+func API() *apiOptionsBuilder {
+	return &apiOptionsBuilder{}
 }
 
 // Setters implements Builder[APIOptions].
-func (b *aPIOptionsBuilder) Setters() []func(*APIOptions) {
+func (b *apiOptionsBuilder) Setters() []func(*APIOptions) {
 	return b.setters
 }
 
 // SetToken sets the Token option.
 // Token is the authentication token for Astra DB
-func (b *aPIOptionsBuilder) SetToken(v string) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetToken(v string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.Token = &v })
 	return b
 }
 
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the keyspace to use for operations
-func (b *aPIOptionsBuilder) SetKeyspace(v string) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetKeyspace(v string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.Keyspace = &v })
 	return b
 }
 
 // SetAPIVersion sets the APIVersion option.
 // APIVersion is the Data API version (e.g., "v1")
-func (b *aPIOptionsBuilder) SetAPIVersion(v string) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetAPIVersion(v string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.APIVersion = &v })
 	return b
 }
 
 // SetHTTPClient sets the HTTPClient option.
 // HTTPClient is the HTTP client to use for requests
-func (b *aPIOptionsBuilder) SetHTTPClient(v http.Client) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetHTTPClient(v http.Client) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.HTTPClient = &v })
 	return b
 }
@@ -76,14 +76,14 @@ func (b *aPIOptionsBuilder) SetHTTPClient(v http.Client) *aPIOptionsBuilder {
 // SetHeaders sets the Headers option.
 // Headers contains custom headers to include in requests
 // (e.g., for embedding API keys like "x-embedding-api-key")
-func (b *aPIOptionsBuilder) SetHeaders(v map[string]string) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetHeaders(v map[string]string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.Headers = v })
 	return b
 }
 
 // SetTimeout sets the Timeout option.
 // Timeout contains timeout configuration
-func (b *aPIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		o.Timeout = Merge(v...)
 	})
@@ -92,7 +92,7 @@ func (b *aPIOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *aPIOptions
 
 // SetSerdes sets the Serdes option.
 // Serdes contains serialization/deserialization options
-func (b *aPIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		o.Serdes = Merge(v...)
 	})
@@ -102,7 +102,7 @@ func (b *aPIOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *aPIOptionsBu
 // SetAstraEnvironment sets the AstraEnvironment option.
 // AstraEnvironment is the Astra environment (prod, dev, test).
 // Controls the DevOps API URL. Defaults to prod.
-func (b *aPIOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.AstraEnvironment = &v })
 	return b
 }
@@ -110,7 +110,7 @@ func (b *aPIOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *aPIOptionsB
 // SetDataAPIBackend sets the DataAPIBackend option.
 // DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
 // Controls the Data API path. Defaults to astra.
-func (b *aPIOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *aPIOptionsBuilder {
+func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) { o.DataAPIBackend = &v })
 	return b
 }

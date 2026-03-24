@@ -47,6 +47,7 @@ import (
 	"strings"
 	"text/template"
 	"unicode"
+	"unicode/utf8"
 
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/imports"
@@ -380,7 +381,7 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 			GenValidate: !hwMethods[name+".Validate"],
 			GenAlias:    !hwTypes[aliasName],
 			HasBuilder:  true,
-			BuilderType: lowerFirst(builderName),
+			BuilderType: unexportedName(builderName),
 			Constructor: constructor,
 			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
 		}
@@ -554,12 +555,23 @@ func namedStruct(obj types.Object) (*types.Struct, bool) {
 	return s, ok
 }
 
-// lowerFirst returns s with its first rune lowercased.
-func lowerFirst(s string) string {
-	for i, v := range s {
-		return string(unicode.ToLower(v)) + s[i+len(string(v)):]
+// unexportedName returns s with the first word lowercased (so it will not be exported).
+func unexportedName(s string) string {
+	i, lastRuneSize := 0, 0
+	for i < len(s) {
+		char, size := utf8.DecodeRuneInString(s[i:])
+		// Advance until we hit a lower-case, non-digit char.
+		if !unicode.IsUpper(char) && !unicode.IsDigit(char) {
+			break
+		}
+		i, lastRuneSize = i+size, size
 	}
-	return ""
+	// goes back a rune if it's not the end of the string so something like
+	// XYZOptionsBuilder becomes xyzOptionsBuilder and not xyzoptionsBuilder.
+	if i > 1 && i > lastRuneSize && i < len(s) {
+		i -= lastRuneSize
+	}
+	return strings.ToLower(s[:i]) + s[i:]
 }
 
 // ----- Rendering -----

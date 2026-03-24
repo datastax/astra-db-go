@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestLowerFirst(t *testing.T) {
+func TestUnexportedName(t *testing.T) {
 	// Created some tests juuuust in case we have some non-ASCII builder names
 	// in the future. It is extremely unlikely, but, these are valid go identifiers.
 	tests := []struct {
@@ -15,11 +15,20 @@ func TestLowerFirst(t *testing.T) {
 		{"ΔeltaBuilder", "δeltaBuilder"},
 		{"运行Builder", "运行Builder"},
 		{"πBuilder", "πBuilder"}, // pi builder!
+		{"URL", "url"},
+		{"APIOptionsBuilder", "apiOptionsBuilder"},
+		{"AπBuilder", "aπBuilder"}, // a pi builder!
+		{"", ""},
+		{"A", "a"},
+		{"builder", "builder"},           // already unexported, should stay the same
+		{"StatusIMUsed", "statusIMUsed"}, // Real-world example from stdlib.
+		{"HTTP2Config", "http2Config"},   // Real-world example from stdlib.
+		{"ǱBuilder", "ǳBuilder"},         // Titlecase digraph example. Just to be thorough.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := lowerFirst(tt.name); got != tt.want {
-				t.Errorf("lowerFirst(%q) = %q, want %q", tt.name, got, tt.want)
+			if got := unexportedName(tt.name); got != tt.want {
+				t.Errorf("unexportedName(%q): GOT %q. WANT %q.", tt.name, got, tt.want)
 			}
 		})
 	}
