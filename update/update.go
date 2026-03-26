@@ -24,9 +24,9 @@
 // [Table Update Operators]: https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operators-tables.html
 package update
 
-import "encoding/json"
+//go:generate go run -modfile=../tools/gen-update/go.mod ../tools/gen-update/main.go -pkg .
 
-// TODO: How will we make it obvious that you can, for example, use set/unset for tables but inc is collection-only?
+import "encoding/json"
 
 // U represents an update document as a map.
 //
@@ -102,12 +102,3 @@ func (u *Updater) Rename(field, newName string) *Updater {
 func (u *Updater) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.ops)
 }
-
-// TODO: should we just codegen these? Tht way we could also copy the doc comments from above.
-
-func Set(field string, value any) *Updater  { return New().Set(field, value) }
-func Unset(fields ...string) *Updater       { return New().Unset(fields...) }
-func Inc(field string, amount any) *Updater { return New().Inc(field, amount) }
-func Min(field string, value any) *Updater  { return New().Min(field, value) }
-func Max(field string, value any) *Updater  { return New().Max(field, value) }
-func Rename(field, newName string) *Updater { return New().Rename(field, newName) }
