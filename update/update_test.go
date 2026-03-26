@@ -82,26 +82,60 @@ func TestUpdateManyExample(t *testing.T) {
 	}
 }
 
-func TestUpdateJSONMarshal(t *testing.T) {
+func TestUpdateFieldOperators(t *testing.T) {
+	// This test takes many examples from the docs and verifies that fluent/map both produce the same JSON:
+	// https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operator-collections.html
+	// Note that the examples in the docs aren't always in the same order as the JSON output from our code,
+	// since json.Marshal orders keys alphabetically.
 	tests := []struct {
 		expectedJSON string
 		fluent       *update.Updater
 		raw          update.U
 	}{
 		{
-			`{"$set":{"age":30,"name":"Bob"}}`,
-			update.Set("name", "Bob").Set("age", 30),
-			update.U{"$set": update.U{"name": "Bob", "age": 30}},
+			`{"$set":{"number_of_pages": 423, "rating": 4.5}}`,
+			update.Set("number_of_pages", 423).Set("rating", 4.5),
+			update.U{"$set": update.U{"number_of_pages": 423, "rating": 4.5}},
 		},
 		{
-			`{"$unset":{"age":"","name":""}}`,
-			update.Unset("name", "age"),
-			update.U{"$unset": update.U{"name": "", "age": ""}},
+			`{"$setOnInsert":{"is_checked_out":false,"rating":5}}`,
+			update.SetOnInsert("rating", 5).SetOnInsert("is_checked_out", false),
+			update.U{"$setOnInsert": update.U{"is_checked_out": false, "rating": 5}},
 		},
 		{
-			`{"$inc":{"counter":5}}`,
-			update.Inc("counter", 5),
-			update.U{"$inc": update.U{"counter": 5}},
+			`{"$unset":{"borrower": "","due_date": ""}}`,
+			update.Unset("borrower", "due_date"),
+			update.U{"$unset": update.U{"borrower": "", "due_date": ""}},
+		},
+		{
+			`{"$currentDate":{"due_date":true}}`,
+			update.CurrentDate("due_date"),
+			update.U{"$currentDate": update.U{"due_date": true}},
+		},
+		{
+			`{"$inc":{"number_of_pages":25}}`,
+			update.Inc("number_of_pages", 25),
+			update.U{"$inc": update.U{"number_of_pages": 25}},
+		},
+		{
+			`{"$min":{"rating":3.9}}`,
+			update.Min("rating", 3.9),
+			update.U{"$min": update.U{"rating": 3.9}},
+		},
+		{
+			`{"$max":{"rating":3.9}}`,
+			update.Max("rating", 3.9),
+			update.U{"$max": update.U{"rating": 3.9}},
+		},
+		{
+			`{"$mul":{"rating":1.2}}`,
+			update.Mul("rating", 1.2),
+			update.U{"$mul": update.U{"rating": 1.2}},
+		},
+		{
+			`{"$rename":{"old_field":"new_field","other_old_field":"other_new_field"}}`,
+			update.Rename("old_field", "new_field").Rename("other_old_field", "other_new_field"),
+			update.U{"$rename": update.U{"old_field": "new_field", "other_old_field": "other_new_field"}},
 		},
 	}
 	for _, tt := range tests {
@@ -120,4 +154,18 @@ func TestUpdaterZeroValuePanic(t *testing.T) {
 	}()
 	u := update.Updater{}
 	u.Set("BestDB", "Astra")
+}
+
+func TestAdvancedChaining(t *testing.T) {
+	u := update.Unset("borrower", "due_date")
+	u.Unset("phone")
+	u = u.Unset("email")
+	expected := `{"$unset":{"borrower":"","due_date":"","email":"","phone":""}}`
+	j, err := json.Marshal(u)
+	if err != nil {
+		t.Fatalf("failed to marshal update: %v", err)
+	}
+	if string(j) != cleanString(expected) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, cleanString(expected))
+	}
 }

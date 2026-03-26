@@ -17,19 +17,64 @@
 package update
 
 // The $set operator sets the value of the specified field to the specified value.
+//
+// Example usage:
+//
+//	update.Set("number_of_pages", 423).Set("rating", 4.5)
 func Set(field string, value any) *Updater { return New().Set(field, value) }
 
+// The $setOnInsert operator sets the value of the specified field only if an upsert is performed.
+//
+// Example usage:
+//
+//	update.SetOnInsert("rating", 5.0).SetOnInsert("is_checked_out", false)
+func SetOnInsert(field string, value any) *Updater { return New().SetOnInsert(field, value) }
+
 // The $unset operator removes the specified field(s).
+//
+// Example usage:
+//
+//	update.Unset("borrower", "due_date")
 func Unset(fields ...string) *Updater { return New().Unset(fields...) }
 
+// The $currentDate operator sets the value of the specified field to the current date and time.
+//
+// Example usage:
+//
+//	update.CurrentDate("due_date")
+func CurrentDate(field string) *Updater { return New().CurrentDate(field) }
+
 // The $inc operator increments the value of the specified field by the specified amount.
+//
+// Example usage:
+//
+//	update.Inc("number_of_pages", 25)
 func Inc(field string, amount any) *Updater { return New().Inc(field, amount) }
 
 // The $min operator updates the specified field only if the specified value is less than the existing field value.
+//
+// Example usage:
+//
+//	update.Min("rating", 3.9)
 func Min(field string, value any) *Updater { return New().Min(field, value) }
 
 // The $max operator updates the specified field only if the specified value is greater than the existing field value.
+//
+// Example usage:
+//
+//	update.Max("rating", 3.9)
 func Max(field string, value any) *Updater { return New().Max(field, value) }
 
+// The $mul operator multiplies the value of the specified field.
+//
+// Example usage:
+//
+//	update.Mul("rating", 1.2)
+func Mul(field string, value any) *Updater { return New().Mul(field, value) }
+
 // The $rename operator renames the specified field.
+//
+// Example usage:
+//
+//	update.Rename("old_field", "new_field").Rename("other_old_field", "other_new_field")
 func Rename(field string, newName string) *Updater { return New().Rename(field, newName) }

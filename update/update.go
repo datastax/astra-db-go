@@ -47,6 +47,10 @@ type Updater struct {
 	ops map[string]map[string]any
 }
 
+func (u *Updater) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u.ops)
+}
+
 // New returns an empty Updater.
 func New() *Updater {
 	return &Updater{ops: make(map[string]map[string]any)}
@@ -66,12 +70,31 @@ func (u *Updater) setField(op, field string, value any) *Updater {
 	return u
 }
 
+// #region Field Operators
+
 // The $set operator sets the value of the specified field to the specified value.
+//
+// Example usage:
+//
+//	update.Set("number_of_pages", 423).Set("rating", 4.5)
 func (u *Updater) Set(field string, value any) *Updater {
 	return u.setField("$set", field, value)
 }
 
+// The $setOnInsert operator sets the value of the specified field only if an upsert is performed.
+//
+// Example usage:
+//
+//	update.SetOnInsert("rating", 5.0).SetOnInsert("is_checked_out", false)
+func (u *Updater) SetOnInsert(field string, value any) *Updater {
+	return u.setField("$setOnInsert", field, value)
+}
+
 // The $unset operator removes the specified field(s).
+//
+// Example usage:
+//
+//	update.Unset("borrower", "due_date")
 func (b *Updater) Unset(fields ...string) *Updater {
 	for _, f := range fields {
 		b.setField("$unset", f, "")
@@ -79,26 +102,58 @@ func (b *Updater) Unset(fields ...string) *Updater {
 	return b
 }
 
+// The $currentDate operator sets the value of the specified field to the current date and time.
+//
+// Example usage:
+//
+//	update.CurrentDate("due_date")
+func (b *Updater) CurrentDate(field string) *Updater {
+	return b.setField("$currentDate", field, true)
+}
+
 // The $inc operator increments the value of the specified field by the specified amount.
+//
+// Example usage:
+//
+//	update.Inc("number_of_pages", 25)
 func (b *Updater) Inc(field string, amount any) *Updater {
 	return b.setField("$inc", field, amount)
 }
 
 // The $min operator updates the specified field only if the specified value is less than the existing field value.
+//
+// Example usage:
+//
+//	update.Min("rating", 3.9)
 func (b *Updater) Min(field string, value any) *Updater {
 	return b.setField("$min", field, value)
 }
 
 // The $max operator updates the specified field only if the specified value is greater than the existing field value.
+//
+// Example usage:
+//
+//	update.Max("rating", 3.9)
 func (b *Updater) Max(field string, value any) *Updater {
 	return b.setField("$max", field, value)
 }
 
+// The $mul operator multiplies the value of the specified field.
+//
+// Example usage:
+//
+//	update.Mul("rating", 1.2)
+func (b *Updater) Mul(field string, value any) *Updater {
+	return b.setField("$mul", field, value)
+}
+
 // The $rename operator renames the specified field.
+//
+// Example usage:
+//
+//	update.Rename("old_field", "new_field").Rename("other_old_field", "other_new_field")
 func (u *Updater) Rename(field, newName string) *Updater {
 	return u.setField("$rename", field, newName)
 }
 
-func (u *Updater) MarshalJSON() ([]byte, error) {
-	return json.Marshal(u.ops)
-}
+// #endregion
