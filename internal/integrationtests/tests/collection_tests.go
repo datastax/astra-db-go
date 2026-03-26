@@ -14,6 +14,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/update"
 )
 
 func init() {
@@ -30,6 +31,9 @@ func init() {
 		{Name: "CollectionUpdateOne", Run: CollectionUpdateOne},
 		{Name: "CollectionUpdateOneUpsert", Run: CollectionUpdateOneUpsert},
 		{Name: "CollectionUpdateOneNoMatch", Run: CollectionUpdateOneNoMatch},
+		{Name: "CollectionUpdateMany", Run: CollectionUpdateMany},
+		{Name: "CollectionUpdateManyUpsert", Run: CollectionUpdateManyUpsert},
+		{Name: "CollectionUpdateManyNoMatch", Run: CollectionUpdateManyNoMatch},
 		{Name: "CollectionDrop", Run: CollectionDrop},
 		// Vector search tests
 		{Name: "CollectionVectorCreate", Run: CollectionVectorCreate},
@@ -322,9 +326,7 @@ func CollectionUpdateOne(e *harness.TestEnv) error {
 	insertedID := resp.Status.InsertedIds[0]
 
 	// Update the document's name
-	result, err := c.UpdateOne(ctx, filter.F{"_id": insertedID}, map[string]any{
-		"$set": map[string]any{"name": "UpdateOneModified"},
-	})
+	result, err := c.UpdateOne(ctx, filter.F{"_id": insertedID}, update.Set("name", "UpdateOneModified"))
 	if err != nil {
 		return fmt.Errorf("UpdateOne failed: %w", err)
 	}
@@ -366,7 +368,7 @@ func CollectionUpdateOneUpsert(e *harness.TestEnv) error {
 	// Upsert a document that doesn't exist
 	result, err := c.UpdateOne(ctx,
 		filter.F{"_id": upsertID},
-		map[string]any{"$set": map[string]any{"name": "UpsertedDoc"}},
+		update.Set("name", "UpsertedDoc"),
 		options.CollectionUpdateOne().SetUpsert(true),
 	)
 	if err != nil {
@@ -405,10 +407,127 @@ func CollectionUpdateOneNoMatch(e *harness.TestEnv) error {
 
 	result, err := c.UpdateOne(ctx,
 		filter.F{"_id": "nonexistent-id-xyz"},
-		map[string]any{"$set": map[string]any{"name": "ShouldNotExist"}},
+		update.Set("name", "ShouldNotExist"),
 	)
 	if err != nil {
 		return fmt.Errorf("UpdateOne no-match failed: %w", err)
+	}
+
+	if result.MatchedCount != 0 {
+		return fmt.Errorf("expected MatchedCount 0, got %d", result.MatchedCount)
+	}
+	if result.ModifiedCount != 0 {
+		return fmt.Errorf("expected ModifiedCount 0, got %d", result.ModifiedCount)
+	}
+	if result.UpsertedCount != 0 {
+		return fmt.Errorf("expected UpsertedCount 0, got %d", result.UpsertedCount)
+	}
+
+	return nil
+}
+
+func CollectionUpdateMany(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	// Insert several documents with a shared tag for targeting
+	tag := fmt.Sprintf("update-many-%d", time.Now().UnixNano())
+	for i := 0; i < 5; i++ {
+		_, err := c.InsertOne(ctx, map[string]any{
+			"tag":   tag,
+			"index": i,
+			"name":  fmt.Sprintf("doc-%d", i),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to insert doc %d: %w", i, err)
+		}
+	}
+
+	// UpdateMany: set a new field on all docs with our tag
+	result, err := c.UpdateMany(ctx,
+		filter.F{"tag": tag},
+		update.Set("updated", true),
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateMany failed: %w", err)
+	}
+
+	if result.MatchedCount != 5 {
+		return fmt.Errorf("expected MatchedCount 5, got %d", result.MatchedCount)
+	}
+	if result.ModifiedCount != 5 {
+		return fmt.Errorf("expected ModifiedCount 5, got %d", result.ModifiedCount)
+	}
+	if result.UpsertedCount != 0 {
+		return fmt.Errorf("expected UpsertedCount 0, got %d", result.UpsertedCount)
+	}
+
+	// Verify the update by reading back
+	cur := c.Find(ctx, filter.F{"tag": tag})
+	defer cur.Close(ctx)
+	var docs []map[string]any
+	if err := cur.All(ctx, &docs); err != nil {
+		return fmt.Errorf("Find after UpdateMany failed: %w", err)
+	}
+	for i, doc := range docs {
+		if doc["updated"] != true {
+			return fmt.Errorf("doc %d not updated", i)
+		}
+	}
+
+	return nil
+}
+
+func CollectionUpdateManyUpsert(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	upsertTag := fmt.Sprintf("upsert-many-%d", time.Now().UnixNano())
+
+	result, err := c.UpdateMany(ctx,
+		filter.F{"tag": upsertTag},
+		update.Set("name", "UpsertedMany"),
+		options.CollectionUpdateMany().SetUpsert(true),
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateMany upsert failed: %w", err)
+	}
+
+	if result.MatchedCount != 0 {
+		return fmt.Errorf("expected MatchedCount 0, got %d", result.MatchedCount)
+	}
+	if result.UpsertedCount != 1 {
+		return fmt.Errorf("expected UpsertedCount 1, got %d", result.UpsertedCount)
+	}
+	if result.UpsertedId == nil {
+		return errors.New("expected UpsertedId to be non-nil")
+	}
+
+	// Verify the upserted document exists
+	var doc map[string]any
+	if err := c.FindOne(ctx, filter.F{"tag": upsertTag}).Decode(&doc); err != nil {
+		return fmt.Errorf("FindOne after upsert failed: %w", err)
+	}
+	if doc["name"] != "UpsertedMany" {
+		return fmt.Errorf("expected name 'UpsertedMany', got '%s'", doc["name"])
+	}
+
+	return nil
+}
+
+func CollectionUpdateManyNoMatch(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	result, err := c.UpdateMany(ctx,
+		filter.F{"_id": "nonexistent-update-many-xyz"},
+		update.Set("name", "ShouldNotExist"),
+	)
+	if err != nil {
+		return fmt.Errorf("UpdateMany no-match failed: %w", err)
 	}
 
 	if result.MatchedCount != 0 {

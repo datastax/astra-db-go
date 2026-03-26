@@ -197,3 +197,9 @@ type CollectionUpdateOneOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool
 }
+
+// CollectionUpdateManyOptions represents options for an updateMany operation.
+type CollectionUpdateManyOptions struct {
+	// Upsert if true, inserts a new document if no document matches the filter.
+	Upsert *bool
+}

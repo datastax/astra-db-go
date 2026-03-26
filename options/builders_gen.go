@@ -253,6 +253,50 @@ func (b *collectionFindOptionsBuilder) SetInitialPageState(v string) *collection
 	return b
 }
 
+// CollectionUpdateManyOption configures a CollectionUpdateMany operation.
+// You can use the fluent-style builder or a pointer to [CollectionUpdateManyOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionUpdateMany]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CollectionUpdateMany().SetUpsert(false)
+//
+// Example using a pointer to [CollectionUpdateManyOptions] without the fluent builder:
+//
+//	opts := &options.CollectionUpdateManyOptions{Upsert: ptr.To(false)}
+type CollectionUpdateManyOption = Builder[CollectionUpdateManyOptions]
+
+// Setters implements Builder[CollectionUpdateManyOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionUpdateManyOptions].
+func (o *CollectionUpdateManyOptions) Setters() []func(*CollectionUpdateManyOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionUpdateManyOptions.
+func (o *CollectionUpdateManyOptions) Validate() error { return nil }
+
+// collectionUpdateManyOptionsBuilder is a builder for CollectionUpdateManyOptions.
+type collectionUpdateManyOptionsBuilder struct {
+	setters []func(*CollectionUpdateManyOptions)
+}
+
+// CollectionUpdateMany creates a new builder for [CollectionUpdateManyOptions].
+func CollectionUpdateMany() *collectionUpdateManyOptionsBuilder {
+	return &collectionUpdateManyOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionUpdateManyOptions].
+func (b *collectionUpdateManyOptionsBuilder) Setters() []func(*CollectionUpdateManyOptions) {
+	return b.setters
+}
+
+// SetUpsert sets the Upsert option.
+// Upsert if true, inserts a new document if no document matches the filter.
+func (b *collectionUpdateManyOptionsBuilder) SetUpsert(v bool) *collectionUpdateManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) { o.Upsert = &v })
+	return b
+}
+
 // CollectionUpdateOneOption configures a CollectionUpdateOne operation.
 // You can use the fluent-style builder or a pointer to [CollectionUpdateOneOptions] interchangeably.
 //

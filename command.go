@@ -257,3 +257,21 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 
 	return body, resp.Status.Warnings, nil
 }
+
+// Update is implemented by both [update.Updater] and [update.U].
+// See the [update package] for more details.
+//
+// Example usage:
+//
+//	// Using the fluent builder API with update.Updater
+//	update.Set("name", "Bob").Set("age", 30).Unset("phone")
+//
+//	// Using the direct map API with update.U
+//	update.U{"$set": update.U{"name": "Bob", "age": 30}, "$unset": update.U{"phone": ""}}
+//
+// [update.Updater]: https://pkg.go.dev/github.com/datastax/astra-db-go/update#Updater
+// [update.U]: https://pkg.go.dev/github.com/datastax/astra-db-go/update#U
+// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/update
+type Update interface {
+	json.Marshaler
+}
