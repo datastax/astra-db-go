@@ -203,3 +203,25 @@ type CollectionUpdateManyOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool
 }
+
+// ReturnDocument specifies whether to return the document before or after the update.
+type ReturnDocument string
+
+const (
+	// ReturnDocumentBefore returns the document as it was before the update.
+	ReturnDocumentBefore ReturnDocument = "before"
+	// ReturnDocumentAfter returns the document as it is after the update.
+	ReturnDocumentAfter ReturnDocument = "after"
+)
+
+// CollectionFindOneAndUpdateOptions represents options for a findOneAndUpdate operation.
+type CollectionFindOneAndUpdateOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to update.
+	Sort map[string]any `json:"sort,omitempty"`
+	// Projection controls which fields are included or excluded in the returned document.
+	Projection map[string]any `json:"projection,omitempty"`
+	// Upsert if true, inserts a new document if no document matches the filter.
+	Upsert *bool `json:"upsert,omitempty"`
+	// ReturnDocument specifies whether to return the document before or after the update.
+	ReturnDocument *ReturnDocument `json:"returnDocument,omitempty"`
+}

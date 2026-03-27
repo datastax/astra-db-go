@@ -418,6 +418,58 @@ func (c *Collection) UpdateMany(ctx context.Context, f any, u Update, opts ...op
 	return result, nil
 }
 
+// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
+type collectionFindOneAndUpdatePayload struct {
+	Filter     any            `json:"filter,omitempty"`
+	Update     Update         `json:"update"`
+	Sort       map[string]any `json:"sort,omitempty"`
+	Projection map[string]any `json:"projection,omitempty"`
+	Options    map[string]any `json:"options,omitempty"`
+}
+
+// FindOneAndUpdate finds a single document matching the filter, applies the update,
+// and returns the document. By default, the document is returned as it was before the
+// update. Use [options.ReturnDocumentAfter] to return the document after the update.
+//
+// The update parameter should be an [update.U] expression, e.g. update.Set("name", "new").
+//
+// Options passed here override those set on the collection.
+func (c *Collection) FindOneAndUpdate(ctx context.Context, f any, u Update, opts ...options.CollectionFindOneAndUpdateOption) *results.SingleResult {
+	switch f.(type) {
+	case filter.F, filter.Filter:
+		// Allowed
+	default:
+		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid filter type: %T", f))
+	}
+
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return results.NewSingleResult(nil, nil, err)
+	}
+
+	payload := collectionFindOneAndUpdatePayload{
+		Filter:     f,
+		Update:     u,
+		Sort:       merged.Sort,
+		Projection: merged.Projection,
+	}
+
+	payloadOpts := map[string]any{}
+	if ptr.From(merged.Upsert) {
+		payloadOpts["upsert"] = true
+	}
+	if merged.ReturnDocument != nil {
+		payloadOpts["returnDocument"] = string(*merged.ReturnDocument)
+	}
+	if len(payloadOpts) > 0 {
+		payload.Options = payloadOpts
+	}
+
+	cmd := c.newCmd("findOneAndUpdate", payload)
+	b, warnings, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, err)
+}
+
 // CountDocuments counts documents after applying filter f. Count operations are
 // expensive: for this reason, the best practice is to provide a reasonable upperBound.
 // Use "0" for "all" (not recommended unless you have appropriate filters).
