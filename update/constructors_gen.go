@@ -78,3 +78,59 @@ func Mul(field string, value any) *Updater { return New().Mul(field, value) }
 //
 //	update.Rename("old_field", "new_field").Rename("other_old_field", "other_new_field")
 func Rename(field string, newName string) *Updater { return New().Rename(field, newName) }
+
+// The $addToSet operator adds an item to an array only if the item does not already exist in the array.
+//
+// Example usage:
+//
+//	update.AddToSet("genres", "SciFi")
+func AddToSet(field string, value any) *Updater { return New().AddToSet(field, value) }
+
+// AddToSetEach combines [AddToSet] and $each to add items to an array if the items do not
+// already exist in the array.
+//
+// Example usage:
+//
+//	update.AddToSetEach("genres", "SciFi", "Fantasy")
+func AddToSetEach(field string, values ...any) *Updater { return New().AddToSetEach(field, values...) }
+
+// The $pop operator removes the first or last item of the array, depending on the value of the operator.
+// Use -1 to remove the first item. Use 1 to remove the last item.
+//
+// Example usage:
+//
+//	update.Pop("genres", -1) // Removes the first item in the genres array.
+func Pop(field string, value int) *Updater { return New().Pop(field, value) }
+
+// The $push operator appends data to the field value. The specified field must be an array or must not yet exist.
+//
+// If the specified field does not exist, the field is created, and the value is an array containing the pushed items.
+//
+// Use [PushEach] to append multiple properties. Use [PushEachPosition] to modify the position of the new items in the array.
+//
+// Example usage:
+//
+//	update.Push("genres", "SciFi")
+func Push(field string, value any) *Updater { return New().Push(field, value) }
+
+// The $push operator with $each modifier appends multiple values to an array field.
+//
+// Example usage:
+//
+//	update.PushEach("genres", "SciFi", "Fantasy")
+func PushEach(field string, values ...any) *Updater { return New().PushEach(field, values...) }
+
+// The $position operator modifies the $push operator to specify the position in the array to add items.
+//
+//   - Use a positive position value to count from the start of the array. For example, 2 inserts the items after the first two items in the array.
+//   - Use a negative position value to count from the end of the array. For example, -2 inserts the items before the last two items in the array.
+//   - Use a position value of 0 to insert items at the start of the array
+//
+// When you use position, the $each operator is required, even if you want to insert a single item at the specified position.
+//
+// Example usage:
+//
+//	update.PushEachPosition("genres", 1, "SciFi", "Fantasy")
+func PushEachPosition(field string, position int, values ...any) *Updater {
+	return New().PushEachPosition(field, position, values...)
+}

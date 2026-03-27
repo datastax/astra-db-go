@@ -145,6 +145,63 @@ func TestUpdateFieldOperators(t *testing.T) {
 	}
 }
 
+func TestUpdateArrayOperators(t *testing.T) {
+	// Mix of docs examples and some additional chaining examples.
+	// https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operator-collections.html#add-to-set
+	tests := []struct {
+		expectedJSON string
+		fluent       *update.Updater
+		raw          update.U
+	}{
+		{
+			`{"$addToSet":{"genres":"SciFi"}}`, // Docs example
+			update.AddToSet("genres", "SciFi"),
+			update.U{"$addToSet": update.U{"genres": "SciFi"}},
+		},
+		{
+			`{"$pop":{"genres":-1}}`, // Docs example
+			update.Pop("genres", -1),
+			update.U{"$pop": update.U{"genres": -1}},
+		},
+		{
+			`{"$push":{"genres":"SciFi"}}`, // Docs example
+			update.Push("genres", "SciFi"),
+			update.U{"$push": update.U{"genres": "SciFi"}},
+		},
+		{
+			`{"$push":{"genres":{"$each":["Mystery","Fiction"]}}}`, // Docs example
+			update.PushEach("genres", "Mystery", "Fiction"),
+			update.U{"$push": update.U{"genres": map[string]any{"$each": []string{"Mystery", "Fiction"}}}},
+		},
+		{
+			`{"$push":{"genres":{"$each":["Mystery","Fiction"],"$position": 3}}}`, // Docs example
+			update.PushEachPosition("genres", 3, "Mystery", "Fiction"),
+			update.U{"$push": update.U{"genres": map[string]any{"$each": []string{"Mystery", "Fiction"}, "$position": 3}}},
+		},
+		{
+			`{"$pop":{"genres":1}}`, // Test pop with value 1 to remove last item in array
+			update.Pop("genres", 1),
+			update.U{"$pop": update.U{"genres": 1}},
+		},
+		{
+			`{"$addToSet":{"tags":{"$each":["a","b"]}}}`, // Test AddToSetEach
+			update.AddToSetEach("tags", "a", "b"),
+			update.U{"$addToSet": update.U{"tags": map[string]any{"$each": []string{"a", "b"}}}},
+		},
+		{
+			// Chaining array + field operators together
+			`{"$addToSet":{"genres":{"$each":["sci-fi","fantasy"]}},"$set":{"name":"Bob"}}`,
+			update.Set("name", "Bob").AddToSetEach("genres", "sci-fi", "fantasy"),
+			update.U{"$set": update.U{"name": "Bob"}, "$addToSet": update.U{"genres": map[string]any{"$each": []string{"sci-fi", "fantasy"}}}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.expectedJSON, func(t *testing.T) {
+			assertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+		})
+	}
+}
+
 func TestUpdaterZeroValuePanic(t *testing.T) {
 	// This test just verifies that a zero-value Update doesn't panic.
 	defer func() {
