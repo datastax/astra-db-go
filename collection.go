@@ -274,7 +274,7 @@ func (c *Collection) Find(ctx context.Context, f any, opts ...options.Collection
 // collectionUpdateOnePayload is the payload for the updateOne command on collections.
 type collectionUpdateOnePayload struct {
 	Filter  any            `json:"filter,omitempty"`
-	Update  Update         `json:"update"`
+	Update  CollectionUpdate         `json:"update"`
 	Sort    map[string]any `json:"sort,omitempty"`
 	Options map[string]any `json:"options,omitempty"`
 }
@@ -290,10 +290,10 @@ type collectionUpdateOneResponse struct {
 
 // UpdateOne updates a single document matching the filter.
 //
-// The update parameter should be an [update.U] expression, e.g. update.Set("name", "new").
+// The update parameter should be an [update.U] expression, e.g. update.Coll().Set("name", "new").
 //
 // Options passed here override those set on the collection.
-func (c *Collection) UpdateOne(ctx context.Context, f any, u Update, opts ...options.CollectionUpdateOneOption) (*results.UpdateResult, error) {
+func (c *Collection) UpdateOne(ctx context.Context, f any, u CollectionUpdate, opts ...options.CollectionUpdateOneOption) (*results.UpdateResult, error) {
 	switch f.(type) {
 	case filter.F, filter.Filter:
 		// Allowed
@@ -343,7 +343,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f any, u Update, opts ...opt
 // collectionUpdateManyPayload is the payload for the updateMany command on collections.
 type collectionUpdateManyPayload struct {
 	Filter  any            `json:"filter,omitempty"`
-	Update  Update         `json:"update"`
+	Update  CollectionUpdate         `json:"update"`
 	Options map[string]any `json:"options,omitempty"`
 }
 
@@ -359,14 +359,14 @@ type collectionUpdateManyResponse struct {
 
 // UpdateMany updates all documents matching the filter.
 //
-// The update parameter should be an [update.U] expression, e.g. update.Set("name", "new").
+// The update parameter should be an [update.U] expression, e.g. update.Coll().Set("name", "new").
 //
 // The Data API may not update all matching documents in a single round-trip.
 // This method automatically paginates, re-issuing the command and accumulating
 // counts until the server indicates no more data remains.
 //
 // Options passed here override those set on the collection.
-func (c *Collection) UpdateMany(ctx context.Context, f any, u Update, opts ...options.CollectionUpdateManyOption) (*results.UpdateResult, error) {
+func (c *Collection) UpdateMany(ctx context.Context, f any, u CollectionUpdate, opts ...options.CollectionUpdateManyOption) (*results.UpdateResult, error) {
 	switch f.(type) {
 	case filter.F, filter.Filter:
 		// Allowed
@@ -421,7 +421,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f any, u Update, opts ...op
 // collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
 type collectionFindOneAndUpdatePayload struct {
 	Filter     any            `json:"filter,omitempty"`
-	Update     Update         `json:"update"`
+	Update     CollectionUpdate `json:"update"`
 	Sort       map[string]any `json:"sort,omitempty"`
 	Projection map[string]any `json:"projection,omitempty"`
 	Options    map[string]any `json:"options,omitempty"`
@@ -431,10 +431,10 @@ type collectionFindOneAndUpdatePayload struct {
 // and returns the document. By default, the document is returned as it was before the
 // update. Use [options.ReturnDocumentAfter] to return the document after the update.
 //
-// The update parameter should be an [update.U] expression, e.g. update.Set("name", "new").
+// The update parameter should be an [update.U] expression, e.g. update.Coll().Set("name", "new").
 //
 // Options passed here override those set on the collection.
-func (c *Collection) FindOneAndUpdate(ctx context.Context, f any, u Update, opts ...options.CollectionFindOneAndUpdateOption) *results.SingleResult {
+func (c *Collection) FindOneAndUpdate(ctx context.Context, f any, u CollectionUpdate, opts ...options.CollectionFindOneAndUpdateOption) *results.SingleResult {
 	switch f.(type) {
 	case filter.F, filter.Filter:
 		// Allowed

@@ -330,7 +330,7 @@ func CollectionUpdateOne(e *harness.TestEnv) error {
 	insertedID := resp.Status.InsertedIds[0]
 
 	// Update the document's name
-	result, err := c.UpdateOne(ctx, filter.F{"_id": insertedID}, update.Set("name", "UpdateOneModified"))
+	result, err := c.UpdateOne(ctx, filter.F{"_id": insertedID}, update.Coll().Set("name", "UpdateOneModified"))
 	if err != nil {
 		return fmt.Errorf("UpdateOne failed: %w", err)
 	}
@@ -372,7 +372,7 @@ func CollectionUpdateOneUpsert(e *harness.TestEnv) error {
 	// Upsert a document that doesn't exist
 	result, err := c.UpdateOne(ctx,
 		filter.F{"_id": upsertID},
-		update.Set("name", "UpsertedDoc"),
+		update.Coll().Set("name", "UpsertedDoc"),
 		options.CollectionUpdateOne().SetUpsert(true),
 	)
 	if err != nil {
@@ -411,7 +411,7 @@ func CollectionUpdateOneNoMatch(e *harness.TestEnv) error {
 
 	result, err := c.UpdateOne(ctx,
 		filter.F{"_id": "nonexistent-id-xyz"},
-		update.Set("name", "ShouldNotExist"),
+		update.Coll().Set("name", "ShouldNotExist"),
 	)
 	if err != nil {
 		return fmt.Errorf("UpdateOne no-match failed: %w", err)
@@ -451,7 +451,7 @@ func CollectionUpdateMany(e *harness.TestEnv) error {
 	// UpdateMany: set a new field on all docs with our tag
 	result, err := c.UpdateMany(ctx,
 		filter.F{"tag": tag},
-		update.Set("updated", true),
+		update.Coll().Set("updated", true),
 	)
 	if err != nil {
 		return fmt.Errorf("UpdateMany failed: %w", err)
@@ -492,7 +492,7 @@ func CollectionUpdateManyUpsert(e *harness.TestEnv) error {
 
 	result, err := c.UpdateMany(ctx,
 		filter.F{"tag": upsertTag},
-		update.Set("name", "UpsertedMany"),
+		update.Coll().Set("name", "UpsertedMany"),
 		options.CollectionUpdateMany().SetUpsert(true),
 	)
 	if err != nil {
@@ -528,7 +528,7 @@ func CollectionUpdateManyNoMatch(e *harness.TestEnv) error {
 
 	result, err := c.UpdateMany(ctx,
 		filter.F{"_id": "nonexistent-update-many-xyz"},
-		update.Set("name", "ShouldNotExist"),
+		update.Coll().Set("name", "ShouldNotExist"),
 	)
 	if err != nil {
 		return fmt.Errorf("UpdateMany no-match failed: %w", err)
@@ -564,7 +564,7 @@ func CollectionFindOneAndUpdate(e *harness.TestEnv) error {
 	var doc SimpleObject
 	err = c.FindOneAndUpdate(ctx,
 		filter.F{"_id": insertedID},
-		update.Set("name", "FindOneAndUpdateModified"),
+		update.Coll().Set("name", "FindOneAndUpdateModified"),
 	).Decode(&doc)
 	if err != nil {
 		return fmt.Errorf("FindOneAndUpdate failed: %w", err)
@@ -604,7 +604,7 @@ func CollectionFindOneAndUpdateAfter(e *harness.TestEnv) error {
 	var doc SimpleObject
 	err = c.FindOneAndUpdate(ctx,
 		filter.F{"_id": insertedID},
-		update.Set("name", "AfterValue"),
+		update.Coll().Set("name", "AfterValue"),
 		options.CollectionFindOneAndUpdate().SetReturnDocument(options.ReturnDocumentAfter),
 	).Decode(&doc)
 	if err != nil {
@@ -630,7 +630,7 @@ func CollectionFindOneAndUpdateUpsert(e *harness.TestEnv) error {
 	var doc map[string]any
 	err := c.FindOneAndUpdate(ctx,
 		filter.F{"_id": upsertID},
-		update.Set("name", "UpsertedViaFindOneAndUpdate"),
+		update.Coll().Set("name", "UpsertedViaFindOneAndUpdate"),
 		options.CollectionFindOneAndUpdate().
 			SetUpsert(true).
 			SetReturnDocument(options.ReturnDocumentAfter),
@@ -675,7 +675,7 @@ func CollectionFindOneAndUpdateProjection(e *harness.TestEnv) error {
 	var doc map[string]any
 	err = c.FindOneAndUpdate(ctx,
 		filter.F{"_id": insertedID},
-		update.Set("name", "ProjectionTestUpdated"),
+		update.Coll().Set("name", "ProjectionTestUpdated"),
 		options.CollectionFindOneAndUpdate().
 			SetReturnDocument(options.ReturnDocumentAfter).
 			SetProjection(map[string]any{"name": true}),
