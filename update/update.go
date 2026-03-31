@@ -88,7 +88,7 @@ func Coll() *CollectionUpdateBuilder {
 }
 
 // setField ensures ops is non-nil before setting the given operator and field.
-func (u *CollectionUpdateBuilder) setField(op, field string, value any) *CollectionUpdateBuilder {
+func (u *CollectionUpdateBuilder) setField(op, field string, value any) *CollectionUpdateBuilder   {
 	// Ensure ops is non-nil to avoid panic.
 	if u.ops == nil {
 		u.ops = make(map[string]map[string]any)
