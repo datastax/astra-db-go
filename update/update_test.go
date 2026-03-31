@@ -89,7 +89,7 @@ func TestUpdateFieldOperators(t *testing.T) {
 	// since json.Marshal orders keys alphabetically.
 	tests := []struct {
 		expectedJSON string
-		fluent       *update.CollectionUpdater
+		fluent       *update.CollectionUpdateBuilder
 		raw          update.U
 	}{
 		{
@@ -150,7 +150,7 @@ func TestUpdateArrayOperators(t *testing.T) {
 	// https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operator-collections.html#add-to-set
 	tests := []struct {
 		expectedJSON string
-		fluent       *update.CollectionUpdater
+		fluent       *update.CollectionUpdateBuilder
 		raw          update.U
 	}{
 		{
@@ -202,14 +202,14 @@ func TestUpdateArrayOperators(t *testing.T) {
 	}
 }
 
-func TestCollectionUpdaterZeroValuePanic(t *testing.T) {
-	// This test just verifies that a zero-value CollectionUpdater doesn't panic.
+func TestCollectionUpdateBuilderZeroValuePanic(t *testing.T) {
+	// This test just verifies that a zero-value CollectionUpdateBuilder doesn't panic.
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("Unexpected panic: %v", r)
 		}
 	}()
-	u := update.CollectionUpdater{}
+	u := update.CollectionUpdateBuilder{}
 	u.Set("BestDB", "Astra")
 }
 
@@ -227,13 +227,13 @@ func TestAdvancedChaining(t *testing.T) {
 	}
 }
 
-func TestTableUpdater(t *testing.T) {
+func TestTableUpdateBuilder(t *testing.T) {
 	// Some of the tests were taken directly from the docs:
 	// https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operators-tables.html
 	tests := []struct {
 		name         string
 		expectedJSON string
-		fluent       *update.TableUpdater
+		fluent       *update.TableUpdateBuilder
 		raw          update.U
 	}{
 		{
@@ -331,23 +331,23 @@ func TestTableUpdater(t *testing.T) {
 	}
 }
 
-func TestTableUpdaterZeroValuePanic(t *testing.T) {
+func TestTableUpdateBuilderZeroValuePanic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			t.Errorf("Unexpected panic: %v", r)
 		}
 	}()
-	u := update.TableUpdater{}
+	u := update.TableUpdateBuilder{}
 	u.Set("BestDB", "Astra")
 }
 
-// TestCollectionUpdateInterface verifies that CollectionUpdater and U satisfy CollectionUpdate.
+// TestCollectionUpdateInterface verifies that CollectionUpdateBuilder and U satisfy CollectionUpdate.
 func TestCollectionUpdateInterface(t *testing.T) {
 	var _ update.CollectionUpdate = update.Coll().Set("x", 1)
 	var _ update.CollectionUpdate = update.U{"$set": update.U{"x": 1}}
 }
 
-// TestTableUpdateInterface verifies that TableUpdater and U satisfy TableUpdate.
+// TestTableUpdateInterface verifies that TableUpdateBuilder and U satisfy TableUpdate.
 func TestTableUpdateInterface(t *testing.T) {
 	var _ update.TableUpdate = update.Table().Set("x", 1)
 	var _ update.TableUpdate = update.U{"$set": update.U{"x": 1}}

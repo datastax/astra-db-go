@@ -259,13 +259,13 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	return body, resp.Status.Warnings, nil
 }
 
-// CollectionUpdate is implemented by [update.CollectionUpdater] and [update.U].
+// CollectionUpdate is implemented by [update.CollectionUpdateBuilder] and [update.U].
 // See the [update package] for more details.
 //
 // [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/update
 type CollectionUpdate = update.CollectionUpdate
 
-// TableUpdate is implemented by [update.TableUpdater] and [update.U].
+// TableUpdate is implemented by [update.TableUpdateBuilder] and [update.U].
 // See the [update package] for more details.
 //
 // [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/update

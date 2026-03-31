@@ -273,10 +273,10 @@ func (c *Collection) Find(ctx context.Context, f any, opts ...options.Collection
 
 // collectionUpdateOnePayload is the payload for the updateOne command on collections.
 type collectionUpdateOnePayload struct {
-	Filter  any            `json:"filter,omitempty"`
-	Update  CollectionUpdate         `json:"update"`
-	Sort    map[string]any `json:"sort,omitempty"`
-	Options map[string]any `json:"options,omitempty"`
+	Filter  any              `json:"filter,omitempty"`
+	Update  CollectionUpdate `json:"update"`
+	Sort    map[string]any   `json:"sort,omitempty"`
+	Options map[string]any   `json:"options,omitempty"`
 }
 
 // collectionUpdateOneResponse is the response from the updateOne command.
@@ -342,9 +342,9 @@ func (c *Collection) UpdateOne(ctx context.Context, f any, u CollectionUpdate, o
 
 // collectionUpdateManyPayload is the payload for the updateMany command on collections.
 type collectionUpdateManyPayload struct {
-	Filter  any            `json:"filter,omitempty"`
-	Update  CollectionUpdate         `json:"update"`
-	Options map[string]any `json:"options,omitempty"`
+	Filter  any              `json:"filter,omitempty"`
+	Update  CollectionUpdate `json:"update"`
+	Options map[string]any   `json:"options,omitempty"`
 }
 
 // collectionUpdateManyResponse is the response from the updateMany command.
@@ -420,11 +420,11 @@ func (c *Collection) UpdateMany(ctx context.Context, f any, u CollectionUpdate, 
 
 // collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
 type collectionFindOneAndUpdatePayload struct {
-	Filter     any            `json:"filter,omitempty"`
+	Filter     any              `json:"filter,omitempty"`
 	Update     CollectionUpdate `json:"update"`
-	Sort       map[string]any `json:"sort,omitempty"`
-	Projection map[string]any `json:"projection,omitempty"`
-	Options    map[string]any `json:"options,omitempty"`
+	Sort       map[string]any   `json:"sort,omitempty"`
+	Projection map[string]any   `json:"projection,omitempty"`
+	Options    map[string]any   `json:"options,omitempty"`
 }
 
 // FindOneAndUpdate finds a single document matching the filter, applies the update,

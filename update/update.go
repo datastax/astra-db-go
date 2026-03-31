@@ -27,14 +27,14 @@ package update
 import "encoding/json"
 
 // CollectionUpdate is implemented by types that can be used as an update document
-// for collection operations. It is satisfied by [CollectionUpdater] and [U].
+// for collection operations. It is satisfied by [CollectionUpdateBuilder] and [U].
 type CollectionUpdate interface {
 	json.Marshaler
 	isCollectionUpdate()
 }
 
 // TableUpdate is implemented by types that can be used as an update document
-// for table operations. It is satisfied by [TableUpdater] and [U].
+// for table operations. It is satisfied by [TableUpdateBuilder] and [U].
 type TableUpdate interface {
 	json.Marshaler
 	isTableUpdate()
@@ -60,35 +60,35 @@ func (u U) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any(u))
 }
 
-// CollectionUpdater accumulates [Collection Update Operators] and serializes directly to JSON.
+// CollectionUpdateBuilder accumulates [Collection Update Operators] and serializes directly to JSON.
 //
 // Construct with Coll():
 //
 //	update.Coll().Set("number_of_pages", 423).Unset("rating").Inc("copies_sold", 1)
 //
 // [Collection Update Operators]: https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operator-collections.html
-type CollectionUpdater struct {
+type CollectionUpdateBuilder struct {
 	ops map[string]map[string]any
 }
 
 // dummy implementation to satisfy interface.
-func (*CollectionUpdater) isCollectionUpdate() {}
+func (*CollectionUpdateBuilder) isCollectionUpdate() {}
 
-func (u *CollectionUpdater) MarshalJSON() ([]byte, error) {
+func (u *CollectionUpdateBuilder) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.ops)
 }
 
-// Coll returns an empty [CollectionUpdater]. Chain methods like [Set], [Unset], etc. to add operators and fields.
+// Coll returns an empty [CollectionUpdateBuilder]. Chain methods like [Set], [Unset], etc. to add operators and fields.
 //
 // Example usage:
 //
 //	update.Coll().Set("number_of_pages", 423).Unset("rating").Inc("copies_sold", 1)
-func Coll() *CollectionUpdater {
-	return &CollectionUpdater{ops: make(map[string]map[string]any)}
+func Coll() *CollectionUpdateBuilder {
+	return &CollectionUpdateBuilder{ops: make(map[string]map[string]any)}
 }
 
 // setField ensures ops is non-nil before setting the given operator and field.
-func (u *CollectionUpdater) setField(op, field string, value any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) setField(op, field string, value any) *CollectionUpdateBuilder {
 	// Ensure ops is non-nil to avoid panic.
 	if u.ops == nil {
 		u.ops = make(map[string]map[string]any)
@@ -108,7 +108,7 @@ func (u *CollectionUpdater) setField(op, field string, value any) *CollectionUpd
 // Example usage:
 //
 //	update.Coll().Set("number_of_pages", 423).Set("rating", 4.5)
-func (u *CollectionUpdater) Set(field string, value any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) Set(field string, value any) *CollectionUpdateBuilder {
 	return u.setField("$set", field, value)
 }
 
@@ -117,7 +117,7 @@ func (u *CollectionUpdater) Set(field string, value any) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().SetOnInsert("rating", 5.0).SetOnInsert("is_checked_out", false)
-func (u *CollectionUpdater) SetOnInsert(field string, value any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) SetOnInsert(field string, value any) *CollectionUpdateBuilder {
 	return u.setField("$setOnInsert", field, value)
 }
 
@@ -126,7 +126,7 @@ func (u *CollectionUpdater) SetOnInsert(field string, value any) *CollectionUpda
 // Example usage:
 //
 //	update.Coll().Unset("borrower", "due_date")
-func (b *CollectionUpdater) Unset(fields ...string) *CollectionUpdater {
+func (b *CollectionUpdateBuilder) Unset(fields ...string) *CollectionUpdateBuilder {
 	for _, f := range fields {
 		b.setField("$unset", f, "")
 	}
@@ -138,7 +138,7 @@ func (b *CollectionUpdater) Unset(fields ...string) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().CurrentDate("due_date")
-func (b *CollectionUpdater) CurrentDate(field string) *CollectionUpdater {
+func (b *CollectionUpdateBuilder) CurrentDate(field string) *CollectionUpdateBuilder {
 	return b.setField("$currentDate", field, true)
 }
 
@@ -147,7 +147,7 @@ func (b *CollectionUpdater) CurrentDate(field string) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().Inc("number_of_pages", 25)
-func (b *CollectionUpdater) Inc(field string, amount any) *CollectionUpdater {
+func (b *CollectionUpdateBuilder) Inc(field string, amount any) *CollectionUpdateBuilder {
 	return b.setField("$inc", field, amount)
 }
 
@@ -156,7 +156,7 @@ func (b *CollectionUpdater) Inc(field string, amount any) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().Min("rating", 3.9)
-func (b *CollectionUpdater) Min(field string, value any) *CollectionUpdater {
+func (b *CollectionUpdateBuilder) Min(field string, value any) *CollectionUpdateBuilder {
 	return b.setField("$min", field, value)
 }
 
@@ -165,7 +165,7 @@ func (b *CollectionUpdater) Min(field string, value any) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().Max("rating", 3.9)
-func (b *CollectionUpdater) Max(field string, value any) *CollectionUpdater {
+func (b *CollectionUpdateBuilder) Max(field string, value any) *CollectionUpdateBuilder {
 	return b.setField("$max", field, value)
 }
 
@@ -174,7 +174,7 @@ func (b *CollectionUpdater) Max(field string, value any) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().Mul("rating", 1.2)
-func (b *CollectionUpdater) Mul(field string, value any) *CollectionUpdater {
+func (b *CollectionUpdateBuilder) Mul(field string, value any) *CollectionUpdateBuilder {
 	return b.setField("$mul", field, value)
 }
 
@@ -183,7 +183,7 @@ func (b *CollectionUpdater) Mul(field string, value any) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().Rename("old_field", "new_field").Rename("other_old_field", "other_new_field")
-func (u *CollectionUpdater) Rename(field, newName string) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) Rename(field, newName string) *CollectionUpdateBuilder {
 	return u.setField("$rename", field, newName)
 }
 
@@ -196,7 +196,7 @@ func (u *CollectionUpdater) Rename(field, newName string) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().AddToSet("genres", "SciFi")
-func (u *CollectionUpdater) AddToSet(field string, value any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) AddToSet(field string, value any) *CollectionUpdateBuilder {
 	return u.setField("$addToSet", field, value)
 }
 
@@ -206,7 +206,7 @@ func (u *CollectionUpdater) AddToSet(field string, value any) *CollectionUpdater
 // Example usage:
 //
 //	update.Coll().AddToSetEach("genres", "SciFi", "Fantasy")
-func (u *CollectionUpdater) AddToSetEach(field string, values ...any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) AddToSetEach(field string, values ...any) *CollectionUpdateBuilder {
 	return u.setField("$addToSet", field, map[string]any{"$each": values})
 }
 
@@ -216,7 +216,7 @@ func (u *CollectionUpdater) AddToSetEach(field string, values ...any) *Collectio
 // Example usage:
 //
 //	update.Coll().Pop("genres", -1) // Removes the first item in the genres array.
-func (u *CollectionUpdater) Pop(field string, value int) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) Pop(field string, value int) *CollectionUpdateBuilder {
 	return u.setField("$pop", field, value)
 }
 
@@ -229,7 +229,7 @@ func (u *CollectionUpdater) Pop(field string, value int) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().Push("genres", "SciFi")
-func (u *CollectionUpdater) Push(field string, value any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) Push(field string, value any) *CollectionUpdateBuilder {
 	return u.setField("$push", field, value)
 }
 
@@ -238,7 +238,7 @@ func (u *CollectionUpdater) Push(field string, value any) *CollectionUpdater {
 // Example usage:
 //
 //	update.Coll().PushEach("genres", "SciFi", "Fantasy")
-func (u *CollectionUpdater) PushEach(field string, values ...any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) PushEach(field string, values ...any) *CollectionUpdateBuilder {
 	return u.setField("$push", field, map[string]any{"$each": values})
 }
 
@@ -253,36 +253,36 @@ func (u *CollectionUpdater) PushEach(field string, values ...any) *CollectionUpd
 // Example usage:
 //
 //	update.Coll().PushEachPosition("genres", 1, "SciFi", "Fantasy")
-func (u *CollectionUpdater) PushEachPosition(field string, position int, values ...any) *CollectionUpdater {
+func (u *CollectionUpdateBuilder) PushEachPosition(field string, position int, values ...any) *CollectionUpdateBuilder {
 	return u.setField("$push", field, map[string]any{"$each": values, "$position": position})
 }
 
 // #endregion
 
-// TableUpdater accumulates [Table Update Operators] and serializes directly to JSON.
+// TableUpdateBuilder accumulates [Table Update Operators] and serializes directly to JSON.
 //
 // Construct with Table():
 //
 //	update.Table().Set("name", "Bob").Unset("phone")
 //
 // [Table Update Operators]: https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operators-tables.html
-type TableUpdater struct {
+type TableUpdateBuilder struct {
 	ops map[string]map[string]any
 }
 
-func (*TableUpdater) isTableUpdate() {}
+func (*TableUpdateBuilder) isTableUpdate() {}
 
-func (u *TableUpdater) MarshalJSON() ([]byte, error) {
+func (u *TableUpdateBuilder) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.ops)
 }
 
-// Table returns an empty TableUpdater.
-func Table() *TableUpdater {
-	return &TableUpdater{ops: make(map[string]map[string]any)}
+// Table returns an empty TableUpdateBuilder.
+func Table() *TableUpdateBuilder {
+	return &TableUpdateBuilder{ops: make(map[string]map[string]any)}
 }
 
 // setField ensures ops is non-nil before setting the given operator and field.
-func (u *TableUpdater) setField(op, field string, value any) *TableUpdater {
+func (u *TableUpdateBuilder) setField(op, field string, value any) *TableUpdateBuilder {
 	if u.ops == nil {
 		u.ops = make(map[string]map[string]any)
 	}
@@ -311,7 +311,7 @@ func (u *TableUpdater) setField(op, field string, value any) *TableUpdater {
 // Example setting a map column with non-string keys (array of key-value pairs):
 //
 //	update.Table().Set("map_column_int_str", [][]any{{1, "value1"}, {2, "value2}})
-func (u *TableUpdater) Set(field string, value any) *TableUpdater {
+func (u *TableUpdateBuilder) Set(field string, value any) *TableUpdateBuilder {
 	return u.setField("$set", field, value)
 }
 
@@ -325,7 +325,7 @@ func (u *TableUpdater) Set(field string, value any) *TableUpdater {
 //	update.Table().Unset("borrower", "due_date")
 //
 // [tombstone]: https://docs.datastax.com/en/hyper-converged-database/1.2/architecture/database-internals/architecture-tombstones.html
-func (u *TableUpdater) Unset(fields ...string) *TableUpdater {
+func (u *TableUpdateBuilder) Unset(fields ...string) *TableUpdateBuilder {
 	for _, f := range fields {
 		u.setField("$unset", f, "")
 	}
@@ -338,7 +338,7 @@ func (u *TableUpdater) Unset(fields ...string) *TableUpdater {
 // Example usage:
 //
 //	update.Table().Push("genres", "SciFi")
-func (u *TableUpdater) Push(field string, value any) *TableUpdater {
+func (u *TableUpdateBuilder) Push(field string, value any) *TableUpdateBuilder {
 	return u.setField("$push", field, value)
 }
 
@@ -347,7 +347,7 @@ func (u *TableUpdater) Push(field string, value any) *TableUpdater {
 // Example usage:
 //
 //	update.Table().PushEach("topics", "robots", "AI")
-func (u *TableUpdater) PushEach(field string, values ...any) *TableUpdater {
+func (u *TableUpdateBuilder) PushEach(field string, values ...any) *TableUpdateBuilder {
 	return u.setField("$push", field, map[string]any{"$each": values})
 }
 
@@ -357,7 +357,7 @@ func (u *TableUpdater) PushEach(field string, values ...any) *TableUpdater {
 // Example usage:
 //
 //	update.Table().PullAll("genres", "SciFi", "Romance")
-func (u *TableUpdater) PullAll(field string, values ...any) *TableUpdater {
+func (u *TableUpdateBuilder) PullAll(field string, values ...any) *TableUpdateBuilder {
 	return u.setField("$pullAll", field, values)
 }
 
