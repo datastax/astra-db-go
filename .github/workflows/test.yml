@@ -38,3 +38,20 @@ jobs:
             git diff
             exit 1
           fi
+
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Check for files that need gofmt
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files need gofmt:"
+            gofmt -l .
+            exit 1
+          fi
