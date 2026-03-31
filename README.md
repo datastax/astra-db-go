@@ -333,6 +333,12 @@ Run the standard Go test suite:
 go test ./...
 ```
 
+If your changes need to change generated code:
+
+```bash
+go generate ./...
+```
+
 ### Integration Tests
 
 Integration tests run against a live Astra DB instance. See the [Integration Tests README](./internal/integrationtests/README.md) for full setup instructions.
