@@ -160,6 +160,50 @@ func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collection
 	return b
 }
 
+// CollectionDeleteOneOption configures a CollectionDeleteOne operation.
+// You can use the fluent-style builder or a pointer to [CollectionDeleteOneOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionDeleteOne]):
+//
+//	opts := options.CollectionDeleteOne().SetSort(...)
+//
+// Example using a pointer to [CollectionDeleteOneOptions] without the fluent builder:
+//
+//	opts := &options.CollectionDeleteOneOptions{...}
+type CollectionDeleteOneOption = Builder[CollectionDeleteOneOptions]
+
+// Setters implements Builder[CollectionDeleteOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionDeleteOneOptions].
+func (o *CollectionDeleteOneOptions) Setters() []func(*CollectionDeleteOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionDeleteOneOptions.
+func (o *CollectionDeleteOneOptions) Validate() error { return nil }
+
+// collectionDeleteOneOptionsBuilder is a builder for CollectionDeleteOneOptions.
+type collectionDeleteOneOptionsBuilder struct {
+	setters []func(*CollectionDeleteOneOptions)
+}
+
+// CollectionDeleteOne creates a new builder for [CollectionDeleteOneOptions].
+func CollectionDeleteOne() *collectionDeleteOneOptionsBuilder {
+	return &collectionDeleteOneOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionDeleteOneOptions].
+func (b *collectionDeleteOneOptionsBuilder) Setters() []func(*CollectionDeleteOneOptions) {
+	return b.setters
+}
+
+// SetSort sets the Sort option.
+// Sort specifies the sort order to apply before selecting the document to delete.
+// This determines which document is deleted when the filter matches multiple documents.
+func (b *collectionDeleteOneOptionsBuilder) SetSort(v map[string]any) *collectionDeleteOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) { o.Sort = v })
+	return b
+}
+
 // CollectionFindOneAndUpdateOption configures a CollectionFindOneAndUpdate operation.
 // You can use the fluent-style builder or a pointer to [CollectionFindOneAndUpdateOptions] interchangeably.
 //

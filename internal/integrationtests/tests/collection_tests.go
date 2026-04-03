@@ -38,6 +38,7 @@ func init() {
 		{Name: "CollectionFindOneAndUpdateAfter", Run: CollectionFindOneAndUpdateAfter},
 		{Name: "CollectionFindOneAndUpdateUpsert", Run: CollectionFindOneAndUpdateUpsert},
 		{Name: "CollectionFindOneAndUpdateProjection", Run: CollectionFindOneAndUpdateProjection},
+		{Name: "CollectionDeleteOne", Run: CollectionDeleteOne},
 		{Name: "CollectionDrop", Run: CollectionDrop},
 		// Vector search tests
 		{Name: "CollectionVectorCreate", Run: CollectionVectorCreate},
@@ -695,6 +696,30 @@ func CollectionFindOneAndUpdateProjection(e *harness.TestEnv) error {
 		return errors.New("expected properties to be excluded by projection")
 	}
 
+	return nil
+}
+
+func CollectionDeleteOne(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	// Insert a document to delete
+	original := SimpleObject{Name: "DeleteOneTest"}
+	resp, err := c.InsertOne(ctx, original)
+	if err != nil {
+		return fmt.Errorf("failed to insert document: %w", err)
+	}
+	insertedID := resp.Status.InsertedIds[0]
+
+	// Delete the document
+	result, err := c.DeleteOne(ctx, filter.F{"_id": insertedID})
+	if err != nil {
+		return fmt.Errorf("DeleteOne failed: %w", err)
+	}
+	if result.DeletedCount != 1 {
+		return fmt.Errorf("expected DeletedCount 1, got %d", result.DeletedCount)
+	}
 	return nil
 }
 

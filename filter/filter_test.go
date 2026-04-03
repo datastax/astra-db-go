@@ -97,6 +97,26 @@ func TestCombineOperatorsAndOrStructured(t *testing.T) {
 	}
 }
 
+func TestEqDefault(t *testing.T) {
+	composedFilters := filter.Eq("num_pages", 300)
+	filters := filter.F{"num_pages": 300}
+	got, err := json.Marshal(filters)
+	if err != nil {
+		t.Error(err)
+	}
+	expected := `{"num_pages":300}`
+	if string(got) != expected {
+		notExpected(t, expected, string(got))
+	}
+	composed, err := json.Marshal(composedFilters)
+	if err != nil {
+		t.Error(err)
+	}
+	if string(composed) != expected {
+		notExpected(t, expected, string(composed))
+	}
+}
+
 func TestOrSingleChild(t *testing.T) {
 	f := filter.Or(filter.Eq("x", 1))
 	got, err := json.Marshal(f)
@@ -117,18 +137,5 @@ func TestEmptyFilterMarshal(t *testing.T) {
 	}
 	if string(got) != "null" {
 		notExpected(t, "null", string(got))
-	}
-}
-
-func TestMethodReceiverEq(t *testing.T) {
-	f := &filter.Filter{}
-	eq := f.Eq("status", "active")
-	got, err := json.Marshal(eq)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `{"status":"active"}`
-	if string(got) != expected {
-		notExpected(t, expected, string(got))
 	}
 }

@@ -17,6 +17,11 @@ package filter
 
 import "encoding/json"
 
+// Filterable is implemented by types that can be used as query filters.
+type Filterable interface {
+	isFilter()
+}
+
 // F represents a map of filters to be applied to an Astra DB query.
 // Use this in conjunction with [A] if you want to pass filters as
 // they appear in JSON data.
@@ -38,6 +43,9 @@ import "encoding/json"
 //
 // See [FilterOperator] for available operators.
 type F map[string]any
+
+// Satisfy interface to allow F to be used as a filter.
+func (F) isFilter() {}
 
 // A represents a slice/array of filters to be applied to an Astra DB query.
 // Use this in conjunction with [F] if you want to pass filters as
@@ -79,7 +87,19 @@ const (
 	OpSize             FilterOperator = "$size"
 )
 
-// Filter represents a collection of filters.
+// Filter represents a collection of filters. Compose filters with
+// package-level functions like [Eq], [Gt], [And], etc. Example:
+//
+//	filters := filter.And(
+//		filter.Or(
+//			filter.Eq("is_checked_out", false),
+//			filter.Lt("number_of_pages", 300),
+//		),
+//		filter.Or(
+//			filter.In("genres", "Fantasy", "Romance"),
+//			filter.Gte("publication_year", 2002),
+//		),
+//	)
 type Filter struct {
 	// The operator. Such as "$or"
 	op FilterOperator
@@ -89,6 +109,19 @@ type Filter struct {
 	value any
 	// Child filters. Should never be populated if field/value are also populated.
 	children []Filter
+}
+
+// Satisfy interface to allow Filter to be used as a filter.
+func (Filter) isFilter() {}
+
+// Construct a field filter operator. Used to reduce boilerplate.
+func fieldOp(op FilterOperator, field string, value any) Filter {
+	return Filter{op: op, field: field, value: value}
+}
+
+// Construct a slice filter operator. Used to reduce boilerplate.
+func sliceOp(op FilterOperator, field string, vals []any) Filter {
+	return Filter{op: op, field: field, value: vals}
 }
 
 func (f Filter) MarshalJSON() ([]byte, error) {
@@ -117,29 +150,19 @@ func (f Filter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(nil)
 }
 
-func Eq(key string, val any) Filter {
-	return Filter{
-		op:    OpEqual,
-		field: key,
-		value: val,
-	}
-}
+func Eq(key string, val any) Filter  { return fieldOp(OpEqual, key, val) }
+func Ne(key string, val any) Filter  { return fieldOp(OpNotEqual, key, val) }
+func Lt(key string, val any) Filter  { return fieldOp(OpLessThan, key, val) }
+func Lte(key string, val any) Filter { return fieldOp(OpLessThanEqual, key, val) }
+func Gt(key string, val any) Filter  { return fieldOp(OpGreaterThan, key, val) }
+func Gte(key string, val any) Filter { return fieldOp(OpGreaterThanEqual, key, val) }
 
-func Lt(key string, val any) Filter {
-	return Filter{
-		op:    OpLessThan,
-		field: key,
-		value: val,
-	}
-}
+func Exists(key string, val bool) Filter { return fieldOp(OpExists, key, val) }
+func Size(key string, val int) Filter    { return fieldOp(OpSize, key, val) }
 
-func Gte(key string, val any) Filter {
-	return Filter{op: OpGreaterThanEqual, field: key, value: val}
-}
-
-func In(key string, vals ...any) Filter {
-	return Filter{op: OpIn, field: key, value: vals}
-}
+func In(key string, vals ...any) Filter  { return sliceOp(OpIn, key, vals) }
+func Nin(key string, vals ...any) Filter { return sliceOp(OpNotIn, key, vals) }
+func All(key string, vals ...any) Filter { return sliceOp(OpAll, key, vals) }
 
 func And(children ...Filter) Filter {
 	return Filter{
@@ -155,9 +178,6 @@ func Or(children ...Filter) Filter {
 	}
 }
 
-func (f *Filter) Eq(key string, val any) Filter {
-	return Filter{
-		field: key,
-		value: val,
-	}
+func Not(child Filter) Filter {
+	return Filter{op: OpNot, children: []Filter{child}}
 }

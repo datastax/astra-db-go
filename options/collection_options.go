@@ -204,6 +204,13 @@ type CollectionUpdateManyOptions struct {
 	Upsert *bool
 }
 
+// CollectionDeleteOneOptions represents options for a deleteOne operation.
+type CollectionDeleteOneOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to delete.
+	// This determines which document is deleted when the filter matches multiple documents.
+	Sort map[string]any
+}
+
 // ReturnDocument specifies whether to return the document before or after the update.
 type ReturnDocument string
 
