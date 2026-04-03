@@ -26,7 +26,7 @@ import (
 	"github.com/datastax/astra-db-go/results"
 )
 
-// CollectionUpdate is implemented by [filter.F] and [filter.Filter].
+// CollectionFilter is implemented by [filter.F] and [filter.Filter].
 // See the [filter package] for more details.
 //
 // Example composing Filters:
