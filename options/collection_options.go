@@ -14,7 +14,11 @@
 
 package options
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/datastax/astra-db-go/sort"
+)
 
 // CreateCollectionOptions represents options for a collection's behavior.
 type CreateCollectionOptions struct {
@@ -155,10 +159,10 @@ type RerankOptions struct{}
 // CollectionFindOptions represents options for finding documents in a collection
 type CollectionFindOptions struct {
 	// Sort specifies how to sort the results. Can be used for:
-	//  - Ascending/descending sort on fields (e.g., {"rating": 1, "title": -1})
-	//  - Vector search with a vector (e.g., {"$vector": [0.1, 0.2, 0.3]})
-	//  - Vector search with vectorize (e.g., {"$vectorize": "search text"})
-	Sort map[string]any `json:"sort,omitempty"`
+	//  - Ascending/descending sort on fields: sort.Asc("rating").Desc("title")
+	//  - Vector search with a vector: sort.Vector([]float32{0.1, 0.2, 0.3})
+	//  - Vector search with vectorize: sort.Vectorize("search text")
+	Sort sort.Sortable `json:"sort,omitempty"`
 
 	// Projection controls which fields are included or excluded in the returned documents
 	// Use true to include a field, false to exclude it
@@ -193,22 +197,22 @@ func (b *collectionFindOptionsBuilder) SetPageState(pageState string) *collectio
 type CollectionUpdateOneOptions struct {
 	// Sort specifies the sort order to apply before selecting the document to update.
 	// This determines which document is updated when the filter matches multiple documents.
-	Sort map[string]any
+	Sort sort.Sortable `json:"sort,omitempty"`
 	// Upsert if true, inserts a new document if no document matches the filter.
-	Upsert *bool
+	Upsert *bool `json:"upsert,omitempty"`
 }
 
 // CollectionUpdateManyOptions represents options for an updateMany operation.
 type CollectionUpdateManyOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
-	Upsert *bool
+	Upsert *bool `json:"upsert,omitempty"`
 }
 
 // CollectionDeleteOneOptions represents options for a deleteOne operation.
 type CollectionDeleteOneOptions struct {
 	// Sort specifies the sort order to apply before selecting the document to delete.
 	// This determines which document is deleted when the filter matches multiple documents.
-	Sort map[string]any
+	Sort sort.Sortable `json:"sort,omitempty"`
 }
 
 // ReturnDocument specifies whether to return the document before or after the update.
@@ -224,7 +228,7 @@ const (
 // CollectionFindOneAndUpdateOptions represents options for a findOneAndUpdate operation.
 type CollectionFindOneAndUpdateOptions struct {
 	// Sort specifies the sort order to apply before selecting the document to update.
-	Sort map[string]any `json:"sort,omitempty"`
+	Sort sort.Sortable `json:"sort,omitempty"`
 	// Projection controls which fields are included or excluded in the returned document.
 	Projection map[string]any `json:"projection,omitempty"`
 	// Upsert if true, inserts a new document if no document matches the filter.

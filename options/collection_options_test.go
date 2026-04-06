@@ -1,6 +1,7 @@
 package options_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/datastax/astra-db-go/options"
@@ -139,5 +140,26 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 				t.Errorf("options.MergeAndValidate(): wasn't expecting error. Got: %v", err)
 			}
 		})
+	}
+}
+
+func TestCollectionOptionsEmptySort(t *testing.T) {
+	// This test is just to validate that, even though we aren't using pointers,
+	// the Sort field is nil by default.
+	builder := options.CollectionFind().SetIncludeSimilarity(true)
+	opts, err := options.MergeAndValidate(builder)
+	if err != nil {
+		t.Errorf("options.MergeAndValidate(): wasn't expecting error. Got: %v", err)
+	}
+	if opts.Sort != nil {
+		t.Errorf("Expected nil Sort. Got %v.", opts.Sort)
+	}
+	b, err := json.Marshal(opts)
+	if err != nil {
+		t.Errorf("json.Marshal(): wasn't expecting error. Got: %v", err)
+	}
+	expected := `{"includeSimilarity":true}`
+	if string(b) != expected {
+		t.Errorf("Expected JSON %s. Got: %s", expected, string(b))
 	}
 }

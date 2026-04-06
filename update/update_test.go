@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"testing"
 
+	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -14,21 +15,6 @@ func cleanString(s string) string {
 	// with an empty string.
 	re := regexp.MustCompile(`\s+`)
 	return re.ReplaceAllString(s, "")
-}
-
-// assertJSONEqual marshals the given arguments to JSON and compares
-// them to the expected string. Whitespace isn't taken into account.
-func assertJSONEqual(t *testing.T, expected string, args ...any) {
-	for _, arg := range args {
-		argJSON, err := json.Marshal(arg)
-		if err != nil {
-			t.Fatalf("failed to marshal argument: %v", err)
-		}
-		if cleanString(string(argJSON)) != cleanString(expected) {
-			t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", argJSON, expected)
-			return
-		}
-	}
 }
 
 // Example taken from:
@@ -140,7 +126,7 @@ func TestUpdateFieldOperators(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.expectedJSON, func(t *testing.T) {
-			assertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 		})
 	}
 }
@@ -197,7 +183,7 @@ func TestUpdateArrayOperators(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.expectedJSON, func(t *testing.T) {
-			assertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 		})
 	}
 }
@@ -326,7 +312,7 @@ func TestTableUpdateBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 		})
 	}
 }

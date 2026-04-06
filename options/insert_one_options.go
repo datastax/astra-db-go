@@ -16,6 +16,8 @@ package options
 
 import "time"
 
+// TODO: this is unused currently. Either figure out what my intent was when I created it or delete it.
+
 // InsertOneOptions contains both Method options (sent to DB) and Request options (client side).
 type InsertOneOptions struct {
 	// Ordered controls whether the insert should be ordered.

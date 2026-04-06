@@ -243,7 +243,7 @@ type setterDef struct {
 	ParamType         string // e.g. "int", "Builder[VectorOptions]", "map[string]any"
 	IsVariadicBuilder bool   // true → takes ...Builder[T], calls Merge
 	InnerType         string // T in Builder[T] when IsVariadicBuilder is true
-	IsMap             bool   // true → stored directly, no pointer wrapping
+	IsDirectAssign    bool   // true → stored directly, no pointer wrapping
 	IsSlice           bool   // true → variadic element setter, stored directly
 	ElemType          string // element type when IsSlice is true
 }
@@ -320,7 +320,7 @@ func pickAliasExample(setters []setterDef) aliasDef {
 		"time.Duration": {"10 * time.Second", "ptr.To(10 * time.Second)"},
 	}
 	for _, s := range setters {
-		if s.IsVariadicBuilder || s.IsMap || s.IsSlice {
+		if s.IsVariadicBuilder || s.IsDirectAssign || s.IsSlice {
 			continue
 		}
 		if vals, ok := simpleTypes[s.ParamType]; ok {
@@ -499,7 +499,7 @@ func setterForField(structName string, f *types.Var, validator *types.Interface,
 	case *types.Map:
 		// map[K]V → value setter (stored directly, no address-of)
 		if param := typeStr(t); param != "" {
-			return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param, IsMap: true}, true
+			return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param, IsDirectAssign: true}, true
 		}
 
 	case *types.Slice:
@@ -507,9 +507,18 @@ func setterForField(structName string, f *types.Var, validator *types.Interface,
 		if elem := typeStr(t.Elem()); elem != "" {
 			return setterDef{Comment: comment, Method: method, Field: f.Name(), IsSlice: true, ElemType: elem}, true
 		}
+	case *types.Named:
+		// Named interface (e.g. sort.Sortable). Value setter (stored directly)
+		if _, ok := t.Underlying().(*types.Interface); ok {
+			obj := t.Obj()
+			if obj.Pkg() != nil && obj.Pkg().Name() != "options" {
+				param := obj.Pkg().Name() + "." + obj.Name()
+				return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param, IsDirectAssign: true}, true
+			}
+		}
 	}
 
-	// Interfaces (e.g. WarningHandler), funcs — skip and let the author
+	// Unsupported interfaces (e.g. WarningHandler), funcs — skip and let the author
 	// write these by hand.
 	return setterDef{}, false
 }
@@ -693,7 +702,7 @@ func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ElemType }}) *{{ $o.Builde
 	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
 	return b
 }
-{{ else if .IsMap }}
+{{ else if .IsDirectAssign }}
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {

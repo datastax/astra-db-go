@@ -24,6 +24,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/sort"
 )
 
 // CollectionFilter is implemented by [filter.F] and [filter.Filter].
@@ -55,8 +56,8 @@ func (c *Collection) Name() string {
 	return c.name
 }
 
-// Options returns the collection's options (or empty options if nil).
-func (c *Collection) Options() *options.APIOptions {
+// ClientOptions returns the collection's options (or empty options if nil).
+func (c *Collection) ClientOptions() *options.APIOptions {
 	if c.options == nil {
 		return &options.APIOptions{}
 	}
@@ -146,8 +147,8 @@ func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...op
 
 // collectionFindPayload is the payload for the find command on collections
 type collectionFindPayload struct {
-	Filter     any                    `json:"filter,omitempty"`
-	Sort       map[string]any         `json:"sort,omitempty"`
+	Filter     CollectionFilter       `json:"filter,omitempty"`
+	Sort       sort.Sortable          `json:"sort,omitempty"`
 	Projection map[string]any         `json:"projection,omitempty"`
 	Options    *collectionFindOptions `json:"options,omitempty"`
 }
@@ -279,7 +280,7 @@ func (c *Collection) Find(ctx context.Context, f CollectionFilter, opts ...optio
 type collectionUpdateOnePayload struct {
 	Filter  CollectionFilter `json:"filter,omitempty"`
 	Update  CollectionUpdate `json:"update"`
-	Sort    map[string]any   `json:"sort,omitempty"`
+	Sort    sort.Sortable    `json:"sort,omitempty"`
 	Options map[string]any   `json:"options,omitempty"`
 }
 
@@ -410,9 +411,9 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 
 // collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
 type collectionFindOneAndUpdatePayload struct {
-	Filter     any              `json:"filter,omitempty"`
+	Filter     CollectionFilter `json:"filter,omitempty"`
 	Update     CollectionUpdate `json:"update"`
-	Sort       map[string]any   `json:"sort,omitempty"`
+	Sort       sort.Sortable    `json:"sort,omitempty"`
 	Projection map[string]any   `json:"projection,omitempty"`
 	Options    map[string]any   `json:"options,omitempty"`
 }
@@ -455,8 +456,8 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 
 // collectionDeleteOnePayload is the payload for the deleteOne command on collections.
 type collectionDeleteOnePayload struct {
-	Filter any            `json:"filter,omitempty"`
-	Sort   map[string]any `json:"sort,omitempty"`
+	Filter CollectionFilter `json:"filter,omitempty"`
+	Sort   sort.Sortable    `json:"sort,omitempty"`
 }
 
 // collectionDeleteOneResponse is the response from the deleteOne command.

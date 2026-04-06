@@ -1,3 +1,17 @@
+// Copyright DataStax, Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package tests
 
 import (
@@ -11,6 +25,7 @@ import (
 	"github.com/datastax/astra-db-go/internal/integrationtests/harness"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -307,7 +322,7 @@ func TableFindWithSort(e *harness.TestEnv) error {
 	// Find books sorted by rating descending using cursor.All()
 	cursor := tbl.Find(ctx, filter.F{},
 		options.TableFind().
-			SetSort(map[string]any{"rating": options.SortDescending}).
+			SetSort(sort.Desc("rating")).
 			SetLimit(3),
 	)
 	defer cursor.Close(ctx)
@@ -502,7 +517,7 @@ func TableVectorIndex(e *harness.TestEnv) error {
 	queryVector := []float32{1.0, 0.0, 0.0}
 	cursor := tbl.Find(ctx, filter.F{},
 		options.TableFind().
-			SetSort(map[string]any{"embedding": queryVector}).
+			SetSort(sort.S{"embedding": queryVector}).
 			SetIncludeSimilarity(true).
 			SetLimit(3),
 	)

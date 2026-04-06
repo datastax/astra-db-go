@@ -14,6 +14,8 @@
 
 package options
 
+import "github.com/datastax/astra-db-go/sort"
+
 // CreateTableOptions represents options for creating a table
 type CreateTableOptions struct {
 	// IfNotExists if true, the command will silently succeed even if a table
@@ -28,10 +30,10 @@ type CreateTableOptions struct {
 // TableFindOptions represents options for finding rows in a table
 type TableFindOptions struct {
 	// Sort specifies how to sort the results. Can be used for:
-	//  - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
-	//  - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
-	//  - Vector search with vectorize (e.g., {"vector_column": "search text"})
-	Sort map[string]any `json:"sort,omitempty"`
+	//  - Ascending/descending sort on columns: sort.Asc("rating").Desc("title")
+	//  - Vector search with a vector: sort.Vector([]float32{0.1, 0.2, 0.3})
+	//  - Vector search with vectorize: sort.Vectorize("search text")
+	Sort sort.Sortable `json:"sort,omitempty"`
 
 	// Projection controls which columns are included or excluded in the returned rows
 	// Use true to include a column, false to exclude it
@@ -57,9 +59,3 @@ func (b *tableFindOptionsBuilder) SetPageState(pageState string) *tableFindOptio
 	b.setters = append(b.setters, func(o *TableFindOptions) { o.InitialPageState = &pageState })
 	return b
 }
-
-// SortAscending is the sort order value for ascending (1)
-const SortAscending = 1
-
-// SortDescending is the sort order value for descending (-1)
-const SortDescending = -1

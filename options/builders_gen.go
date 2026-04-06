@@ -19,6 +19,8 @@ package options
 import (
 	"net/http"
 	"time"
+
+	"github.com/datastax/astra-db-go/sort"
 )
 
 // Setters implements Builder[APIOptions] allowing the raw struct to be
@@ -199,7 +201,7 @@ func (b *collectionDeleteOneOptionsBuilder) Setters() []func(*CollectionDeleteOn
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to delete.
 // This determines which document is deleted when the filter matches multiple documents.
-func (b *collectionDeleteOneOptionsBuilder) SetSort(v map[string]any) *collectionDeleteOneOptionsBuilder {
+func (b *collectionDeleteOneOptionsBuilder) SetSort(v sort.Sortable) *collectionDeleteOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) { o.Sort = v })
 	return b
 }
@@ -243,7 +245,7 @@ func (b *collectionFindOneAndUpdateOptionsBuilder) Setters() []func(*CollectionF
 
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to update.
-func (b *collectionFindOneAndUpdateOptionsBuilder) SetSort(v map[string]any) *collectionFindOneAndUpdateOptionsBuilder {
+func (b *collectionFindOneAndUpdateOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneAndUpdateOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) { o.Sort = v })
 	return b
 }
@@ -308,10 +310,10 @@ func (b *collectionFindOptionsBuilder) Setters() []func(*CollectionFindOptions) 
 
 // SetSort sets the Sort option.
 // Sort specifies how to sort the results. Can be used for:
-//   - Ascending/descending sort on fields (e.g., {"rating": 1, "title": -1})
-//   - Vector search with a vector (e.g., {"$vector": [0.1, 0.2, 0.3]})
-//   - Vector search with vectorize (e.g., {"$vectorize": "search text"})
-func (b *collectionFindOptionsBuilder) SetSort(v map[string]any) *collectionFindOptionsBuilder {
+//   - Ascending/descending sort on fields: sort.Asc("rating").Desc("title")
+//   - Vector search with a vector: sort.Vector([]float32{0.1, 0.2, 0.3})
+//   - Vector search with vectorize: sort.Vectorize("search text")
+func (b *collectionFindOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Sort = v })
 	return b
 }
@@ -446,7 +448,7 @@ func (b *collectionUpdateOneOptionsBuilder) Setters() []func(*CollectionUpdateOn
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to update.
 // This determines which document is updated when the filter matches multiple documents.
-func (b *collectionUpdateOneOptionsBuilder) SetSort(v map[string]any) *collectionUpdateOneOptionsBuilder {
+func (b *collectionUpdateOneOptionsBuilder) SetSort(v sort.Sortable) *collectionUpdateOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) { o.Sort = v })
 	return b
 }
@@ -1327,10 +1329,10 @@ func (b *tableFindOptionsBuilder) Setters() []func(*TableFindOptions) {
 
 // SetSort sets the Sort option.
 // Sort specifies how to sort the results. Can be used for:
-//   - Ascending/descending sort on columns (e.g., {"rating": 1, "title": -1})
-//   - Vector search with a vector (e.g., {"vector_column": [0.1, 0.2, 0.3]})
-//   - Vector search with vectorize (e.g., {"vector_column": "search text"})
-func (b *tableFindOptionsBuilder) SetSort(v map[string]any) *tableFindOptionsBuilder {
+//   - Ascending/descending sort on columns: sort.Asc("rating").Desc("title")
+//   - Vector search with a vector: sort.Vector([]float32{0.1, 0.2, 0.3})
+//   - Vector search with vectorize: sort.Vectorize("search text")
+func (b *tableFindOptionsBuilder) SetSort(v sort.Sortable) *tableFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOptions) { o.Sort = v })
 	return b
 }

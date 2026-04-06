@@ -20,6 +20,7 @@ import (
 
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -363,16 +364,16 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 			name: "with sort ascending",
 			payload: tableFindPayload{
 				Filter: filter.F{},
-				Sort:   map[string]any{"rating": options.SortAscending},
+				Sort:   sort.Asc("rating"),
 			},
 			check: func(t *testing.T, result map[string]any) {
-				sort, ok := result["sort"].(map[string]any)
+				s, ok := result["sort"].(map[string]any)
 				if !ok {
 					t.Fatal("expected sort to be a map")
 				}
 				// JSON numbers unmarshal as float64
-				if sort["rating"] != float64(1) {
-					t.Errorf("expected rating sort to be 1, got %v", sort["rating"])
+				if s["rating"] != float64(1) {
+					t.Errorf("expected rating sort to be 1, got %v", s["rating"])
 				}
 			},
 		},
@@ -380,15 +381,15 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 			name: "with sort descending",
 			payload: tableFindPayload{
 				Filter: filter.F{},
-				Sort:   map[string]any{"title": options.SortDescending},
+				Sort:   sort.Desc("title"),
 			},
 			check: func(t *testing.T, result map[string]any) {
-				sort, ok := result["sort"].(map[string]any)
+				s, ok := result["sort"].(map[string]any)
 				if !ok {
 					t.Fatal("expected sort to be a map")
 				}
-				if sort["title"] != float64(-1) {
-					t.Errorf("expected title sort to be -1, got %v", sort["title"])
+				if s["title"] != float64(-1) {
+					t.Errorf("expected title sort to be -1, got %v", s["title"])
 				}
 			},
 		},
@@ -396,16 +397,16 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 			name: "with vector search",
 			payload: tableFindPayload{
 				Filter: filter.F{},
-				Sort:   map[string]any{"vector_col": []float32{0.1, 0.2, 0.3}},
+				Sort:   sort.Vector([]float32{0.1, 0.2, 0.3}),
 			},
 			check: func(t *testing.T, result map[string]any) {
-				sort, ok := result["sort"].(map[string]any)
+				s, ok := result["sort"].(map[string]any)
 				if !ok {
 					t.Fatal("expected sort to be a map")
 				}
-				vec, ok := sort["vector_col"].([]any)
+				vec, ok := s["$vector"].([]any)
 				if !ok {
-					t.Fatal("expected vector_col to be a slice")
+					t.Fatal("expected $vector to be a slice")
 				}
 				if len(vec) != 3 {
 					t.Errorf("expected vector length 3, got %d", len(vec))
@@ -457,7 +458,7 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 			name: "with includeSimilarity",
 			payload: tableFindPayload{
 				Filter: filter.F{},
-				Sort:   map[string]any{"vector_col": []float32{0.1, 0.2}},
+				Sort:   sort.Vector([]float32{0.1, 0.2}),
 				Options: &tableFindOpts{
 					IncludeSimilarity: boolPtr(true),
 				},
@@ -495,7 +496,7 @@ func TestTableFindOptions(t *testing.T) {
 	t.Run("with all options", func(t *testing.T) {
 		opts, err := options.MergeAndValidate(
 			options.TableFind().
-				SetSort(map[string]any{"rating": options.SortAscending}).
+				SetSort(sort.Asc("rating")).
 				SetProjection(map[string]bool{"title": true}).
 				SetLimit(10).
 				SetSkip(5).

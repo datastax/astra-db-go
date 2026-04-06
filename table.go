@@ -24,6 +24,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -201,7 +202,7 @@ func dropTableIndexCommand(d *Db, name string) command {
 // tableFindPayload is the payload for the find command on tables
 type tableFindPayload struct {
 	Filter     any             `json:"filter,omitempty"`
-	Sort       map[string]any  `json:"sort,omitempty"`
+	Sort       sort.Sortable   `json:"sort,omitempty"`
 	Projection map[string]bool `json:"projection,omitempty"`
 	Options    *tableFindOpts  `json:"options,omitempty"`
 }
@@ -259,7 +260,7 @@ type tableFindResponse struct {
 //
 //	cursor := tbl.Find(ctx, filter.F{},
 //	    options.TableFind().
-//	        SetSort(map[string]any{"vector_column": []float32{0.1, 0.2, 0.3}}).
+//	        SetSort(sort.Vector([]float32{0.1, 0.2, 0.3})).
 //	        SetIncludeSimilarity(true),
 //	)
 func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption) *cursor.Cursor {
