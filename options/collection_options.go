@@ -1,4 +1,4 @@
-// Copyright DataStax, Inc.
+// Copyright IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -214,6 +214,9 @@ type CollectionDeleteOneOptions struct {
 	// This determines which document is deleted when the filter matches multiple documents.
 	Sort sort.Sortable `json:"sort,omitempty"`
 }
+
+// CollectionDeleteManyOptions represents options for a deleteMany operation.
+type CollectionDeleteManyOptions struct{}
 
 // ReturnDocument specifies whether to return the document before or after the update.
 type ReturnDocument string

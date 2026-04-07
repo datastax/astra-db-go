@@ -1,4 +1,4 @@
-// Copyright DataStax, Inc.
+// Copyright IBM Corp.
 
 package ptr_test
 
