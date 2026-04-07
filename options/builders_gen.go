@@ -1,4 +1,4 @@
-// Copyright DataStax, Inc.
+// Copyright IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -160,6 +160,33 @@ func (b *collectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultI
 func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collectionDefaultIdOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDefaultIdOptions) { o.Type = &v })
 	return b
+}
+
+// CollectionDeleteManyOption configures a CollectionDeleteMany operation.
+type CollectionDeleteManyOption = Builder[CollectionDeleteManyOptions]
+
+// Setters implements Builder[CollectionDeleteManyOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionDeleteManyOptions].
+func (o *CollectionDeleteManyOptions) Setters() []func(*CollectionDeleteManyOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionDeleteManyOptions.
+func (o *CollectionDeleteManyOptions) Validate() error { return nil }
+
+// collectionDeleteManyOptionsBuilder is a builder for CollectionDeleteManyOptions.
+type collectionDeleteManyOptionsBuilder struct {
+	setters []func(*CollectionDeleteManyOptions)
+}
+
+// CollectionDeleteMany creates a new builder for [CollectionDeleteManyOptions].
+func CollectionDeleteMany() *collectionDeleteManyOptionsBuilder {
+	return &collectionDeleteManyOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionDeleteManyOptions].
+func (b *collectionDeleteManyOptionsBuilder) Setters() []func(*CollectionDeleteManyOptions) {
+	return b.setters
 }
 
 // CollectionDeleteOneOption configures a CollectionDeleteOne operation.
@@ -1102,6 +1129,7 @@ func (b *insertOneOptionsBuilder) SetTimeout(v time.Duration) *insertOneOptionsB
 }
 
 // LexicalOption configures a Lexical operation.
+type LexicalOption = Builder[LexicalOptions]
 
 // Setters implements Builder[LexicalOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[LexicalOptions].
@@ -1239,6 +1267,7 @@ func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilde
 }
 
 // RerankOption configures a Rerank operation.
+type RerankOption = Builder[RerankOptions]
 
 // Setters implements Builder[RerankOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[RerankOptions].
@@ -1265,6 +1294,7 @@ func (b *rerankOptionsBuilder) Setters() []func(*RerankOptions) {
 }
 
 // SerdesOption configures a Serdes operation.
+type SerdesOption = Builder[SerdesOptions]
 
 // Setters implements Builder[SerdesOptions] allowing the raw struct to be
 // passed directly to methods that accept ...Builder[SerdesOptions].

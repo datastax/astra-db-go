@@ -1,4 +1,4 @@
-// Copyright DataStax, Inc.
+// Copyright IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package astradb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/datastax/astra-db-go/cursor"
@@ -133,7 +134,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 }
 
 type filterWrapper struct {
-	Filters CollectionFilter `json:"filter"`
+	Filters CollectionFilter `json:"filter,omitempty"`
 }
 
 // FindOne finds a single document matching the filter.
@@ -498,6 +499,69 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 	return &results.DeleteResult{
 		DeletedCount: resp.Status.DeletedCount,
 	}, nil
+}
+
+// collectionDeleteManyPayload is the payload for the deleteMany command on collections.
+type collectionDeleteManyPayload struct {
+	Filter CollectionFilter `json:"filter,omitempty"`
+}
+
+// collectionDeleteManyResponse is the response from the deleteMany command.
+type collectionDeleteManyResponse struct {
+	Status struct {
+		DeletedCount int  `json:"deletedCount"`
+		MoreData     bool `json:"moreData"`
+	} `json:"status"`
+}
+
+var ErrNilFilter = errors.New("filter cannot be nil. If you want to delete all documents, use an empty filter instead")
+
+// DeleteMany deletes all documents matching the filter.
+//
+// The Data API may not delete all matching documents in a single round-trip.
+// This method automatically paginates, re-issuing the command and accumulating
+// counts until the server indicates no more data remains.
+//
+// An empty or nil filter deletes all documents in the collection. In that case,
+// the returned DeletedCount is -1.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ...options.CollectionDeleteManyOption) (*results.DeleteResult, error) {
+	_, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if f == nil {
+		return nil, ErrNilFilter
+	}
+
+	payload := collectionDeleteManyPayload{
+		Filter: f,
+	}
+
+	result := &results.DeleteResult{}
+
+	for {
+		cmd := c.newCmd("deleteMany", payload)
+		b, _, err := cmd.Execute(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		var resp collectionDeleteManyResponse
+		if err := json.Unmarshal(b, &resp); err != nil {
+			return nil, err
+		}
+
+		result.DeletedCount += resp.Status.DeletedCount
+
+		if !resp.Status.MoreData {
+			break
+		}
+	}
+
+	return result, nil
 }
 
 // CountDocuments counts documents after applying filter f. Count operations are

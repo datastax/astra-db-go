@@ -98,7 +98,7 @@ func TestAliasExampleString(t *testing.T) {
 				Constructor: "Empty",
 				OptsType:    "EmptyOptions",
 			},
-			want: "// EmptyOption configures a Empty operation.\n",
+			want: "// EmptyOption configures a Empty operation.\ntype EmptyOption = Builder[EmptyOptions]",
 		},
 	}
 	for _, tt := range tests {

@@ -1,4 +1,4 @@
-// Copyright DataStax, Inc.
+// Copyright IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -292,7 +292,7 @@ type {{ .Alias }} = Builder[{{ .OptsType }}]`))
 // aliasMinimalTmpl is used when there are no setters at all.
 var aliasMinimalTmpl = template.Must(template.New("aliasMinimal").Parse(
 	`// {{ .Alias }} configures a {{ .Constructor }} operation.
-`))
+type {{ .Alias }} = Builder[{{ .OptsType }}]`))
 
 // String returns the full doc comment block for the type alias.
 func (e aliasDef) String() string {
@@ -619,7 +619,7 @@ func render(job renderJob) ([]byte, error) {
 
 // ----- Templates -----
 
-const boilerplate = `// Copyright DataStax, Inc.
+const boilerplate = `// Copyright IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.

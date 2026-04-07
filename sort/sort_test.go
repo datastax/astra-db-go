@@ -1,4 +1,4 @@
-// Copyright DataStax, Inc.
+// Copyright IBM Corp.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -57,6 +57,15 @@ func TestAscDescJSON(t *testing.T) {
 // for the Data API sort specification.
 func TestMultiFieldOrderPreservation(t *testing.T) {
 	tests := []testutils.JSONTestCase{{
+		Name:     "test from github discussion",
+		Expected: `{"field1":1,"field2":-1}`,
+		Args: []any{
+			sort.Clauses{sort.S{"field1": 1}, sort.S{"field2": -1}},
+			sort.By("field1", 1).By("field2", -1),
+			sort.By("field1", sort.Ascending).By("field2", sort.Descending),
+			sort.Asc("field1").Desc("field2"),
+		},
+	}, {
 		Name:     "multi-field sort preserves order",
 		Expected: `{"title":1,"rating":-1}`,
 		Args: []any{

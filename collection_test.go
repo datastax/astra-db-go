@@ -117,6 +117,124 @@ func TestDeleteOneResponseDeserialization(t *testing.T) {
 	}
 }
 
+// TestDeleteManyPayloadSerialization verifies the deleteMany command payload
+// matches the expected Data API JSON format from the docs:
+//
+//	"deleteMany": {
+//	  "filter": {"$and": [
+//	    {"is_checked_out": false},
+//	    {"number_of_pages": {"$lt": 300}}
+//	  ]}
+//	}
+func TestDeleteManyPayloadSerialization(t *testing.T) {
+	// TODO: could probably make this work with testutils helpers. But - it's just different
+	// enough with the wrapper, etc., that leaving it separate for now.
+	tests := []struct {
+		name     string
+		filter   astradb.CollectionFilter
+		expected string
+	}{
+		{
+			name:     "filter docs example - raw",
+			filter:   filter.F{"$and": filter.A{filter.F{"is_checked_out": false}, filter.F{"number_of_pages": filter.F{"$lt": 300}}}},
+			expected: `{"deleteMany":{"filter":{"$and":[{"is_checked_out":false},{"number_of_pages":{"$lt":300}}]}}}`,
+		},
+		{
+			name:     "filter docs example - fluent",
+			filter:   filter.And(filter.Eq("is_checked_out", false), filter.Lt("number_of_pages", 300)),
+			expected: `{"deleteMany":{"filter":{"$and":[{"is_checked_out":false},{"number_of_pages":{"$lt":300}}]}}}`,
+		},
+		{
+			name:     "empty filter deletes all",
+			filter:   filter.F{},
+			expected: `{"deleteMany":{"filter":{}}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			type deleteManyPayload struct {
+				Filter any `json:"filter,omitempty"`
+			}
+			payload := deleteManyPayload{
+				Filter: tt.filter,
+			}
+			wrapped := map[string]any{"deleteMany": payload}
+			got, err := json.Marshal(wrapped)
+			if err != nil {
+				t.Fatalf("json.Marshal error: %v", err)
+			}
+			if string(got) != tt.expected {
+				t.Errorf("payload mismatch\n  got:  %s\n  want: %s", string(got), tt.expected)
+			}
+		})
+	}
+}
+
+// TestDeleteManyResponseDeserialization verifies we correctly parse the deleteMany response,
+// including the moreData pagination field.
+func TestDeleteManyResponseDeserialization(t *testing.T) {
+	tests := []struct {
+		name         string
+		response     string
+		deletedCount int
+		moreData     bool
+	}{
+		{
+			name:         "partial page with more data",
+			response:     `{"status":{"deletedCount":20,"moreData":true}}`,
+			deletedCount: 20,
+			moreData:     true,
+		},
+		{
+			name:         "final page",
+			response:     `{"status":{"deletedCount":5,"moreData":false}}`,
+			deletedCount: 5,
+			moreData:     false,
+		},
+		{
+			name:         "none deleted",
+			response:     `{"status":{"deletedCount":0}}`,
+			deletedCount: 0,
+			moreData:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			type deleteManyResponse struct {
+				Status struct {
+					DeletedCount int  `json:"deletedCount"`
+					MoreData     bool `json:"moreData"`
+				} `json:"status"`
+			}
+			var resp deleteManyResponse
+			if err := json.Unmarshal([]byte(tt.response), &resp); err != nil {
+				t.Fatalf("json.Unmarshal error: %v", err)
+			}
+			if resp.Status.DeletedCount != tt.deletedCount {
+				t.Errorf("deletedCount = %d, want %d", resp.Status.DeletedCount, tt.deletedCount)
+			}
+			if resp.Status.MoreData != tt.moreData {
+				t.Errorf("moreData = %v, want %v", resp.Status.MoreData, tt.moreData)
+			}
+		})
+	}
+}
+
+func TestCollectionDeleteManyEnforceNonNilFilters(t *testing.T) {
+	// Just make sure users cannot pass a nil filter. "Empty" filter feels
+	// more intentional.
+	coll := &astradb.Collection{}
+	_, err := coll.DeleteMany(context.Background(), nil)
+	if err == nil {
+		t.Errorf("Expected error when filter is nil. Got %v", err)
+	}
+	if err != astradb.ErrNilFilter {
+		t.Errorf("Expected ErrNilFilter when filter is nil. Got %v", err)
+	}
+}
+
 func TestNilDB(t *testing.T) {
 	var db *astradb.Db = nil
 	c := db.Collection("nildb")
