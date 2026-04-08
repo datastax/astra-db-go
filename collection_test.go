@@ -3,10 +3,18 @@ package astradb_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	astradb "github.com/datastax/astra-db-go"
 	"github.com/datastax/astra-db-go/filter"
+	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/update"
 )
 
 // TODO: I captured these responses for future tests but if we don't end up using them, we should remove them.
@@ -232,6 +240,219 @@ func TestCollectionDeleteManyEnforceNonNilFilters(t *testing.T) {
 	}
 	if err != astradb.ErrNilFilter {
 		t.Errorf("Expected ErrNilFilter when filter is nil. Got %v", err)
+	}
+}
+
+// newTestCollection creates a Collection backed by the given httptest.Server.
+func newTestCollection(ts *httptest.Server, apiOpts ...options.APIOption) *astradb.Collection {
+	allOpts := append([]options.APIOption{options.WithToken("test-token")}, apiOpts...)
+	client := astradb.NewClient(allOpts...)
+	db := client.Database(ts.URL)
+	return db.Collection("test_coll")
+}
+
+func TestDeleteManyTimeout(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		// Simulate a slow paginated response — always returns moreData=true with a delay
+		time.Sleep(100 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"deletedCount":20,"moreData":true}}`)
+	}))
+	defer ts.Close()
+
+	coll := newTestCollection(ts)
+	ctx := context.Background()
+
+	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
+		options.CollectionDeleteMany().SetTimeout(250*time.Millisecond),
+	)
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
+	}
+	// Should have made at least 2 calls before timing out
+	if c := calls.Load(); c < 2 {
+		t.Errorf("expected at least 2 calls before timeout, got %d", c)
+	}
+}
+
+func TestUpdateManyTimeout(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		time.Sleep(100 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":20,"modifiedCount":20,"moreData":true}}`)
+	}))
+	defer ts.Close()
+
+	coll := newTestCollection(ts)
+	ctx := context.Background()
+
+	_, err := coll.UpdateMany(ctx, filter.F{"status": "old"}, update.Coll().Set("status", "archived"),
+		options.CollectionUpdateMany().SetTimeout(250*time.Millisecond),
+	)
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
+	}
+	if c := calls.Load(); c < 2 {
+		t.Errorf("expected at least 2 calls before timeout, got %d", c)
+	}
+}
+
+func TestDeleteManyHierarchyTimeout(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"deletedCount":20,"moreData":true}}`)
+	}))
+	defer ts.Close()
+
+	// Set GeneralMethod timeout at the client level
+	coll := newTestCollection(ts, options.WithGeneralMethodTimeout(250*time.Millisecond))
+	ctx := context.Background()
+
+	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"})
+	if err == nil {
+		t.Fatal("expected timeout error from hierarchy timeout, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
+	}
+}
+
+func TestDeleteManyMethodTimeoutOverridesHierarchy(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		time.Sleep(100 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		// Return moreData=false on first call so it completes
+		fmt.Fprint(w, `{"status":{"deletedCount":5,"moreData":false}}`)
+	}))
+	defer ts.Close()
+
+	// Hierarchy has a very short timeout that would expire
+	coll := newTestCollection(ts, options.WithGeneralMethodTimeout(1*time.Millisecond))
+	ctx := context.Background()
+
+	// Method-level timeout is generous enough to succeed
+	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
+		options.CollectionDeleteMany().SetTimeout(5*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("expected success with method-level override, got: %v", err)
+	}
+	if c := calls.Load(); c != 1 {
+		t.Errorf("expected 1 call, got %d", c)
+	}
+}
+
+func TestDeleteManyAPIOptionsOverrideToken(t *testing.T) {
+	var receivedToken atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedToken.Store(r.Header.Get("Token"))
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"deletedCount":1,"moreData":false}}`)
+	}))
+	defer ts.Close()
+
+	coll := newTestCollection(ts) // uses "test-token" at client level
+	ctx := context.Background()
+
+	_, err := coll.DeleteMany(ctx, filter.F{"x": 1},
+		options.CollectionDeleteMany().
+			SetAPIOptions(options.API().SetToken("override-token")),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := receivedToken.Load().(string); got != "override-token" {
+		t.Errorf("expected token 'override-token' in request header, got %q", got)
+	}
+}
+
+func TestDeleteOneAPIOptionsOverrideToken(t *testing.T) {
+	var receivedToken atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedToken.Store(r.Header.Get("Token"))
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"deletedCount":1}}`)
+	}))
+	defer ts.Close()
+
+	coll := newTestCollection(ts)
+	ctx := context.Background()
+
+	_, err := coll.DeleteOne(ctx, filter.F{"x": 1},
+		options.CollectionDeleteOne().
+			SetAPIOptions(options.API().SetToken("override-token")),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := receivedToken.Load().(string); got != "override-token" {
+		t.Errorf("expected token 'override-token' in request header, got %q", got)
+	}
+}
+
+func TestUpdateOneAPIOptionsOverrideToken(t *testing.T) {
+	var receivedToken atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedToken.Store(r.Header.Get("Token"))
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":1,"modifiedCount":1}}`)
+	}))
+	defer ts.Close()
+
+	coll := newTestCollection(ts)
+	ctx := context.Background()
+
+	_, err := coll.UpdateOne(ctx, filter.F{"x": 1}, update.Coll().Set("x", 2),
+		options.CollectionUpdateOne().
+			SetAPIOptions(options.API().SetToken("override-token")),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := receivedToken.Load().(string); got != "override-token" {
+		t.Errorf("expected token 'override-token' in request header, got %q", got)
+	}
+}
+
+func TestResolveGeneralMethodTimeoutFromAPIOverride(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(100 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"deletedCount":20,"moreData":true}}`)
+	}))
+	defer ts.Close()
+
+	// No GeneralMethod timeout at client level
+	coll := newTestCollection(ts)
+	ctx := context.Background()
+
+	// Set GeneralMethod timeout via APIOptions override
+	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
+		options.CollectionDeleteMany().
+			SetAPIOptions(
+				options.API().SetTimeout(
+					options.Timeout().SetGeneralMethod(250*time.Millisecond),
+				),
+			),
+	)
+	if err == nil {
+		t.Fatal("expected timeout error, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
 	}
 }
 

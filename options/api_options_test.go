@@ -275,6 +275,62 @@ func TestTimeoutOptions(t *testing.T) {
 	}
 }
 
+func TestGeneralMethodTimeout(t *testing.T) {
+	generalTimeout := 5 * time.Minute
+
+	opts := options.NewAPIOptions(
+		options.WithGeneralMethodTimeout(generalTimeout),
+	)
+
+	if opts.Timeout == nil {
+		t.Fatal("expected timeout options to be set")
+	}
+	if opts.Timeout.GeneralMethod == nil {
+		t.Fatal("expected GeneralMethod timeout to be set")
+	}
+	if *opts.Timeout.GeneralMethod != generalTimeout {
+		t.Errorf("expected GeneralMethod timeout %v, got %v", generalTimeout, *opts.Timeout.GeneralMethod)
+	}
+}
+
+func TestGeneralMethodTimeoutMerge(t *testing.T) {
+	clientTimeout := 5 * time.Minute
+	collTimeout := 2 * time.Minute
+
+	clientOpts := options.NewAPIOptions(
+		options.WithGeneralMethodTimeout(clientTimeout),
+	)
+	collOpts := options.NewAPIOptions(
+		options.WithGeneralMethodTimeout(collTimeout),
+	)
+
+	result := options.MergeAPILayers(clientOpts, collOpts)
+
+	if result.Timeout == nil || result.Timeout.GeneralMethod == nil {
+		t.Fatal("expected GeneralMethod timeout after merge")
+	}
+	if *result.Timeout.GeneralMethod != collTimeout {
+		t.Errorf("expected collection layer to override: want %v, got %v", collTimeout, *result.Timeout.GeneralMethod)
+	}
+}
+
+func TestGeneralMethodTimeoutMergePreservesNil(t *testing.T) {
+	// When no layer sets GeneralMethod, it should remain nil
+	clientOpts := options.NewAPIOptions(options.WithToken("t"))
+	result := options.MergeAPILayers(clientOpts)
+
+	if result.GetGeneralMethodTimeout() != nil {
+		t.Errorf("expected nil GeneralMethod timeout, got %v", result.GetGeneralMethodTimeout())
+	}
+}
+
+func TestGetGeneralMethodTimeoutNilSafety(t *testing.T) {
+	var nilOpts *options.APIOptions
+	if nilOpts.GetGeneralMethodTimeout() != nil {
+		t.Error("expected nil for nil options")
+	}
+}
+
 func TestWithHeaders(t *testing.T) {
 	headers := map[string]string{
 		"X-Header-1": "value1",

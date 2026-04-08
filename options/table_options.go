@@ -52,6 +52,10 @@ type TableFindOptions struct {
 
 	// InitialPageState is used for pagination to fetch the next page of results
 	InitialPageState *string `json:"pageState,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // SetPageState sets the initial page state for pagination.

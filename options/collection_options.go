@@ -16,6 +16,7 @@ package options
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/datastax/astra-db-go/sort"
 )
@@ -185,6 +186,10 @@ type CollectionFindOptions struct {
 
 	// InitialPageState is used for pagination to fetch the next page of results
 	InitialPageState *string `json:"pageState,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // SetPageState sets the initial page state for pagination.
@@ -200,12 +205,21 @@ type CollectionUpdateOneOptions struct {
 	Sort sort.Sortable `json:"sort,omitempty"`
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool `json:"upsert,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // CollectionUpdateManyOptions represents options for an updateMany operation.
 type CollectionUpdateManyOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool `json:"upsert,omitempty"`
+	// Timeout is the overall timeout for the entire paginated operation.
+	// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
+	Timeout *time.Duration `json:"-"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // CollectionDeleteOneOptions represents options for a deleteOne operation.
@@ -213,10 +227,20 @@ type CollectionDeleteOneOptions struct {
 	// Sort specifies the sort order to apply before selecting the document to delete.
 	// This determines which document is deleted when the filter matches multiple documents.
 	Sort sort.Sortable `json:"sort,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // CollectionDeleteManyOptions represents options for a deleteMany operation.
-type CollectionDeleteManyOptions struct{}
+type CollectionDeleteManyOptions struct {
+	// Timeout is the overall timeout for the entire paginated operation.
+	// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
+	Timeout *time.Duration `json:"-"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
 
 // ReturnDocument specifies whether to return the document before or after the update.
 type ReturnDocument string
@@ -238,4 +262,7 @@ type CollectionFindOneAndUpdateOptions struct {
 	Upsert *bool `json:"upsert,omitempty"`
 	// ReturnDocument specifies whether to return the document before or after the update.
 	ReturnDocument *ReturnDocument `json:"returnDocument,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }

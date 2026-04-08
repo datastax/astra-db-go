@@ -68,6 +68,9 @@ type TimeoutOptions struct {
 	Connection *time.Duration
 	// BulkOperation is the timeout for bulk operations like insertMany
 	BulkOperation *time.Duration
+	// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
+	// When set, the entire multi-page operation must complete within this duration.
+	GeneralMethod *time.Duration
 }
 
 // SerdesOptions contains options for serialization and deserialization behavior.
@@ -163,6 +166,9 @@ func MergeAPILayers(layers ...*APIOptions) *APIOptions {
 			}
 			if layer.Timeout.BulkOperation != nil {
 				result.Timeout.BulkOperation = layer.Timeout.BulkOperation
+			}
+			if layer.Timeout.GeneralMethod != nil {
+				result.Timeout.GeneralMethod = layer.Timeout.GeneralMethod
 			}
 		}
 
@@ -274,6 +280,18 @@ func WithTimeout(d time.Duration) APIOption {
 	return WithRequestTimeout(d)
 }
 
+// WithGeneralMethodTimeout sets the overall timeout for paginated operations
+// like deleteMany and updateMany. When set, the entire multi-page operation
+// must complete within this duration.
+func WithGeneralMethodTimeout(d time.Duration) APIOption {
+	return func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.GeneralMethod = &d
+	}
+}
+
 // WithAstraEnvironment sets the Astra environment (prod, dev, test).
 func WithAstraEnvironment(env AstraEnvironment) APIOption {
 	return func(o *APIOptions) {
@@ -364,4 +382,12 @@ func (o *APIOptions) GetRequestTimeout() time.Duration {
 		return 30 * time.Second
 	}
 	return *o.Timeout.Request
+}
+
+// GetGeneralMethodTimeout returns the general method timeout or nil if not set.
+func (o *APIOptions) GetGeneralMethodTimeout() *time.Duration {
+	if o == nil || o.Timeout == nil {
+		return nil
+	}
+	return o.Timeout.GeneralMethod
 }

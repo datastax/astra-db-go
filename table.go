@@ -61,6 +61,19 @@ func (t *Table) newCmd(name string, payload any, opts ...options.APIOption) comm
 	return newCmdWithOptions(t.db, t.name, name, payload, t.options, opts...)
 }
 
+// newCmdOverride creates a command with a pre-built *APIOptions override,
+// used by builder-pattern methods where API options flow through the struct.
+func (t *Table) newCmdOverride(name string, payload any, override *options.APIOptions) command {
+	return command{
+		db:              t.db,
+		name:            name,
+		resourceName:    t.name,
+		payload:         payload,
+		resourceOptions: t.options,
+		commandOptions:  override,
+	}
+}
+
 // createTablePayload is the payload for the createTable command
 type createTablePayload struct {
 	Name       string           `json:"name"`
@@ -315,7 +328,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption
 			payload.Options = payloadOpts
 		}
 
-		cmd := t.newCmd("find", payload)
+		cmd := t.newCmdOverride("find", payload, findOpts.APIOptions)
 		b, warnings, err := cmd.Execute(fetchCtx)
 		if err != nil {
 			return nil, nil, warnings, err
@@ -368,7 +381,7 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 		}
 	}
 
-	cmd := t.newCmd("findOne", payload)
+	cmd := t.newCmdOverride("findOne", payload, findOpts.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
