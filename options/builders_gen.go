@@ -398,7 +398,8 @@ func (b *collectionFindOneOptionsBuilder) SetProjection(v map[string]any) *colle
 }
 
 // SetIncludeSimilarity sets the IncludeSimilarity option.
-// Upsert if true, inserts a new document if no document matches the filter.
+// IncludeSimilarity if true, include the similarity score in the result via the
+// $similarity field.
 func (b *collectionFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *collectionFindOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.IncludeSimilarity = &v })
 	return b

@@ -248,7 +248,8 @@ type CollectionFindOneOptions struct {
 	Sort sort.Sortable `json:"sort,omitempty"`
 	// Projection controls which fields are included or excluded in the returned document.
 	Projection map[string]any `json:"projection,omitempty"`
-	// Upsert if true, inserts a new document if no document matches the filter.
+	// IncludeSimilarity if true, include the similarity score in the result via the
+	// $similarity field.
 	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
