@@ -165,8 +165,12 @@ type filterWrapper struct {
 // FindOne finds a single document matching the filter.
 //
 // Options passed here override those set on the collection.
-func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...options.APIOption) *results.SingleResult {
-	cmd := c.newCmd("findOne", filterWrapper{Filters: f}, opts...)
+func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneOption) *results.SingleResult {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return results.NewSingleResult([]byte{}, nil, err)
+	}
+	cmd := c.newCmdOverride("findOne", filterWrapper{Filters: f}, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }

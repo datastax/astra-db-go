@@ -346,6 +346,74 @@ func (b *collectionFindOneAndUpdateOptionsBuilder) SetAPIOptions(v ...Builder[AP
 	return b
 }
 
+// CollectionFindOneOption configures a CollectionFindOne operation.
+// You can use the fluent-style builder or a pointer to [CollectionFindOneOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionFindOne]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CollectionFindOne().SetIncludeSimilarity(false)
+//
+// Example using a pointer to [CollectionFindOneOptions] without the fluent builder:
+//
+//	opts := &options.CollectionFindOneOptions{IncludeSimilarity: ptr.To(false)}
+type CollectionFindOneOption = Builder[CollectionFindOneOptions]
+
+// Setters implements Builder[CollectionFindOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionFindOneOptions].
+func (o *CollectionFindOneOptions) Setters() []func(*CollectionFindOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionFindOneOptions.
+func (o *CollectionFindOneOptions) Validate() error { return nil }
+
+// collectionFindOneOptionsBuilder is a builder for CollectionFindOneOptions.
+type collectionFindOneOptionsBuilder struct {
+	setters []func(*CollectionFindOneOptions)
+}
+
+// CollectionFindOne creates a new builder for [CollectionFindOneOptions].
+func CollectionFindOne() *collectionFindOneOptionsBuilder {
+	return &collectionFindOneOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionFindOneOptions].
+func (b *collectionFindOneOptionsBuilder) Setters() []func(*CollectionFindOneOptions) {
+	return b.setters
+}
+
+// SetSort sets the Sort option.
+// Sort specifies the sort order to apply before selecting the document to update.
+func (b *collectionFindOneOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.Sort = v })
+	return b
+}
+
+// SetProjection sets the Projection option.
+// Projection controls which fields are included or excluded in the returned document.
+func (b *collectionFindOneOptionsBuilder) SetProjection(v map[string]any) *collectionFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.Projection = v })
+	return b
+}
+
+// SetIncludeSimilarity sets the IncludeSimilarity option.
+// Upsert if true, inserts a new document if no document matches the filter.
+func (b *collectionFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *collectionFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.IncludeSimilarity = &v })
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *collectionFindOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // CollectionFindOption configures a CollectionFind operation.
 // You can use the fluent-style builder or a pointer to [CollectionFindOptions] interchangeably.
 //

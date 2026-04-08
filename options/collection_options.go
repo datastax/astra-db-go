@@ -242,6 +242,19 @@ type CollectionDeleteManyOptions struct {
 	APIOptions *APIOptions `json:"-"`
 }
 
+// CollectionFindOneOptions represents options for a findOne operation.
+type CollectionFindOneOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to update.
+	Sort sort.Sortable `json:"sort,omitempty"`
+	// Projection controls which fields are included or excluded in the returned document.
+	Projection map[string]any `json:"projection,omitempty"`
+	// Upsert if true, inserts a new document if no document matches the filter.
+	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // ReturnDocument specifies whether to return the document before or after the update.
 type ReturnDocument string
 
