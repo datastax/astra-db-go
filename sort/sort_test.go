@@ -16,7 +16,6 @@ package sort_test
 
 import (
 	"encoding/json"
-	"slices"
 	"testing"
 
 	"github.com/datastax/astra-db-go/internal/testutils"
@@ -149,51 +148,4 @@ func TestEmptySortMarshal(t *testing.T) {
 	if string(got) != "null" {
 		t.Errorf("got %s, want null", string(got))
 	}
-}
-
-func dataAPIVectorTests() []testutils.JSONTestCase {
-	return []testutils.JSONTestCase{{
-		// https://docs.datastax.com/en/astra-db-serverless/api-reference/sort-rows.html#example-sorting-against-a-search-vector
-		Name:     "example from docs",
-		Expected: `{"$binary":"PaPXCr8euFI+x64U"}`,
-		Args: []any{
-			sort.DataAPIVector{Values: []float32{0.08, -0.62, 0.39}},
-		},
-	}, {
-		// https://github.com/datastax/astra-db-csharp/issues/67
-		Name:     "example from .NET client issue",
-		Expected: `{"$binary":"PczMzb5MzM0+mZma"}`,
-		Args: []any{
-			sort.DataAPIVector{Values: []float32{0.10000000149011612, -0.20000000298023224, 0.30000001192092896}},
-		},
-	}, {
-		Name:     "empty vector",
-		Expected: `{"$binary":""}`,
-		Args: []any{
-			sort.DataAPIVector{Values: []float32{}},
-		},
-	}}
-}
-
-func TestDataAPIVectorMarshalJSON(t *testing.T) {
-	tests := dataAPIVectorTests()
-	testutils.RunJSONTestCases(t, tests)
-}
-
-func TestDataAPIVectorUnmarshalJSON(t *testing.T) {
-	// Re-using this test case struct even though the names are SLIGHTLY off in this context.
-	tests := dataAPIVectorTests()
-	for _, tt := range tests {
-		t.Run(tt.Name, func(t *testing.T) {
-			var v sort.DataAPIVector
-			err := json.Unmarshal([]byte(tt.Expected), &v)
-			if err != nil {
-				t.Fatalf("json.Unmarshal error: %v", err)
-			}
-			if !slices.Equal(v.Values, tt.Args[0].(sort.DataAPIVector).Values) {
-				t.Errorf("got %v, want %v", v.Values, tt.Args[0].(sort.DataAPIVector).Values)
-			}
-		})
-	}
-	testutils.RunJSONTestCases(t, tests)
 }
