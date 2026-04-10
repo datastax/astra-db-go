@@ -260,6 +260,148 @@ func assertLooksLikeValidUUID(u UUID, t *testing.T) {
 	}
 }
 
+// TestNewUUIDv7At verifies that NewUUIDv7At encodes the given timestamp.
+// The extracted timestamp should match the input to millisecond precision.
+//
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/insert-one.html
+func TestNewUUIDv7At(t *testing.T) {
+	target := time.Date(2024, 6, 15, 12, 30, 45, 123456789, time.UTC)
+	u := NewUUIDv7At(target)
+
+	assertLooksLikeValidUUID(u, t)
+	if u.Version() != 7 {
+		t.Fatalf("expected version 7, got %d", u.Version())
+	}
+
+	ts, ok := u.Timestamp()
+	if !ok {
+		t.Fatal("expected Timestamp to return true for v7 UUID")
+	}
+	// v7 stores millisecond precision
+	diff := ts.Sub(target.Truncate(time.Millisecond))
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > time.Millisecond {
+		t.Errorf("timestamp mismatch: got %v, want ~%v (diff %v)", ts, target, diff)
+	}
+}
+
+// TestNewUUIDv7AtUniqueness verifies two UUIDs at the same time have different random bits.
+func TestNewUUIDv7AtUniqueness(t *testing.T) {
+	target := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	u1 := NewUUIDv7At(target)
+	u2 := NewUUIDv7At(target)
+	if u1.Equals(u2) {
+		t.Errorf("expected unique UUIDs at same timestamp, got identical: %s", u1)
+	}
+	// Both should encode the same timestamp
+	ts1, _ := u1.Timestamp()
+	ts2, _ := u2.Timestamp()
+	if !ts1.Equal(ts2) {
+		t.Errorf("expected same timestamp, got %v and %v", ts1, ts2)
+	}
+}
+
+// TestNewUUIDv7AtJSON verifies the JSON serialization of a v7 UUID created at a specific time.
+//
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/insert-one.html
+func TestNewUUIDv7AtJSON(t *testing.T) {
+	target := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
+	u := NewUUIDv7At(target)
+
+	got, err := json.Marshal(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Should be {"$uuid":"..."} format
+	var wrapper map[string]string
+	if err := json.Unmarshal(got, &wrapper); err != nil {
+		t.Fatalf("expected JSON object, got: %s", got)
+	}
+	if _, ok := wrapper["$uuid"]; !ok {
+		t.Fatalf("expected $uuid key in JSON, got: %s", got)
+	}
+	// Round-trip through JSON
+	var parsed UUID
+	if err := json.Unmarshal(got, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if !parsed.Equals(u) {
+		t.Errorf("JSON round-trip mismatch: %s != %s", parsed, u)
+	}
+}
+
+// TestNewUUIDv1At verifies that NewUUIDv1At encodes the given timestamp.
+//
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/insert-one.html
+func TestNewUUIDv1At(t *testing.T) {
+	target := time.Date(2024, 6, 15, 12, 30, 45, 0, time.UTC)
+	u := NewUUIDv1At(target)
+
+	assertLooksLikeValidUUID(u, t)
+	if u.Version() != 1 {
+		t.Fatalf("expected version 1, got %d", u.Version())
+	}
+
+	ts, ok := u.Timestamp()
+	if !ok {
+		t.Fatal("expected Timestamp to return true for v1 UUID")
+	}
+	// Gregorian timestamps have 100ns precision
+	diff := ts.Sub(target)
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > time.Microsecond {
+		t.Errorf("timestamp mismatch: got %v, want ~%v (diff %v)", ts, target, diff)
+	}
+}
+
+// TestNewUUIDv6At verifies that NewUUIDv6At encodes the given timestamp.
+//
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/insert-one.html
+func TestNewUUIDv6At(t *testing.T) {
+	target := time.Date(2024, 6, 15, 12, 30, 45, 0, time.UTC)
+	u := NewUUIDv6At(target)
+
+	assertLooksLikeValidUUID(u, t)
+	if u.Version() != 6 {
+		t.Fatalf("expected version 6, got %d", u.Version())
+	}
+
+	ts, ok := u.Timestamp()
+	if !ok {
+		t.Fatal("expected Timestamp to return true for v6 UUID")
+	}
+	diff := ts.Sub(target)
+	if diff < 0 {
+		diff = -diff
+	}
+	if diff > time.Microsecond {
+		t.Errorf("timestamp mismatch: got %v, want ~%v (diff %v)", ts, target, diff)
+	}
+}
+
+// TestNewUUIDv6AtOrdering verifies v6 UUIDs created at different times sort lexicographically.
+func TestNewUUIDv6AtOrdering(t *testing.T) {
+	t1 := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	t2 := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	t3 := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+
+	u1 := NewUUIDv6At(t1)
+	u2 := NewUUIDv6At(t2)
+	u3 := NewUUIDv6At(t3)
+
+	// v6 UUIDs should sort lexicographically by time
+	if u1.String() >= u2.String() {
+		t.Errorf("expected %s < %s", u1, u2)
+	}
+	if u2.String() >= u3.String() {
+		t.Errorf("expected %s < %s", u2, u3)
+	}
+}
+
 // TestStringRoundTripAllVersions generates a UUID of each supported version,
 // converts to string, parses back, and verifies equality and version preservation.
 // Inspired by typescript client tests.

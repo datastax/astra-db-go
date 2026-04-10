@@ -46,6 +46,20 @@ var (
 	gregInited   bool
 )
 
+// randomClockSeqAndNode generates a random 14-bit clock sequence and 6-byte
+// node ID (with multicast bit set). Used by the "At" UUID constructors.
+func randomClockSeqAndNode() (uint16, [6]byte) {
+	var buf [8]byte
+	if _, err := rand.Read(buf[:]); err != nil {
+		panic(fmt.Sprintf("datatypes: crypto/rand failed: %v", err))
+	}
+	clockSeq := (uint16(buf[0])<<8 | uint16(buf[1])) & 0x3FFF
+	var node [6]byte
+	copy(node[:], buf[2:8])
+	node[0] |= 0x01 // set multicast bit
+	return clockSeq, node
+}
+
 // initGreg initializes the shared Gregorian state. Must be called under gregMu.
 func initGreg() {
 	var buf [8]byte
@@ -92,7 +106,19 @@ func gregorianToTime(ticks uint64) time.Time {
 // The timestamp bits are scattered across the first 8 bytes per RFC 4122.
 func NewUUIDv1() UUID {
 	ts, clockSeq, node := getGregTime()
+	return buildV1(ts, clockSeq, node)
+}
 
+// NewUUIDv1At generates a v1 UUID encoding the given timestamp.
+// Clock sequence and node ID are random. This does not participate in
+// monotonic ordering with NewUUIDv1 calls.
+func NewUUIDv1At(t time.Time) UUID {
+	ts := t.UnixNano()/100 + gregorianUnixOffset
+	clockSeq, node := randomClockSeqAndNode()
+	return buildV1(ts, clockSeq, node)
+}
+
+func buildV1(ts int64, clockSeq uint16, node [6]byte) UUID {
 	var u UUID
 	// time_low: bits 0–31 (bytes 0–3)
 	u.value[0] = byte(ts >> 24)
@@ -111,7 +137,6 @@ func NewUUIDv1() UUID {
 	u.value[9] = byte(clockSeq)
 	// node: bytes 10–15
 	copy(u.value[10:], node[:])
-
 	return u
 }
 
@@ -119,7 +144,19 @@ func NewUUIDv1() UUID {
 // V6 rearranges the v1 timestamp bits into big-endian order for lexicographic sorting.
 func NewUUIDv6() UUID {
 	ts, clockSeq, node := getGregTime()
+	return buildV6(ts, clockSeq, node)
+}
 
+// NewUUIDv6At generates a v6 UUID encoding the given timestamp.
+// Clock sequence and node ID are random. This does not participate in
+// monotonic ordering with NewUUIDv6 calls.
+func NewUUIDv6At(t time.Time) UUID {
+	ts := t.UnixNano()/100 + gregorianUnixOffset
+	clockSeq, node := randomClockSeqAndNode()
+	return buildV6(ts, clockSeq, node)
+}
+
+func buildV6(ts int64, clockSeq uint16, node [6]byte) UUID {
 	var u UUID
 	// time_high: bits 28–59 (bytes 0–3)
 	u.value[0] = byte(ts >> 52)
@@ -138,7 +175,6 @@ func NewUUIDv6() UUID {
 	u.value[9] = byte(clockSeq)
 	// node: bytes 10–15
 	copy(u.value[10:], node[:])
-
 	return u
 }
 
@@ -215,6 +251,32 @@ func NewUUIDv7() UUID {
 	u.value[6] = 0x70 | (0x0F & byte(seq>>8)) // version 7 + sequence high bits
 	u.value[7] = byte(seq)
 	u.value[8] = (u.value[8] & 0x3f) | 0x80 // variant 10
+	return u
+}
+
+// NewUUIDv7At generates a v7 UUID encoding the given timestamp.
+// The sub-millisecond sequence is derived from the nanosecond component of t.
+// This does not participate in monotonic ordering with NewUUIDv7 calls.
+func NewUUIDv7At(t time.Time) UUID {
+	nano := t.UnixNano()
+	milli := nano / nanoPerMilli
+	seq := (nano - milli*nanoPerMilli) >> 8
+
+	var u UUID
+	// 48-bit big-endian Unix millis in bytes 0–5
+	u.value[0] = byte(milli >> 40)
+	u.value[1] = byte(milli >> 32)
+	u.value[2] = byte(milli >> 24)
+	u.value[3] = byte(milli >> 16)
+	u.value[4] = byte(milli >> 8)
+	u.value[5] = byte(milli)
+
+	if _, err := rand.Read(u.value[8:]); err != nil {
+		panic(fmt.Sprintf("datatypes: crypto/rand failed: %v", err))
+	}
+	u.value[6] = 0x70 | (0x0F & byte(seq>>8))
+	u.value[7] = byte(seq)
+	u.value[8] = (u.value[8] & 0x3f) | 0x80
 	return u
 }
 
