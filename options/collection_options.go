@@ -256,6 +256,17 @@ type CollectionFindOneOptions struct {
 	APIOptions *APIOptions `json:"-"`
 }
 
+// CollectionReplaceOneOptions represents options for a replaceOne operation.
+type CollectionReplaceOneOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to replace.
+	Sort sort.Sortable `json:"sort,omitempty"`
+	// Upsert if true, inserts a new document if no document matches the filter.
+	Upsert *bool `json:"upsert,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // ReturnDocument specifies whether to return the document before or after the update.
 type ReturnDocument string
 
@@ -275,6 +286,21 @@ type CollectionFindOneAndUpdateOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool `json:"upsert,omitempty"`
 	// ReturnDocument specifies whether to return the document before or after the update.
+	ReturnDocument *ReturnDocument `json:"returnDocument,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// CollectionFindOneAndReplaceOptions represents options for a findOneAndReplace operation.
+type CollectionFindOneAndReplaceOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to replace.
+	Sort sort.Sortable `json:"sort,omitempty"`
+	// Projection controls which fields are included or excluded in the returned document.
+	Projection map[string]any `json:"projection,omitempty"`
+	// Upsert if true, inserts a new document if no document matches the filter.
+	Upsert *bool `json:"upsert,omitempty"`
+	// ReturnDocument specifies whether to return the document before or after the replacement.
 	ReturnDocument *ReturnDocument `json:"returnDocument,omitempty"`
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.

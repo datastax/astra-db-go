@@ -314,12 +314,13 @@ type collectionUpdateOnePayload struct {
 	Options map[string]any   `json:"options,omitempty"`
 }
 
-// collectionUpdateOneResponse is the response from the updateOne command.
-type collectionUpdateOneResponse struct {
+// collectionUpdateResponse is the response from various update commands, where `MoreData` may or may not be present.
+type collectionUpdateResponse struct {
 	Status struct {
-		MatchedCount  int `json:"matchedCount"`
-		ModifiedCount int `json:"modifiedCount"`
-		UpsertedId    any `json:"upsertedId"`
+		MatchedCount  int  `json:"matchedCount"`
+		ModifiedCount int  `json:"modifiedCount"`
+		MoreData      bool `json:"moreData"`
+		UpsertedId    any  `json:"upsertedId"`
 	} `json:"status"`
 }
 
@@ -350,7 +351,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 		return nil, err
 	}
 
-	var resp collectionUpdateOneResponse
+	var resp collectionUpdateResponse
 	if err := json.Unmarshal(b, &resp); err != nil {
 		return nil, err
 	}
@@ -373,16 +374,6 @@ type collectionUpdateManyPayload struct {
 	Filter  CollectionFilter `json:"filter,omitempty"`
 	Update  CollectionUpdate `json:"update"`
 	Options map[string]any   `json:"options,omitempty"`
-}
-
-// collectionUpdateManyResponse is the response from the updateMany command.
-type collectionUpdateManyResponse struct {
-	Status struct {
-		MatchedCount  int  `json:"matchedCount"`
-		ModifiedCount int  `json:"modifiedCount"`
-		MoreData      bool `json:"moreData"`
-		UpsertedId    any  `json:"upsertedId"`
-	} `json:"status"`
 }
 
 // UpdateMany updates all documents matching the filter.
@@ -424,7 +415,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 			return nil, err
 		}
 
-		var resp collectionUpdateManyResponse
+		var resp collectionUpdateResponse
 		if err := json.Unmarshal(b, &resp); err != nil {
 			return nil, err
 		}
@@ -486,6 +477,97 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 	}
 
 	cmd := c.newCmdOverride("findOneAndUpdate", payload, merged.APIOptions)
+	b, warnings, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, err)
+}
+
+// ReplaceOne replaces a single document matching the filter.
+//
+// The replacement parameter should be a new document without an _id set.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replacement any, opts ...options.CollectionReplaceOneOption) (*results.UpdateResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	payload := collectionFindOneAndReplacePayload{
+		Filter:      f,
+		Replacement: replacement,
+		Sort:        merged.Sort,
+		Projection:  map[string]any{"*": 0},
+	}
+
+	if ptr.From(merged.Upsert) {
+		payload.Options = map[string]any{"upsert": true}
+	}
+
+	cmd := c.newCmdOverride("findOneAndReplace", payload, merged.APIOptions)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp collectionUpdateResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, err
+	}
+
+	upsertedCount := 0
+	if resp.Status.UpsertedId != nil {
+		upsertedCount = 1
+	}
+
+	return &results.UpdateResult{
+		MatchedCount:  resp.Status.MatchedCount,
+		ModifiedCount: resp.Status.ModifiedCount,
+		UpsertedCount: upsertedCount,
+		UpsertedId:    resp.Status.UpsertedId,
+	}, nil
+}
+
+// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
+type collectionFindOneAndReplacePayload struct {
+	Filter      CollectionFilter `json:"filter,omitempty"`
+	Replacement any              `json:"replacement"`
+	Sort        sort.Sortable    `json:"sort,omitempty"`
+	Projection  map[string]any   `json:"projection,omitempty"`
+	Options     map[string]any   `json:"options,omitempty"`
+}
+
+// FindOneAndReplace finds a single document matching the filter, replaces it,
+// and returns the document. By default, the document is returned as it was before the
+// replacement. Use [options.ReturnDocumentAfter] to return the document after the replacement.
+//
+// The replacement parameter should be a new document without an _id set.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts ...options.CollectionFindOneAndReplaceOption) *results.SingleResult {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return results.NewSingleResult(nil, nil, err)
+	}
+
+	payload := collectionFindOneAndReplacePayload{
+		Filter:      f,
+		Replacement: replacement,
+		Sort:        merged.Sort,
+		Projection:  merged.Projection,
+	}
+
+	payloadOpts := map[string]any{}
+	if ptr.From(merged.Upsert) {
+		payloadOpts["upsert"] = true
+	}
+	if merged.ReturnDocument != nil {
+		payloadOpts["returnDocument"] = string(*merged.ReturnDocument)
+	}
+	if len(payloadOpts) > 0 {
+		payload.Options = payloadOpts
+	}
+
+	cmd := c.newCmdOverride("findOneAndReplace", payload, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
