@@ -605,6 +605,13 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	return result, nil
 }
 
+type collectionCountResponse struct {
+	Status struct {
+		Count    int  `json:"count"`
+		MoreData bool `json:"moreData"`
+	} `json:"status"`
+}
+
 // CountDocuments counts documents after applying filter f. Count operations are
 // expensive: for this reason, the best practice is to provide a reasonable upperBound.
 // Use "0" for "all" (not recommended unless you have appropriate filters).
@@ -612,6 +619,45 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 // Options passed here override those set on the collection.
 func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upperBound int, opts ...options.APIOption) (int, error) {
 	cmd := c.newCmd("countDocuments", filterWrapper{Filters: f}, opts...)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewCountResult(b, warnings, err).Count(upperBound)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var resp collectionCountResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return 0, err
+	}
+
+	// From the docs count all result:
+	// > If the count exceeds the upper bound set by the API, then the status.count
+	// > value will be the upper bound, and the status.moreData value is true.
+	//
+	// So - if we exceed what the API allows, we get an error. But we also enforce
+	// the upper bound the user supplies. See also:
+	// https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/count-all.html#result
+	if resp.Status.MoreData || resp.Status.Count > upperBound {
+		return resp.Status.Count, results.ErrTooManyDocumentsToCount
+	}
+	return resp.Status.Count, nil
+}
+
+// EstimatedDocumentCount returns a rough estimate of the number of documents in the collection,
+// much faster than CountDocuments but less precise. While it doesn't accept a filter, it can handle any
+// number of documents, whereas CountDocuments may return an error if the count exceeds the upper bound.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options.APIOption) (int, error) {
+	cmd := c.newCmd("estimatedDocumentCount", nil, opts...)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	var resp collectionCountResponse // no "moreData" field in this response, but we can reuse the struct
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return 0, err
+	}
+
+	return resp.Status.Count, nil
 }

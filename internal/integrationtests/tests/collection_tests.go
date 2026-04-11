@@ -38,8 +38,9 @@ func init() {
 		{Name: "CollectionCreate", Run: CollectionCreate},
 		{Name: "CollectionInsertMany", Run: CollectionInsertMany},
 		{Name: "CollectionItemAlreadyExists", Run: CollectionItemAlreadyExists},
-		{Name: "CollectCount", Run: CollectCount},
-		{Name: "CollectCountUpperBound", Run: CollectCountUpperBound},
+		{Name: "CollectionCount", Run: CollectionCount},
+		{Name: "CollectionCountUpperBound", Run: CollectionCountUpperBound},
+		{Name: "CollectionEstimatedCount", Run: CollectionEstimatedCount},
 		{Name: "CollectionFind", Run: CollectionFind},
 		{Name: "CollectionFindOne", Run: CollectionFindOne},
 		{Name: "CollectionCursorPagination", Run: CollectionCursorPagination},
@@ -140,7 +141,7 @@ func CollectionItemAlreadyExists(e *harness.TestEnv) error {
 	return nil
 }
 
-func CollectCount(e *harness.TestEnv) error {
+func CollectionCount(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 	collection := db.Collection(collectionName)
@@ -151,7 +152,7 @@ func CollectCount(e *harness.TestEnv) error {
 	return err
 }
 
-func CollectCountUpperBound(e *harness.TestEnv) error {
+func CollectionCountUpperBound(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 	collection := db.Collection(collectionName)
@@ -160,6 +161,17 @@ func CollectCountUpperBound(e *harness.TestEnv) error {
 		return fmt.Errorf("expecting err:%v. Got: %v", results.ErrTooManyDocumentsToCount, err)
 	}
 	return nil
+}
+
+func CollectionEstimatedCount(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	collection := db.Collection(collectionName)
+	count, err := collection.EstimatedDocumentCount(ctx)
+	if count == 0 {
+		return errors.New("was expecting non-zero count")
+	}
+	return err
 }
 
 func CollectionFindOne(e *harness.TestEnv) error {
