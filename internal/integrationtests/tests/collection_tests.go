@@ -753,7 +753,7 @@ func CollectionDeleteOne(e *harness.TestEnv) error {
 func CollectionDrop(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
-	err := db.DropCollection(ctx, collectionName)
+	err := db.Collection(collectionName).Drop(ctx)
 	return err
 }
 

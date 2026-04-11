@@ -661,3 +661,8 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 
 	return resp.Status.Count, nil
 }
+
+// Drop deletes the collection and all its documents. Use with caution.
+func (c *Collection) Drop(ctx context.Context) error {
+	return c.db.DropCollection(ctx, c.name)
+}
