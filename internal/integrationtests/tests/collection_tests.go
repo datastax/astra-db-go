@@ -55,6 +55,8 @@ func init() {
 		{Name: "CollectionFindOneAndUpdateUpsert", Run: CollectionFindOneAndUpdateUpsert},
 		{Name: "CollectionFindOneAndUpdateProjection", Run: CollectionFindOneAndUpdateProjection},
 		{Name: "CollectionDeleteOne", Run: CollectionDeleteOne},
+		{Name: "CollectionFindOneAndDelete", Run: CollectionFindOneAndDelete},
+		{Name: "CollectionFindOneAndDeleteProjection", Run: CollectionFindOneAndDeleteProjection},
 		{Name: "CollectionDrop", Run: CollectionDrop},
 		// Vector search tests
 		{Name: "CollectionVectorCreate", Run: CollectionVectorCreate},
@@ -747,6 +749,81 @@ func CollectionDeleteOne(e *harness.TestEnv) error {
 	if result.DeletedCount != 1 {
 		return fmt.Errorf("expected DeletedCount 1, got %d", result.DeletedCount)
 	}
+	return nil
+}
+
+func CollectionFindOneAndDelete(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	// Insert a document to update
+	original := SimpleObject{Name: "FindOneAndDeleteOriginal"}
+	resp, err := c.InsertOne(ctx, original)
+	if err != nil {
+		return fmt.Errorf("failed to insert document: %w", err)
+	}
+	insertedID := resp.Status.InsertedIds[0]
+
+	// FindOneAndDelete — returnDocument is always "before"
+	var doc SimpleObject
+	err = c.FindOneAndDelete(ctx,
+		filter.F{"_id": insertedID},
+	).Decode(&doc)
+	if err != nil {
+		return fmt.Errorf("FindOneAndDelete failed: %w", err)
+	}
+
+	// Should return the document BEFORE the update
+	if doc.Name != "FindOneAndDeleteOriginal" {
+		return fmt.Errorf("expected name 'FindOneAndDeleteOriginal' (before update), got '%s'", doc.Name)
+	}
+
+	// Verify the DB does not have the updated value
+	var dbDoc SimpleObject
+	if err := c.FindOne(ctx, filter.F{"_id": insertedID}).Decode(&dbDoc); !errors.Is(err, results.ErrNoDocuments) {
+		return fmt.Errorf("FindOne after FindOneAndDelete did not return ErrNoDocuments: %w", err)
+	}
+	return nil
+}
+
+func CollectionFindOneAndDeleteProjection(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	c := db.Collection(collectionName)
+
+	// Insert a document with multiple fields
+	original := SimpleObject{Name: "ProjectionTest", Properties: Properties{
+		PropertyOne: "val1",
+		IntProperty: 42,
+	}}
+	resp, err := c.InsertOne(ctx, original)
+	if err != nil {
+		return fmt.Errorf("failed to insert document: %w", err)
+	}
+	insertedID := resp.Status.InsertedIds[0]
+
+	// FindOneAndDelete with projection — only include "name"
+	var doc map[string]any
+	err = c.FindOneAndDelete(ctx,
+		filter.F{"_id": insertedID},
+		options.CollectionFindOneAndDelete().SetProjection(map[string]any{"name": true}),
+	).Decode(&doc)
+	if err != nil {
+		return fmt.Errorf("FindOneAndDelete with projection failed: %w", err)
+	}
+
+	// Should have _id and name, but NOT properties
+	if _, ok := doc["_id"]; !ok {
+		return errors.New("expected _id in projected result")
+	}
+	if doc["name"] != "ProjectionTest" {
+		return fmt.Errorf("expected name 'ProjectionTest', got '%v'", doc["name"])
+	}
+	if _, ok := doc["properties"]; ok {
+		return errors.New("expected properties to be excluded by projection")
+	}
+
 	return nil
 }
 

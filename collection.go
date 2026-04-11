@@ -605,6 +605,37 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	return result, nil
 }
 
+// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
+type collectionFindOneAndDeletePayload struct {
+	Filter     CollectionFilter `json:"filter,omitempty"`
+	Sort       sort.Sortable    `json:"sort,omitempty"`
+	Projection map[string]any   `json:"projection,omitempty"`
+}
+
+// FindOneAndUpdate finds a single document matching the filter, applies the update,
+// and returns the document. By default, the document is returned as it was before the
+// update. Use [options.ReturnDocumentAfter] to return the document after the update.
+//
+// The update parameter should be an [update.U] expression, e.g. update.Coll().Set("name", "new").
+//
+// Options passed here override those set on the collection.
+func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneAndDeleteOption) *results.SingleResult {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return results.NewSingleResult(nil, nil, err)
+	}
+
+	payload := collectionFindOneAndDeletePayload{
+		Filter:     f,
+		Sort:       merged.Sort,
+		Projection: merged.Projection,
+	}
+
+	cmd := c.newCmdOverride("findOneAndUpdate", payload, merged.APIOptions)
+	b, warnings, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, err)
+}
+
 type collectionCountResponse struct {
 	Status struct {
 		Count    int  `json:"count"`

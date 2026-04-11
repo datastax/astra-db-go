@@ -280,3 +280,14 @@ type CollectionFindOneAndUpdateOptions struct {
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
+
+// CollectionFindOneAndDeleteOptions represents options for a findOneAndDelete operation.
+type CollectionFindOneAndDeleteOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to delete.
+	Sort sort.Sortable `json:"sort,omitempty"`
+	// Projection controls which fields are included or excluded in the returned document.
+	Projection map[string]any `json:"projection,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}

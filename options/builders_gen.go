@@ -271,6 +271,66 @@ func (b *collectionDeleteOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOption
 	return b
 }
 
+// CollectionFindOneAndDeleteOption configures a CollectionFindOneAndDelete operation.
+// You can use the fluent-style builder or a pointer to [CollectionFindOneAndDeleteOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionFindOneAndDelete]):
+//
+//	opts := options.CollectionFindOneAndDelete().SetSort(...)
+//
+// Example using a pointer to [CollectionFindOneAndDeleteOptions] without the fluent builder:
+//
+//	opts := &options.CollectionFindOneAndDeleteOptions{...}
+type CollectionFindOneAndDeleteOption = Builder[CollectionFindOneAndDeleteOptions]
+
+// Setters implements Builder[CollectionFindOneAndDeleteOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionFindOneAndDeleteOptions].
+func (o *CollectionFindOneAndDeleteOptions) Setters() []func(*CollectionFindOneAndDeleteOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionFindOneAndDeleteOptions.
+func (o *CollectionFindOneAndDeleteOptions) Validate() error { return nil }
+
+// collectionFindOneAndDeleteOptionsBuilder is a builder for CollectionFindOneAndDeleteOptions.
+type collectionFindOneAndDeleteOptionsBuilder struct {
+	setters []func(*CollectionFindOneAndDeleteOptions)
+}
+
+// CollectionFindOneAndDelete creates a new builder for [CollectionFindOneAndDeleteOptions].
+func CollectionFindOneAndDelete() *collectionFindOneAndDeleteOptionsBuilder {
+	return &collectionFindOneAndDeleteOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionFindOneAndDeleteOptions].
+func (b *collectionFindOneAndDeleteOptionsBuilder) Setters() []func(*CollectionFindOneAndDeleteOptions) {
+	return b.setters
+}
+
+// SetSort sets the Sort option.
+// Sort specifies the sort order to apply before selecting the document to delete.
+func (b *collectionFindOneAndDeleteOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneAndDeleteOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) { o.Sort = v })
+	return b
+}
+
+// SetProjection sets the Projection option.
+// Projection controls which fields are included or excluded in the returned document.
+func (b *collectionFindOneAndDeleteOptionsBuilder) SetProjection(v map[string]any) *collectionFindOneAndDeleteOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) { o.Projection = v })
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *collectionFindOneAndDeleteOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndDeleteOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // CollectionFindOneAndUpdateOption configures a CollectionFindOneAndUpdate operation.
 // You can use the fluent-style builder or a pointer to [CollectionFindOneAndUpdateOptions] interchangeably.
 //
