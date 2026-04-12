@@ -1,6 +1,8 @@
 package results
 
-import "errors"
+import (
+	"errors"
+)
 
 var ErrNoDocuments error = errors.New("no documents found")
 

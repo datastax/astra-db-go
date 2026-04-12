@@ -62,7 +62,7 @@ func TestCursor_SinglePage(t *testing.T) {
 	for c.Next(context.Background()) {
 		var doc testDoc
 		if err := c.Decode(&doc); err != nil {
-			t.Fatalf("Decode failed: %v", err)
+			t.Fatalf("DecodeID failed: %v", err)
 		}
 		results = append(results, doc)
 	}
@@ -110,7 +110,7 @@ func TestCursor_MultiplePages(t *testing.T) {
 	for c.Next(context.Background()) {
 		var doc testDoc
 		if err := c.Decode(&doc); err != nil {
-			t.Fatalf("Decode failed: %v", err)
+			t.Fatalf("DecodeID failed: %v", err)
 		}
 		testResults = append(testResults, doc)
 	}
@@ -227,7 +227,7 @@ func TestCursor_Close(t *testing.T) {
 	}
 
 	if err := c.Decode(&testDoc{}); err != cursor.ErrCursorClosed {
-		t.Errorf("expected ErrCursorClosed from Decode, got %v", err)
+		t.Errorf("expected ErrCursorClosed from DecodeID, got %v", err)
 	}
 
 	// Double close should be safe
@@ -244,7 +244,7 @@ func TestCursor_DecodeWithoutNext(t *testing.T) {
 	c := cursor.New(fetcher)
 	defer c.Close(context.Background())
 
-	// Decode without calling Next should fail
+	// DecodeID without calling Next should fail
 	var doc testDoc
 	if err := c.Decode(&doc); err != cursor.ErrNoCurrentDocument {
 		t.Errorf("expected ErrNoCurrentDocument, got %v", err)
@@ -270,7 +270,7 @@ func TestCursor_WithInitialData(t *testing.T) {
 	for c.Next(context.Background()) {
 		var doc testDoc
 		if err := c.Decode(&doc); err != nil {
-			t.Fatalf("Decode failed: %v", err)
+			t.Fatalf("DecodeID failed: %v", err)
 		}
 		testResults = append(testResults, doc)
 	}

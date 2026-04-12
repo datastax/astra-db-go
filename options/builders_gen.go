@@ -653,6 +653,69 @@ func (b *collectionFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *
 	return b
 }
 
+// CollectionInsertManyOption configures a CollectionInsertMany operation.
+// You can use the fluent-style builder or a pointer to [CollectionInsertManyOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionInsertMany]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CollectionInsertMany().SetOrdered(false)
+//
+// Example using a pointer to [CollectionInsertManyOptions] without the fluent builder:
+//
+//	opts := &options.CollectionInsertManyOptions{Ordered: ptr.To(false)}
+type CollectionInsertManyOption = Builder[CollectionInsertManyOptions]
+
+// Setters implements Builder[CollectionInsertManyOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionInsertManyOptions].
+func (o *CollectionInsertManyOptions) Setters() []func(*CollectionInsertManyOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionInsertManyOptions.
+func (o *CollectionInsertManyOptions) Validate() error { return nil }
+
+// collectionInsertManyOptionsBuilder is a builder for CollectionInsertManyOptions.
+type collectionInsertManyOptionsBuilder struct {
+	setters []func(*CollectionInsertManyOptions)
+}
+
+// CollectionInsertMany creates a new builder for [CollectionInsertManyOptions].
+func CollectionInsertMany() *collectionInsertManyOptionsBuilder {
+	return &collectionInsertManyOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionInsertManyOptions].
+func (b *collectionInsertManyOptionsBuilder) Setters() []func(*CollectionInsertManyOptions) {
+	return b.setters
+}
+
+// SetOrdered sets the Ordered option.
+func (b *collectionInsertManyOptionsBuilder) SetOrdered(v bool) *collectionInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) { o.Ordered = &v })
+	return b
+}
+
+// SetChunkSize sets the ChunkSize option.
+func (b *collectionInsertManyOptionsBuilder) SetChunkSize(v int) *collectionInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) { o.ChunkSize = &v })
+	return b
+}
+
+// SetConcurrency sets the Concurrency option.
+func (b *collectionInsertManyOptionsBuilder) SetConcurrency(v int) *collectionInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) { o.Concurrency = &v })
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+func (b *collectionInsertManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // CollectionReplaceOneOption configures a CollectionReplaceOne operation.
 // You can use the fluent-style builder or a pointer to [CollectionReplaceOneOptions] interchangeably.
 //

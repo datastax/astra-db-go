@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/datastax/astra-db-go/cursor"
@@ -99,63 +98,52 @@ func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, o
 	return opts.GetGeneralMethodTimeout()
 }
 
-// insertManyPayload is the payload for insertMany commands.
-type insertManyPayload struct {
-	Documents any `json:"documents"`
-}
-
 // insertOnePayload is the payload for insertOne commands.
 type insertOnePayload struct {
 	Document any `json:"document"`
 }
 
-// documentsInsertResponse is the response from insert operations.
-type documentsInsertResponse struct {
-	Status status `json:"status"`
-}
-
-type status struct {
-	InsertedIds []any `json:"insertedIds"`
+// insertOneResponse is the response from insertOne command
+type insertOneResponse struct {
+	Status struct {
+		InsertedIds []any `json:"insertedIds"`
+	} `json:"status"`
 }
 
 // InsertOne inserts a single document into the collection.
 //
 // Options passed here override those set on the collection.
-// Note: Warnings are accessible via the WarningHandler option callback only.
-func (c *Collection) InsertOne(ctx context.Context, payload any, opts ...options.APIOption) (documentsInsertResponse, error) {
-	var resp documentsInsertResponse
+func (c *Collection) InsertOne(ctx context.Context, document any, opts ...options.APIOption) (*results.InsertOneResult, error) {
 	cmd := c.newCmd("insertOne", insertOnePayload{
-		Document: payload,
+		Document: document,
 	}, opts...)
-	b, _, err := cmd.Execute(ctx)
+
+	b, warnings, err := cmd.Execute(ctx)
 	if err != nil {
-		return resp, err
+		return nil, err
 	}
-	err = json.Unmarshal(b, &resp)
-	return resp, err
+
+	var resp insertOneResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, err
+	}
+
+	if len(resp.Status.InsertedIds) == 0 {
+		return nil, errors.New("no inserted ID returned from server")
+	}
+
+	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings), nil
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
 //
 // Options passed here override those set on the collection.
-// Note: Warnings are accessible via the WarningHandler option callback only.
-func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...options.APIOption) (documentsInsertResponse, error) {
-	var resp documentsInsertResponse
-
-	// Ensure we have a slice with documents
-	err := ensureNonEmptySlice(documents)
+func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...options.CollectionInsertManyOption) (*results.InsertManyResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return resp, fmt.Errorf("documents: %w", err)
+		return nil, err
 	}
-	cmd := c.newCmd("insertMany", insertManyPayload{
-		Documents: documents,
-	}, opts...)
-	b, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return resp, err
-	}
-	err = json.Unmarshal(b, &resp)
-	return resp, err
+	return insertMany(ctx, documents, c.newCmdOverride, insertManyOptions(*merged))
 }
 
 type filterWrapper struct {
@@ -204,14 +192,14 @@ type collectionFindResponse struct {
 //
 // The cursor automatically handles pagination, fetching new pages as needed.
 //
-// Example using Next/Decode pattern:
+// Example using Next/DecodeID pattern:
 //
 //	cursor := coll.Find(ctx, filter.F{"active": true})
 //	defer cursor.Close(ctx)
 //
 //	for cursor.Next(ctx) {
 //	    var doc MyDocument
-//	    if err := cursor.Decode(&doc); err != nil {
+//	    if err := cursor.DecodeID(&doc); err != nil {
 //	        return err
 //	    }
 //	    // Process doc
@@ -713,7 +701,7 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		Projection: merged.Projection,
 	}
 
-	cmd := c.newCmdOverride("findOneAndUpdate", payload, merged.APIOptions)
+	cmd := c.newCmdOverride("findOneAndDelete", payload, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
@@ -727,7 +715,6 @@ type collectionCountResponse struct {
 
 // CountDocuments counts documents after applying filter f. Count operations are
 // expensive: for this reason, the best practice is to provide a reasonable upperBound.
-// Use "0" for "all" (not recommended unless you have appropriate filters).
 //
 // Options passed here override those set on the collection.
 func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upperBound int, opts ...options.APIOption) (int, error) {
@@ -761,7 +748,7 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 //
 // Options passed here override those set on the collection.
 func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options.APIOption) (int, error) {
-	cmd := c.newCmd("estimatedDocumentCount", nil, opts...)
+	cmd := c.newCmd("estimatedDocumentCount", struct{}{}, opts...)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err

@@ -245,14 +245,14 @@ type tableFindResponse struct {
 //
 // Use options to specify sorting, projection, limits, and other behaviors.
 //
-// Example using Next/Decode pattern:
+// Example using Next/DecodeID pattern:
 //
 //	cursor := tbl.Find(ctx, filter.Eq("is_checked_out", false))
 //	defer cursor.Close(ctx)
 //
 //	for cursor.Next(ctx) {
 //	    var row MyRow
-//	    if err := cursor.Decode(&row); err != nil {
+//	    if err := cursor.DecodeID(&row); err != nil {
 //	        return err
 //	    }
 //	    // Process row
@@ -351,7 +351,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption
 //
 //	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
 //	var row MyRow
-//	err := result.Decode(&row)
+//	err := result.DecodeID(&row)
 func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOption) *results.SingleResult {
 	// Validate filter type
 	switch f.(type) {

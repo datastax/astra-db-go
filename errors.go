@@ -117,3 +117,29 @@ func (a *DataAPIError) Error() string {
 
 	return msg
 }
+
+// InsertManyError represents an error that occurred during an insertMany operation.
+// It contains the partial results (successfully inserted IDs) along with the underlying errors.
+type InsertManyError struct {
+	// Errors contains all DataAPIErrors that occurred during the operation
+	Errors DataAPIErrors
+
+	// InsertedIds contains the IDs of documents that were successfully inserted
+	// before the error occurred
+	InsertedIds []any
+}
+
+// InsertedCount returns the number of documents that were successfully inserted before the error occurred.
+func (e *InsertManyError) InsertedCount() int {
+	return len(e.InsertedIds)
+}
+
+// Error implements the error interface for InsertManyError.
+func (e *InsertManyError) Error() string {
+	return fmt.Sprintf("insertMany failed after inserting %d documents: %v", e.InsertedCount(), e.Errors)
+}
+
+// Unwrap allows errors.As and errors.Is to work with the underlying errors.
+func (e *InsertManyError) Unwrap() error {
+	return e.Errors
+}

@@ -157,6 +157,13 @@ type LexicalOptions struct{}
 
 type RerankOptions struct{}
 
+type CollectionInsertManyOptions struct {
+	Ordered     *bool       `json:"ordered,omitempty"`
+	ChunkSize   *int        `json:"-"`
+	Concurrency *int        `json:"-"`
+	APIOptions  *APIOptions `json:"-"`
+}
+
 // CollectionFindOptions represents options for finding documents in a collection
 type CollectionFindOptions struct {
 	// Sort specifies how to sort the results. Can be used for:

@@ -74,11 +74,15 @@ func insertDocuments(ctx context.Context, coll *astradb.Collection) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	var insertedId string
+	if err := resp.DecodeID(&insertedId); err != nil {
+		log.Fatal(err)
+	}
 	fmt.Println("Inserted: \"The Go Programming Language\" by Alan Donovan (2015)")
-	fmt.Println("Inserted IDs", resp.Status.InsertedIds)
+	fmt.Println("Inserted ID:", insertedId)
 
 	// Insert multiple documents
-	resp, err = coll.InsertMany(ctx, []Book{
+	respMany, err := coll.InsertMany(ctx, []Book{
 		{Title: "Go in Action", Author: "William Kennedy", Year: 2015},
 		{Title: "Concurrency in Go", Author: "Katherine Cox-Buday", Year: 2017},
 		{Title: "Learning Go: An Idiomatic Approach to Real-World Go Programming", Author: "Jon Bodner", Year: 2024},
@@ -86,8 +90,12 @@ func insertDocuments(ctx context.Context, coll *astradb.Collection) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("Inserted %d more documents via InsertMany:\n", len(resp.Status.InsertedIds))
-	for _, id := range resp.Status.InsertedIds {
+	var insertedIds []string
+	if err := respMany.DecodeIDs(&insertedIds); err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Inserted %d more documents via InsertMany:\n", respMany.InsertedCount())
+	for _, id := range insertedIds {
 		fmt.Printf("  - %s\n", id)
 	}
 }

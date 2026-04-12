@@ -122,11 +122,15 @@ func CollectionNestedInsertOne(e *harness.TestEnv) error {
 	if err != nil {
 		return fmt.Errorf("insertOne failed: %w", err)
 	}
-	if len(resp.Status.InsertedIds) != 1 {
-		return fmt.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
+	var insertedID string
+	if err := resp.DecodeID(&insertedID); err != nil {
+		return err
+	}
+	if insertedID == "" {
+		return fmt.Errorf("expected inserted ID, got empty string")
 	}
 
-	slog.Info("Inserted nested restaurant document", "id", resp.Status.InsertedIds[0])
+	slog.Info("Inserted nested restaurant document", "id", insertedID)
 	return nil
 }
 
@@ -141,11 +145,11 @@ func CollectionNestedInsertMany(e *harness.TestEnv) error {
 	if err != nil {
 		return fmt.Errorf("insertMany failed: %w", err)
 	}
-	if len(resp.Status.InsertedIds) != len(restaurants) {
-		return fmt.Errorf("expected %d inserted IDs, got %d", len(restaurants), len(resp.Status.InsertedIds))
+	if resp.InsertedCount() != len(restaurants) {
+		return fmt.Errorf("expected %d inserted IDs, got %d", len(restaurants), resp.InsertedCount())
 	}
 
-	slog.Info("Inserted nested restaurant documents", "count", len(resp.Status.InsertedIds))
+	slog.Info("Inserted nested restaurant documents", "count", resp.InsertedCount())
 	return nil
 }
 

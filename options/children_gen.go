@@ -99,6 +99,16 @@ func (o *CollectionFindOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for CollectionInsertManyOptions.
+// Returns all non-nil Validator fields.
+func (o *CollectionInsertManyOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CollectionReplaceOneOptions.
 // Returns all non-nil Validator fields.
 func (o *CollectionReplaceOneOptions) Children() []Validator {
