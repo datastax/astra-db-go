@@ -108,7 +108,11 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkInser
 func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	var masterIndex atomic.Int32
+	var criticalErr atomic.Pointer[error]
 
 	var wg sync.WaitGroup
 	var resultsMu sync.Mutex
@@ -116,7 +120,6 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 	insertedIds := make([]any, 0, totalDocs)
 	var apiErrors DataAPIErrors
 	var allWarnings results.Warnings
-	errChan := make(chan error, 1)
 
 	for w := 0; w < *opts.Concurrency; w++ {
 		wg.Add(1)
@@ -133,32 +136,35 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 				}
 
 				slice := records.Slice(start, end).Interface()
+
+				if ctx.Err() != nil {
+					return
+				}
+
 				res, warn, err := runInsertMany(ctx, slice, mkCmd, opts)
 
 				if err != nil {
-					select {
-					case errChan <- err:
-					default:
+					if criticalErr.CompareAndSwap(nil, &err) {
+						cancel()
 					}
 					return
 				}
 
 				resultsMu.Lock()
-				insertedIds = append(insertedIds, res.Status.InsertedIds...)
-				allWarnings = append(allWarnings, warn...)
-				if len(res.Errors) > 0 {
+				if res != nil {
+					insertedIds = append(insertedIds, res.Status.InsertedIds...)
 					apiErrors = append(apiErrors, res.Errors...)
 				}
+				allWarnings = append(allWarnings, warn...)
 				resultsMu.Unlock()
 			}
 		}()
 	}
 
 	wg.Wait()
-	close(errChan)
 
-	if err := <-errChan; err != nil {
-		return nil, err
+	if err := criticalErr.Load(); err != nil {
+		return nil, *err
 	}
 
 	if len(apiErrors) > 0 {
