@@ -52,41 +52,27 @@ func TestObjectIdJSONMarshalInDocument(t *testing.T) {
 // TestObjectIdInsertManyExample verifies that a mixed-ID insertMany payload can
 // be marshaled and unmarshaled, matching the docs example.
 //
-// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-id.html
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/insert-many.html#example-specify-id
 func TestObjectIdInsertManyExample(t *testing.T) {
 	type doc struct {
-		Name string `json:"name"`
 		ID   any    `json:"_id"`
-	}
-	oid, _ := ParseObjectId("6672e1cbd7fabb4e5493916f")
-	uid, _ := ParseUUID("1ef2e42c-1fdb-6ad6-aae4-e84679831739")
-
-	// Marshal the ObjectId document
-	d := struct {
-		Name string   `json:"name"`
-		ID   ObjectId `json:"_id"`
-	}{Name: "Melissa", ID: oid}
-	got, err := json.Marshal(d)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `{"name":"Melissa","_id":{"$objectId":"6672e1cbd7fabb4e5493916f"}}`
-	if string(got) != expected {
-		t.Errorf("ObjectId doc mismatch\n  got:  %s\n  want: %s", string(got), expected)
-	}
-
-	// Marshal the UUID document
-	d2 := struct {
 		Name string `json:"name"`
-		ID   UUID   `json:"_id"`
-	}{Name: "Jess", ID: uid}
-	got2, err := json.Marshal(d2)
+	}
+	melissaOid, _ := ParseObjectId("6672e1cbd7fabb4e5493916f")
+	jessUid, _ := ParseUUID("1ef2e42c-1fdb-6ad6-aae4-e84679831739")
+	docs := []doc{
+		{Name: "Melissa", ID: melissaOid},
+		{Name: "Jess", ID: jessUid},
+		{Name: "Jane", ID: 1},
+		{Name: "Bobby", ID: "b_023"},
+	}
+	got, err := json.Marshal(docs)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected2 := `{"name":"Jess","_id":{"$uuid":"1ef2e42c-1fdb-6ad6-aae4-e84679831739"}}`
-	if string(got2) != expected2 {
-		t.Errorf("UUID doc mismatch\n  got:  %s\n  want: %s", string(got2), expected2)
+	expected := `[{"_id":{"$objectId":"6672e1cbd7fabb4e5493916f"},"name":"Melissa"},{"_id":{"$uuid":"1ef2e42c-1fdb-6ad6-aae4-e84679831739"},"name":"Jess"},{"_id":1,"name":"Jane"},{"_id":"b_023","name":"Bobby"}]`
+	if string(got) != expected {
+		t.Errorf("\nGOT:\n%s\nWANT:\n%s", string(got), expected)
 	}
 }
 
