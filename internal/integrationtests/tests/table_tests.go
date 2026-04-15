@@ -284,7 +284,7 @@ func TableFind(e *harness.TestEnv) error {
 	return nil
 }
 
-// TableFindWithCursor demonstrates iterating with Next/DecodeID pattern
+// TableFindWithCursor demonstrates iterating with Next/Decode pattern
 func TableFindWithCursor(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()

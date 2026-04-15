@@ -180,7 +180,9 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts
 	}, opts.APIOptions)
 
 	b, warnings, execErr := cmd.Execute(ctx)
-	if execErr != nil && !errors.Is(execErr, &DataAPIError{}) {
+
+	var apiErr *DataAPIError
+	if execErr != nil && !errors.As(execErr, &apiErr) {
 		return nil, warnings, execErr
 	}
 

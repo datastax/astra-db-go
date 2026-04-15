@@ -192,14 +192,14 @@ type collectionFindResponse struct {
 //
 // The cursor automatically handles pagination, fetching new pages as needed.
 //
-// Example using Next/DecodeID pattern:
+// Example using Next/Decode pattern:
 //
 //	cursor := coll.Find(ctx, filter.F{"active": true})
 //	defer cursor.Close(ctx)
 //
 //	for cursor.Next(ctx) {
 //	    var doc MyDocument
-//	    if err := cursor.DecodeID(&doc); err != nil {
+//	    if err := cursor.Decode(&doc); err != nil {
 //	        return err
 //	    }
 //	    // Process doc
@@ -515,7 +515,7 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 	}, nil
 }
 
-// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
+// collectionFindOneAndReplacePayload is the payload for the findOneAndReplace command.
 type collectionFindOneAndReplacePayload struct {
 	Filter      CollectionFilter `json:"filter,omitempty"`
 	Replacement any              `json:"replacement"`
@@ -675,18 +675,15 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	return result, nil
 }
 
-// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
+// collectionFindOneAndDeletePayload is the payload for the findOneAndDelete command.
 type collectionFindOneAndDeletePayload struct {
 	Filter     CollectionFilter `json:"filter,omitempty"`
 	Sort       sort.Sortable    `json:"sort,omitempty"`
 	Projection map[string]any   `json:"projection,omitempty"`
 }
 
-// FindOneAndUpdate finds a single document matching the filter, applies the update,
-// and returns the document. By default, the document is returned as it was before the
-// update. Use [options.ReturnDocumentAfter] to return the document after the update.
-//
-// The update parameter should be an [update.U] expression, e.g. update.Coll().Set("name", "new").
+// FindOneAndDelete finds a single document matching the filter, deletes it,
+// and returns the deleted document.
 //
 // Options passed here override those set on the collection.
 func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneAndDeleteOption) *results.SingleResult {

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/sort"
 )
 
@@ -162,6 +163,16 @@ type CollectionInsertManyOptions struct {
 	ChunkSize   *int        `json:"-"`
 	Concurrency *int        `json:"-"`
 	APIOptions  *APIOptions `json:"-"`
+}
+
+func (o *CollectionInsertManyOptions) Validate() error {
+	if ptr.FromWithDefault(o.Ordered, false) && ptr.FromWithDefault(o.Concurrency, 1) != 1 {
+		return fmt.Errorf("concurrency must be unset or 1 when ordered is true")
+	}
+	if o.Concurrency != nil && *o.Concurrency <= 0 {
+		return fmt.Errorf("concurrency must be greater than 0")
+	}
+	return nil
 }
 
 // CollectionFindOptions represents options for finding documents in a collection

@@ -672,9 +672,6 @@ func (o *CollectionInsertManyOptions) Setters() []func(*CollectionInsertManyOpti
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionInsertManyOptions.
-func (o *CollectionInsertManyOptions) Validate() error { return nil }
-
 // collectionInsertManyOptionsBuilder is a builder for CollectionInsertManyOptions.
 type collectionInsertManyOptionsBuilder struct {
 	setters []func(*CollectionInsertManyOptions)
