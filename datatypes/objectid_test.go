@@ -77,8 +77,6 @@ func TestObjectIdInsertManyExample(t *testing.T) {
 }
 
 // TestObjectIdParseAndString verifies parse/string round-trip.
-//
-// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-id.html
 func TestObjectIdParseAndString(t *testing.T) {
 	hex := "6672e1cbd7fabb4e5493916f"
 	oid, err := ParseObjectId(hex)
@@ -224,8 +222,6 @@ func TestObjectIdTextRoundTrip(t *testing.T) {
 
 // TestObjectIdKnownTimestamp verifies that parsing a known ObjectId from the docs
 // extracts the expected timestamp.
-//
-// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-id.html
 func TestObjectIdKnownTimestamp(t *testing.T) {
 	// "6672e1cb" = first 4 bytes = 0x6672e1cb = 1718812107 seconds
 	// = 2024-06-19T14:28:27 UTC

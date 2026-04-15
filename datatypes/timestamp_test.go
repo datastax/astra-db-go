@@ -132,8 +132,6 @@ func TestDataAPITimestampJSONUnmarshalInvalid(t *testing.T) {
 }
 
 // TestDataAPITimestampJSONRoundTrip verifies JSON marshal/unmarshal round-trip.
-//
-// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-id.html
 func TestDataAPITimestampJSONRoundTrip(t *testing.T) {
 	original := DataAPITimestampFromMillis(1690045891000)
 	data, err := json.Marshal(original)
