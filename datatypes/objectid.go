@@ -39,9 +39,9 @@ func NewObjectId() ObjectId {
 	return newObjectId(time.Now())
 }
 
-// NewObjectIdFromTimestamp generates a new ObjectId encoding the given timestamp.
+// NewObjectIdAt generates a new ObjectId encoding the given timestamp.
 // The random and counter components are still generated normally.
-func NewObjectIdFromTimestamp(t time.Time) ObjectId {
+func NewObjectIdAt(t time.Time) ObjectId {
 	return newObjectId(t)
 }
 

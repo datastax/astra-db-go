@@ -166,10 +166,10 @@ func TestObjectIdGetTimestamp(t *testing.T) {
 	}
 }
 
-// TestObjectIdFromTimestamp verifies NewObjectIdFromTimestamp encodes the given time.
+// TestObjectIdFromTimestamp verifies NewObjectIdAt encodes the given time.
 func TestObjectIdFromTimestamp(t *testing.T) {
 	target := time.Date(2024, 6, 19, 10, 0, 0, 0, time.UTC)
-	o := NewObjectIdFromTimestamp(target)
+	o := NewObjectIdAt(target)
 
 	ts := o.GetTimestamp()
 	if ts.Unix() != target.Unix() {
@@ -181,8 +181,8 @@ func TestObjectIdFromTimestamp(t *testing.T) {
 // TestObjectIdFromTimestampUniqueness verifies two ObjectIds at the same time differ.
 func TestObjectIdFromTimestampUniqueness(t *testing.T) {
 	target := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	o1 := NewObjectIdFromTimestamp(target)
-	o2 := NewObjectIdFromTimestamp(target)
+	o1 := NewObjectIdAt(target)
+	o2 := NewObjectIdAt(target)
 	if o1.Equals(o2) {
 		t.Errorf("expected unique ObjectIds at same timestamp, got identical: %s", o1)
 	}
