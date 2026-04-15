@@ -151,10 +151,8 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 				}
 
 				resultsMu.Lock()
-				if res != nil {
-					insertedIds = append(insertedIds, res.Status.InsertedIds...)
-					apiErrors = append(apiErrors, res.Errors...)
-				}
+				insertedIds = append(insertedIds, res.Status.InsertedIds...)
+				apiErrors = append(apiErrors, res.Errors...)
 				allWarnings = append(allWarnings, warn...)
 				resultsMu.Unlock()
 			}
