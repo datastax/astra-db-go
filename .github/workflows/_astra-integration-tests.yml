@@ -1,0 +1,21 @@
+name: Run integration tests against Astra
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  test-integration-astra:
+    runs-on: ubuntu-latest
+    env:
+      API_ENDPOINT: ${{ secrets.API_ENDPOINT }}
+      APPLICATION_TOKEN: ${{ secrets.APPLICATION_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+
+      - name: Run integration tests
+        run: go run ./internal/integrationtests

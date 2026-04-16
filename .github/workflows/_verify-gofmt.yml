@@ -1,0 +1,23 @@
+name: Run gofmt checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  gofmt:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+
+      - name: Check for files that need gofmt
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "The following files need gofmt:"
+            gofmt -l .
+            exit 1
+          fi

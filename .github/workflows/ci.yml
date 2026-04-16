@@ -1,0 +1,65 @@
+name: Checks
+
+on:
+  merge_group:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      is_full_run: ${{ github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'Run Full Tests') }}
+    steps:
+      - run: exit 0
+
+  run-tests:
+    name: Run tests
+    needs: [setup]
+    uses: ./.github/workflows/_unit-tests.yml
+
+  run-codegen:
+    name: Run code generation checks
+    needs: [setup]
+    uses: ./.github/workflows/_verify-codegen.yml
+
+  run-gofmt:
+    name: Run gofmt checks
+    needs: [setup]
+    uses: ./.github/workflows/_verify-gofmt.yml
+
+  run-hcd-integration-tests:
+    name: Run HCD integration tests
+    needs: [setup, run-tests, run-codegen, run-gofmt]
+    if: needs.setup.outputs.is_full_run == 'true'
+    uses: ./.github/workflows/_hcd-integration-tests.yml
+    secrets: inherit
+
+  run-astra-integration-tests:
+    name: Run Astra integration tests
+    needs: [setup, run-tests, run-codegen, run-gofmt]
+    if: false # disabled for the time being
+#    if: github.event_name == 'merge_group'
+    uses: ./.github/workflows/_astra-integration-tests.yml
+    secrets: inherit
+
+  can-enqueue:
+    name: Can enqueue
+    needs: [setup, run-tests, run-codegen, run-gofmt]
+    if: always() && github.event_name != 'merge_group'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check outcomes
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | map(.value.result == "success" or .value.result == "skipped") | all'
+
+  can-merge:
+    name: Can merge
+    needs: [setup, run-tests, run-codegen, run-gofmt, run-hcd-integration-tests, run-astra-integration-tests]
+    if: always() && github.event_name == 'merge_group'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check outcomes
+        run: |
+          echo '${{ toJSON(needs) }}' | jq -e 'to_entries | map(.value.result == "success" or .value.result == "skipped") | all'

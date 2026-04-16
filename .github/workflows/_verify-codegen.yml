@@ -1,0 +1,28 @@
+name: Run code generation checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  codegen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: tools/gen-options/go.mod
+
+      - name: Run code generation
+        run: go generate ./...
+
+      - name: Check for uncommitted changes
+        run: |
+          if ! git diff --quiet; then
+            echo "Generated files are out of date. Run 'go generate ./...' and commit the result."
+            git diff
+            exit 1
+          fi
