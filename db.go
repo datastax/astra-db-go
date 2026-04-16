@@ -17,10 +17,12 @@ package astradb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/results"
 )
 
 // Db represents a connection to a specific Astra DB database.
@@ -147,6 +149,97 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 	cmd := newCmd(d, "deleteCollection", payload)
 	_, _, err := cmd.Execute(ctx)
 	return err
+}
+
+// listCollectionsPayload is the payload for the findCollections command
+type listCollectionsPayload struct {
+	Options *listCollectionsPayloadOptions `json:"options,omitempty"`
+}
+
+type listCollectionsPayloadOptions struct {
+	Explain bool `json:"explain"`
+}
+
+// listCollectionsResponse is the response from the findCollections command
+type listCollectionsResponse struct {
+	Status struct {
+		Collections []results.CollectionDescriptor `json:"collections"`
+	} `json:"status"`
+}
+
+// listCollectionsInternal is the internal helper for listing collections
+func (d *Db) listCollectionsInternal(ctx context.Context, explain bool, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
+	payload := listCollectionsPayload{
+		Options: &listCollectionsPayloadOptions{
+			Explain: explain,
+		},
+	}
+
+	cmd := newCmdWithOptions(d, "", "findCollections", payload, d.options, opts...)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp listCollectionsResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, err
+	}
+
+	return resp.Status.Collections, nil
+}
+
+// ListCollections lists all collections in the database with their full definitions.
+//
+// You can specify a keyspace in the options parameter, which will override the
+// working keyspace for this Db instance.
+//
+// Example:
+//
+//	collections, err := db.ListCollections(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, coll := range collections {
+//	    fmt.Printf("Collection: %s\n", coll.Name)
+//	    if coll.Definition.Vector != nil {
+//	        fmt.Printf("  Vector dimension: %d\n", *coll.Definition.Vector.Dimension)
+//	    }
+//	}
+//
+// Options passed here override those set on the database.
+func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
+	return d.listCollectionsInternal(ctx, true, opts...)
+}
+
+// ListCollectionNames lists the names of all collections in the database.
+//
+// You can specify a keyspace in the options parameter, which will override the
+// working keyspace for this Db instance.
+//
+// Example:
+//
+//	names, err := db.ListCollectionNames(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, name := range names {
+//	    fmt.Printf("Collection: %s\n", name)
+//	}
+//
+// Options passed here override those set on the database.
+func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.APIOption) ([]string, error) {
+	collections, err := d.listCollectionsInternal(ctx, false, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	names := make([]string, len(collections))
+	for i, coll := range collections {
+		names[i] = coll.Name
+	}
+
+	return names, nil
 }
 
 // DatabaseAdmin returns a DatabaseAdmin for managing keyspaces on this database.

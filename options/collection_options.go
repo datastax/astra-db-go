@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/datastax/astra-db-go/internal/constants"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/sort"
 )
@@ -72,19 +73,19 @@ const (
 	// DefaultIdTypeUUID uses a [UUID v4] as the default document ID.
 	//
 	// [UUID v4]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-4
-	DefaultIdTypeUUID DefaultIdType = "uuid"
+	DefaultIdTypeUUID DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUID)
 	// DefaultIdTypeUUIDv6 uses a UUID v6 as the default document ID.
 	// UUID v6 is field-compatible with UUID v1 and supports lexicographic sorting.
 	//
 	// [UUID v6]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-6
-	DefaultIdTypeUUIDv6 DefaultIdType = "uuidv6"
+	DefaultIdTypeUUIDv6 DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUIDv6)
 	// DefaultIdTypeUUIDv7 uses a [UUID v7] as the default document ID.
 	// UUID v7 is recommended for new systems as a replacement for UUID v1.
 	//
 	// [UUID v7]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-7
-	DefaultIdTypeUUIDv7 DefaultIdType = "uuidv7"
+	DefaultIdTypeUUIDv7 DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUIDv7)
 	// DefaultIdTypeObjectId uses an ObjectID as the default document ID.
-	DefaultIdTypeObjectId DefaultIdType = "objectId"
+	DefaultIdTypeObjectId DefaultIdType = DefaultIdType(constants.DefaultIdTypeObjectId)
 )
 
 // CollectionDefaultIdOptions represents the options for a collection's default ID.

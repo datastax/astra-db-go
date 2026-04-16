@@ -65,6 +65,27 @@ func (c *Collection) ClientOptions() *options.APIOptions {
 	return c.options
 }
 
+
+// Options retrieves the collection's descriptor including its definition.
+// This method calls the database's ListCollections and returns the descriptor
+// for this specific collection.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) Options(ctx context.Context, opts ...options.APIOption) (*results.CollectionDescriptor, error) {
+	collections, err := c.db.ListCollections(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, coll := range collections {
+		if coll.Name == c.name {
+			return &coll, nil
+		}
+	}
+
+	return nil, ErrNotFound
+}
+
 // Database returns the parent database.
 func (c *Collection) Database() *Db {
 	return c.db

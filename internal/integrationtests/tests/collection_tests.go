@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log/slog"
 	"reflect"
+	"slices"
 	"time"
 
 	astradb "github.com/datastax/astra-db-go"
@@ -36,6 +37,10 @@ func init() {
 	// Register our tests
 	t := []harness.IntegrationTest{
 		{Name: "CollectionCreate", Run: CollectionCreate},
+		{Name: "CollectionListCollections", Run: CollectionListCollections},
+		{Name: "CollectionOptions", Run: CollectionOptions},
+
+		{Name: "CollectionListCollectionNames", Run: CollectionListCollectionNames},
 		{Name: "CollectionInsertMany", Run: CollectionInsertMany},
 		{Name: "CollectionItemAlreadyExists", Run: CollectionItemAlreadyExists},
 		{Name: "CollectionCount", Run: CollectionCount},
@@ -87,6 +92,57 @@ func CollectionCreate(e *harness.TestEnv) error {
 	db := e.DefaultDb()
 	_, err := db.CreateCollection(ctx, collectionName)
 	return err
+}
+
+func CollectionListCollections(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+
+	collections, err := db.ListCollections(ctx)
+	if err != nil {
+		return fmt.Errorf("ListCollections failed: %w", err)
+	}
+
+	var predicate = func(c results.CollectionDescriptor) bool {
+		return c.Name == collectionName && c.Definition.DefaultId != nil && c.Definition.Vector == nil && c.Definition.Indexing == nil
+	}
+
+	if !slices.ContainsFunc(collections, predicate) {
+		return fmt.Errorf("expected to find collection '%s' with simple definition in list", collectionName)
+	}
+	return nil
+}
+
+func CollectionListCollectionNames(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+
+	names, err := db.ListCollectionNames(ctx)
+	if err != nil {
+		return fmt.Errorf("ListCollectionNames failed: %w", err)
+	}
+
+	if !slices.Contains(names, collectionName) {
+		return fmt.Errorf("expected to find collection '%s' in names list", collectionName)
+	}
+
+	return nil
+}
+
+func CollectionOptions(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+	collection := db.Collection(collectionName)
+
+	c, err := collection.Options(ctx)
+	if err != nil {
+		return fmt.Errorf("collection.Options() failed: %w", err)
+	}
+
+	if c.Name != collectionName || c.Definition.DefaultId == nil || c.Definition.Vector != nil || c.Definition.Indexing != nil {
+		return fmt.Errorf("collection options did not match expected values. Got: %+v", c)
+	}
+	return nil
 }
 
 func getSimpleObjects(rows int) []SimpleObject {
