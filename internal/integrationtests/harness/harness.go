@@ -16,6 +16,7 @@ type TestEnv struct {
 	APIEndpoint      string `env:"API_ENDPOINT"`
 	ApplicationToken string `env:"APPLICATION_TOKEN"`
 	TestPrefix       string `env:"TEST_PREFIX"`
+	Backend          string `env:"BACKEND"`
 }
 
 // Environment() retrieves a test environment with config based on environment variables.
@@ -24,12 +25,27 @@ func Environment() TestEnv {
 	if err != nil {
 		slog.Error("dotconfig.FromFileName failed", "error", err)
 	}
+
+	if c.Backend == "" {
+		c.Backend = "astra"
+	}
+
+	if c.Backend != "astra" {
+		if c.APIEndpoint == "" {
+			c.APIEndpoint = "http://127.0.0.1:8181"
+		}
+		if c.ApplicationToken == "" {
+			c.ApplicationToken = "Cassandra:Y2Fzc2FuZHJh:Y2Fzc2FuZHJh"
+		}
+	}
+
 	return c
 }
 
 func (e *TestEnv) DefaultClient() *astradb.DataAPIClient {
 	return astradb.NewClient(
 		options.WithToken(e.ApplicationToken),
+		options.WithDataAPIBackend(options.DataAPIBackend(e.Backend)),
 	)
 }
 
@@ -37,6 +53,7 @@ func (e *TestEnv) DefaultClient() *astradb.DataAPIClient {
 func (e *TestEnv) DefaultDb() *astradb.Db {
 	client := astradb.NewClient(
 		options.WithToken(e.ApplicationToken),
+		options.WithDataAPIBackend(options.DataAPIBackend(e.Backend)),
 		options.WithWarningHandler(func(w results.Warning) {
 			// Add client handler just to make sure it is properly superseded by
 			// DB level handler.
