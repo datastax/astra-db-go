@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/cursor"
+	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
@@ -249,11 +250,11 @@ type collectionFindResponse struct {
 //	        SetSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}).
 //	        SetIncludeSimilarity(true),
 //	)
-func (c *Collection) Find(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOption) *cursor.Cursor {
+func (c *Collection) Find(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOption) *cursors.Cursor {
 	// Build the find options once (they don't change between pages)
 	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return cursor.NewWithError(err)
+		return cursors.NewWithError(err)
 	}
 
 	// Create a page fetcher that captures the collection, filter, and options
@@ -311,7 +312,7 @@ func (c *Collection) Find(ctx context.Context, f CollectionFilter, opts ...optio
 		return resp.Data.Documents, resp.Data.NextPageState, warnings, nil
 	}
 
-	return cursor.New(fetcher)
+	return cursors.New(fetcher)
 }
 
 // collectionUpdateOnePayload is the payload for the updateOne command on collections.

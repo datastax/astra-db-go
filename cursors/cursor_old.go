@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package cursor provides iterator-style access to query results.
-package cursor
+package cursors
 
 import (
 	"context"

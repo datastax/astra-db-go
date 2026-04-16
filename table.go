@@ -276,19 +276,19 @@ type tableFindResponse struct {
 //	        SetSort(sort.Vector([]float32{0.1, 0.2, 0.3})).
 //	        SetIncludeSimilarity(true),
 //	)
-func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption) *cursor.Cursor {
+func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption) *cursors.Cursor {
 	// Validate filter type
 	switch f.(type) {
 	case filter.F, filter.Filter, map[string]any, nil:
 		// Allowed filter types
 	default:
-		return cursor.NewWithError(fmt.Errorf("invalid filter type: %T", f))
+		return cursors.NewWithError(fmt.Errorf("invalid filter type: %T", f))
 	}
 
 	// Build the find options once (they don't change between pages)
 	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return cursor.NewWithError(fmt.Errorf("invalid options: %w", err))
+		return cursors.NewWithError(fmt.Errorf("invalid options: %w", err))
 	}
 
 	// Create a page fetcher that captures the table, filter, and options
@@ -342,7 +342,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption
 		return resp.Data.Documents, resp.Data.NextPageState, warnings, nil
 	}
 
-	return cursor.New(fetcher)
+	return cursors.New(fetcher)
 }
 
 // FindOne finds a single row in a table matching the filter criteria.

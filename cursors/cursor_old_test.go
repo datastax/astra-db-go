@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cursor_test
+package cursors_test
 
 import (
 	"context"
@@ -55,7 +55,7 @@ func TestCursor_SinglePage(t *testing.T) {
 		return makeRawMessages(docs), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	var results []testDoc
@@ -103,7 +103,7 @@ func TestCursor_MultiplePages(t *testing.T) {
 		return nil, nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	var testResults []testDoc
@@ -144,7 +144,7 @@ func TestCursor_All(t *testing.T) {
 		return makeRawMessages(page2), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	var testResults []testDoc
@@ -156,7 +156,7 @@ func TestCursor_All(t *testing.T) {
 		t.Errorf("expected 3 results, got %d", len(testResults))
 	}
 
-	if c.State() != cursor.CursorStateExhausted {
+	if c.State() != cursors.CursorStateExhausted {
 		t.Errorf("expected cursor to be exhausted after All()")
 	}
 }
@@ -166,7 +166,7 @@ func TestCursor_EmptyResults(t *testing.T) {
 		return []json.RawMessage{}, nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	if c.Next(context.Background()) {
@@ -193,7 +193,7 @@ func TestCursor_FetchError(t *testing.T) {
 		return nil, nil, nil, expectedErr
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	if c.Next(context.Background()) {
@@ -210,7 +210,7 @@ func TestCursor_Close(t *testing.T) {
 		return makeRawMessages([]testDoc{{ID: 1, Name: "Alice"}}), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 
 	// Close the cursor
 	if err := c.Close(context.Background()); err != nil {
@@ -222,11 +222,11 @@ func TestCursor_Close(t *testing.T) {
 		t.Error("expected Next() to return false after Close()")
 	}
 
-	if c.Err() != cursor.ErrCursorClosed {
+	if c.Err() != cursors.ErrCursorClosed {
 		t.Errorf("expected ErrCursorClosed, got %v", c.Err())
 	}
 
-	if err := c.Decode(&testDoc{}); err != cursor.ErrCursorClosed {
+	if err := c.Decode(&testDoc{}); err != cursors.ErrCursorClosed {
 		t.Errorf("expected ErrCursorClosed from Decode, got %v", err)
 	}
 
@@ -241,12 +241,12 @@ func TestCursor_DecodeWithoutNext(t *testing.T) {
 		return makeRawMessages([]testDoc{{ID: 1, Name: "Alice"}}), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	// Decode without calling Next should fail
 	var doc testDoc
-	if err := c.Decode(&doc); err != cursor.ErrNoCurrentDocument {
+	if err := c.Decode(&doc); err != cursors.ErrNoCurrentDocument {
 		t.Errorf("expected ErrNoCurrentDocument, got %v", err)
 	}
 }
@@ -263,7 +263,7 @@ func TestCursor_WithInitialData(t *testing.T) {
 		return makeRawMessages(page2), nil, nil, nil
 	}
 
-	c := cursor.NewWithInitialData(makeRawMessages(initialDocs), &pageState, nil, fetcher)
+	c := cursors.NewWithInitialData(makeRawMessages(initialDocs), &pageState, nil, fetcher)
 	defer c.Close(context.Background())
 
 	var testResults []testDoc
@@ -291,7 +291,7 @@ func TestCursor_Current(t *testing.T) {
 		return makeRawMessages(docs), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	// Current before Next should be nil
@@ -326,7 +326,7 @@ func TestCursor_Iterate(t *testing.T) {
 		return makeRawMessages(docs), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	var names []string
@@ -359,7 +359,7 @@ func TestCursor_IterateEarlyStop(t *testing.T) {
 		return makeRawMessages(docs), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	count := 0
@@ -387,12 +387,12 @@ func TestCursor_TryDecode(t *testing.T) {
 		return makeRawMessages(docs), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	c.Next(context.Background())
 
-	doc, err := cursor.TryDecode[testDoc](c)
+	doc, err := cursors.TryDecode[testDoc](c)
 	if err != nil {
 		t.Fatalf("TryDecode failed: %v", err)
 	}
@@ -412,7 +412,7 @@ func TestCursor_RemainingBatchLength(t *testing.T) {
 		return makeRawMessages(docs), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	// Before any iteration
@@ -446,7 +446,7 @@ func TestCursor_HasNextPage(t *testing.T) {
 		return makeRawMessages([]testDoc{{ID: 2}}), nil, nil, nil
 	}
 
-	c := cursor.New(fetcher)
+	c := cursors.New(fetcher)
 	defer c.Close(context.Background())
 
 	// Before first fetch
