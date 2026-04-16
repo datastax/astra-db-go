@@ -39,7 +39,6 @@ func init() {
 		{Name: "CollectionCreate", Run: CollectionCreate},
 		{Name: "CollectionListCollections", Run: CollectionListCollections},
 		{Name: "CollectionOptions", Run: CollectionOptions},
-
 		{Name: "CollectionListCollectionNames", Run: CollectionListCollectionNames},
 		{Name: "CollectionInsertMany", Run: CollectionInsertMany},
 		{Name: "CollectionItemAlreadyExists", Run: CollectionItemAlreadyExists},

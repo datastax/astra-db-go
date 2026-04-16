@@ -65,7 +65,6 @@ func (c *Collection) ClientOptions() *options.APIOptions {
 	return c.options
 }
 
-
 // Options retrieves the collection's descriptor including its definition.
 // This method calls the database's ListCollections and returns the descriptor
 // for this specific collection.
