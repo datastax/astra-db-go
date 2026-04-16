@@ -35,8 +35,8 @@ type Db struct {
 	options  *options.APIOptions
 }
 
-func (d *Db) newCmd(name string, payload any) command {
-	return newCmd(d, name, payload)
+func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
+	return newCmdWithOptions(d, "", name, payload, d.options, opts...)
 }
 
 // Endpoint returns the database API endpoint.
@@ -151,44 +151,6 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 	return err
 }
 
-// listCollectionsPayload is the payload for the findCollections command
-type listCollectionsPayload struct {
-	Options *listCollectionsPayloadOptions `json:"options,omitempty"`
-}
-
-type listCollectionsPayloadOptions struct {
-	Explain bool `json:"explain"`
-}
-
-// listCollectionsResponse is the response from the findCollections command
-type listCollectionsResponse struct {
-	Status struct {
-		Collections []results.CollectionDescriptor `json:"collections"`
-	} `json:"status"`
-}
-
-// listCollectionsInternal is the internal helper for listing collections
-func (d *Db) listCollectionsInternal(ctx context.Context, explain bool, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
-	payload := listCollectionsPayload{
-		Options: &listCollectionsPayloadOptions{
-			Explain: explain,
-		},
-	}
-
-	cmd := newCmdWithOptions(d, "", "findCollections", payload, d.options, opts...)
-	b, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var resp listCollectionsResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
-		return nil, err
-	}
-
-	return resp.Status.Collections, nil
-}
-
 // ListCollections lists all collections in the database with their full definitions.
 //
 // You can specify a keyspace in the options parameter, which will override the
@@ -209,7 +171,7 @@ func (d *Db) listCollectionsInternal(ctx context.Context, explain bool, opts ...
 //
 // Options passed here override those set on the database.
 func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
-	return d.listCollectionsInternal(ctx, true, opts...)
+	return listCollectionsInternal(d, ctx, true, opts...)
 }
 
 // ListCollectionNames lists the names of all collections in the database.
@@ -229,7 +191,7 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]
 //
 // Options passed here override those set on the database.
 func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.APIOption) ([]string, error) {
-	collections, err := d.listCollectionsInternal(ctx, false, opts...)
+	collections, err := listCollectionsInternal(d, ctx, false, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -240,6 +202,35 @@ func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.APIOption)
 	}
 
 	return names, nil
+}
+
+// listCollectionsResponse is the response from the findCollections command
+type listCollectionsResponse struct {
+	Status struct {
+		Collections []results.CollectionDescriptor `json:"collections"`
+	} `json:"status"`
+}
+
+// listCollectionsInternal is the internal helper for listing collections
+func listCollectionsInternal(d *Db, ctx context.Context, explain bool, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
+	payload := map[string]any{
+		"options": map[string]any{
+			"explain": explain,
+		},
+	}
+
+	cmd := d.newCmd("findCollections", payload, opts...)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp listCollectionsResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, err
+	}
+
+	return resp.Status.Collections, nil
 }
 
 // DatabaseAdmin returns a DatabaseAdmin for managing keyspaces on this database.
