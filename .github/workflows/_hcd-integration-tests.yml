@@ -28,20 +28,15 @@ jobs:
       - name: Start HCD + Data API
         run: |
           docker compose up -d
-        working-directory: docker-compose
+          sleep 10
+        working-directory: ./.github/workflows/hcd
 
       - name: Issue a first Data API request to create the required keyspace
         run: |
-          curl -XPOST \
-            ${{ env.ASTRA_DB_URL }}/v1/ \
-            -H "token: ${{ env.ASTRA_DB_TOKEN }}" \
+          curl -XPOST http://127.0.0.1:8181/v1/ \
+            -H "token: Cassandra:Y2Fzc2FuZHJh:Y2Fzc2FuZHJh" \
             -H "Content-Type: application/json" \
-            -d '
-          {
-              "createKeyspace": {
-                  "name": "default_keyspace"
-              }
-          }'
+            -d '{ "createKeyspace": { "name": "default_keyspace" } }'
 
       - name: Setup Go
         uses: actions/setup-go@v6
