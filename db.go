@@ -171,7 +171,7 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 //
 // Options passed here override those set on the database.
 func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
-	return listCollectionsInternal(d, ctx, true, opts...)
+	return listCollections(d, ctx, true, opts...)
 }
 
 // ListCollectionNames lists the names of all collections in the database.
@@ -191,7 +191,7 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]
 //
 // Options passed here override those set on the database.
 func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.APIOption) ([]string, error) {
-	collections, err := listCollectionsInternal(d, ctx, false, opts...)
+	collections, err := listCollections(d, ctx, false, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -211,8 +211,8 @@ type listCollectionsResponse struct {
 	} `json:"status"`
 }
 
-// listCollectionsInternal is the internal helper for listing collections
-func listCollectionsInternal(d *Db, ctx context.Context, explain bool, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
+// listCollections is the internal helper for listing collections
+func listCollections(d *Db, ctx context.Context, explain bool, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
 	payload := map[string]any{
 		"options": map[string]any{
 			"explain": explain,
