@@ -20,7 +20,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/datastax/astra-db-go/cursor"
 	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
