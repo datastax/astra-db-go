@@ -8,7 +8,7 @@ import (
 )
 
 type FindCursor[TSelf any] interface {
-	AbstractCursor[TSelf]
+	AbstractCursor
 	GetSortVector() *datatypes.DataAPIVector
 	Filter(filter filter.Filter) TSelf
 	Sort(sort sort.Sort) TSelf
