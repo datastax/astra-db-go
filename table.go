@@ -282,7 +282,7 @@ func (t *Table) Find(ctx context.Context, f any, opts ...options.TableFindOption
 	case filter.F, filter.Filter, map[string]any, nil:
 		// Allowed filter types
 	default:
-		return cursors.NewWithError(fmt.Errorf("invalid filter type: %T", f))
+		return cursors.NewWithError(fmt.Errorf("invalid filter type: %Raw", f))
 	}
 
 	// Build the find options once (they don't change between pages)
@@ -358,7 +358,7 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 	case filter.F, filter.Filter, map[string]any, nil:
 		// Allowed filter types
 	default:
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid filter type: %T", f))
+		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid filter type: %Raw", f))
 	}
 
 	// Build the find options
@@ -607,7 +607,7 @@ func validateIndexColumn(column any) error {
 			return fmt.Errorf("index column map cannot be empty")
 		}
 	default:
-		return fmt.Errorf("invalid index column type: %T", column)
+		return fmt.Errorf("invalid index column type: %Raw", column)
 	}
 	// All good.
 	return nil

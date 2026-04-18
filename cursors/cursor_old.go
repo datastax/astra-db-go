@@ -25,20 +25,6 @@ import (
 	"github.com/datastax/astra-db-go/results"
 )
 
-// CursorState represents the current state of a cursor.
-type CursorState int
-
-const (
-	// CursorStateIdle means the cursor has not started iteration.
-	CursorStateIdle CursorState = iota
-	// CursorStateActive means the cursor is actively iterating.
-	CursorStateActive
-	// CursorStateExhausted means all documents have been consumed.
-	CursorStateExhausted
-	// CursorStateClosed means the cursor has been explicitly closed.
-	CursorStateClosed
-)
-
 // ErrCursorClosed is returned when operations are attempted on a closed cursor.
 var ErrCursorClosed = errors.New("cursor is closed")
 
