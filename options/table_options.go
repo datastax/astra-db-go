@@ -50,6 +50,10 @@ type TableFindOptions struct {
 	// for vector searches. Only works with direct vector search, not vectorize.
 	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
 
+	// IncludeSortVector if true, includes the sort vector in the response.
+	// Useful for vector searches using $vectorize.
+	IncludeSortVector *bool `json:"includeSortVector,omitempty"`
+
 	// InitialPageState is used for pagination to fetch the next page of results
 	InitialPageState *string `json:"pageState,omitempty"`
 

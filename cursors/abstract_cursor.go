@@ -2,11 +2,18 @@ package cursors
 
 import (
 	"context"
+	"errors"
 	"iter"
 	"reflect"
 
 	"github.com/datastax/astra-db-go/internal/guards"
 )
+
+// ErrCursorClosed is returned when operations are attempted on a closed cursor.
+var ErrCursorClosed = errors.New("cursor is closed")
+
+// ErrNoCurrentDocument is returned when Decode is called without a current document.
+var ErrNoCurrentDocument = errors.New("no current document available")
 
 // CursorState represents the current state of a cursor.
 type CursorState int
@@ -14,8 +21,8 @@ type CursorState int
 const (
 	// CursorStateIdle means the cursor has not started iteration.
 	CursorStateIdle CursorState = iota
-	// CursorStateActive means the cursor is actively iterating.
-	CursorStateActive
+	// CursorStateStarted means the cursor is actively iterating.
+	CursorStateStarted
 	// CursorStateClosed means the cursor has been explicitly closed.
 	CursorStateClosed
 )
@@ -66,22 +73,30 @@ func All[T any](ctx context.Context, c AbstractCursor) iter.Seq2[*T, error] {
 	}
 }
 
-type abstractCursorInternal[Raw any] interface {
+type abstractCursorSource[Raw any] interface {
 	buffer() *[]Raw
-	fetchNextPage(ctx context.Context) error
+	fetchNextPage(ctx context.Context) (bool, error)
 	decode(raw Raw, result any) error
 	rewind()
 	close()
 }
 
-var _ AbstractCursor = (*abstractCursorImpl)(nil)
+var _ AbstractCursor = (*abstractCursorImpl[any])(nil)
 
 type abstractCursorImpl[Raw any] struct {
-	impl     abstractCursorInternal[Raw]
+	abstractCursorSource[Raw]
 	state    CursorState
 	nextPage bool
 	consumed int
 	err      error
+}
+
+func newAbstractCursorImpl[Raw any](source abstractCursorSource[Raw]) abstractCursorImpl[Raw] {
+	return abstractCursorImpl[Raw]{
+		abstractCursorSource: source,
+		state:                CursorStateIdle,
+		nextPage:             true,
+	}
 }
 
 func (c *abstractCursorImpl[Raw]) State() CursorState {
@@ -89,7 +104,7 @@ func (c *abstractCursorImpl[Raw]) State() CursorState {
 }
 
 func (c *abstractCursorImpl[Raw]) Buffered() int {
-	return len(*c.impl.buffer())
+	return len(*c.buffer())
 }
 
 func (c *abstractCursorImpl[Raw]) Consumed() int {
@@ -97,18 +112,79 @@ func (c *abstractCursorImpl[Raw]) Consumed() int {
 }
 
 func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
-	//TODO implement me
-	panic("implement me")
+	if c.state == CursorStateClosed {
+		return false
+	}
+
+	c.state = CursorStateStarted
+
+	if c.Buffered() == 0 {
+		for c.Buffered() == 0 {
+			if c.err != nil || !c.nextPage {
+				c.Close()
+				return false
+			}
+			c.nextPage, c.err = c.fetchNextPage(ctx)
+		}
+	} else {
+		c.consumed++
+		*c.buffer() = (*c.buffer())[1:]
+	}
+
+	return true
 }
 
 func (c *abstractCursorImpl[Raw]) Decode(result any) error {
-	//TODO implement me
-	panic("implement me")
+	if c.state == CursorStateClosed {
+		return ErrCursorClosed
+	}
+
+	bufPtr := c.buffer()
+	if len(*bufPtr) == 0 {
+		return ErrNoCurrentDocument
+	}
+
+	raw := (*bufPtr)[0]
+	if err := c.decode(raw, result); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) error {
-	//TODO implement me
-	panic("implement me")
+	resultPtr, sliceVal, err := guards.RequireSlicePtr(results)
+	if err != nil {
+		return err
+	}
+
+	if c.err != nil {
+		return c.err
+	}
+
+	if c.state == CursorStateClosed {
+		return ErrCursorClosed
+	}
+
+	for {
+		nextBatch, err := c.decodeBufferedN(sliceVal, 0)
+		if err != nil {
+			return err
+		}
+
+		sliceVal = reflect.AppendSlice(sliceVal, nextBatch)
+
+		if !c.Next(ctx) {
+			break
+		}
+	}
+
+	if c.err != nil {
+		return c.err
+	}
+
+	resultPtr.Elem().Set(sliceVal)
+	return nil
 }
 
 func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any) error {
@@ -121,7 +197,17 @@ func (c *abstractCursorImpl[Raw]) DecodeBufferedN(results any, max int) error {
 		return err
 	}
 
-	bufPtr := c.impl.buffer()
+	sliceVal, err = c.decodeBufferedN(sliceVal, max)
+	if err != nil {
+		return err
+	}
+
+	resultPtr.Elem().Set(sliceVal)
+	return nil
+}
+
+func (c *abstractCursorImpl[Raw]) decodeBufferedN(sliceVal reflect.Value, max int) (reflect.Value, error) {
+	bufPtr := c.buffer()
 	numToTake := len(*bufPtr)
 	if max > 0 && max < numToTake {
 		numToTake = max
@@ -137,16 +223,15 @@ func (c *abstractCursorImpl[Raw]) DecodeBufferedN(results any, max int) error {
 
 	for i, raw := range toTake {
 		targetAddr := sliceVal.Index(i).Addr().Interface()
-		if err := c.impl.decode(raw, targetAddr); err != nil {
-			return err
+		if err := c.decode(raw, targetAddr); err != nil {
+			return reflect.Value{}, err
 		}
 	}
 
-	resultPtr.Elem().Set(sliceVal)
 	*bufPtr = (*bufPtr)[numToTake:]
 	c.consumed += numToTake
 
-	return nil
+	return sliceVal, nil
 }
 
 func (c *abstractCursorImpl[Raw]) Err() error {
@@ -157,11 +242,11 @@ func (c *abstractCursorImpl[Raw]) Rewind() {
 	c.consumed = 0
 	c.state = CursorStateIdle
 	c.nextPage = true
-	c.impl.rewind()
+	c.rewind()
 }
 
 func (c *abstractCursorImpl[Raw]) Close() {
 	c.state = CursorStateClosed
 	c.nextPage = false
-	c.impl.close()
+	c.close()
 }

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/cursors"
+	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
@@ -203,8 +204,9 @@ type collectionFindOptions struct {
 // collectionFindResponse is the response from the find command
 type collectionFindResponse struct {
 	Data struct {
-		Documents     []json.RawMessage `json:"documents"`
-		NextPageState *string           `json:"nextPageState"`
+		Documents     []json.RawMessage        `json:"documents"`
+		NextPageState *string                  `json:"nextPageState"`
+		SortVector    *datatypes.DataAPIVector `json:"sortVector,omitempty"`
 	} `json:"data"`
 }
 
@@ -249,69 +251,17 @@ type collectionFindResponse struct {
 //	        SetSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}).
 //	        SetIncludeSimilarity(true),
 //	)
-func (c *Collection) Find(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOption) *cursors.Cursor {
-	// Build the find options once (they don't change between pages)
-	findOpts, err := options.MergeAndValidate(opts...)
+func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOption) (*cursors.CollectionFindCursor, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return cursors.NewWithError(err)
+		return nil, err
 	}
 
-	// Create a page fetcher that captures the collection, filter, and options
-	fetcher := func(fetchCtx context.Context, pageState *string) ([]json.RawMessage, *string, results.Warnings, error) {
-		payload := collectionFindPayload{
-			Filter:     f,
-			Sort:       findOpts.Sort,
-			Projection: findOpts.Projection,
-		}
-
-		// Build options - use provided pageState for pagination
-		payloadOpts := &collectionFindOptions{}
-		hasOpts := false
-
-		if findOpts.Limit != nil {
-			payloadOpts.Limit = findOpts.Limit
-			hasOpts = true
-		}
-		if findOpts.Skip != nil {
-			payloadOpts.Skip = findOpts.Skip
-			hasOpts = true
-		}
-		if findOpts.IncludeSimilarity != nil {
-			payloadOpts.IncludeSimilarity = findOpts.IncludeSimilarity
-			hasOpts = true
-		}
-		if findOpts.IncludeSortVector != nil {
-			payloadOpts.IncludeSortVector = findOpts.IncludeSortVector
-			hasOpts = true
-		}
-		if pageState != nil {
-			payloadOpts.PageState = pageState
-			hasOpts = true
-		} else if findOpts.InitialPageState != nil {
-			// Only use InitialPageState for the first request
-			payloadOpts.PageState = findOpts.InitialPageState
-			hasOpts = true
-		}
-
-		if hasOpts {
-			payload.Options = payloadOpts
-		}
-
-		cmd := c.newCmdOverride("find", payload, findOpts.APIOptions)
-		b, warnings, err := cmd.Execute(fetchCtx)
-		if err != nil {
-			return nil, nil, warnings, err
-		}
-
-		var resp collectionFindResponse
-		if err := json.Unmarshal(b, &resp); err != nil {
-			return nil, nil, warnings, err
-		}
-
-		return resp.Data.Documents, resp.Data.NextPageState, warnings, nil
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
+		cmd := c.newCmdOverride("find", payload, merged.APIOptions)
+		return cmd.Execute(ctx)
 	}
-
-	return cursors.New(fetcher)
+	return cursors.NewCollectionFindCursor(f, merged, fetcher), nil
 }
 
 // collectionUpdateOnePayload is the payload for the updateOne command on collections.

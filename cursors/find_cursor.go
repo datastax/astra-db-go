@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 
 	"github.com/datastax/astra-db-go/datatypes"
+	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/sort"
 )
 
 type FindCursor interface {
@@ -14,54 +16,122 @@ type FindCursor interface {
 	Warnings() results.Warnings
 }
 
-type findPage struct {
+// FindPage represents a page of results from a find operation
+type FindPage struct {
 	NextPageState *string                  `json:"nextPageState"`
-	Result        []json.RawMessage        `json:"results"`
-	SortVector    *datatypes.DataAPIVector `json:"sortVector"`
+	Result        []json.RawMessage        `json:"data"`
+	SortVector    *datatypes.DataAPIVector `json:"sortVector,omitempty"`
+}
+
+type findCursorFetcher = func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error)
+
+type findCursorSource interface {
+	mkPayload(pageState *string) *findPayload
+	apiOptions() *options.APIOptions
 }
 
 var _ FindCursor = (*findCursorImpl)(nil)
-var _ abstractCursorInternal[json.RawMessage] = (*findCursorImpl)(nil)
+var _ abstractCursorSource[json.RawMessage] = (*findCursorImpl)(nil)
 
 type findCursorImpl struct {
 	abstractCursorImpl[json.RawMessage]
-	findPage *findPage
+	findCursorSource
+	currentPage *FindPage
+	warnings    results.Warnings
+	fetcher     findCursorFetcher
 }
 
-func (c *findCursorImpl) buffer() *[]json.RawMessage {
-	return &c.findPage.Result
-}
-
-func (c *findCursorImpl) fetchNextPage(ctx context.Context) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *findCursorImpl) decode(raw json.RawMessage, result any) error {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (c *findCursorImpl) rewind() {
-	c.findPage = nil
-}
-
-func (c *findCursorImpl) close() {
-	c.findPage = nil
-}
-
-func newFindCursorImpl() *findCursorImpl {
-	cursor := &findCursorImpl{}
-	cursor.impl = cursor
-	return cursor
+func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher) findCursorImpl {
+	impl := findCursorImpl{
+		findCursorSource: source,
+		fetcher:          fetcher,
+	}
+	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl)
+	return impl
 }
 
 func (c *findCursorImpl) GetSortVector() *datatypes.DataAPIVector {
-	//TODO implement me
-	panic("implement me")
+	if c.currentPage == nil {
+		return nil
+	}
+	return c.currentPage.SortVector
 }
 
 func (c *findCursorImpl) Warnings() results.Warnings {
-	//TODO implement me
-	panic("implement me")
+	return c.warnings
+}
+
+func (c *findCursorImpl) buffer() *[]json.RawMessage {
+	if c.currentPage == nil {
+		return &[]json.RawMessage{}
+	}
+	return &c.currentPage.Result
+}
+
+// findPayload is the payload for the find command on collections
+type findPayload struct {
+	Filter     any             `json:"filter,omitempty"`
+	Sort       sort.Sortable   `json:"sort,omitempty"`
+	Projection map[string]bool `json:"projection,omitempty"`
+	Options    *findOptions    `json:"options,omitempty"`
+}
+
+// findOptions contains options for collection find operations
+type findOptions struct {
+	Limit             *int    `json:"limit,omitempty"`
+	Skip              *int    `json:"skip,omitempty"`
+	IncludeSimilarity *bool   `json:"includeSimilarity,omitempty"`
+	IncludeSortVector *bool   `json:"includeSortVector,omitempty"`
+	PageState         *string `json:"pageState,omitempty"`
+}
+
+// findResponse is the response from the find command
+type findResponse struct {
+	Data struct {
+		Documents     []json.RawMessage        `json:"documents"`
+		NextPageState *string                  `json:"nextPageState"`
+		SortVector    *datatypes.DataAPIVector `json:"sortVector,omitempty"`
+	} `json:"data"`
+}
+
+func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
+	var pageState *string
+	if c.currentPage != nil {
+		pageState = c.currentPage.NextPageState
+	}
+
+	payload := c.mkPayload(pageState)
+	b, warnings, err := c.fetcher(ctx, payload, c.apiOptions())
+	if err != nil {
+		return false, err
+	}
+
+	c.warnings = append(c.warnings, warnings...)
+
+	var resp findResponse
+	if err := json.Unmarshal(b, &resp); err != nil {
+		c.currentPage = nil
+		return false, err
+	}
+
+	c.currentPage = &FindPage{
+		NextPageState: resp.Data.NextPageState,
+		Result:        resp.Data.Documents,
+		SortVector:    resp.Data.SortVector,
+	}
+
+	return resp.Data.NextPageState != nil, nil
+}
+
+func (c *findCursorImpl) decode(raw json.RawMessage, result any) error {
+	return json.Unmarshal(raw, result)
+}
+
+func (c *findCursorImpl) rewind() {
+	c.currentPage = nil
+	c.warnings = nil
+}
+
+func (c *findCursorImpl) close() {
+	c.currentPage = nil
 }

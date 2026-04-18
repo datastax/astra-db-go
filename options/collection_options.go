@@ -186,7 +186,7 @@ type CollectionFindOptions struct {
 
 	// Projection controls which fields are included or excluded in the returned documents
 	// Use true to include a field, false to exclude it
-	Projection map[string]any `json:"projection,omitempty"`
+	Projection map[string]bool `json:"projection,omitempty"`
 
 	// Limit limits the total number of documents returned
 	Limit *int `json:"limit,omitempty"`
