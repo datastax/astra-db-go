@@ -110,11 +110,14 @@ func findOneRow(ctx context.Context, tbl *astradb.Table) {
 
 func findAllRows(ctx context.Context, tbl *astradb.Table) {
 	logHeader("Finding All Rows")
-	cursor := tbl.Find(ctx, nil)
-	defer cursor.Close(ctx)
+	cursor, err := tbl.Find(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close()
 
 	var rows []BookRow
-	if err := cursor.All(ctx, &rows); err != nil {
+	if err := cursor.DecodeAll(ctx, &rows); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Found %d result(s):\n", len(rows))

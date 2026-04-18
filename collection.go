@@ -216,8 +216,8 @@ type collectionFindResponse struct {
 //
 // Example using Next/Decode pattern:
 //
-//	cursor := coll.Find(ctx, filter.F{"active": true})
-//	defer cursor.Close(ctx)
+//	cursor := coll.Find(filter.F{"active": true})
+//	defer cursor.Close()
 //
 //	for cursor.Next(ctx) {
 //	    var doc MyDocument
@@ -232,7 +232,7 @@ type collectionFindResponse struct {
 //
 // Example getting all results at once:
 //
-//	cursor := coll.Find(ctx, filter.F{})
+//	cursor := coll.Find(filter.F{})
 //	var docs []MyDocument
 //	if err := cursor.All(ctx, &docs); err != nil {
 //	    return err
@@ -240,13 +240,13 @@ type collectionFindResponse struct {
 //
 // Example with sort and limit:
 //
-//	cursor := coll.Find(ctx, filter.F{"status": "active"},
+//	cursor := coll.Find(filter.F{"status": "active"},
 //	    options.CollectionFind().SetSort(map[string]any{"created": -1}).SetLimit(10),
 //	)
 //
 // Example with vector search:
 //
-//	cursor := coll.Find(ctx, filter.F{},
+//	cursor := coll.Find(filter.F{},
 //	    options.CollectionFind().
 //	        SetSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}).
 //	        SetIncludeSimilarity(true),

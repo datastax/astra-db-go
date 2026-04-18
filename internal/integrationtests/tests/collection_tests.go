@@ -278,11 +278,11 @@ func CollectionFind(e *harness.TestEnv) error {
 	c := db.Collection(collectionName)
 
 	// Use cursor to find documents
-	cursor := c.Find(ctx, filter.Gte("properties.intProperty", 20))
-	defer cursor.Close(ctx)
+	cursor, _ := c.Find(filter.Gte("properties.intProperty", 20))
+	defer cursor.Close()
 
 	var documents []SimpleObject
-	if err := cursor.All(ctx, &documents); err != nil {
+	if err := cursor.DecodeAll(ctx, &documents); err != nil {
 		return err
 	}
 
@@ -343,8 +343,8 @@ func CollectionCursorPagination(e *harness.TestEnv) error {
 	}
 
 	// Now use the cursor to iterate through ALL documents
-	cursor := c.Find(ctx, filter.Eq("batchId", "pagination-test"))
-	defer cursor.Close(ctx)
+	cursor, _ := c.Find(filter.Eq("batchId", "pagination-test"))
+	defer cursor.Close()
 
 	// Track pagination stats
 	var fetchedDocs []map[string]any
@@ -360,12 +360,11 @@ func CollectionCursorPagination(e *harness.TestEnv) error {
 		docsInCurrentPage++
 
 		// Check if we just finished a page (remaining batch length is 0 and there's a next page)
-		if cursor.RemainingBatchLength() == 0 {
+		if cursor.Buffered() == 0 {
 			slog.Info("Fetched page",
 				"pageNumber", pagesFetched+1,
 				"docsInPage", docsInCurrentPage,
 				"totalDocsSoFar", len(fetchedDocs),
-				"hasNextPage", cursor.HasNextPage(),
 			)
 			pagesFetched++
 			docsInCurrentPage = 0
@@ -570,10 +569,10 @@ func CollectionUpdateMany(e *harness.TestEnv) error {
 	}
 
 	// Verify the update by reading back
-	cur := c.Find(ctx, filter.F{"tag": tag})
-	defer cur.Close(ctx)
+	cur, _ := c.Find(filter.F{"tag": tag})
+	defer cur.Close()
 	var docs []map[string]any
-	if err := cur.All(ctx, &docs); err != nil {
+	if err := cur.DecodeAll(ctx, &docs); err != nil {
 		return fmt.Errorf("Find after UpdateMany failed: %w", err)
 	}
 	for i, doc := range docs {
@@ -1204,10 +1203,6 @@ func CollectionDrop(e *harness.TestEnv) error {
 	return err
 }
 
-func CollectionList(e *harness.TestEnv) error {
-	return nil
-}
-
 // #region Vector Search Integration Tests
 // Based on AstraPy examples from:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/find-many.html
@@ -1329,15 +1324,15 @@ func CollectionVectorSearch(e *harness.TestEnv) error {
 	// This should return "The Great Gatsby" first as it has the exact vector
 	searchVector := []float32{0.1, 0.2, 0.3}
 
-	cursor := c.Find(ctx, filter.F{},
+	cursor, _ := c.Find(filter.F{},
 		options.CollectionFind().
 			SetSort(sort.Vector(searchVector)).
 			SetLimit(3),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var results []VectorDocument
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("vector search failed: %w", err)
 	}
 
@@ -1368,17 +1363,17 @@ func CollectionVectorSearchWithSimilarity(e *harness.TestEnv) error {
 	// Search with similarity score included
 	searchVector := []float32{0.1, 0.2, 0.3}
 
-	cursor := c.Find(ctx, filter.F{},
+	cursor, _ := c.Find(filter.F{},
 		options.CollectionFind().
 			SetSort(sort.Vector(searchVector)).
 			SetIncludeSimilarity(true).
 			SetLimit(3),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	// Use map to capture $similarity field
 	var results []map[string]any
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("vector search with similarity failed: %w", err)
 	}
 
@@ -1426,13 +1421,13 @@ func CollectionFindWithSort(e *harness.TestEnv) error {
 	c := db.Collection(vectorCollectionName)
 
 	// Sort by rating ascending, then title descending
-	cursor := c.Find(ctx, filter.Eq("metadata.language", "English"),
+	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetSort(sort.Asc("rating").Desc("title")),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var results []VectorDocument
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("sorted find failed: %w", err)
 	}
 
@@ -1466,16 +1461,16 @@ func CollectionFindWithProjection(e *harness.TestEnv) error {
 	c := db.Collection(vectorCollectionName)
 
 	// Only include title and is_checked_out fields
-	cursor := c.Find(ctx, filter.Eq("metadata.language", "English"),
-		options.CollectionFind().SetProjection(map[string]any{
+	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
+		options.CollectionFind().SetProjection(map[string]bool{
 			"title":          true,
 			"is_checked_out": true,
 		}),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var results []map[string]any
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("projected find failed: %w", err)
 	}
 
@@ -1516,13 +1511,13 @@ func CollectionFindWithLimit(e *harness.TestEnv) error {
 	c := db.Collection(vectorCollectionName)
 
 	limit := 2
-	cursor := c.Find(ctx, filter.Eq("metadata.language", "English"),
+	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetLimit(limit),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var results []VectorDocument
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("limited find failed: %w", err)
 	}
 
@@ -1543,14 +1538,14 @@ func CollectionFindWithSkip(e *harness.TestEnv) error {
 
 	// Skip requires an explicit sort criterion
 	// First, get all results sorted by rating
-	cursorAll := c.Find(ctx, filter.Eq("metadata.language", "English"),
+	cursorAll, _ := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetSort(sort.Asc("rating").Asc("title")),
 	)
 	var allResults []VectorDocument
-	if err := cursorAll.All(ctx, &allResults); err != nil {
+	if err := cursorAll.DecodeAll(ctx, &allResults); err != nil {
 		return fmt.Errorf("failed to get all results: %w", err)
 	}
-	cursorAll.Close(ctx)
+	cursorAll.Close()
 
 	if len(allResults) < 3 {
 		return fmt.Errorf("need at least 3 documents for skip test, got %d", len(allResults))
@@ -1558,15 +1553,15 @@ func CollectionFindWithSkip(e *harness.TestEnv) error {
 
 	// Now get results with skip=2
 	skip := 2
-	cursorSkip := c.Find(ctx, filter.Eq("metadata.language", "English"),
+	cursorSkip, _ := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().
 			SetSort(sort.Asc("rating").Asc("title")).
 			SetSkip(skip),
 	)
-	defer cursorSkip.Close(ctx)
+	defer cursorSkip.Close()
 
 	var skipResults []VectorDocument
-	if err := cursorSkip.All(ctx, &skipResults); err != nil {
+	if err := cursorSkip.DecodeAll(ctx, &skipResults); err != nil {
 		return fmt.Errorf("skip find failed: %w", err)
 	}
 
@@ -1597,23 +1592,23 @@ func CollectionFindCombined(e *harness.TestEnv) error {
 	// Sort by rating ascending, title descending
 	// Only include title and is_checked_out
 	// Limit to 3 results
-	cursor := c.Find(ctx,
+	cursor, _ := c.Find(
 		filter.And(
 			filter.Eq("is_checked_out", false),
 			filter.Lt("number_of_pages", 300),
 		),
 		options.CollectionFind().
 			SetSort(sort.Asc("rating").Desc("title")).
-			SetProjection(map[string]any{
+			SetProjection(map[string]bool{
 				"title":          true,
 				"is_checked_out": true,
 			}).
 			SetLimit(3),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var results []map[string]any
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("combined find failed: %w", err)
 	}
 

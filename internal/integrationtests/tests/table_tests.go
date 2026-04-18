@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/internal/integrationtests/harness"
 	"github.com/datastax/astra-db-go/options"
@@ -217,24 +218,24 @@ func TableFind(e *harness.TestEnv) error {
 		warningHandlerRun = true
 	}))
 
-	// Find all books that are not checked out using cursor.All()
-	cursor := tbl.Find(ctx, filter.Eq("is_checked_out", false))
-	defer cursor.Close(ctx)
+	// Find all books that are not checked out using cursors.All()
+	cursor, _ := tbl.Find(filter.Eq("is_checked_out", false))
+	defer cursor.Close()
 
 	var books []TestBook
-	if err := cursor.All(ctx, &books); err != nil {
-		return err
+
+	for book, err := range cursors.All[TestBook](ctx, cursor) {
+		if err != nil {
+			return fmt.Errorf("error iterating cursor: %w", err)
+		}
+		if book.IsCheckedOut {
+			return fmt.Errorf("expected is_checked_out to be false for book %q", book.Title)
+		}
+		books = append(books, *book)
 	}
 
 	if len(books) == 0 {
 		return errors.New("expected to find at least one book")
-	}
-
-	// Verify all returned books have is_checked_out = false
-	for _, book := range books {
-		if book.IsCheckedOut {
-			return fmt.Errorf("expected is_checked_out to be false for book %q", book.Title)
-		}
 	}
 
 	if !warningHandlerRun {
@@ -259,11 +260,11 @@ func TableFind(e *harness.TestEnv) error {
 	time.Sleep(2 * time.Second)
 
 	// Verify warnings go away after creating the index
-	// Find all books that are not checked out using cursor.All()
-	idxCursor := tbl.Find(ctx, filter.Eq("is_checked_out", false))
-	defer idxCursor.Close(ctx)
+	// Find all books that are not checked out using cursor.DecodeAll()
+	idxCursor, _ := tbl.Find(filter.Eq("is_checked_out", false))
+	defer idxCursor.Close()
 
-	if err := idxCursor.All(ctx, &books); err != nil {
+	if err := idxCursor.DecodeAll(ctx, &books); err != nil {
 		return err
 	}
 
@@ -291,8 +292,8 @@ func TableFindWithCursor(e *harness.TestEnv) error {
 	tbl := db.Table(tableName)
 
 	// Find all books using cursor iteration
-	cursor := tbl.Find(ctx, filter.F{})
-	defer cursor.Close(ctx)
+	cursor, _ := tbl.Find(filter.F{})
+	defer cursor.Close()
 
 	var books []TestBook
 	for cursor.Next(ctx) {
@@ -319,16 +320,16 @@ func TableFindWithSort(e *harness.TestEnv) error {
 	db := e.DefaultDb()
 	tbl := db.Table(tableName)
 
-	// Find books sorted by rating descending using cursor.All()
-	cursor := tbl.Find(ctx, filter.F{},
+	// Find books sorted by rating descending using cursors.DecodeAll()
+	cursor, _ := tbl.Find(filter.F{},
 		options.TableFind().
 			SetSort(sort.Desc("rating")).
 			SetLimit(3),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
-	var books []TestBook
-	if err := cursor.All(ctx, &books); err != nil {
+	books, err := cursors.DecodeAll[TestBook](ctx, cursor)
+	if err != nil {
 		return err
 	}
 
@@ -352,16 +353,16 @@ func TableFindWithProjection(e *harness.TestEnv) error {
 	db := e.DefaultDb()
 	tbl := db.Table(tableName)
 
-	// Find books with only title and author using cursor.All()
-	cursor := tbl.Find(ctx, filter.F{},
+	// Find books with only title and author using cursor.DecodeAll()
+	cursor, _ := tbl.Find(filter.F{},
 		options.TableFind().
 			SetProjection(map[string]bool{"title": true, "author": true}).
 			SetLimit(1),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var books []map[string]any
-	if err := cursor.All(ctx, &books); err != nil {
+	if err := cursor.DecodeAll(ctx, &books); err != nil {
 		return err
 	}
 
@@ -515,16 +516,16 @@ func TableVectorIndex(e *harness.TestEnv) error {
 
 	// Test vector similarity search - find documents similar to [1.0, 0.0, 0.0]
 	queryVector := []float32{1.0, 0.0, 0.0}
-	cursor := tbl.Find(ctx, filter.F{},
+	cursor, _ := tbl.Find(filter.F{},
 		options.TableFind().
 			SetSort(sort.S{"embedding": queryVector}).
 			SetIncludeSimilarity(true).
 			SetLimit(3),
 	)
-	defer cursor.Close(ctx)
+	defer cursor.Close()
 
 	var results []map[string]any
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("failed to execute vector search: %w", err)
 	}
 

@@ -106,8 +106,8 @@ if err != nil {
 Use `Find` to retrieve multiple documents and iterate with a cursor:
 
 ```go
-cursor := coll.Find(ctx, filter.F{"author": "Alan Donovan"})
-defer cursor.Close(ctx)
+cursor := coll.Find(filter.F{"author": "Alan Donovan"})
+defer cursor.Close()
 
 var books []Book
 if err = cursor.All(ctx, &books); err != nil {
@@ -118,8 +118,8 @@ if err = cursor.All(ctx, &books); err != nil {
 Or iterate document by document:
 
 ```go
-cursor := coll.Find(ctx, filter.F{"year": filter.F{"$gte": 2016}})
-defer cursor.Close(ctx)
+cursor := coll.Find(filter.F{"year": filter.F{"$gte": 2016}})
+defer cursor.Close()
 
 for cursor.Next(ctx) {
     var book Book
@@ -222,8 +222,8 @@ _, err = tbl.InsertOne(ctx, BookRow{
 var row BookRow
 err = tbl.FindOne(ctx, filter.Eq("id", "1")).Decode(&row)
 
-cursor := tbl.Find(ctx, filter.F{"author": "Alan Donovan"})
-defer cursor.Close(ctx)
+cursor := tbl.Find(filter.F{"author": "Alan Donovan"})
+defer cursor.Close()
 
 var rows []BookRow
 if err = cursor.All(ctx, &rows); err != nil {

@@ -47,9 +47,9 @@ func Decode[T any](c AbstractCursor) (T, error) {
 	return result, err
 }
 
-func DecodeAll[T any](c AbstractCursor) ([]T, error) {
+func DecodeAll[T any](ctx context.Context, c AbstractCursor) ([]T, error) {
 	var result []T
-	err := c.DecodeAll(context.Background(), &result)
+	err := c.DecodeAll(ctx, &result)
 	return result, err
 }
 

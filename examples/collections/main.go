@@ -112,11 +112,14 @@ func findOneDocument(ctx context.Context, coll *astradb.Collection) {
 
 func findAllDocuments(ctx context.Context, coll *astradb.Collection) {
 	logHeader("Finding All Documents")
-	cursor := coll.Find(ctx, filter.F{})
-	defer cursor.Close(ctx)
+	cursor, err := coll.Find(filter.F{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close()
 
 	var books []Book
-	if err := cursor.All(ctx, &books); err != nil {
+	if err := cursor.DecodeAll(ctx, &books); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Printf("Found %d result(s):\n", len(books))
@@ -127,8 +130,11 @@ func findAllDocuments(ctx context.Context, coll *astradb.Collection) {
 
 func filterDocumentsByYear(ctx context.Context, coll *astradb.Collection) {
 	logHeader("Filtering: year >= 2016")
-	cursor := coll.Find(ctx, filter.F{"year": filter.F{"$gte": 2016}})
-	defer cursor.Close(ctx)
+	cursor, err := coll.Find(filter.F{"year": filter.F{"$gte": 2016}})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer cursor.Close()
 
 	for cursor.Next(ctx) {
 		var book Book

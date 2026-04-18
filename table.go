@@ -261,8 +261,8 @@ type tableFindResponse struct {
 //
 // Example using Next/Decode pattern:
 //
-//	cursor := tbl.Find(ctx, filter.Eq("is_checked_out", false))
-//	defer cursor.Close(ctx)
+//	cursor := tbl.Find(filter.Eq("is_checked_out", false))
+//	defer cursor.Close()
 //
 //	for cursor.Next(ctx) {
 //	    var row MyRow
@@ -277,7 +277,7 @@ type tableFindResponse struct {
 //
 // Example getting all results at once:
 //
-//	cursor := tbl.Find(ctx, filter.F{})
+//	cursor := tbl.Find(filter.F{})
 //	var rows []MyRow
 //	if err := cursor.All(ctx, &rows); err != nil {
 //	    return err
@@ -285,7 +285,7 @@ type tableFindResponse struct {
 //
 // Example with vector search:
 //
-//	cursor := tbl.Find(ctx, filter.F{},
+//	cursor := tbl.Find(filter.F{},
 //	    options.TableFind().
 //	        SetSort(sort.Vector([]float32{0.1, 0.2, 0.3})).
 //	        SetIncludeSimilarity(true),

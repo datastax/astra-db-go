@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/internal/integrationtests/harness"
 	"github.com/datastax/astra-db-go/options"
@@ -184,11 +185,11 @@ func CollectionNestedFindByNestedField(e *harness.TestEnv) error {
 	c := db.Collection(nestedCollectionName)
 
 	// Find all restaurants in Manhattan
-	cursor := c.Find(ctx, filter.Eq("borough", "Manhattan"))
-	defer cursor.Close(ctx)
+	cursor, _ := c.Find(filter.Eq("borough", "Manhattan"))
+	defer cursor.Close()
 
 	var results []Restaurant
-	if err := cursor.All(ctx, &results); err != nil {
+	if err := cursor.DecodeAll(ctx, &results); err != nil {
 		return fmt.Errorf("find by nested field failed: %w", err)
 	}
 
@@ -204,11 +205,11 @@ func CollectionNestedFindByNestedField(e *harness.TestEnv) error {
 	}
 
 	// Also test dot-notation on a nested field
-	cursor2 := c.Find(ctx, filter.Eq("address.zipCode", "10075"))
-	defer cursor2.Close(ctx)
+	cursor2, _ := c.Find(filter.Eq("address.zipCode", "10075"))
+	defer cursor2.Close()
 
-	var zipResults []Restaurant
-	if err := cursor2.All(ctx, &zipResults); err != nil {
+	zipResults, err := cursors.DecodeAll[Restaurant](ctx, cursor2)
+	if err != nil {
 		return fmt.Errorf("find by dot-notation zipCode failed: %w", err)
 	}
 
