@@ -20,7 +20,7 @@ func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher find
 		filter:  filter,
 		options: opts,
 	}
-	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher)
+	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState)
 	return cursor
 }
 
@@ -37,6 +37,10 @@ func (c *TableFindCursor) mkPayload(pageState *string) *findPayload {
 			PageState:         pageState,
 		},
 	}
+}
+
+func (c *TableFindCursor) includeSortVector() bool {
+	return c.options.IncludeSortVector != nil && *c.options.IncludeSortVector
 }
 
 func (c *TableFindCursor) apiOptions() *options.APIOptions {

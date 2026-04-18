@@ -20,7 +20,7 @@ func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fe
 		filter:  filter,
 		options: opts,
 	}
-	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher)
+	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState)
 	return cursor
 }
 
@@ -37,6 +37,10 @@ func (c *CollectionFindCursor) mkPayload(pageState *string) *findPayload {
 			PageState:         pageState,
 		},
 	}
+}
+
+func (c *CollectionFindCursor) includeSortVector() bool {
+	return c.options.IncludeSortVector != nil && *c.options.IncludeSortVector
 }
 
 func (c *CollectionFindCursor) apiOptions() *options.APIOptions {

@@ -12,7 +12,7 @@ import (
 
 type FindCursor interface {
 	AbstractCursor
-	GetSortVector() *datatypes.DataAPIVector
+	GetSortVector(ctx context.Context) *datatypes.DataAPIVector
 	Warnings() results.Warnings
 }
 
@@ -27,6 +27,7 @@ type findCursorFetcher = func(ctx context.Context, payload any, opts *options.AP
 
 type findCursorSource interface {
 	mkPayload(pageState *string) *findPayload
+	includeSortVector() bool
 	apiOptions() *options.APIOptions
 }
 
@@ -41,16 +42,27 @@ type findCursorImpl struct {
 	fetcher     findCursorFetcher
 }
 
-func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher) findCursorImpl {
+func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initPageState *string) findCursorImpl {
 	impl := findCursorImpl{
 		findCursorSource: source,
 		fetcher:          fetcher,
 	}
+
 	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl)
+
+	if initPageState != nil {
+		impl.currentPage = &FindPage{
+			NextPageState: initPageState,
+		}
+	}
+
 	return impl
 }
 
-func (c *findCursorImpl) GetSortVector() *datatypes.DataAPIVector {
+func (c *findCursorImpl) GetSortVector(ctx context.Context) *datatypes.DataAPIVector {
+	if c.state == CursorStateIdle && c.includeSortVector() {
+		c.Next(ctx)
+	}
 	if c.currentPage == nil {
 		return nil
 	}
