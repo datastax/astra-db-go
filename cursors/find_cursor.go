@@ -38,6 +38,7 @@ type findCursorImpl struct {
 	abstractCursorImpl[json.RawMessage]
 	findCursorSource
 	currentPage *FindPage
+	initialPage *FindPage
 	warnings    results.Warnings
 	fetcher     findCursorFetcher
 }
@@ -51,9 +52,10 @@ func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initP
 	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl)
 
 	if initPageState != nil {
-		impl.currentPage = &FindPage{
+		impl.initialPage = &FindPage{
 			NextPageState: initPageState,
 		}
+		impl.currentPage = impl.initialPage
 	}
 
 	return impl
@@ -61,7 +63,7 @@ func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initP
 
 func (c *findCursorImpl) GetSortVector(ctx context.Context) *datatypes.DataAPIVector {
 	if c.state == CursorStateIdle && c.includeSortVector() {
-		c.Next(ctx)
+		c.fetchIfEmpty(ctx)
 	}
 	if c.currentPage == nil {
 		return nil
@@ -140,7 +142,7 @@ func (c *findCursorImpl) decode(raw json.RawMessage, result any) error {
 }
 
 func (c *findCursorImpl) rewind() {
-	c.currentPage = nil
+	c.currentPage = c.initialPage
 	c.warnings = nil
 }
 

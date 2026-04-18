@@ -112,23 +112,28 @@ func (c *abstractCursorImpl[Raw]) Consumed() int {
 }
 
 func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
+	if c.Buffered() == 0 {
+		return c.fetchIfEmpty(ctx)
+	}
+
+	*c.buffer() = (*c.buffer())[1:]
+	c.consumed++
+	return true
+}
+
+func (c *abstractCursorImpl[Raw]) fetchIfEmpty(ctx context.Context) bool {
 	if c.state == CursorStateClosed {
 		return false
 	}
 
 	c.state = CursorStateStarted
 
-	if c.Buffered() == 0 {
-		for c.Buffered() == 0 {
-			if c.err != nil || !c.nextPage {
-				c.Close()
-				return false
-			}
-			c.nextPage, c.err = c.fetchNextPage(ctx)
+	for c.Buffered() == 0 {
+		if c.err != nil || !c.nextPage {
+			c.Close()
+			return false
 		}
-	} else {
-		c.consumed++
-		*c.buffer() = (*c.buffer())[1:]
+		c.nextPage, c.err = c.fetchNextPage(ctx)
 	}
 
 	return true
