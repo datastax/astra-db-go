@@ -6,7 +6,7 @@ import (
 
 // TableFindCursor is a cursor for iterating over table find results
 type TableFindCursor struct {
-	findCursorImpl
+	*findCursorImpl
 	filter  any
 	options *options.TableFindOptions
 }

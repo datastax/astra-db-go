@@ -5,6 +5,7 @@ import (
 	"errors"
 	"iter"
 	"reflect"
+	"sync"
 
 	"github.com/datastax/astra-db-go/internal/guards"
 )
@@ -83,39 +84,49 @@ type abstractCursorSource[Raw any] interface {
 var _ AbstractCursor = (*abstractCursorImpl[any])(nil)
 
 type abstractCursorImpl[Raw any] struct {
-	abstractCursorSource[Raw]
+	acs      abstractCursorSource[Raw]
+	mu       sync.RWMutex
 	state    CursorState
 	nextPage bool
 	consumed int
 	err      error
 }
 
-func newAbstractCursorImpl[Raw any](source abstractCursorSource[Raw]) abstractCursorImpl[Raw] {
-	return abstractCursorImpl[Raw]{
-		abstractCursorSource: source,
-		state:                CursorStateIdle,
-		nextPage:             true,
+func newAbstractCursorImpl[Raw any](source abstractCursorSource[Raw]) *abstractCursorImpl[Raw] {
+	return &abstractCursorImpl[Raw]{
+		acs:      source,
+		state:    CursorStateIdle,
+		nextPage: true,
 	}
 }
 
 func (c *abstractCursorImpl[Raw]) State() CursorState {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.state
 }
 
 func (c *abstractCursorImpl[Raw]) Buffered() int {
-	return len(*c.buffer())
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(*c.acs.buffer())
 }
 
 func (c *abstractCursorImpl[Raw]) Consumed() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.consumed
 }
 
 func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
-	if c.Buffered() == 0 {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(*c.acs.buffer()) == 0 {
 		return c.fetchIfEmpty(ctx)
 	}
 
-	*c.buffer() = (*c.buffer())[1:]
+	*c.acs.buffer() = (*c.acs.buffer())[1:]
 	c.consumed++
 	return true
 }
@@ -128,31 +139,34 @@ func (c *abstractCursorImpl[Raw]) fetchIfEmpty(ctx context.Context) bool {
 	c.state = CursorStateStarted
 
 	for {
-		if c.err != nil || (!c.nextPage && c.Buffered() == 0) {
-			c.Close()
+		if c.err != nil || (!c.nextPage && len(*c.acs.buffer()) == 0) {
+			c.closeLocked()
 			return false
 		}
-		if c.Buffered() > 0 {
+		if len(*c.acs.buffer()) > 0 {
 			break
 		}
-		c.nextPage, c.err = c.fetchNextPage(ctx)
+		c.nextPage, c.err = c.acs.fetchNextPage(ctx)
 	}
 
 	return true
 }
 
 func (c *abstractCursorImpl[Raw]) Decode(result any) error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
 	if c.state == CursorStateClosed {
 		return ErrCursorClosed
 	}
 
-	bufPtr := c.buffer()
+	bufPtr := c.acs.buffer()
 	if len(*bufPtr) == 0 {
 		return ErrNoCurrentDocument
 	}
 
 	raw := (*bufPtr)[0]
-	if err := c.decode(raw, result); err != nil {
+	if err := c.acs.decode(raw, result); err != nil {
 		return err
 	}
 
@@ -165,10 +179,11 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 		return err
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	defer c.closeLocked()
+
 	if c.err != nil {
-		if c.state != CursorStateClosed {
-			c.Close()
-		}
 		return c.err
 	}
 
@@ -186,9 +201,15 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 
 		result = reflect.AppendSlice(result, next)
 
-		if !c.Next(ctx) {
-			break
+		if len(*c.acs.buffer()) == 0 {
+			if !c.fetchIfEmpty(ctx) {
+				break
+			}
+			continue
 		}
+
+		*c.acs.buffer() = (*c.acs.buffer())[1:]
+		c.consumed++
 	}
 
 	if c.err != nil {
@@ -205,6 +226,9 @@ func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
 		return err
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	result, err := c.decodeBuffered(elemType, max)
 	if err != nil {
 		return err
@@ -215,7 +239,7 @@ func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
 }
 
 func (c *abstractCursorImpl[Raw]) decodeBuffered(elemType reflect.Type, max int) (reflect.Value, error) {
-	bufPtr := c.buffer()
+	bufPtr := c.acs.buffer()
 	numToTake := len(*bufPtr)
 	if max > 0 && max < numToTake {
 		numToTake = max
@@ -226,7 +250,7 @@ func (c *abstractCursorImpl[Raw]) decodeBuffered(elemType reflect.Type, max int)
 
 	for i, raw := range toTake {
 		targetAddr := tempSlice.Index(i).Addr().Interface()
-		if err := c.decode(raw, targetAddr); err != nil {
+		if err := c.acs.decode(raw, targetAddr); err != nil {
 			return reflect.Value{}, err
 		}
 	}
@@ -238,19 +262,30 @@ func (c *abstractCursorImpl[Raw]) decodeBuffered(elemType reflect.Type, max int)
 }
 
 func (c *abstractCursorImpl[Raw]) Err() error {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.err
 }
 
 func (c *abstractCursorImpl[Raw]) Rewind() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	c.consumed = 0
 	c.state = CursorStateIdle
 	c.nextPage = true
 	c.err = nil
-	c.rewind()
+	c.acs.rewind()
 }
 
 func (c *abstractCursorImpl[Raw]) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.closeLocked()
+}
+
+func (c *abstractCursorImpl[Raw]) closeLocked() {
 	c.state = CursorStateClosed
 	c.nextPage = false
-	c.close()
+	c.acs.close()
 }

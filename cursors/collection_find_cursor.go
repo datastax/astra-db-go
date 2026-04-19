@@ -6,7 +6,7 @@ import (
 
 // CollectionFindCursor is a cursor for iterating over collection find results
 type CollectionFindCursor struct {
-	findCursorImpl
+	*findCursorImpl
 	filter  any
 	options *options.CollectionFindOptions
 }

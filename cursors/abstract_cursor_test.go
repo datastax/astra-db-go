@@ -48,7 +48,7 @@ func mkTestAbstractCursor() (*abstractCursorImpl[string], *abstractCursorSourceI
 		Buffer: []string{},
 	}
 	cursor := newAbstractCursorImpl(source)
-	return &cursor, source
+	return cursor, source
 }
 
 func TestCursorState(t *testing.T) {

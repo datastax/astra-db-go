@@ -35,18 +35,18 @@ var _ FindCursor = (*findCursorImpl)(nil)
 var _ abstractCursorSource[json.RawMessage] = (*findCursorImpl)(nil)
 
 type findCursorImpl struct {
-	abstractCursorImpl[json.RawMessage]
-	findCursorSource
+	*abstractCursorImpl[json.RawMessage]
+	fcs         findCursorSource
 	currentPage *FindPage
 	initialPage *FindPage
 	warnings    results.Warnings
 	fetcher     findCursorFetcher
 }
 
-func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initPageState *string) findCursorImpl {
+func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initPageState *string) *findCursorImpl {
 	impl := findCursorImpl{
-		findCursorSource: source,
-		fetcher:          fetcher,
+		fcs:     source,
+		fetcher: fetcher,
 	}
 
 	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl)
@@ -58,11 +58,14 @@ func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initP
 		impl.currentPage = impl.initialPage
 	}
 
-	return impl
+	return &impl
 }
 
 func (c *findCursorImpl) GetSortVector(ctx context.Context) *datatypes.DataAPIVector {
-	if c.state == CursorStateIdle && c.includeSortVector() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.state == CursorStateIdle && c.fcs.includeSortVector() {
 		c.fetchIfEmpty(ctx)
 	}
 	if c.currentPage == nil {
@@ -72,6 +75,8 @@ func (c *findCursorImpl) GetSortVector(ctx context.Context) *datatypes.DataAPIVe
 }
 
 func (c *findCursorImpl) Warnings() results.Warnings {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.warnings
 }
 
@@ -114,8 +119,8 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 		pageState = c.currentPage.NextPageState
 	}
 
-	payload := c.mkPayload(pageState)
-	b, warnings, err := c.fetcher(ctx, payload, c.apiOptions())
+	payload := c.fcs.mkPayload(pageState)
+	b, warnings, err := c.fetcher(ctx, payload, c.fcs.apiOptions())
 	if err != nil {
 		return false, err
 	}
