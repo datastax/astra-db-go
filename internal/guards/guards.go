@@ -19,10 +19,10 @@ func RequireSlice(v any) (reflect.Value, error) {
 	return rv, nil
 }
 
-func RequireSlicePtr(v any) (reflect.Value, reflect.Value, error) {
+func RequireSlicePtr(v any) (reflect.Value, reflect.Type, error) {
 	ptr := reflect.ValueOf(v)
 	if ptr.Kind() != reflect.Ptr {
-		return reflect.Value{}, reflect.Value{}, fmt.Errorf("need ptr")
+		return reflect.Value{}, nil, fmt.Errorf("expected pointer to slice, got %s", ptr.Kind())
 	}
 
 	slice := ptr.Elem()
@@ -31,8 +31,8 @@ func RequireSlicePtr(v any) (reflect.Value, reflect.Value, error) {
 	}
 
 	if slice.Kind() != reflect.Slice {
-		return reflect.Value{}, reflect.Value{}, fmt.Errorf("need slice")
+		return reflect.Value{}, nil, fmt.Errorf("expected pointer to slice, got pointer to %s", slice.Kind())
 	}
 
-	return ptr, slice, nil
+	return ptr, slice.Type(), nil
 }

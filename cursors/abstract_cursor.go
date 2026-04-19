@@ -34,8 +34,7 @@ type AbstractCursor interface {
 	Next(ctx context.Context) bool
 	Decode(result any) error
 	DecodeAll(ctx context.Context, results any) error
-	DecodeBuffered(results any) error
-	DecodeBufferedN(results any, max int) error
+	DecodeBuffered(results any, max int) error
 	Err() error
 	Rewind()
 	Close()
@@ -128,10 +127,13 @@ func (c *abstractCursorImpl[Raw]) fetchIfEmpty(ctx context.Context) bool {
 
 	c.state = CursorStateStarted
 
-	for c.Buffered() == 0 {
-		if c.err != nil || !c.nextPage {
+	for {
+		if c.err != nil || (!c.nextPage && c.Buffered() == 0) {
 			c.Close()
 			return false
+		}
+		if c.Buffered() > 0 {
+			break
 		}
 		c.nextPage, c.err = c.fetchNextPage(ctx)
 	}
@@ -158,12 +160,15 @@ func (c *abstractCursorImpl[Raw]) Decode(result any) error {
 }
 
 func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) error {
-	resultPtr, sliceVal, err := guards.RequireSlicePtr(results)
+	resultPtr, elemType, err := guards.RequireSlicePtr(results)
 	if err != nil {
 		return err
 	}
 
 	if c.err != nil {
+		if c.state != CursorStateClosed {
+			c.Close()
+		}
 		return c.err
 	}
 
@@ -171,13 +176,15 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 		return ErrCursorClosed
 	}
 
+	result := reflect.MakeSlice(elemType, 0, 0)
+
 	for {
-		nextBatch, err := c.decodeBufferedN(sliceVal, 0)
+		next, err := c.decodeBuffered(elemType, 0)
 		if err != nil {
 			return err
 		}
 
-		sliceVal = reflect.AppendSlice(sliceVal, nextBatch)
+		result = reflect.AppendSlice(result, next)
 
 		if !c.Next(ctx) {
 			break
@@ -188,46 +195,37 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 		return c.err
 	}
 
-	resultPtr.Elem().Set(sliceVal)
+	resultPtr.Elem().Set(result)
 	return nil
 }
 
-func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any) error {
-	return c.DecodeBufferedN(results, c.Buffered())
-}
-
-func (c *abstractCursorImpl[Raw]) DecodeBufferedN(results any, max int) error {
-	resultPtr, sliceVal, err := guards.RequireSlicePtr(results)
+func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
+	resultPtr, elemType, err := guards.RequireSlicePtr(results)
 	if err != nil {
 		return err
 	}
 
-	sliceVal, err = c.decodeBufferedN(sliceVal, max)
+	result, err := c.decodeBuffered(elemType, max)
 	if err != nil {
 		return err
 	}
 
-	resultPtr.Elem().Set(sliceVal)
+	resultPtr.Elem().Set(result)
 	return nil
 }
 
-func (c *abstractCursorImpl[Raw]) decodeBufferedN(sliceVal reflect.Value, max int) (reflect.Value, error) {
+func (c *abstractCursorImpl[Raw]) decodeBuffered(elemType reflect.Type, max int) (reflect.Value, error) {
 	bufPtr := c.buffer()
 	numToTake := len(*bufPtr)
 	if max > 0 && max < numToTake {
 		numToTake = max
 	}
 
-	if sliceVal.Cap() < numToTake {
-		sliceVal = reflect.MakeSlice(sliceVal.Type(), numToTake, numToTake)
-	} else {
-		sliceVal = sliceVal.Slice(0, numToTake)
-	}
-
+	tempSlice := reflect.MakeSlice(elemType, numToTake, numToTake)
 	toTake := (*bufPtr)[:numToTake]
 
 	for i, raw := range toTake {
-		targetAddr := sliceVal.Index(i).Addr().Interface()
+		targetAddr := tempSlice.Index(i).Addr().Interface()
 		if err := c.decode(raw, targetAddr); err != nil {
 			return reflect.Value{}, err
 		}
@@ -236,7 +234,7 @@ func (c *abstractCursorImpl[Raw]) decodeBufferedN(sliceVal reflect.Value, max in
 	*bufPtr = (*bufPtr)[numToTake:]
 	c.consumed += numToTake
 
-	return sliceVal, nil
+	return tempSlice, nil
 }
 
 func (c *abstractCursorImpl[Raw]) Err() error {
@@ -247,6 +245,7 @@ func (c *abstractCursorImpl[Raw]) Rewind() {
 	c.consumed = 0
 	c.state = CursorStateIdle
 	c.nextPage = true
+	c.err = nil
 	c.rewind()
 }
 
