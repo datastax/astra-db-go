@@ -285,7 +285,9 @@ func (c *abstractCursorImpl[Raw]) Close() {
 }
 
 func (c *abstractCursorImpl[Raw]) closeLocked() {
-	c.state = CursorStateClosed
-	c.nextPage = false
-	c.acs.close()
+	if c.state != CursorStateClosed {
+		c.state = CursorStateClosed
+		c.nextPage = false
+		c.acs.close()
+	}
 }

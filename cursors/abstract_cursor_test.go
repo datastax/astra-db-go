@@ -437,7 +437,7 @@ func TestCursorDecodeAll(t *testing.T) {
 			results:       &[]string{},
 			expectResults: &[]string{},
 			expectErr:     fmt.Errorf("decode error on b"),
-			expectTrace:   []string{"decode", "decode"},
+			expectTrace:   []string{"decode", "decode", "close"},
 		},
 		{
 			name:   "FetchErrorDuringIterationDoesntOverwriteExisting",
