@@ -109,6 +109,10 @@ func (c *abstractCursorImpl[Raw]) State() CursorState {
 func (c *abstractCursorImpl[Raw]) Buffered() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
+	return c.buffered()
+}
+
+func (c *abstractCursorImpl[Raw]) buffered() int {
 	return len(*c.acs.buffer())
 }
 
@@ -122,7 +126,7 @@ func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if len(*c.acs.buffer()) == 0 {
+	if c.buffered() == 0 {
 		return c.fetchIfEmpty(ctx)
 	}
 
@@ -139,11 +143,11 @@ func (c *abstractCursorImpl[Raw]) fetchIfEmpty(ctx context.Context) bool {
 	c.state = CursorStateStarted
 
 	for {
-		if c.err != nil || (!c.nextPage && len(*c.acs.buffer()) == 0) {
-			c.closeLocked()
+		if c.err != nil || (!c.nextPage && c.buffered() == 0) {
+			c.close()
 			return false
 		}
-		if len(*c.acs.buffer()) > 0 {
+		if c.buffered() > 0 {
 			break
 		}
 		c.nextPage, c.err = c.acs.fetchNextPage(ctx)
@@ -160,12 +164,11 @@ func (c *abstractCursorImpl[Raw]) Decode(result any) error {
 		return ErrCursorClosed
 	}
 
-	bufPtr := c.acs.buffer()
-	if len(*bufPtr) == 0 {
+	if c.buffered() == 0 {
 		return ErrNoCurrentDocument
 	}
 
-	raw := (*bufPtr)[0]
+	raw := (*c.acs.buffer())[0]
 	if err := c.acs.decode(raw, result); err != nil {
 		return err
 	}
@@ -181,7 +184,7 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	defer c.closeLocked()
+	defer c.close()
 
 	if c.err != nil {
 		return c.err
@@ -201,7 +204,7 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 
 		result = reflect.AppendSlice(result, next)
 
-		if len(*c.acs.buffer()) == 0 {
+		if c.buffered() == 0 {
 			if !c.fetchIfEmpty(ctx) {
 				break
 			}
@@ -239,14 +242,15 @@ func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
 }
 
 func (c *abstractCursorImpl[Raw]) decodeBuffered(elemType reflect.Type, max int) (reflect.Value, error) {
-	bufPtr := c.acs.buffer()
-	numToTake := len(*bufPtr)
-	if max > 0 && max < numToTake {
+	numToTake := c.buffered()
+	if 0 < max && max < numToTake {
 		numToTake = max
 	}
 
-	tempSlice := reflect.MakeSlice(elemType, numToTake, numToTake)
+	bufPtr := c.acs.buffer()
 	toTake := (*bufPtr)[:numToTake]
+
+	tempSlice := reflect.MakeSlice(elemType, numToTake, numToTake)
 
 	for i, raw := range toTake {
 		targetAddr := tempSlice.Index(i).Addr().Interface()
@@ -281,10 +285,10 @@ func (c *abstractCursorImpl[Raw]) Rewind() {
 func (c *abstractCursorImpl[Raw]) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.closeLocked()
+	c.close()
 }
 
-func (c *abstractCursorImpl[Raw]) closeLocked() {
+func (c *abstractCursorImpl[Raw]) close() {
 	if c.state != CursorStateClosed {
 		c.state = CursorStateClosed
 		c.nextPage = false
