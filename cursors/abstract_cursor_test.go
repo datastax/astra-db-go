@@ -77,19 +77,6 @@ func TestCursorBuffered(t *testing.T) {
 	}
 }
 
-func TestCursorConsumed(t *testing.T) {
-	cursor, _ := mkTestAbstractCursor()
-
-	f := func(consumed int) bool {
-		cursor.consumed = consumed
-		return cursor.Consumed() == consumed
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
 func TestCursorNext_WhenBufferEmpty(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -102,7 +89,6 @@ func TestCursorNext_WhenBufferEmpty(t *testing.T) {
 		wantTrace       []string
 		wantBuffer      []string
 		wantErr         error
-		wantConsumed    int
 	}{
 		{
 			name:         "CursorAlreadyClosed",
@@ -209,9 +195,6 @@ func TestCursorNext_WhenBufferEmpty(t *testing.T) {
 			if !reflect.DeepEqual(source.Buffer, tt.wantBuffer) {
 				t.Errorf("Buffer = %v, want %v", source.Buffer, tt.wantBuffer)
 			}
-			if cursor.Consumed() != tt.wantConsumed {
-				t.Errorf("Consumed() = %v, want %v", cursor.Consumed(), tt.wantConsumed)
-			}
 			if !reflect.DeepEqual(cursor.err, tt.wantErr) {
 				t.Errorf("err = %v, want %v", cursor.err, tt.wantErr)
 			}
@@ -220,20 +203,38 @@ func TestCursorNext_WhenBufferEmpty(t *testing.T) {
 }
 
 func TestCursorNext_WhenBufferNonEmpty(t *testing.T) {
-	f := func(buf []string, consumed int) bool {
+	f := func(buf []string, nextPage bool, nextBuf []string) bool {
 		if len(buf) == 0 {
 			return true
 		}
 
 		cursor, source := mkTestAbstractCursor()
 		source.Buffer = buf
-		cursor.consumed = consumed
-
-		if !cursor.Next(context.Background()) {
-			return false
+		cursor.nextPage = nextPage
+		cursor.state = CursorStateStarted // state should be started since buffer is non-empty
+		source.FetchNextPage = func(ctx context.Context) (bool, error) {
+			source.Buffer = nextBuf
+			return false, nil
 		}
 
-		return reflect.DeepEqual(source.Buffer, buf[1:]) && cursor.Consumed() == consumed+1
+		isNext := cursor.Next(context.Background())
+
+		switch true {
+		case len(buf) == 1 && nextPage && len(nextBuf) > 0:
+			if !isNext || cursor.State() != CursorStateStarted || !reflect.DeepEqual(source.Buffer, nextBuf) {
+				t.Fatalf("isNext = %v, State() = %v, Buffer = %v, want isNext=true, State=Started, Buffer=%v", isNext, cursor.State(), source.Buffer, nextBuf)
+			}
+		case len(buf) == 1 && (!nextPage || len(nextBuf) == 0):
+			if isNext || cursor.State() != CursorStateClosed || !reflect.DeepEqual(source.Buffer, []string{}) {
+				t.Fatalf("isNext = %v, State() = %v, Buffer = %v, want isNext=false, State=Closed, Buffer=[]", isNext, cursor.State(), source.Buffer)
+			}
+		default:
+			if !isNext || cursor.State() != CursorStateStarted || !reflect.DeepEqual(source.Buffer, buf[1:]) {
+				t.Fatalf("isNext = %v, State() = %v, Buffer = %v, want isNext=true, State=Started, Buffer=%v", isNext, cursor.State(), source.Buffer, buf[1:])
+			}
+		}
+
+		return true
 	}
 
 	if err := quick.Check(f, nil); err != nil {
@@ -538,19 +539,17 @@ func TestCursorErr(t *testing.T) {
 }
 
 func TestCursorRewind(t *testing.T) {
-	f := func(state CursorState, nextPage bool, consumed int, msg string) bool {
+	f := func(state CursorState, nextPage bool, msg string) bool {
 		cursor, source := mkTestAbstractCursor()
 
 		cursor.state = state
 		cursor.nextPage = nextPage
-		cursor.consumed = consumed
 		cursor.err = errors.New(msg)
 
 		cursor.Rewind()
 
 		return cursor.State() == CursorStateIdle &&
 			cursor.nextPage == true &&
-			cursor.Consumed() == 0 &&
 			reflect.DeepEqual(source.Trace, []string{"rewind"}) &&
 			cursor.Err() == nil
 	}
@@ -561,25 +560,196 @@ func TestCursorRewind(t *testing.T) {
 }
 
 func TestCursorClose(t *testing.T) {
-	f := func(state CursorState, nextPage bool, consumed int, msg string) bool {
+	f := func(state CursorState, nextPage bool, msg string) bool {
 		cursor, source := mkTestAbstractCursor()
 		err := errors.New(msg)
 
 		cursor.state = state
 		cursor.nextPage = nextPage
-		cursor.consumed = consumed
 		cursor.err = err
 
 		cursor.Close()
 
 		return cursor.State() == CursorStateClosed &&
 			cursor.nextPage == false &&
-			cursor.Consumed() == consumed &&
 			reflect.DeepEqual(source.Trace, []string{"close"}) &&
 			errors.Is(cursor.Err(), err)
 	}
 
 	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
+	}
+}
+
+func TestCursorLifecycle(t *testing.T) {
+	cursor, source := mkTestAbstractCursor()
+
+	testManualStepByStepIteration(t, cursor, source)
+
+	testDecodingRemainderOfCursor(t, cursor)
+
+	testErrorDuringStepByStepIteration(t, cursor, source)
+
+	cursor.Rewind()
+
+	testIteration(t, cursor, source, func(body func(item string, err error)) {
+		for cursor.Next(context.Background()) {
+			var item string
+			body(item, cursor.Decode(&item))
+		}
+	})
+
+	cursor.Rewind()
+
+	testIteration(t, cursor, source, func(body func(item string, err error)) {
+		for cursor.Next(context.Background()) {
+			body(Decode[string](cursor))
+		}
+	})
+
+	cursor.Rewind()
+
+	testIteration(t, cursor, source, func(body func(item string, err error)) {
+		for item, err := range All[string](context.Background(), cursor) {
+			body(ptr.From(item), err)
+		}
+	})
+}
+
+func testManualStepByStepIteration(t *testing.T, cursor *abstractCursorImpl[string], source *abstractCursorSourceImpl) {
+	source.FetchNextPage = func(ctx context.Context) (bool, error) {
+		source.Buffer = []string{"a", "b", "c"}
+		return true, nil
+	}
+
+	source.Decode = func(raw string, result any) error {
+		*(result.(*string)) = "decoded_" + raw
+		return nil
+	}
+
+	if cursor.Buffered() != 0 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
+	}
+
+	if !cursor.Next(context.Background()) {
+		t.Fatal("expected Next() to return true")
+	}
+
+	if cursor.Buffered() != 3 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
+	}
+
+	var decoded string
+	if err := cursor.Decode(&decoded); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	} else if decoded != "decoded_a" {
+		t.Errorf("Decode() result = %v", decoded)
+	}
+
+	if cursor.Buffered() != 3 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
+	}
+
+	if !cursor.Next(context.Background()) {
+		t.Fatal("expected Next() to return true")
+	}
+
+	if cursor.Buffered() != 2 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
+	}
+
+	if err := cursor.Decode(&decoded); err != nil {
+		t.Fatalf("Decode() error = %v", err)
+	} else if decoded != "decoded_b" {
+		t.Errorf("Decode() result = %v", decoded)
+	}
+}
+
+func testDecodingRemainderOfCursor(t *testing.T, cursor *abstractCursorImpl[string]) {
+	var buffered []string
+	if err := cursor.DecodeBuffered(&buffered, 0); err != nil {
+		t.Fatalf("DecodeBuffered() error = %v", err)
+	}
+
+	if !reflect.DeepEqual(buffered, []string{"decoded_b", "decoded_c"}) {
+		t.Errorf("DecodeBuffered() result = %v", buffered)
+	}
+
+	if cursor.Buffered() != 0 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
+	}
+}
+
+func testErrorDuringStepByStepIteration(t *testing.T, cursor *abstractCursorImpl[string], source *abstractCursorSourceImpl) {
+	source.FetchNextPage = func(ctx context.Context) (bool, error) {
+		return false, fmt.Errorf("fetch error")
+	}
+
+	if cursor.State() != CursorStateStarted {
+		t.Errorf("State() = %v", cursor.State())
+	}
+
+	if cursor.Next(context.Background()) {
+		t.Fatal("expected Next() to return false on fetch error")
+	}
+
+	if !reflect.DeepEqual(cursor.Err(), fmt.Errorf("fetch error")) {
+		t.Errorf("Err() = %v", cursor.Err())
+	}
+
+	if cursor.State() != CursorStateClosed {
+		t.Errorf("State() = %v", cursor.State())
+	}
+
+	if cursor.Buffered() != 0 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
+	}
+}
+
+func testIteration(t *testing.T, cursor *abstractCursorImpl[string], source *abstractCursorSourceImpl, iter func(body func(item string, err error))) {
+	if cursor.State() != CursorStateIdle {
+		t.Errorf("State() = %v", cursor.State())
+	}
+
+	if cursor.Err() != nil {
+		t.Errorf("Err() = %v", cursor.Err())
+	}
+
+	docs, i := [6]string{}, 0
+
+	source.FetchNextPage = func(ctx context.Context) (bool, error) {
+		source.Buffer = []string{"1", "2"}
+		return i < 4, nil
+	}
+
+	iter(func(item string, err error) {
+		docs[i] = item
+		if err != nil {
+			t.Fatalf("iteration error = %v", err)
+		}
+		if cursor.Buffered() != 2-(i%2) {
+			t.Errorf("Buffered() = %v, want %v", cursor.Buffered(), 2-(i%2))
+		}
+		i++
+	})
+
+	if i != 6 {
+		t.Errorf("iterated %v documents, want 3", i)
+	}
+
+	if !reflect.DeepEqual(docs, [6]string{"decoded_1", "decoded_2", "decoded_1", "decoded_2", "decoded_1", "decoded_2"}) {
+		t.Errorf("docs = %v", docs)
+	}
+
+	if cursor.Err() != nil {
+		t.Errorf("Err() = %v", cursor.Err())
+	}
+
+	if cursor.State() != CursorStateClosed {
+		t.Errorf("State() = %v", cursor.State())
+	}
+
+	if cursor.Buffered() != 0 {
+		t.Errorf("Buffered() = %v", cursor.Buffered())
 	}
 }

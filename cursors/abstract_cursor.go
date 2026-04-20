@@ -3,6 +3,7 @@ package cursors
 import (
 	"context"
 	"errors"
+	"fmt"
 	"iter"
 	"reflect"
 	"sync"
@@ -21,17 +22,62 @@ type CursorState int
 
 const (
 	// CursorStateIdle means the cursor has not started iteration.
+	//
+	// A newly created or rewound cursor will be in this state.
 	CursorStateIdle CursorState = iota
 	// CursorStateStarted means the cursor is actively iterating.
+	//
+	// A cursor which has fetched an item will be in this state, even if no items were consumed.
 	CursorStateStarted
 	// CursorStateClosed means the cursor has been explicitly closed.
+	//
+	// A cursor that has been closed, exhausted, or has encountered an error, will be in this state.
 	CursorStateClosed
 )
 
+func (c CursorState) String() string {
+	switch c {
+	case CursorStateIdle:
+		return "idle"
+	case CursorStateStarted:
+		return "started"
+	case CursorStateClosed:
+		return "closed"
+	default:
+		return fmt.Sprintf("unknown(%d)", c)
+	}
+}
+
+// AbstractCursor represents some lazy, abstract iterable over any arbitrary data, which may or may not be paginated.
+//
+// Example usages:
+//
+//	if cursor.Next(ctx) {
+//	  var item MyType
+//	  err := cursor.Decode(&item)
+//	}
+//
+//	items, err := cursors.DecodeAll[MyType](ctx, cursor)
+//
+// This type is goroutine safe and may be used concurrently across multiple goroutines.
 type AbstractCursor interface {
+	// State returns the current state of the cursor.
+	//
+	// See CursorState for more details on the possible states.
+	//
+	//  cursor := ...
+	//  fmt.Println(cursor.State()) // "idle"
+	//
+	//  cursor.Next(ctx)
+	//  fmt.Println(cursor.State()) // "started"
+	//
+	//  cursor.Close()
+	//  fmt.Println(cursor.State()) // "closed"
 	State() CursorState
+	// Buffered returns the number of items currently buffered in the cursor.
+	//
+	// This is the number of items that can be consumed without triggering a fetch of the next page.
 	Buffered() int
-	Consumed() int
 	Next(ctx context.Context) bool
 	Decode(result any) error
 	DecodeAll(ctx context.Context, results any) error
@@ -88,7 +134,6 @@ type abstractCursorImpl[Raw any] struct {
 	mu       sync.RWMutex
 	state    CursorState
 	nextPage bool
-	consumed int
 	err      error
 }
 
@@ -116,22 +161,18 @@ func (c *abstractCursorImpl[Raw]) buffered() int {
 	return len(*c.acs.buffer())
 }
 
-func (c *abstractCursorImpl[Raw]) Consumed() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.consumed
-}
-
 func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	if c.buffered() > 0 {
+		*c.acs.buffer() = (*c.acs.buffer())[1:]
+	}
 
 	if c.buffered() == 0 {
 		return c.fetchIfEmpty(ctx)
 	}
 
-	*c.acs.buffer() = (*c.acs.buffer())[1:]
-	c.consumed++
 	return true
 }
 
@@ -204,15 +245,9 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 
 		result = reflect.AppendSlice(result, next)
 
-		if c.buffered() == 0 {
-			if !c.fetchIfEmpty(ctx) {
-				break
-			}
-			continue
+		if c.buffered() == 0 && !c.fetchIfEmpty(ctx) {
+			break
 		}
-
-		*c.acs.buffer() = (*c.acs.buffer())[1:]
-		c.consumed++
 	}
 
 	if c.err != nil {
@@ -260,7 +295,6 @@ func (c *abstractCursorImpl[Raw]) decodeBuffered(elemType reflect.Type, max int)
 	}
 
 	*bufPtr = (*bufPtr)[numToTake:]
-	c.consumed += numToTake
 
 	return tempSlice, nil
 }
@@ -275,7 +309,6 @@ func (c *abstractCursorImpl[Raw]) Rewind() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.consumed = 0
 	c.state = CursorStateIdle
 	c.nextPage = true
 	c.err = nil
