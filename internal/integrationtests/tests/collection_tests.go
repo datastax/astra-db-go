@@ -1462,7 +1462,7 @@ func CollectionFindWithProjection(e *harness.TestEnv) error {
 
 	// Only include title and is_checked_out fields
 	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
-		options.CollectionFind().SetProjection(map[string]bool{
+		options.CollectionFind().SetProjection(map[string]any{
 			"title":          true,
 			"is_checked_out": true,
 		}),
@@ -1599,7 +1599,7 @@ func CollectionFindCombined(e *harness.TestEnv) error {
 		),
 		options.CollectionFind().
 			SetSort(sort.Asc("rating").Desc("title")).
-			SetProjection(map[string]bool{
+			SetProjection(map[string]any{
 				"title":          true,
 				"is_checked_out": true,
 			}).

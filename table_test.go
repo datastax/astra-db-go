@@ -417,7 +417,7 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 			name: "with projection include",
 			payload: tableFindPayload{
 				Filter:     filter.F{},
-				Projection: map[string]bool{"title": true, "rating": true},
+				Projection: map[string]any{"title": true, "rating": true},
 			},
 			check: func(t *testing.T, result map[string]any) {
 				proj, ok := result["projection"].(map[string]any)
@@ -497,7 +497,7 @@ func TestTableFindOptions(t *testing.T) {
 		opts, err := options.MergeAndValidate(
 			options.TableFind().
 				SetSort(sort.Asc("rating")).
-				SetProjection(map[string]bool{"title": true}).
+				SetProjection(map[string]any{"title": true}).
 				SetLimit(10).
 				SetSkip(5).
 				SetIncludeSimilarity(true).

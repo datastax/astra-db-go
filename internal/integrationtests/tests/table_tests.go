@@ -356,7 +356,7 @@ func TableFindWithProjection(e *harness.TestEnv) error {
 	// Find books with only title and author using cursor.DecodeAll()
 	cursor, _ := tbl.Find(filter.F{},
 		options.TableFind().
-			SetProjection(map[string]bool{"title": true, "author": true}).
+			SetProjection(map[string]any{"title": true, "author": true}).
 			SetLimit(1),
 	)
 	defer cursor.Close()
