@@ -147,10 +147,10 @@ func (c *findCursorImpl) buffer() *[]json.RawMessage {
 
 // findPayload is the payload for the find command, containing the filter, sort, projection, and options.
 type findPayload struct {
-	Filter     any             `json:"filter,omitempty"`
-	Sort       sort.Sortable   `json:"sort,omitempty"`
-	Projection map[string]bool `json:"projection,omitempty"`
-	Options    *findOptions    `json:"options,omitempty"`
+	Filter     any            `json:"filter,omitempty"`
+	Sort       sort.Sortable  `json:"sort,omitempty"`
+	Projection map[string]any `json:"projection,omitempty"`
+	Options    *findOptions   `json:"options,omitempty"`
 }
 
 // findOptions contains pagination and result options for find operations.

@@ -600,7 +600,7 @@ func (b *collectionFindOptionsBuilder) SetSort(v sort.Sortable) *collectionFindO
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned documents
 // Use true to include a field, false to exclude it
-func (b *collectionFindOptionsBuilder) SetProjection(v map[string]bool) *collectionFindOptionsBuilder {
+func (b *collectionFindOptionsBuilder) SetProjection(v map[string]any) *collectionFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Projection = v })
 	return b
 }
@@ -1781,7 +1781,7 @@ func (b *tableFindOptionsBuilder) SetSort(v sort.Sortable) *tableFindOptionsBuil
 // SetProjection sets the Projection option.
 // Projection controls which columns are included or excluded in the returned rows
 // Use true to include a column, false to exclude it
-func (b *tableFindOptionsBuilder) SetProjection(v map[string]bool) *tableFindOptionsBuilder {
+func (b *tableFindOptionsBuilder) SetProjection(v map[string]any) *tableFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOptions) { o.Projection = v })
 	return b
 }

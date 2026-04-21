@@ -37,7 +37,7 @@ type TableFindOptions struct {
 
 	// Projection controls which columns are included or excluded in the returned rows
 	// Use true to include a column, false to exclude it
-	Projection map[string]bool `json:"projection,omitempty"`
+	Projection map[string]any `json:"projection,omitempty"`
 
 	// Limit limits the total number of rows returned
 	Limit *int `json:"limit,omitempty"`

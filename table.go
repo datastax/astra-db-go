@@ -228,10 +228,10 @@ func dropTableIndexCommand(d *Db, name string) command {
 
 // tableFindPayload is the payload for the find command on tables
 type tableFindPayload struct {
-	Filter     any             `json:"filter,omitempty"`
-	Sort       sort.Sortable   `json:"sort,omitempty"`
-	Projection map[string]bool `json:"projection,omitempty"`
-	Options    *tableFindOpts  `json:"options,omitempty"`
+	Filter     any            `json:"filter,omitempty"`
+	Sort       sort.Sortable  `json:"sort,omitempty"`
+	Projection map[string]any `json:"projection,omitempty"`
+	Options    *tableFindOpts `json:"options,omitempty"`
 }
 
 // tableFindOpts represents the options sub-object in find payload
