@@ -185,7 +185,7 @@ func CollectionNestedFindByNestedField(e *harness.TestEnv) error {
 	c := db.Collection(nestedCollectionName)
 
 	// Find all restaurants in Manhattan
-	cursor, _ := c.Find(filter.Eq("borough", "Manhattan"))
+	cursor := c.Find(filter.Eq("borough", "Manhattan"))
 	defer cursor.Close()
 
 	var results []Restaurant
@@ -205,7 +205,7 @@ func CollectionNestedFindByNestedField(e *harness.TestEnv) error {
 	}
 
 	// Also test dot-notation on a nested field
-	cursor2, _ := c.Find(filter.Eq("address.zipCode", "10075"))
+	cursor2 := c.Find(filter.Eq("address.zipCode", "10075"))
 	defer cursor2.Close()
 
 	zipResults, err := cursors.DecodeAll[Restaurant](ctx, cursor2)

@@ -47,7 +47,7 @@ func mkTestAbstractCursor() (*abstractCursorImpl[string], *abstractCursorSourceI
 		Trace:  []string{},
 		Buffer: []string{},
 	}
-	cursor := newAbstractCursorImpl(source)
+	cursor := newAbstractCursorImpl(source, nil)
 	return cursor, source
 }
 
@@ -524,13 +524,42 @@ func TestCursorDecodeAll(t *testing.T) {
 	}
 }
 
-func TestCursorErr(t *testing.T) {
+func TestCursorErr_Persistent(t *testing.T) {
 	cursor, _ := mkTestAbstractCursor()
 
 	f := func(msg string) bool {
 		err := errors.New(msg)
 		cursor.err = err
+		cursor.persistErr = true
+
+		if !errors.Is(cursor.Err(), err) {
+			return false
+		}
+
+		cursor.Rewind()
+
 		return errors.Is(cursor.Err(), err)
+	}
+
+	if err := quick.Check(f, nil); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestCursorErr_NonPersistent(t *testing.T) {
+	cursor, _ := mkTestAbstractCursor()
+
+	f := func(msg string) bool {
+		err := errors.New(msg)
+		cursor.err = err
+
+		if !errors.Is(cursor.Err(), err) {
+			return false
+		}
+
+		cursor.Rewind()
+
+		return cursor.Err() == nil
 	}
 
 	if err := quick.Check(f, nil); err != nil {

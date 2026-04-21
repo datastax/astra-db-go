@@ -214,6 +214,11 @@ type collectionFindResponse struct {
 //
 // The cursor automatically handles pagination, fetching new pages as needed.
 //
+// The filter parameter defines criteria for selecting rows. Pass an empty filter.F{}
+// or nil to find all rows (not recommended for large collections).
+//
+// Use options to specify sorting, projection, limits, and other behaviors.
+//
 // Example using Next/Decode pattern:
 //
 //	cursor := coll.Find(filter.F{"active": true})
@@ -234,15 +239,9 @@ type collectionFindResponse struct {
 //
 //	cursor := coll.Find(filter.F{})
 //	var docs []MyDocument
-//	if err := cursor.All(ctx, &docs); err != nil {
+//	if err := cursor.DecodeAll(ctx, &docs); err != nil {
 //	    return err
 //	}
-//
-// Example with sort and limit:
-//
-//	cursor := coll.Find(filter.F{"status": "active"},
-//	    options.CollectionFind().SetSort(map[string]any{"created": -1}).SetLimit(10),
-//	)
 //
 // Example with vector search:
 //
@@ -251,17 +250,18 @@ type collectionFindResponse struct {
 //	        SetSort(map[string]any{"$vector": []float32{0.1, 0.2, 0.3}}).
 //	        SetIncludeSimilarity(true),
 //	)
-func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOption) (*cursors.CollectionFindCursor, error) {
+//
+// In the unlikely case of an option validation error while creating the cursor,
+// the cursor will be returned in an unclearable errored state.
+func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOption) *cursors.CollectionFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return nil, err
-	}
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
 		cmd := c.newCmdOverride("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
-	return cursors.NewCollectionFindCursor(f, merged, fetcher), nil
+
+	return cursors.NewCollectionFindCursor(f, merged, fetcher, err)
 }
 
 // collectionUpdateOnePayload is the payload for the updateOne command on collections.

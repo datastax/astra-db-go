@@ -279,7 +279,7 @@ type tableFindResponse struct {
 //
 //	cursor := tbl.Find(filter.F{})
 //	var rows []MyRow
-//	if err := cursor.All(ctx, &rows); err != nil {
+//	if err := cursor.DecodeAll(ctx, &rows); err != nil {
 //	    return err
 //	}
 //
@@ -290,17 +290,18 @@ type tableFindResponse struct {
 //	        SetSort(sort.Vector([]float32{0.1, 0.2, 0.3})).
 //	        SetIncludeSimilarity(true),
 //	)
-func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) (*cursors.TableFindCursor, error) {
+//
+// In the unlikely case of an option validation error while creating the cursor,
+// the cursor will be returned in an unclearable errored state.
+func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.TableFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return nil, err
-	}
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
 		cmd := t.newCmdOverride("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
-	return cursors.NewTableFindCursor(f, merged, fetcher), nil
+
+	return cursors.NewTableFindCursor(f, merged, fetcher, err)
 }
 
 // FindOne finds a single row in a table matching the filter criteria.

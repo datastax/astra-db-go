@@ -255,20 +255,28 @@ var _ AbstractCursor = (*abstractCursorImpl[any])(nil)
 // abstractCursorImpl provides a goroutine-safe implementation of the AbstractCursor interface,
 // relying on an abstractCursorSource to interact with the underlying data source.
 type abstractCursorImpl[Raw any] struct {
-	acs      abstractCursorSource[Raw]
-	mu       sync.RWMutex
-	state    CursorState
-	nextPage bool
-	err      error
+	acs        abstractCursorSource[Raw]
+	mu         sync.RWMutex
+	state      CursorState
+	nextPage   bool
+	err        error
+	persistErr bool // used for validation errors where the cursor is fully unusable, even if cloned or rewound
 }
 
 // newAbstractCursorImpl creates a new abstractCursorImpl with the given source.
-func newAbstractCursorImpl[Raw any](source abstractCursorSource[Raw]) *abstractCursorImpl[Raw] {
-	return &abstractCursorImpl[Raw]{
+func newAbstractCursorImpl[Raw any](source abstractCursorSource[Raw], err error) *abstractCursorImpl[Raw] {
+	impl := abstractCursorImpl[Raw]{
 		acs:      source,
 		state:    CursorStateIdle,
 		nextPage: true,
 	}
+
+	if err != nil {
+		impl.err = err
+		impl.persistErr = true
+	}
+
+	return &impl
 }
 
 // State returns the current state of the cursor with a read lock for concurrency safety.
@@ -456,7 +464,11 @@ func (c *abstractCursorImpl[Raw]) Rewind() {
 
 	c.state = CursorStateIdle
 	c.nextPage = true
-	c.err = nil
+
+	if !c.persistErr {
+		c.err = nil
+	}
+
 	c.acs.rewind()
 }
 

@@ -219,7 +219,7 @@ func TableFind(e *harness.TestEnv) error {
 	}))
 
 	// Find all books that are not checked out using cursors.All()
-	cursor, _ := tbl.Find(filter.Eq("is_checked_out", false))
+	cursor := tbl.Find(filter.Eq("is_checked_out", false))
 	defer cursor.Close()
 
 	var books []TestBook
@@ -261,7 +261,7 @@ func TableFind(e *harness.TestEnv) error {
 
 	// Verify warnings go away after creating the index
 	// Find all books that are not checked out using cursor.DecodeAll()
-	idxCursor, _ := tbl.Find(filter.Eq("is_checked_out", false))
+	idxCursor := tbl.Find(filter.Eq("is_checked_out", false))
 	defer idxCursor.Close()
 
 	if err := idxCursor.DecodeAll(ctx, &books); err != nil {
@@ -292,7 +292,7 @@ func TableFindWithCursor(e *harness.TestEnv) error {
 	tbl := db.Table(tableName)
 
 	// Find all books using cursor iteration
-	cursor, _ := tbl.Find(filter.F{})
+	cursor := tbl.Find(filter.F{})
 	defer cursor.Close()
 
 	var books []TestBook
@@ -321,7 +321,7 @@ func TableFindWithSort(e *harness.TestEnv) error {
 	tbl := db.Table(tableName)
 
 	// Find books sorted by rating descending using cursors.DecodeAll()
-	cursor, _ := tbl.Find(filter.F{},
+	cursor := tbl.Find(filter.F{},
 		options.TableFind().
 			SetSort(sort.Desc("rating")).
 			SetLimit(3),
@@ -354,7 +354,7 @@ func TableFindWithProjection(e *harness.TestEnv) error {
 	tbl := db.Table(tableName)
 
 	// Find books with only title and author using cursor.DecodeAll()
-	cursor, _ := tbl.Find(filter.F{},
+	cursor := tbl.Find(filter.F{},
 		options.TableFind().
 			SetProjection(map[string]any{"title": true, "author": true}).
 			SetLimit(1),
@@ -516,7 +516,7 @@ func TableVectorIndex(e *harness.TestEnv) error {
 
 	// Test vector similarity search - find documents similar to [1.0, 0.0, 0.0]
 	queryVector := []float32{1.0, 0.0, 0.0}
-	cursor, _ := tbl.Find(filter.F{},
+	cursor := tbl.Find(filter.F{},
 		options.TableFind().
 			SetSort(sort.S{"embedding": queryVector}).
 			SetIncludeSimilarity(true).

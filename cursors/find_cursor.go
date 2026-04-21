@@ -94,13 +94,13 @@ type findCursorImpl struct {
 }
 
 // newFindCursorImpl creates a new findCursorImpl with the given source, fetcher, and optional initial page state.
-func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initPageState *string) *findCursorImpl {
+func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initPageState *string, err error) *findCursorImpl {
 	impl := findCursorImpl{
 		fcs:     source,
 		fetcher: fetcher,
 	}
 
-	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl)
+	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl, err)
 
 	if initPageState != nil {
 		impl.initialPage = &FindPage{

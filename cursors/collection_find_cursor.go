@@ -39,12 +39,12 @@ var _ findCursorSource = (*CollectionFindCursor)(nil)
 // This method is not intended to be called directly by users. Instead, use Collection.Find() which will create a CollectionFindCursor for you.
 //
 // Note that opts must not be nil, or it will panic.
-func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fetcher findCursorFetcher) *CollectionFindCursor {
+func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fetcher findCursorFetcher, err error) *CollectionFindCursor {
 	cursor := &CollectionFindCursor{
 		filter:  filter,
 		options: opts,
 	}
-	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState)
+	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState, err)
 	return cursor
 }
 
@@ -83,5 +83,9 @@ func (c *CollectionFindCursor) apiOptions() *options.APIOptions {
 //
 //	// cursor1 and cursor2 can be used independently
 func (c *CollectionFindCursor) Clone() *CollectionFindCursor {
-	return NewCollectionFindCursor(c.filter, c.options, c.fetcher)
+	var err error
+	if c.persistErr {
+		err = c.err
+	}
+	return NewCollectionFindCursor(c.filter, c.options, c.fetcher, err)
 }

@@ -278,7 +278,7 @@ func CollectionFind(e *harness.TestEnv) error {
 	c := db.Collection(collectionName)
 
 	// Use cursor to find documents
-	cursor, _ := c.Find(filter.Gte("properties.intProperty", 20))
+	cursor := c.Find(filter.Gte("properties.intProperty", 20))
 	defer cursor.Close()
 
 	var documents []SimpleObject
@@ -343,7 +343,7 @@ func CollectionCursorPagination(e *harness.TestEnv) error {
 	}
 
 	// Now use the cursor to iterate through ALL documents
-	cursor, _ := c.Find(filter.Eq("batchId", "pagination-test"))
+	cursor := c.Find(filter.Eq("batchId", "pagination-test"))
 	defer cursor.Close()
 
 	// Track pagination stats
@@ -569,7 +569,7 @@ func CollectionUpdateMany(e *harness.TestEnv) error {
 	}
 
 	// Verify the update by reading back
-	cur, _ := c.Find(filter.F{"tag": tag})
+	cur := c.Find(filter.F{"tag": tag})
 	defer cur.Close()
 	var docs []map[string]any
 	if err := cur.DecodeAll(ctx, &docs); err != nil {
@@ -1324,7 +1324,7 @@ func CollectionVectorSearch(e *harness.TestEnv) error {
 	// This should return "The Great Gatsby" first as it has the exact vector
 	searchVector := []float32{0.1, 0.2, 0.3}
 
-	cursor, _ := c.Find(filter.F{},
+	cursor := c.Find(filter.F{},
 		options.CollectionFind().
 			SetSort(sort.Vector(searchVector)).
 			SetLimit(3),
@@ -1363,7 +1363,7 @@ func CollectionVectorSearchWithSimilarity(e *harness.TestEnv) error {
 	// Search with similarity score included
 	searchVector := []float32{0.1, 0.2, 0.3}
 
-	cursor, _ := c.Find(filter.F{},
+	cursor := c.Find(filter.F{},
 		options.CollectionFind().
 			SetSort(sort.Vector(searchVector)).
 			SetIncludeSimilarity(true).
@@ -1421,7 +1421,7 @@ func CollectionFindWithSort(e *harness.TestEnv) error {
 	c := db.Collection(vectorCollectionName)
 
 	// Sort by rating ascending, then title descending
-	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
+	cursor := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetSort(sort.Asc("rating").Desc("title")),
 	)
 	defer cursor.Close()
@@ -1461,7 +1461,7 @@ func CollectionFindWithProjection(e *harness.TestEnv) error {
 	c := db.Collection(vectorCollectionName)
 
 	// Only include title and is_checked_out fields
-	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
+	cursor := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetProjection(map[string]any{
 			"title":          true,
 			"is_checked_out": true,
@@ -1511,7 +1511,7 @@ func CollectionFindWithLimit(e *harness.TestEnv) error {
 	c := db.Collection(vectorCollectionName)
 
 	limit := 2
-	cursor, _ := c.Find(filter.Eq("metadata.language", "English"),
+	cursor := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetLimit(limit),
 	)
 	defer cursor.Close()
@@ -1538,7 +1538,7 @@ func CollectionFindWithSkip(e *harness.TestEnv) error {
 
 	// Skip requires an explicit sort criterion
 	// First, get all results sorted by rating
-	cursorAll, _ := c.Find(filter.Eq("metadata.language", "English"),
+	cursorAll := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().SetSort(sort.Asc("rating").Asc("title")),
 	)
 	var allResults []VectorDocument
@@ -1553,7 +1553,7 @@ func CollectionFindWithSkip(e *harness.TestEnv) error {
 
 	// Now get results with skip=2
 	skip := 2
-	cursorSkip, _ := c.Find(filter.Eq("metadata.language", "English"),
+	cursorSkip := c.Find(filter.Eq("metadata.language", "English"),
 		options.CollectionFind().
 			SetSort(sort.Asc("rating").Asc("title")).
 			SetSkip(skip),
@@ -1592,7 +1592,7 @@ func CollectionFindCombined(e *harness.TestEnv) error {
 	// Sort by rating ascending, title descending
 	// Only include title and is_checked_out
 	// Limit to 3 results
-	cursor, _ := c.Find(
+	cursor := c.Find(
 		filter.And(
 			filter.Eq("is_checked_out", false),
 			filter.Lt("number_of_pages", 300),

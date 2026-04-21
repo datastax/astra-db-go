@@ -39,12 +39,12 @@ var _ findCursorSource = (*TableFindCursor)(nil)
 // This method is not intended to be called directly by users. Instead, use Table.Find() which will create a TableFindCursor for you.
 //
 // Note that opts must not be nil, or it will panic.
-func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher findCursorFetcher) *TableFindCursor {
+func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher findCursorFetcher, err error) *TableFindCursor {
 	cursor := &TableFindCursor{
 		filter:  filter,
 		options: opts,
 	}
-	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState)
+	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState, err)
 	return cursor
 }
 
@@ -83,5 +83,9 @@ func (c *TableFindCursor) apiOptions() *options.APIOptions {
 //
 //	// cursor1 and cursor2 can be used independently
 func (c *TableFindCursor) Clone() *TableFindCursor {
-	return NewTableFindCursor(c.filter, c.options, c.fetcher)
+	var err error
+	if c.persistErr {
+		err = c.err
+	}
+	return NewTableFindCursor(c.filter, c.options, c.fetcher, err)
 }
