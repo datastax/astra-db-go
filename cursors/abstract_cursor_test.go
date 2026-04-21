@@ -360,14 +360,15 @@ func TestCursorDecodeAll(t *testing.T) {
 			results:       []string{},
 			expectResults: []string{},
 			expectErr:     fmt.Errorf("expected pointer to slice, got slice"),
-			skipSecondRun: true, // DecodeAll provides its own correct results argument
+			skipSecondRun: true,
 		},
 		{
 			name:          "InvalidResultsType_NotSlicePointer",
 			state:         CursorStateIdle,
 			results:       new(string),
+			expectResults: new(string),
 			expectErr:     fmt.Errorf("expected pointer to slice, got pointer to string"),
-			skipSecondRun: true, // DecodeAll provides its own correct results argument
+			skipSecondRun: true,
 		},
 		{
 			name:   "EmptyCursor",
@@ -422,7 +423,7 @@ func TestCursorDecodeAll(t *testing.T) {
 			expectTrace:   []string{"decode", "decode", "fetchNextPage", "close"},
 		},
 		{
-			name:   "DecodeErrorDuringIterationDoesntOverwriteExisting",
+			name:   "DecodeErrorDuringIteration",
 			state:  CursorStateIdle,
 			buffer: []string{"a", "b", "c"},
 			fetchNextPage: func(s *abstractCursorSourceImpl) func(context.Context) (bool, error) {
@@ -436,12 +437,12 @@ func TestCursorDecodeAll(t *testing.T) {
 				return nil
 			},
 			results:       &[]string{},
-			expectResults: &[]string{},
+			expectResults: &[]string{"decoded_a"},
 			expectErr:     fmt.Errorf("decode error on b"),
 			expectTrace:   []string{"decode", "decode", "close"},
 		},
 		{
-			name:   "FetchErrorDuringIterationDoesntOverwriteExisting",
+			name:   "FetchErrorDuringIteration",
 			state:  CursorStateIdle,
 			buffer: []string{"a", "b"},
 			fetchNextPage: func(s *abstractCursorSourceImpl) func(context.Context) (bool, error) {
@@ -450,7 +451,7 @@ func TestCursorDecodeAll(t *testing.T) {
 				}
 			},
 			results:       &[]string{"before"},
-			expectResults: &[]string{"before"},
+			expectResults: &[]string{"decoded_a", "decoded_b"},
 			expectErr:     fmt.Errorf("fetch error"),
 			expectTrace:   []string{"decode", "decode", "fetchNextPage", "close"},
 		},
@@ -486,7 +487,7 @@ func TestCursorDecodeAll(t *testing.T) {
 			if !reflect.DeepEqual(err, tt.expectErr) {
 				t.Errorf("DecodeAll() error = %v, want %v", err, tt.expectErr)
 			}
-			if tt.expectResults != nil && !reflect.DeepEqual(tt.results, tt.expectResults) {
+			if !reflect.DeepEqual(tt.results, tt.expectResults) {
 				t.Errorf("DecodeAll() results = %v, want %v", tt.results, tt.expectResults)
 			}
 			if tt.expectTrace != nil && !reflect.DeepEqual(source.Trace, tt.expectTrace) {
@@ -499,7 +500,7 @@ func TestCursorDecodeAll(t *testing.T) {
 
 		t.Run(tt.name+" with DecodeAll helper", func(t *testing.T) {
 			if tt.skipSecondRun {
-				return //
+				return // helper function provides its own pointer
 			}
 
 			cursor, source := setup()
@@ -508,11 +509,10 @@ func TestCursorDecodeAll(t *testing.T) {
 			if !reflect.DeepEqual(err, tt.expectErr) {
 				t.Errorf("DecodeAll() error = %v, want %v", err, tt.expectErr)
 			}
-			if tt.expectErr == nil && !reflect.DeepEqual(results, *(tt.expectResults.(*[]string))) {
-				t.Errorf("DecodeAll() results = %v, want %v", results, tt.expectResults)
-			}
-			if tt.expectErr != nil && results != nil {
-				t.Errorf("DecodeAll() results = %v, want nil on error", results)
+
+			expectedSlice := *(tt.expectResults.(*[]string))
+			if len(results) != len(expectedSlice) || (len(results) > 0 && !reflect.DeepEqual(results, expectedSlice)) {
+				t.Errorf("DecodeAll() results = %v, want %v", results, expectedSlice)
 			}
 			if tt.expectTrace != nil && !reflect.DeepEqual(source.Trace, tt.expectTrace) {
 				t.Errorf("DecodeAll() trace = %v, want %v", source.Trace, tt.expectTrace)

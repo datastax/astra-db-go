@@ -356,7 +356,7 @@ func (c *abstractCursorImpl[Raw]) Decode(result any) error {
 
 // DecodeAll locks and exhausts the cursor, decoding all remaining items into results, and then closes the cursor.
 func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) error {
-	resultPtr, sliceType, err := guards.RequireSlicePtr(results)
+	resultsPtr, sliceVal, err := guards.RequireSlicePtr(results)
 	if err != nil {
 		return err
 	}
@@ -364,6 +364,10 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	defer c.close()
+
+	defer func() {
+		resultsPtr.Elem().Set(sliceVal)
+	}()
 
 	if c.err != nil {
 		return c.err
@@ -373,32 +377,23 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 		return ErrCursorClosed
 	}
 
-	result := reflect.MakeSlice(sliceType, 0, 0)
-
-	for {
-		next, err := c.decodeBuffered(sliceType, 0)
+	for i := 0; ; {
+		i, err = c.decodeBuffered(&sliceVal, i, 0)
 		if err != nil {
 			return err
 		}
-
-		result = reflect.AppendSlice(result, next)
 
 		if c.buffered() == 0 && !c.fetchIfEmpty(ctx) {
 			break
 		}
 	}
 
-	if c.err != nil {
-		return c.err
-	}
-
-	resultPtr.Elem().Set(result)
-	return nil
+	return c.err
 }
 
 // DecodeBuffered locks and decodes up to max items from the current buffer into results and advances the cursor, without fetching the next page.
 func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
-	resultPtr, sliceType, err := guards.RequireSlicePtr(results)
+	resultsPtr, sliceVal, err := guards.RequireSlicePtr(results)
 	if err != nil {
 		return err
 	}
@@ -406,39 +401,45 @@ func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	result, err := c.decodeBuffered(sliceType, max)
-	if err != nil {
-		return err
-	}
-
-	resultPtr.Elem().Set(result)
-	return nil
+	_, err = c.decodeBuffered(&sliceVal, 0, max)
+	resultsPtr.Elem().Set(sliceVal)
+	return err
 }
 
 // decodeBuffered is an internal helper that decodes up to max items from the current buffer into a new slice of the given element type and advances the cursor accordingly.
 //
 // Locking must be provided by the caller; this method does not acquire its own lock.
-func (c *abstractCursorImpl[Raw]) decodeBuffered(sliceType reflect.Type, max int) (reflect.Value, error) {
-	numToTake := c.buffered()
-	if 0 < max && max < numToTake {
-		numToTake = max
+func (c *abstractCursorImpl[Raw]) decodeBuffered(sliceValue *reflect.Value, start int, max int) (int, error) {
+	buffered := c.buffered()
+	if 0 < max && max < buffered {
+		buffered = max
 	}
 
 	bufPtr := c.acs.buffer()
-	toTake := (*bufPtr)[:numToTake]
+	toTake := (*bufPtr)[:buffered]
 
-	tempSlice := reflect.MakeSlice(sliceType, numToTake, numToTake)
+	end := start + buffered
+	if sliceValue.Cap() < end {
+		sliceValue.Grow(end - sliceValue.Len()) // requires Go 1.20+
+	}
+	sliceValue.SetLen(end)
 
 	for i, raw := range toTake {
-		targetAddr := tempSlice.Index(i).Addr().Interface()
+		targetAddr := sliceValue.Index(i + start).Addr().Interface()
 		if err := c.acs.decode(raw, targetAddr); err != nil {
-			return reflect.Value{}, err
+			end = start + i
+			sliceValue.SetLen(end)
+			return end, err
 		}
 	}
 
-	*bufPtr = (*bufPtr)[numToTake:]
-
-	return tempSlice, nil
+	// We don't set the buffer in case of err
+	//
+	// This doesn't matter for DecodeAll() since we close on return anyway,
+	// but for DecodeBuffered() it lets the caller decode the same items again
+	// if they want to handle the error and try again
+	*bufPtr = (*bufPtr)[buffered:]
+	return end, nil
 }
 
 // Err returns the error, if any, that was encountered during iteration with a read lock for concurrency safety.

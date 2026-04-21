@@ -59,7 +59,7 @@ type FindCursor interface {
 // pagination state, and optional sort vector for the current page.
 type FindPage struct {
 	NextPageState *string                  `json:"nextPageState"`
-	Result        []json.RawMessage        `json:"data"`
+	Results       []json.RawMessage        `json:"data"`
 	SortVector    *datatypes.DataAPIVector `json:"sortVector,omitempty"`
 }
 
@@ -142,7 +142,7 @@ func (c *findCursorImpl) buffer() *[]json.RawMessage {
 	if c.currentPage == nil {
 		return &[]json.RawMessage{}
 	}
-	return &c.currentPage.Result
+	return &c.currentPage.Results
 }
 
 // findPayload is the payload for the find command, containing the filter, sort, projection, and options.
@@ -195,7 +195,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 
 	c.currentPage = &FindPage{
 		NextPageState: resp.Data.NextPageState,
-		Result:        resp.Data.Documents,
+		Results:       resp.Data.Documents,
 		SortVector:    resp.Data.SortVector,
 	}
 
