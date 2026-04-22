@@ -171,6 +171,16 @@ func (o *TableFindOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for TableUpdateOneOptions.
+// Returns all non-nil Validator fields.
+func (o *TableUpdateOneOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for VectorOptions.
 // Returns all non-nil Validator fields.
 func (o *VectorOptions) Children() []Validator {

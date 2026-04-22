@@ -79,13 +79,18 @@ func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *
 		cmdOptions = options.NewAPIOptions(cmdOpts...)
 	}
 
+	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, cmdOptions)
+}
+
+// newCmdWithMergedOptions creates a new command with resource and merged command-level options
+func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, cmdOpts *options.APIOptions) command {
 	return command{
 		db:              d,
 		name:            name,
 		resourceName:    resource,
 		payload:         payload,
 		resourceOptions: resourceOpts,
-		commandOptions:  cmdOptions,
+		commandOptions:  cmdOpts,
 	}
 }
 

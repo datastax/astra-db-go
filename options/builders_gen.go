@@ -1834,6 +1834,52 @@ func (b *tableFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *table
 	return b
 }
 
+// TableUpdateOneOption configures a TableUpdateOne operation.
+// You can use the fluent-style builder or a pointer to [TableUpdateOneOptions] interchangeably.
+//
+// Example using the fluent builder ([TableUpdateOne]):
+//
+//	opts := options.TableUpdateOne().SetAPIOptions(...)
+//
+// Example using a pointer to [TableUpdateOneOptions] without the fluent builder:
+//
+//	opts := &options.TableUpdateOneOptions{...}
+type TableUpdateOneOption = Builder[TableUpdateOneOptions]
+
+// Setters implements Builder[TableUpdateOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableUpdateOneOptions].
+func (o *TableUpdateOneOptions) Setters() []func(*TableUpdateOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for TableUpdateOneOptions.
+func (o *TableUpdateOneOptions) Validate() error { return nil }
+
+// tableUpdateOneOptionsBuilder is a builder for TableUpdateOneOptions.
+type tableUpdateOneOptionsBuilder struct {
+	setters []func(*TableUpdateOneOptions)
+}
+
+// TableUpdateOne creates a new builder for [TableUpdateOneOptions].
+func TableUpdateOne() *tableUpdateOneOptionsBuilder {
+	return &tableUpdateOneOptionsBuilder{}
+}
+
+// Setters implements Builder[TableUpdateOneOptions].
+func (b *tableUpdateOneOptionsBuilder) Setters() []func(*TableUpdateOneOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *tableUpdateOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableUpdateOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableUpdateOneOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // TimeoutOption configures a Timeout operation.
 // You can use the fluent-style builder or a pointer to [TimeoutOptions] interchangeably.
 //

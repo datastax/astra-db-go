@@ -67,3 +67,11 @@ func (b *tableFindOptionsBuilder) SetPageState(pageState string) *tableFindOptio
 	b.setters = append(b.setters, func(o *TableFindOptions) { o.InitialPageState = &pageState })
 	return b
 }
+
+// TableUpdateOneOptions represents options for updating a single row in a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type TableUpdateOneOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}

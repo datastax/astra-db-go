@@ -70,22 +70,16 @@ func (t *Table) Database() *Db {
 	return t.db
 }
 
-// newCmd creates a command for this table
-func (t *Table) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return newCmdWithOptions(t.db, t.name, name, payload, t.options, opts...)
+// newCmd creates a command for this table. Will merge opts (if any) and apply them
+// as command-level options.
+func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
+	return newCmdWithOptions(t.db, t.name, name, payload, t.options, cmdOpts...)
 }
 
-// newCmdOverride creates a command with a pre-built *APIOptions override,
+// newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
 // used by builder-pattern methods where API options flow through the struct.
-func (t *Table) newCmdOverride(name string, payload any, override *options.APIOptions) command {
-	return command{
-		db:              t.db,
-		name:            name,
-		resourceName:    t.name,
-		payload:         payload,
-		resourceOptions: t.options,
-		commandOptions:  override,
-	}
+func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
+	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, cmdOpts)
 }
 
 // createTablePayload is the payload for the createTable command
@@ -297,7 +291,7 @@ func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.Ta
 	merged, err := options.MergeAndValidate(opts...)
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
-		cmd := t.newCmdOverride("find", payload, merged.APIOptions)
+		cmd := t.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
 
@@ -340,7 +334,7 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 		}
 	}
 
-	cmd := t.newCmdOverride("findOne", payload, findOpts.APIOptions)
+	cmd := t.newCmdWithMergedOptions("findOne", payload, findOpts.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
@@ -449,6 +443,45 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.APIOpt
 	}
 	err = json.Unmarshal(b, &resp)
 	return resp, err
+}
+
+// tableUpdateOnePayload is the payload for the updateOne command on tables.
+type tableUpdateOnePayload struct {
+	Filter TableFilter `json:"filter"`
+	Update TableUpdate `json:"update"`
+}
+
+// UpdateOne updates a single row matching the filter.
+//
+// The filter must describe the complete primary key using equality on
+// primary-key columns. The update parameter should be an [update.U]
+// expression built via update.Table(), e.g.
+// update.Table().Set("rating", 4.5).Unset("borrower").
+//
+// If no row matches and the update sets at least one non-null value, a new
+// row is created (implicit upsert). You cannot update primary key values.
+//
+// Options passed here override those set on the table.
+//
+// Example:
+//
+//	err := tbl.UpdateOne(ctx,
+//	    filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+//	    update.Table().Set("rating", 4.5).Unset("borrower"),
+//	)
+func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opts ...options.TableUpdateOneOption) error {
+	// Build the find options
+	updateOpts, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := t.newCmdWithMergedOptions("updateOne", tableUpdateOnePayload{
+		Filter: f,
+		Update: u,
+	}, updateOpts.APIOptions)
+	// Note: Warnings are accessible via the WarningHandler option callback only.
+	_, _, err = cmd.Execute(ctx)
+	return err
 }
 
 // createIndexPayload is the payload for the createIndex command
