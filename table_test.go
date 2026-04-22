@@ -15,13 +15,23 @@
 package astradb
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/datastax/astra-db-go/filter"
+	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
+	"github.com/datastax/astra-db-go/update"
 )
 
 func TestCreateTablePayloadMarshal(t *testing.T) {
@@ -1256,3 +1266,207 @@ func TestCreateIndedxOptionsValidation(t *testing.T) {
 		}
 	})
 }
+
+// #region Table.UpdateOne tests
+
+// This example was taken from the documentation:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/row-methods/update.html#example-update-multiple
+// ^ confusingly says "update multiple" but it means multiple fields on an updateOne command.
+const exampleUpdateOneSetPayloadJSON = `{
+  "updateOne": {
+    "filter": {
+    	"author": "John Anthony",
+		"title": "Hidden Shadows of the Past"
+    },
+    "update": {
+        "$set": {
+        	"genres": ["Fiction", "Drama"],  
+			"rating": 4.5
+        },
+        "$unset": {
+            "borrower": ""
+        }
+    }
+  }
+}`
+
+// TestTableUpdateOneCommandMarshal_Set verifies the updateOne command payload
+// for a simple $set against a compound primary key.
+func TestTableUpdateOneCommandMarshal_Set(t *testing.T) {
+	tbl := getTestTable(t)
+	tests := []testutils.JSONTestCase{{
+		Name:     "Set rating and genres, unset borrower",
+		Expected: exampleUpdateOneSetPayloadJSON,
+		Args: []any{
+			tbl.newCmd("updateOne", tableUpdateOnePayload{
+				// Interestingly, we don't currently have a way to express two top-level filters like this
+				// with the fluent builder. Right now we could express with filter.And(...). Which, logically,
+				// I believe is the same as just passing a map with multiple keys. Might consider adding to
+				// filter fluent builder at some point.
+				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+				// Fluent builder
+				Update: update.Table().Set("rating", 4.5).Set("genres", []string{"Fiction", "Drama"}).Unset("borrower"),
+			}),
+			tbl.newCmd("updateOne", tableUpdateOnePayload{
+				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+				// Test out update.U directly as well.
+				Update: update.U{"$set": update.U{"genres": []string{"Fiction", "Drama"}, "rating": 4.5}, "$unset": update.U{"borrower": ""}},
+			}),
+		},
+	}}
+	testutils.RunJSONTestCases(t, tests)
+}
+
+// httpTestTable creates a Table backed by the given httptest.Server for
+// integration-style testing. Mirrors newTestCollection in collection_test.go.
+func httpTestTable(ts *httptest.Server, apiOpts ...options.APIOption) *Table {
+	allOpts := append([]options.APIOption{options.WithToken("test-token")}, apiOpts...)
+	client := NewClient(allOpts...)
+	db := client.Database(ts.URL, options.WithKeyspace("ks"))
+	return db.Table("tbl")
+}
+
+// TestTableUpdateOne_HappyPath verifies that UpdateOne posts the expected
+// request body, reads a successful status response, and returns nil.
+func TestTableUpdateOne_HappyPath(t *testing.T) {
+	var gotBody atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		if r.Header.Get("Token") != "test-token" {
+			t.Errorf("expected token %q in request header, got %q", "test-token", r.Header.Get("Token"))
+		}
+		gotBody.Store(b)
+		w.Header().Set("Content-Type", "application/json")
+		// Server always returns this so this is a good proxy for verifying that the
+		// client correctly reads the response body.
+		fmt.Fprint(w, `{"status":{"matchedCount":1,"modifiedCount":1,"upsertCount":0}}`)
+	}))
+	defer ts.Close()
+
+	tbl := httpTestTable(ts)
+	err := tbl.UpdateOne(context.Background(),
+		filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+		update.Table().Set("rating", 4.5).Unset("borrower"),
+		options.TableUpdateOne(), // Empty options just to throw a slight curveball.
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	body, _ := gotBody.Load().([]byte)
+	var sentBody map[string]any
+	if err := json.Unmarshal(body, &sentBody); err != nil {
+		t.Fatalf("server-received body was not JSON: %v (%s)", err, body)
+	}
+	inner, ok := sentBody["updateOne"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected top-level key %q, got: %s", "updateOne", body)
+	}
+	if _, ok := inner["filter"]; !ok {
+		t.Errorf("expected filter key in updateOne payload, got: %s", body)
+	}
+	if _, ok := inner["update"]; !ok {
+		t.Errorf("expected update key in updateOne payload, got: %s", body)
+	}
+}
+
+// TestTableUpdateOne_APIOptionsOverrideToken proves the command-level
+// APIOptions override flows end-to-end through newCmdWithMergedOptions.
+func TestTableUpdateOne_APIOptionsOverrideToken(t *testing.T) {
+	var receivedToken atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		receivedToken.Store(r.Header.Get("Token"))
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":1,"modifiedCount":1}}`)
+	}))
+	defer ts.Close()
+
+	tbl := httpTestTable(ts) // uses "test-token" at client level
+	err := tbl.UpdateOne(context.Background(),
+		filter.F{"pk": 1},
+		update.Table().Set("x", 2),
+		options.TableUpdateOne().SetAPIOptions(options.API().SetToken("override-token")),
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got, _ := receivedToken.Load().(string); got != "override-token" {
+		t.Errorf("expected token %q in request header, got %q", "override-token", got)
+	}
+}
+
+// TestTableUpdateOne_ContextCanceled verifies that a pre-canceled context
+// causes UpdateOne to return without a successful round-trip.
+func TestTableUpdateOne_ContextCanceled(t *testing.T) {
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":1,"modifiedCount":1}}`)
+	}))
+	defer ts.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	tbl := httpTestTable(ts)
+	err := tbl.UpdateOne(ctx,
+		filter.F{"pk": 1},
+		update.Table().Set("x", 2),
+	)
+	if calls.Load() != 0 {
+		// If the context cancellation is working properly, the handler should never be called
+		t.Errorf("expected 0 calls to server, got %d", calls.Load())
+	}
+	if err == nil {
+		t.Fatal("expected error from canceled context, got nil")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("expected context.Canceled, got: %v", err)
+	}
+}
+
+// TestTableUpdateOne_ContextTimeout verifies context timeout works.
+func TestTableUpdateOne_ContextTimeout(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		time.Sleep(100 * time.Millisecond) // Sleep to simulate a long request and give the test a chance to timeout
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":1,"modifiedCount":1}}`)
+	}))
+	defer ts.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	tbl := httpTestTable(ts)
+	start := time.Now()
+	err := tbl.UpdateOne(ctx,
+		filter.F{"pk": 1},
+		update.Table().Set("x", 2),
+	)
+	elapsed := time.Since(start)
+
+	if calls.Load() != 1 {
+		// Just make sure it got to our server
+		t.Errorf("expected 1 call to server, got %d", calls.Load())
+	}
+	if err == nil {
+		t.Fatal("expected error from canceled context, got nil")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
+	}
+	if elapsed > 100*time.Millisecond {
+		// This is a timing-based assertion. If it fails in CI/CD due to slowness,
+		// we can relax it. Works fine on my machine though.
+		t.Errorf("cancellation took too long: %v", elapsed)
+	}
+}
+
+// #endregion
