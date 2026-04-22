@@ -1731,6 +1731,52 @@ func (b *serdesOptionsBuilder) Setters() []func(*SerdesOptions) {
 	return b.setters
 }
 
+// TableDeleteOneOption configures a TableDeleteOne operation.
+// You can use the fluent-style builder or a pointer to [TableDeleteOneOptions] interchangeably.
+//
+// Example using the fluent builder ([TableDeleteOne]):
+//
+//	opts := options.TableDeleteOne().SetAPIOptions(...)
+//
+// Example using a pointer to [TableDeleteOneOptions] without the fluent builder:
+//
+//	opts := &options.TableDeleteOneOptions{...}
+type TableDeleteOneOption = Builder[TableDeleteOneOptions]
+
+// Setters implements Builder[TableDeleteOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableDeleteOneOptions].
+func (o *TableDeleteOneOptions) Setters() []func(*TableDeleteOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for TableDeleteOneOptions.
+func (o *TableDeleteOneOptions) Validate() error { return nil }
+
+// tableDeleteOneOptionsBuilder is a builder for TableDeleteOneOptions.
+type tableDeleteOneOptionsBuilder struct {
+	setters []func(*TableDeleteOneOptions)
+}
+
+// TableDeleteOne creates a new builder for [TableDeleteOneOptions].
+func TableDeleteOne() *tableDeleteOneOptionsBuilder {
+	return &tableDeleteOneOptionsBuilder{}
+}
+
+// Setters implements Builder[TableDeleteOneOptions].
+func (b *tableDeleteOneOptionsBuilder) Setters() []func(*TableDeleteOneOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *tableDeleteOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableDeleteOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableDeleteOneOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // TableFindOption configures a TableFind operation.
 // You can use the fluent-style builder or a pointer to [TableFindOptions] interchangeably.
 //

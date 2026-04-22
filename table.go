@@ -484,6 +484,37 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 	return err
 }
 
+// tableDeleteOnePayload is the payload for the deleteOne command on tables.
+type tableDeleteOnePayload struct {
+	Filter TableFilter `json:"filter"`
+}
+
+// DeleteOne deletes a single row matching the filter.
+//
+// The filter must describe the complete primary key using equality on
+// primary-key columns. If no row matches, DeleteOne is a no-op and returns
+// nil.
+//
+// Options passed here override those set on the table.
+//
+// Example:
+//
+//	err := tbl.DeleteOne(ctx,
+//	    filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+//	)
+func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.TableDeleteOneOption) error {
+	deleteOpts, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := t.newCmdWithMergedOptions("deleteOne", tableDeleteOnePayload{
+		Filter: f,
+	}, deleteOpts.APIOptions)
+	// Note: Warnings are accessible via the WarningHandler option callback only.
+	_, _, err = cmd.Execute(ctx)
+	return err
+}
+
 // createIndexPayload is the payload for the createIndex command
 type createIndexPayload struct {
 	Name       string                `json:"name"`

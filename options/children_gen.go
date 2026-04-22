@@ -161,6 +161,16 @@ func (o *CreateCollectionOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for TableDeleteOneOptions.
+// Returns all non-nil Validator fields.
+func (o *TableDeleteOneOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for TableFindOptions.
 // Returns all non-nil Validator fields.
 func (o *TableFindOptions) Children() []Validator {

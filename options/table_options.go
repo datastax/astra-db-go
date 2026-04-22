@@ -75,3 +75,11 @@ type TableUpdateOneOptions struct {
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
+
+// TableDeleteOneOptions represents options for deleting a single row in a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type TableDeleteOneOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}

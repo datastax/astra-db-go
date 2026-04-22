@@ -1470,3 +1470,67 @@ func TestTableUpdateOne_ContextTimeout(t *testing.T) {
 }
 
 // #endregion
+
+// #region Table.DeleteOne tests
+
+// This example was taken from the documentation:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/row-methods/delete-one.html#delete-a-row-by-primary-key
+const exampleDeleteOnePayloadJSON = `{
+  "deleteOne": {
+    "filter": {
+      "author": "John Anthony",
+      "title": "Hidden Shadows of the Past"
+    }
+  }
+}`
+
+// TestTableDeleteOne_CommandMarshal verifies the deleteOne command payload
+// for a full-primary-key filter.
+func TestTableDeleteOne_CommandMarshal(t *testing.T) {
+	tbl := getTestTable(t)
+	tests := []testutils.JSONTestCase{{
+		Name:     "Delete by compound primary key",
+		Expected: exampleDeleteOnePayloadJSON,
+		Args: []any{
+			tbl.newCmd("deleteOne", tableDeleteOnePayload{
+				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+			}),
+		},
+	}}
+	testutils.RunJSONTestCases(t, tests)
+}
+
+// TestTableDeleteOne_HappyPath verifies that DeleteOne posts the expected
+// request body, reads a successful status response, and returns nil.
+// NOTE: thought about also repeating the override token etc. but that is REALLY
+// testing the command implementation, not the commands themselves.
+func TestTableDeleteOne_HappyPath(t *testing.T) {
+	var gotBody atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		if r.Header.Get("Token") != "test-token" {
+			t.Errorf("expected token %q in request header, got %q", "test-token", r.Header.Get("Token"))
+		}
+		gotBody.Store(b)
+		w.Header().Set("Content-Type", "application/json")
+		// From the docs:
+		// > Always returns a status.deletedCount of -1, regardless of whether a row was found and deleted.
+		fmt.Fprint(w, `{"status":{"deletedCount":-1}}`)
+	}))
+	defer ts.Close()
+
+	tbl := httpTestTable(ts)
+	err := tbl.DeleteOne(context.Background(),
+		filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
+		options.TableDeleteOne(), // Empty options just to throw a slight curveball.
+	)
+	// Make sure we don't get an error when server returns the expected deletedCount of -1
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// #endregion
