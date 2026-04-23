@@ -91,21 +91,16 @@ func (c *Collection) Database() *Db {
 	return c.db
 }
 
-func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return newCmdWithOptions(c.db, c.name, name, payload, c.options, opts...)
+// newCmd creates a command for this collection. Will merge opts (if any) and apply them
+// as command-level options.
+func (c *Collection) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
+	return newCmdWithOptions(c.db, c.name, name, payload, c.options, cmdOpts...)
 }
 
-// newCmdOverride creates a command with a pre-built *APIOptions override,
+// newCmdWithMergedOptions creates a command with a pre-built *APIOptions cmdOpts,
 // used by builder-pattern methods where API options flow through the struct.
-func (c *Collection) newCmdOverride(name string, payload any, override *options.APIOptions) command {
-	return command{
-		db:              c.db,
-		name:            name,
-		resourceName:    c.name,
-		payload:         payload,
-		resourceOptions: c.options,
-		commandOptions:  override,
-	}
+func (c *Collection) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
+	return newCmdWithMergedOptions(c.db, c.name, name, payload, c.options, cmdOpts)
 }
 
 // resolveGeneralMethodTimeout returns the effective timeout for a paginated
@@ -114,7 +109,7 @@ func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, o
 	if methodTimeout != nil {
 		return methodTimeout
 	}
-	cmd := c.newCmdOverride("", nil, override)
+	cmd := c.newCmdWithMergedOptions("", nil, override)
 	opts := cmd.resolveOptions()
 	return opts.GetGeneralMethodTimeout()
 }
@@ -164,7 +159,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmdOverride, insertManyOptions(*merged))
+	return insertMany(ctx, documents, c.newCmdWithMergedOptions, insertManyOptions(*merged))
 }
 
 type filterWrapper struct {
@@ -179,7 +174,7 @@ func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...op
 	if err != nil {
 		return results.NewSingleResult([]byte{}, nil, err)
 	}
-	cmd := c.newCmdOverride("findOne", filterWrapper{Filters: f}, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("findOne", filterWrapper{Filters: f}, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
@@ -257,7 +252,7 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 	merged, err := options.MergeAndValidate(opts...)
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
-		cmd := c.newCmdOverride("find", payload, merged.APIOptions)
+		cmd := c.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
 
@@ -303,7 +298,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 		payload.Options = map[string]any{"upsert": true}
 	}
 
-	cmd := c.newCmdOverride("updateOne", payload, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("updateOne", payload, merged.APIOptions)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -367,7 +362,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 	result := &results.UpdateResult{}
 
 	for {
-		cmd := c.newCmdOverride("updateMany", payload, merged.APIOptions)
+		cmd := c.newCmdWithMergedOptions("updateMany", payload, merged.APIOptions)
 		b, _, err := cmd.Execute(ctx)
 		if err != nil {
 			return nil, err
@@ -434,7 +429,7 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		payload.Options = payloadOpts
 	}
 
-	cmd := c.newCmdOverride("findOneAndUpdate", payload, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", payload, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
@@ -461,7 +456,7 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 		payload.Options = map[string]any{"upsert": true}
 	}
 
-	cmd := c.newCmdOverride("findOneAndReplace", payload, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -525,7 +520,7 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 		payload.Options = payloadOpts
 	}
 
-	cmd := c.newCmdOverride("findOneAndReplace", payload, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }
@@ -560,7 +555,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 		Sort:   merged.Sort,
 	}
 
-	cmd := c.newCmdOverride("deleteOne", payload, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("deleteOne", payload, merged.APIOptions)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -624,7 +619,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	result := &results.DeleteResult{}
 
 	for {
-		cmd := c.newCmdOverride("deleteMany", payload, merged.APIOptions)
+		cmd := c.newCmdWithMergedOptions("deleteMany", payload, merged.APIOptions)
 		b, _, err := cmd.Execute(ctx)
 		if err != nil {
 			return nil, err
@@ -668,7 +663,7 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		Projection: merged.Projection,
 	}
 
-	cmd := c.newCmdOverride("findOneAndDelete", payload, merged.APIOptions)
+	cmd := c.newCmdWithMergedOptions("findOneAndDelete", payload, merged.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, err)
 }

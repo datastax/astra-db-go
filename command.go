@@ -62,16 +62,6 @@ func newDatabaseAdminCmd(db *Db, name string, payload any) command {
 	}
 }
 
-// newCmdResource creates a new command from the given DB with a resource
-func newCmdResource(d *Db, resource, name string, payload any) command {
-	return command{
-		db:           d,
-		name:         name,
-		resourceName: resource,
-		payload:      payload,
-	}
-}
-
 // newCmdWithOptions creates a new command with resource and command-level options
 func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, cmdOpts ...options.APIOption) command {
 	var cmdOptions *options.APIOptions
