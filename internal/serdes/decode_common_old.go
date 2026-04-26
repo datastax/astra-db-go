@@ -60,7 +60,7 @@ var errInvalid = errors.New("invalid json")
 //
 //func makeStructDecoder(t reflect.Type) decoder {
 //	fields := make(map[string]struct {
-//		index int
+//		ord int
 //		dec   decoder
 //	})
 //	for i := 0; i < t.NumField(); i++ {
@@ -69,7 +69,7 @@ var errInvalid = errors.New("invalid json")
 //			continue // skip unexported
 //		}
 //		fields[f.Name] = struct {
-//			index int
+//			ord int
 //			dec   decoder
 //		}{i, getDecoder(f.Type)}
 //	}
@@ -99,7 +99,7 @@ var errInvalid = errors.New("invalid json")
 //			}
 //			off++
 //			if info, ok := fields[key]; ok {
-//				n, err := info.dec(src[off:], v.Field(info.index))
+//				n, err := info.dec(src[off:], v.Field(info.ord))
 //				if err != nil {
 //					return off, err
 //				}

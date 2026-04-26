@@ -1,7 +1,10 @@
 package serdes
 
 import (
+	"fmt"
 	"reflect"
+	"sort"
+	"strings"
 	"sync"
 )
 
@@ -45,27 +48,29 @@ var nilCodec = codec{
 
 type seenStructs = map[reflect.Type]*structInfo
 
-func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
+func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) (codec, error) {
 	if t == nil || t == nilType {
-		return nilCodec
+		return nilCodec, nil
 	}
 
 	if c, ok := typeCodecs.Load(t); ok {
-		return c.(codec)
+		return c.(codec), nil
 	}
 
 	if t.Implements(astraCodecType) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-		return mkCustomCodec(t)
+		return mkCustomCodec(t), nil
 	}
 
 	k := t.Kind()
 	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
-		return kindCodecs[k]
+		return kindCodecs[k], nil
 	}
 
 	switch k {
 	case reflect.Ptr:
 		return mkPointerCodec(t, seen)
+	case reflect.Struct:
+		return mkStructCodec(t, seen, canAddr)
 	}
 
 	switch t {
@@ -85,43 +90,295 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	panic("unsupported type: " + t.String())
 }
 
-func mkCodecCaching(t reflect.Type, c codec) codec {
+func cache(t reflect.Type, c codec) codec {
 	typeCodecs.Store(t, c)
 	return c
 }
 
 func mkCustomCodec(t reflect.Type) codec {
-	return mkCodecCaching(t, codec{
+	return cache(t, codec{
 		encodeCustom(t),
 		decodeCustom(t),
 	})
 }
 
-func mkPointerCodec(t reflect.Type, seen seenStructs) codec {
+func mkPointerCodec(t reflect.Type, seen seenStructs) (codec, error) {
 	el := t.Elem()
-	c := resolveCodecCaching(el, seen, true)
 
-	return mkCodecCaching(t, codec{
+	c, err := resolveCodecCaching(el, seen, true)
+	if err != nil {
+		return codec{}, err
+	}
+
+	return cache(t, codec{
 		encodePointer(c.encode),
 		decodePointer(c.decode),
+	}), nil
+}
+
+func mkStructCodec(t reflect.Type, seen seenStructs, canAddr bool) (codec, error) {
+	info, err := compileStructInfo(t, seen, canAddr)
+
+	if err != nil {
+		return codec{}, err
+	}
+
+	return cache(t, codec{
+		encodeStruct(info),
+		decodeStruct(info),
+	}), nil
+}
+
+func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
+	return cache(t, codec{
+		encodeEmbeddedStructPointer(field.encode),
+		decodeEmbeddedStructPointer(t, unexported, offset, field.decode),
 	})
 }
 
-func mkStructCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
-
-}
-
 type structInfo struct {
-	structType reflect.Type
+	typ     reflect.Type
+	fields  []fieldInfo
+	offsets map[string]int // field name -> ord in fields slice
 }
 
 type fieldInfo struct {
-	name      string
-	index     int
-	codec     codec
-	fieldType reflect.Type
+	typ    reflect.Type
+	offset uintptr
+	path   []int
+	ord    int
+	codec  codec
+	prefix []byte
+	meta   jsonMeta
 }
 
-func compileStructInfo(t reflect.Type, seen seenStructs, canAddr bool) *structInfo {
+type jsonMeta struct {
+	name      string
+	omitempty bool
+	ignored   bool
+	tagged    bool
+}
 
+func compileStructInfo(t reflect.Type, seen seenStructs, canAddr bool) (*structInfo, error) {
+	if info, ok := seen[t]; ok {
+		return info, nil
+	}
+
+	info := &structInfo{
+		typ:     t,
+		offsets: make(map[string]int),
+	}
+	seen[t] = info
+
+	fields, err := compileStructFields(t, seen, canAddr)
+	info.fields = fields
+
+	if err != nil {
+		delete(seen, t)
+		return nil, err
+	}
+
+	for i := range fields {
+		f := &fields[i]
+		info.offsets[f.meta.name] = i
+	}
+
+	return info, nil
+}
+
+func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
+	type embeddedField struct {
+		ord        int
+		offset     uintptr
+		pointer    bool
+		unexported bool
+		subtype    *structInfo
+		subfield   *fieldInfo
+	}
+
+	topLevelNames := make(map[string]struct{})
+	ambiguousNames := make(map[string]int)
+	ambiguousTags := make(map[string]int)
+
+	fields := make([]fieldInfo, 0, t.NumField())
+	embeddedFields := make([]embeddedField, 0, 10)
+
+	for i := range t.NumField() {
+		f := t.Field(i)
+
+		var (
+			embedded   = f.Anonymous
+			unexported = len(f.PkgPath) != 0
+		)
+
+		if unexported && !embedded { // unexported
+			continue
+		}
+
+		meta := parseJsonMeta(f)
+
+		if meta.ignored {
+			continue
+		}
+
+		if embedded && !meta.tagged { // embeddedFields
+			typ := f.Type
+			ptr := f.Type.Kind() == reflect.Ptr
+
+			if ptr {
+				typ = typ.Elem()
+			}
+
+			if typ.Kind() == reflect.Struct {
+				subtype, err := compileStructInfo(typ, seen, canAddr)
+				if err != nil {
+					return nil, err
+				}
+
+				for j := range subtype.fields {
+					embeddedFields = append(embeddedFields, embeddedField{
+						ord:        i<<32 | j,
+						offset:     f.Offset,
+						pointer:    ptr,
+						unexported: unexported,
+						subtype:    subtype,
+						subfield:   &subtype.fields[j],
+					})
+				}
+
+				continue
+			}
+
+			if unexported { // ignore unexported non-struct types
+				continue
+			}
+		}
+
+		c, err := resolveCodecCaching(f.Type, seen, canAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		fields = append(fields, fieldInfo{
+			codec:  c,
+			offset: f.Offset,
+			meta:   meta,
+			ord:    i << 32,
+			typ:    f.Type,
+			path:   f.Index,
+		})
+
+		// Seed the counters so embedded fields know they are secondary
+		topLevelNames[meta.name] = struct{}{}
+		ambiguousNames[meta.name]++
+		ambiguousTags[meta.name]++
+	}
+
+	for _, embfield := range embeddedFields {
+		ambiguousNames[embfield.subfield.meta.name]++
+		if embfield.subfield.meta.tagged {
+			ambiguousTags[embfield.subfield.meta.name]++
+		}
+	}
+
+	for _, embfield := range embeddedFields {
+		subfield := *embfield.subfield
+
+		switch resolveEmbeddedAmbiguity(subfield.meta, topLevelNames, ambiguousNames, ambiguousTags) {
+		case shadowed:
+			continue
+		case ambiguous:
+			return nil, fmt.Errorf("unresolvable ambiguity for field %q in struct %s", subfield.meta.name, t.String())
+		case unambiguous:
+			// all good
+		}
+
+		// Find the parent field index in the struct
+		parentFieldIdx := embfield.ord >> 32
+
+		if embfield.pointer {
+			subfield.codec = mkEmbeddedStructPointerCodec(embfield.subtype.typ, embfield.unexported, subfield.offset, subfield.codec)
+			subfield.offset = embfield.offset
+			// For embedded pointer structs, path should only be the pointer field itself
+			subfield.path = []int{parentFieldIdx}
+		} else {
+			subfield.offset += embfield.offset
+			// For embedded value structs, prepend parent field index to access nested fields
+			subfield.path = append([]int{parentFieldIdx}, subfield.path...)
+		}
+
+		// To prevent dominant flags more than one level below the embeddedFields one.
+		subfield.meta.tagged = false
+
+		// To ensure the order of the fields in the output is the same is in the struct type.
+		subfield.ord = embfield.ord
+
+		fields = append(fields, subfield)
+	}
+
+	for i := range fields {
+		fields[i].prefix = []byte(`,"` + fields[i].meta.name + `":`)
+	}
+
+	sort.Slice(fields, func(i, j int) bool { return fields[i].ord < fields[j].ord })
+	return fields, nil
+}
+
+func parseJsonMeta(f reflect.StructField) jsonMeta {
+	var info jsonMeta
+	info.name = f.Name
+
+	if parts := strings.Split(f.Tag.Get("json"), ","); len(parts) != 0 {
+		if len(parts[0]) != 0 {
+			info.name = parts[0]
+			info.tagged = true
+		}
+
+		if info.name == "-" && len(parts) == 1 {
+			info.ignored = true
+			return info
+		}
+
+		for _, opt := range parts[1:] { // TODO do we want to somehow warn if 'string' is used as an option since I don't want to support it?
+			switch opt {
+			case "omitempty":
+				info.omitempty = true
+			}
+		}
+	}
+
+	return info
+}
+
+type embeddedAmbiguity int
+
+const (
+	unambiguous embeddedAmbiguity = iota
+	shadowed
+	ambiguous
+)
+
+func resolveEmbeddedAmbiguity(meta jsonMeta, topLevelNames map[string]struct{}, nameCounts, tagCounts map[string]int) embeddedAmbiguity {
+	// 1. Shadowing: If a top-level field exists, the embedded one NEVER wins.
+	if _, exists := topLevelNames[meta.name]; exists {
+		return shadowed
+	}
+
+	// 2. No Collision: If this name only appears once in all embedded structs, it's the winner.
+	if nameCounts[meta.name] == 1 {
+		return unambiguous
+	}
+
+	// 3. Tag Dominance: If there are multiple fields with this name,
+	// a field wins ONLY if it is the ONLY one with an explicit tag.
+	if tagCounts[meta.name] == 1 && meta.tagged {
+		return unambiguous
+	}
+
+	// 4. Ambiguity: Multiple tags or zero tags with the same name.
+	if tagCounts[meta.name] != 1 {
+		return ambiguous
+	}
+
+	return shadowed
 }

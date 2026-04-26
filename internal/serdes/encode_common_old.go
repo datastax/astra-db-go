@@ -93,7 +93,7 @@ import (
 //func makeStructEncoder(t reflect.Type) encoder {
 //	type fieldMeta struct {
 //		prefix []byte
-//		index  int
+//		ord  int
 //		enc    encoder
 //	}
 //	var fields []fieldMeta
@@ -112,7 +112,7 @@ import (
 //
 //		fields = append(fields, fieldMeta{
 //			prefix: []byte(prefix),
-//			index:  i,
+//			ord:  i,
 //			enc:    getEncoder(f.Type),
 //		})
 //	}
@@ -121,7 +121,7 @@ import (
 //		for i := range fields {
 //			f := &fields[i]
 //			dst = append(dst, f.prefix...)
-//			dst = f.enc(v.Field(f.index), dst)
+//			dst = f.enc(v.Field(f.ord), dst)
 //		}
 //		return append(dst, '}')
 //	}

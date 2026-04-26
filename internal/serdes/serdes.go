@@ -17,10 +17,26 @@ package serdes
 import "reflect"
 
 func Serialize(data any) ([]byte, error) {
-	return resolveCodecCaching(reflect.TypeOf(data)).encode(encodeCtx{}, []byte{}, reflect.ValueOf(data))
+	v := reflect.ValueOf(data)
+	t := v.Type()
+
+	c, err := resolveCodecCaching(t, seenStructs{}, v.CanAddr())
+	if err != nil {
+		return nil, err
+	}
+
+	return c.encode(encodeCtx{}, []byte{}, v)
 }
 
 func Deserialize(data []byte, res any) error {
-	_, err := resolveCodecCaching(reflect.TypeOf(res)).decode(decodeCtx{}, data, reflect.ValueOf(res))
+	v := reflect.ValueOf(res)
+	t := v.Type()
+
+	c, err := resolveCodecCaching(t, seenStructs{}, v.CanAddr())
+	if err != nil {
+		return err
+	}
+
+	_, err = c.decode(decodeCtx{}, data, v)
 	return err
 }
