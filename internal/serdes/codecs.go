@@ -23,21 +23,10 @@ var (
 	kindCodecs [reflect.String + 1]codec
 )
 
+//go:generate go run -modfile=../../tools/gen-serdes/go.mod ../../tools/gen-serdes/main.go
+
 func init() {
 	kindCodecs[reflect.Bool] = codec{encodeBoolKind, decodeBoolKind}
-
-	for i := reflect.Int; i <= reflect.Int64; i++ {
-		kindCodecs[i] = codec{encodeIntKind, decodeIntKind}
-	}
-
-	for i := reflect.Uint; i <= reflect.Uintptr; i++ {
-		kindCodecs[i] = codec{encodeUintKind, decodeUintKind}
-	}
-
-	for i := reflect.Float32; i <= reflect.Float64; i++ {
-		kindCodecs[i] = codec{encodeFloatKind, decodeFloatKind}
-	}
-
 	kindCodecs[reflect.String] = codec{encodeStringKind, decodeStringKind}
 }
 
@@ -58,19 +47,12 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) (codec,
 	}
 
 	if t.Implements(astraCodecType) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-		return mkCustomCodec(t), nil
+		return mkCustomCodec(t)
 	}
 
 	k := t.Kind()
 	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
 		return kindCodecs[k], nil
-	}
-
-	switch k {
-	case reflect.Ptr:
-		return mkPointerCodec(t, seen)
-	case reflect.Struct:
-		return mkStructCodec(t, seen, canAddr)
 	}
 
 	switch t {
@@ -85,6 +67,10 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) (codec,
 	}
 
 	switch k {
+	case reflect.Ptr:
+		return mkPointerCodec(t, seen)
+	case reflect.Struct:
+		return mkStructCodec(t, seen, canAddr)
 	}
 
 	panic("unsupported type: " + t.String())
@@ -95,11 +81,18 @@ func cache(t reflect.Type, c codec) codec {
 	return c
 }
 
-func mkCustomCodec(t reflect.Type) codec {
-	return cache(t, codec{
-		encodeCustom(t),
-		decodeCustom(t),
-	})
+func mkCustomCodec(t reflect.Type) (codec, error) {
+	encode, err := encodeCustom(t)
+	if err != nil {
+		return codec{}, err
+	}
+
+	decode, err := decodeCustom(t)
+	if err != nil {
+		return codec{}, err
+	}
+
+	return cache(t, codec{encode, decode}), nil
 }
 
 func mkPointerCodec(t reflect.Type, seen seenStructs) (codec, error) {
@@ -112,7 +105,7 @@ func mkPointerCodec(t reflect.Type, seen seenStructs) (codec, error) {
 
 	return cache(t, codec{
 		encodePointer(c.encode),
-		decodePointer(c.decode),
+		decodePointer(c.decode, el),
 	}), nil
 }
 

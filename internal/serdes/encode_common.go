@@ -3,123 +3,107 @@ package serdes
 import (
 	"fmt"
 	"reflect"
-	"strconv"
+	"unsafe"
 )
 
-type encoder func(ctx encodeCtx, dst []byte, v reflect.Value) ([]byte, error)
+type encoder func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error)
 
 type encodeCtx struct {
 	ptrDepth int
-	ptrSeen  map[uintptr]struct{}
+	ptrSeen  map[unsafe.Pointer]struct{}
 }
 
 const startDetectingCyclesAfter = 1000
 
-func encodeBoolKind(_ encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-	return strconv.AppendBool(dst, v.Bool()), nil
+func encodeBoolKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if *(*bool)(p) {
+		return append(dst, "true"...), nil
+	}
+	return append(dst, "false"...), nil
 }
 
-func encodeIntKind(_ encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-	return strconv.AppendInt(dst, v.Int(), 10), nil
+func encodeStringKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return appendString(dst, *(*string)(p)), nil
 }
 
-func encodeUintKind(_ encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-	return strconv.AppendUint(dst, v.Uint(), 10), nil
-}
-
-func encodeFloatKind(_ encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-	return strconv.AppendFloat(dst, v.Float(), 'g', -1, 64), nil
-}
-
-func encodeStringKind(_ encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-	return appendString(dst, v.String()), nil
-}
-
-func encodeNull(_ encodeCtx, dst []byte, _ reflect.Value) ([]byte, error) {
+func encodeNull(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
 	return append(dst, "null"...), nil
 }
 
 func encodePointer(encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-		if v.IsNil() {
-			return encodeNull(ctx, dst, v)
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		p = *(*unsafe.Pointer)(p)
+
+		if p == nil {
+			return encodeNull(ctx, dst, p)
 		}
 
-		// Cycle detection
-		ptr := v.Pointer()
 		if ctx.ptrDepth++; ctx.ptrDepth >= startDetectingCyclesAfter {
 			if ctx.ptrSeen == nil {
-				ctx.ptrSeen = make(map[uintptr]struct{})
+				ctx.ptrSeen = make(map[unsafe.Pointer]struct{})
 			}
-			if _, seen := ctx.ptrSeen[ptr]; seen {
-				return dst, fmt.Errorf("encountered a cycle via %s", v.Type())
+			if _, seen := ctx.ptrSeen[p]; seen {
+				return dst, fmt.Errorf("encountered a cycle via pointer %p", p)
 			}
-			ctx.ptrSeen[ptr] = struct{}{}
-			defer delete(ctx.ptrSeen, ptr)
+			ctx.ptrSeen[p] = struct{}{}
+			defer delete(ctx.ptrSeen, p)
 		}
 
-		return encode(ctx, dst, v.Elem())
+		return encode(ctx, dst, p)
 	}
 }
 
-func encodeCustom(t reflect.Type) encoder {
-	baseImplements := t.Implements(astraCodecType)
+func encodeCustom(t reflect.Type) (encoder, error) {
+	if !t.Implements(astraCodecType) && !reflect.PointerTo(t).Implements(astraCodecType) {
+		return nil, fmt.Errorf("type %v does not implement AstraCodec", t)
+	}
 
-	return func(ctx encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-		if baseImplements && v.CanAddr() {
-			v = v.Addr()
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		if p == nil {
+			return append(dst, 0xc0), nil
 		}
 
-		if v.Kind() == reflect.Pointer && v.IsNil() {
-			return encodeNull(ctx, dst, v)
-		}
+		// NewAt(t, p) creates a Value representing a pointer to the data at p.
+		// Interface() boxes that pointer. Go handles the method dispatch
+		// whether AstraCodec is on the value or the pointer.
+		codec := reflect.NewAt(t, p).Interface().(AstraCodec)
 
-		res := v.Interface().(AstraCodec).ToAstraValue()
-		resValue := reflect.ValueOf(res)
-
-		c, err := resolveCodecCaching(resValue.Type(), seenStructs{}, resValue.CanAddr())
+		res := codec.ToAstraValue()
+		c, err := resolveCodecCaching(reflect.TypeOf(res), seenStructs{}, false)
 		if err != nil {
 			return dst, err
 		}
 
-		return c.encode(ctx, dst, resValue)
-	}
+		// We use the address of 'res' because it's an interface{}
+		return c.encode(ctx, dst, unsafe.Pointer(&res))
+	}, nil
 }
 
 func encodeStruct(info *structInfo) encoder {
-	return func(ctx encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-		//basePtr := (*[3]unsafe.Pointer)(unsafe.Pointer(&v))[1]
-
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		start := len(dst)
 		dst = append(dst, '{')
+		firstField := true
 
-		n := 0
 		for i := range info.fields {
 			f := &info.fields[i]
+			v := unsafe.Pointer(uintptr(p) + f.offset)
 
-			// Calculate field address using the flattened offset
-			//ptr := unsafe.Pointer(uintptr(basePtr) + f.offset)
-
-			// Reconstruct the reflect.Value from the pointer
-			//fieldValue := reflect.NewAt(f.typ, ptr).Elem()
-			fieldValue := v.FieldByIndex(f.path)
-
-			if f.meta.omitempty && fieldValue.IsZero() {
-				continue
-			}
+			//if f.meta.omitempty && isZeroValue(v, f.typ) { TODO
+			//	continue
+			//}
 
 			lengthBeforeKey := len(dst)
 
-			if n != 0 {
-				dst = append(dst, f.prefix...)
-			} else {
+			if firstField {
 				dst = append(dst, f.prefix[1:]...) // skip leading comma for the first field
+				firstField = false
+			} else {
+				dst = append(dst, f.prefix...)
 			}
 
 			var err error
-			dst, err = f.codec.encode(ctx, dst, fieldValue)
-
-			if err != nil {
+			if dst, err = f.codec.encode(ctx, dst, v); err != nil {
 				//goland:noinspection GoTypeAssertionOnErrors
 				if _, ok := err.(rollback); ok {
 					dst = dst[:lengthBeforeKey]
@@ -127,7 +111,6 @@ func encodeStruct(info *structInfo) encoder {
 				}
 				return dst[:start], err
 			}
-			n++
 		}
 
 		return append(dst, '}'), nil
@@ -139,11 +122,11 @@ type rollback struct{}
 func (rollback) Error() string { return "rollback" }
 
 func encodeEmbeddedStructPointer(encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, v reflect.Value) ([]byte, error) {
-		if v.IsNil() {
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		p = *(*unsafe.Pointer)(p)
+		if p == nil {
 			return dst, rollback{}
 		}
-		// Dereference to the actual struct and pass it to the next encoder
-		return encode(ctx, dst, v.Elem())
+		return encode(ctx, dst, p)
 	}
 }

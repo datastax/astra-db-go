@@ -14,29 +14,37 @@
 
 package serdes
 
-import "reflect"
+import (
+	"fmt"
+	"reflect"
+	"unsafe"
+)
 
 func Serialize(data any) ([]byte, error) {
-	v := reflect.ValueOf(data)
-	t := v.Type()
+	t := reflect.TypeOf(data)
+	p := (*iface)(unsafe.Pointer(&data)).ptr
 
-	c, err := resolveCodecCaching(t, seenStructs{}, v.CanAddr())
+	c, err := resolveCodecCaching(t, seenStructs{}, t.Kind() == reflect.Ptr)
 	if err != nil {
 		return nil, err
 	}
 
-	return c.encode(encodeCtx{}, []byte{}, v)
+	return c.encode(encodeCtx{}, []byte{}, p)
 }
 
 func Deserialize(data []byte, res any) error {
-	v := reflect.ValueOf(res)
-	t := v.Type()
+	t := reflect.TypeOf(res)
+	p := (*iface)(unsafe.Pointer(&res)).ptr
 
-	c, err := resolveCodecCaching(t, seenStructs{}, v.CanAddr())
+	if t.Kind() != reflect.Ptr {
+		return fmt.Errorf("deserialize requires a pointer, got %v", t)
+	}
+
+	c, err := resolveCodecCaching(t.Elem(), seenStructs{}, true)
 	if err != nil {
 		return err
 	}
 
-	_, err = c.decode(decodeCtx{}, data, v)
+	_, err = c.decode(decodeCtx{}, data, p)
 	return err
 }

@@ -4,6 +4,7 @@ import (
 	"net"
 	"reflect"
 	"time"
+	"unsafe"
 
 	"github.com/datastax/astra-db-go/datatypes"
 )
@@ -20,3 +21,8 @@ var (
 	timeType   = reflect.TypeFor[time.Time]()
 	ipType     = reflect.TypeFor[net.IP]()
 )
+
+type iface struct {
+	typ unsafe.Pointer
+	ptr unsafe.Pointer
+}

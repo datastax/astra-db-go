@@ -39,7 +39,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 	jsonData, _ := json.Marshal(user)
 
 	// --- SERIALIZATION COMPARISON ---
-	b.Run("Serialize/Custom-Reflect", func(b *testing.B) {
+	b.Run("Serialize/Custom-Unsafe", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			result, _ = Serialize(user)
@@ -54,7 +54,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 	})
 
 	// --- DESERIALIZATION COMPARISON ---
-	b.Run("Deserialize/Custom-Reflect", func(b *testing.B) {
+	b.Run("Deserialize/Custom-Unsafe", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var u User
