@@ -79,3 +79,20 @@ func TestDeserializationBasic(t *testing.T) {
 
 	t.Logf("Deserialized: %+v", result)
 }
+
+func TestSuperAnnoyingMapEncodingDebug(t *testing.T) {
+	type TestStruct struct {
+		Scores map[string]int
+	}
+
+	input := TestStruct{
+		Scores: map[string]int{"math": 95, "english": 88},
+	}
+
+	data, err := Serialize(input)
+	if err != nil {
+		t.Fatalf("Serialize failed: %v", err)
+	}
+
+	t.Logf("Map serialized: %s", string(data))
+}

@@ -78,8 +78,8 @@ func encodeCustom(t reflect.Type) encoder {
 		codec := reflect.NewAt(t, p).Interface().(AstraCodec)
 		res := codec.ToAstraValue()
 
-		return resolveCodecCaching(reflect.TypeOf(res), seenStructs{}, false).
-			encode(ctx, dst, unsafe.Pointer(&res))
+		c, _ := resolveCodec(reflect.TypeOf(res), seenStructs{}, false)
+		return c.encode(ctx, dst, unsafe.Pointer(&res))
 	}
 }
 
@@ -131,6 +131,9 @@ func encodeMap(t reflect.Type, encodeKey, encodeValue encoder) encoder {
 		if m.IsNil() {
 			return append(b, "null"...), nil
 		}
+
+		fmt.Printf("Encoding map of type %s with %s\n", t, m)
+		//fmt.Printf("Encoding map of type %s\n", t)
 
 		keys := m.MapKeys()
 
@@ -201,7 +204,7 @@ func encodeInterface(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	}
 
 	t := reflect.TypeOf(val)
-	c := resolveCodecCaching(t, seenStructs{}, false)
+	c, _ := resolveCodec(t, seenStructs{}, false)
 
 	// Extract the actual pointer to the value from the interface
 	valPtr := (*iface)(unsafe.Pointer(&val)).ptr

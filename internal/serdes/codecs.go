@@ -39,23 +39,31 @@ var nilCodec = codec{
 
 type seenStructs = map[reflect.Type]*structInfo
 
-func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
-	if t == nil || t == nilType {
-		return nilCodec
-	}
-
+func resolveCodecCaching(t reflect.Type, seen seenStructs) codec {
 	cache := cacheLoad()
 	if c, ok := cache[typeid(t)]; ok {
 		return c
 	}
 
+	codec, shouldCache := resolveCodec(t, seen, t.Kind() == reflect.Ptr)
+	if shouldCache {
+		return cacheSet(cacheLoad(), t, codec)
+	}
+	return codec
+}
+
+func resolveCodec(t reflect.Type, seen seenStructs, canAddr bool) (codec, bool) {
+	if t == nil || t == nilType {
+		return nilCodec, false
+	}
+
 	if t.Implements(astraCodecType) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-		return cacheSet(cache, t, mkCustomCodec(t))
+		return mkCustomCodec(t), true
 	}
 
 	k := t.Kind()
 	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
-		return kindCodecs[k]
+		return kindCodecs[k], false
 	}
 
 	switch t {
@@ -71,17 +79,17 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
 
 	switch k {
 	case reflect.Ptr:
-		return cacheSet(cache, t, mkPointerCodec(t, seen))
+		return mkPointerCodec(t, seen), true
 	case reflect.Struct:
-		return cacheSet(cache, t, mkStructCodec(t, seen, canAddr))
+		return mkStructCodec(t, seen, canAddr), true
 	case reflect.Map:
-		return cacheSet(cache, t, mkMapCodec(t, seen))
+		return mkMapCodec(t, seen), true
 	case reflect.Slice:
-		return cacheSet(cache, t, mkSliceCodec(t, seen))
+		return mkSliceCodec(t, seen), true
 	case reflect.Array:
-		return cacheSet(cache, t, mkArrayCodec(t, seen, canAddr))
+		return mkArrayCodec(t, seen, canAddr), true
 	case reflect.Interface:
-		return cacheSet(cache, t, mkInterfaceCodec())
+		return mkInterfaceCodec(), true
 	default:
 		panic("unsupported type: " + t.String())
 	}
@@ -120,7 +128,7 @@ func mkCustomCodec(t reflect.Type) codec {
 
 func mkPointerCodec(t reflect.Type, seen seenStructs) codec {
 	el := t.Elem()
-	c := resolveCodecCaching(el, seen, true)
+	c, _ := resolveCodec(el, seen, true)
 
 	return codec{
 		encodePointer(c.encode),
@@ -152,8 +160,9 @@ func mkMapCodec(t reflect.Type, seen seenStructs) codec {
 	kt := t.Key()
 	vt := t.Elem()
 
-	kc := resolveCodecCaching(kt, seen, false)
-	vc := resolveCodecCaching(vt, seen, false)
+	//kc := resolveCodecCaching(kt, seen, false)
+	kc := kindCodecs[reflect.String]
+	vc, _ := resolveCodec(vt, seen, false)
 
 	kz := reflect.Zero(kt)
 	vz := reflect.Zero(vt)
@@ -170,7 +179,7 @@ func mkMapCodec(t reflect.Type, seen seenStructs) codec {
 
 func mkSliceCodec(t reflect.Type, seen seenStructs) codec {
 	elem := t.Elem()
-	c := resolveCodecCaching(elem, seen, true)
+	c, _ := resolveCodec(elem, seen, true)
 	size := elem.Size()
 
 	return codec{
@@ -184,7 +193,7 @@ func mkArrayCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	n := t.Len()
 	size := elem.Size()
 
-	c := resolveCodecCaching(elem, seen, canAddr)
+	c, _ := resolveCodec(elem, seen, canAddr)
 
 	return codec{
 		encodeArray(n, size, c.encode),
@@ -316,7 +325,7 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			}
 		}
 
-		c := resolveCodecCaching(f.Type, seen, canAddr)
+		c, _ := resolveCodec(f.Type, seen, canAddr)
 
 		fields = append(fields, fieldInfo{
 			codec:  c,

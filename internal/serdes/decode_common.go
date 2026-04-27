@@ -88,7 +88,7 @@ func decodeCustom(t reflect.Type) decoder {
 		var codec AstraCodec
 		codec = reflect.NewAt(t, p).Interface().(AstraCodec)
 
-		c := resolveCodecCaching(reflect.TypeOf((*any)(nil)).Elem(), seenStructs{}, false)
+		c, _ := resolveCodec(reflect.TypeOf((*any)(nil)).Elem(), seenStructs{}, false)
 
 		var intermediate any
 		src, err := c.decode(ctx, src, unsafe.Pointer(&intermediate))
@@ -387,37 +387,37 @@ func decodeMap(kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue
 func decodeSlice(size uintptr, t reflect.Type, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
-		
+
 		if src, ok := consumeNull(src); ok {
 			*(*slice)(p) = slice{}
 			return src, nil
 		}
-		
+
 		if len(src) == 0 || src[0] != '[' {
 			return src, fmt.Errorf("expected '['")
 		}
 		src = src[1:]
-		
+
 		s := (*slice)(p)
 		s.len = 0
-		
+
 		for {
 			src = skipWS(src)
-			
+
 			if len(src) != 0 && src[0] == ']' {
 				if s.data == nil {
 					s.data = unsafe.Pointer(&empty)
 				}
 				return src[1:], nil
 			}
-			
+
 			if s.len != 0 {
 				if len(src) == 0 || src[0] != ',' {
 					return src, fmt.Errorf("expected ','")
 				}
 				src = skipWS(src[1:])
 			}
-			
+
 			if s.len == s.cap {
 				c := s.cap
 				if c == 0 {
@@ -427,14 +427,14 @@ func decodeSlice(size uintptr, t reflect.Type, decode decoder) decoder {
 				}
 				*s = extendSlice(t, s, c)
 			}
-			
+
 			elemPtr := unsafe.Pointer(uintptr(s.data) + uintptr(s.len)*size)
 			var err error
 			src, err = decode(ctx, src, elemPtr)
 			if err != nil {
 				return src, err
 			}
-			
+
 			s.len++
 		}
 	}
@@ -455,26 +455,26 @@ func extendSlice(t reflect.Type, s *slice, newCap int) slice {
 func decodeArray(n int, size uintptr, t reflect.Type, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
-		
+
 		if src, ok := consumeNull(src); ok {
 			return src, nil
 		}
-		
+
 		if len(src) == 0 || src[0] != '[' {
 			return src, fmt.Errorf("expected '['")
 		}
 		src = src[1:]
-		
+
 		for i := 0; i < n; i++ {
 			src = skipWS(src)
-			
+
 			if i > 0 {
 				if len(src) == 0 || src[0] != ',' {
 					return src, fmt.Errorf("expected ','")
 				}
 				src = skipWS(src[1:])
 			}
-			
+
 			elemPtr := unsafe.Pointer(uintptr(p) + uintptr(i)*size)
 			var err error
 			src, err = decode(ctx, src, elemPtr)
@@ -482,23 +482,23 @@ func decodeArray(n int, size uintptr, t reflect.Type, decode decoder) decoder {
 				return src, err
 			}
 		}
-		
+
 		src = skipWS(src)
-		
+
 		for {
 			if len(src) == 0 {
 				return src, fmt.Errorf("expected ']'")
 			}
-			
+
 			if src[0] == ']' {
 				return src[1:], nil
 			}
-			
+
 			if src[0] != ',' {
 				return src, fmt.Errorf("expected ',' or ']'")
 			}
 			src = skipWS(src[1:])
-			
+
 			src, err := skipValue(src)
 			if err != nil {
 				return src, err
@@ -509,14 +509,14 @@ func decodeArray(n int, size uintptr, t reflect.Type, decode decoder) decoder {
 
 func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
-	
+
 	if len(src) == 0 {
 		return src, fmt.Errorf("unexpected end of input")
 	}
-	
+
 	var val any
 	var err error
-	
+
 	switch src[0] {
 	case 'n':
 		if src, ok := consumeNull(src); ok {
@@ -524,23 +524,23 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 			return src, nil
 		}
 		return src, fmt.Errorf("expected null")
-		
+
 	case 't', 'f':
 		var b bool
 		src, err = decodeBoolKind(decodeCtx{}, src, unsafe.Pointer(&b))
 		val = b
-		
+
 	case '"':
 		var s string
 		src, err = decodeStringKind(decodeCtx{}, src, unsafe.Pointer(&s))
 		val = s
-		
+
 	case '[':
 		var arr []any
 		arrType := reflect.TypeOf(arr)
 		src, err = decodeSlice(unsafe.Sizeof(arr[0]), arrType, decodeInterface)(decodeCtx{}, src, unsafe.Pointer(&arr))
 		val = arr
-		
+
 	case '{':
 		var m map[string]any
 		kt := reflect.TypeOf("")
@@ -549,7 +549,7 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		vz := reflect.Zero(vt)
 		src, err = decodeMap(kt, vt, kz, vz, decodeStringKind, decodeInterface)(decodeCtx{}, src, unsafe.Pointer(&m))
 		val = m
-		
+
 	default:
 		if src[0] == '-' || (src[0] >= '0' && src[0] <= '9') {
 			var f float64
@@ -559,11 +559,11 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 			return src, fmt.Errorf("unexpected character: %c", src[0])
 		}
 	}
-	
+
 	if err != nil {
 		return src, err
 	}
-	
+
 	*(*any)(p) = val
 	return src, nil
 }
