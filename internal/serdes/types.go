@@ -26,3 +26,7 @@ type iface struct {
 	typ unsafe.Pointer
 	ptr unsafe.Pointer
 }
+
+func typeid(t reflect.Type) unsafe.Pointer {
+	return (*iface)(unsafe.Pointer(&t)).ptr
+}

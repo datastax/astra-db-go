@@ -2,10 +2,12 @@ package serdes
 
 import (
 	"fmt"
+	"maps"
 	"reflect"
 	"sort"
 	"strings"
-	"sync"
+	"sync/atomic"
+	"unsafe"
 )
 
 type codec struct {
@@ -19,7 +21,7 @@ type AstraCodec interface {
 }
 
 var (
-	typeCodecs sync.Map // map[reflect.Type]codec
+	typeCodecs atomic.Pointer[map[unsafe.Pointer]codec]
 	kindCodecs [reflect.String + 1]codec
 )
 
@@ -37,22 +39,23 @@ var nilCodec = codec{
 
 type seenStructs = map[reflect.Type]*structInfo
 
-func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) (codec, error) {
+func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	if t == nil || t == nilType {
-		return nilCodec, nil
+		return nilCodec
 	}
 
-	if c, ok := typeCodecs.Load(t); ok {
-		return c.(codec), nil
+	cache := cacheLoad()
+	if c, ok := cache[typeid(t)]; ok {
+		return c
 	}
 
 	if t.Implements(astraCodecType) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-		return mkCustomCodec(t)
+		return cacheSet(cache, t, mkCustomCodec(t))
 	}
 
 	k := t.Kind()
 	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
-		return kindCodecs[k], nil
+		return kindCodecs[k]
 	}
 
 	switch t {
@@ -68,80 +71,83 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) (codec,
 
 	switch k {
 	case reflect.Ptr:
-		return mkPointerCodec(t, seen)
+		return cacheSet(cache, t, mkPointerCodec(t, seen))
 	case reflect.Struct:
-		return mkStructCodec(t, seen, canAddr)
+		return cacheSet(cache, t, mkStructCodec(t, seen, canAddr))
+	default:
+		panic("unsupported type: " + t.String())
 	}
-
-	panic("unsupported type: " + t.String())
 }
 
-func cache(t reflect.Type, c codec) codec {
-	typeCodecs.Store(t, c)
+func cacheLoad() map[unsafe.Pointer]codec {
+	p := typeCodecs.Load()
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
+	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
+	maps.Copy(newCache, oldCache)
+	newCache[typeid(t)] = c
+	typeCodecs.Store(&newCache)
 	return c
 }
 
-func mkCustomCodec(t reflect.Type) (codec, error) {
-	encode, err := encodeCustom(t)
-	if err != nil {
-		return codec{}, err
+func mkErroredCodec(err error) codec {
+	return codec{
+		encodeError(err),
+		decodeError(err),
 	}
-
-	decode, err := decodeCustom(t)
-	if err != nil {
-		return codec{}, err
-	}
-
-	return cache(t, codec{encode, decode}), nil
 }
 
-func mkPointerCodec(t reflect.Type, seen seenStructs) (codec, error) {
+func mkCustomCodec(t reflect.Type) codec {
+	return codec{encodeCustom(t), decodeCustom(t)}
+}
+
+func mkPointerCodec(t reflect.Type, seen seenStructs) codec {
 	el := t.Elem()
+	c := resolveCodecCaching(el, seen, true)
 
-	c, err := resolveCodecCaching(el, seen, true)
-	if err != nil {
-		return codec{}, err
-	}
-
-	return cache(t, codec{
+	return codec{
 		encodePointer(c.encode),
 		decodePointer(c.decode, el),
-	}), nil
+	}
 }
 
-func mkStructCodec(t reflect.Type, seen seenStructs, canAddr bool) (codec, error) {
+func mkStructCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	info, err := compileStructInfo(t, seen, canAddr)
 
 	if err != nil {
-		return codec{}, err
+		return mkErroredCodec(fmt.Errorf("failed to compile struct %s: %w", t.String(), err))
 	}
 
-	return cache(t, codec{
+	return codec{
 		encodeStruct(info),
 		decodeStruct(info),
-	}), nil
+	}
 }
 
 func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
-	return cache(t, codec{
+	return codec{
 		encodeEmbeddedStructPointer(field.encode),
 		decodeEmbeddedStructPointer(t, unexported, offset, field.decode),
-	})
+	}
 }
 
 type structInfo struct {
-	typ     reflect.Type
 	fields  []fieldInfo
-	offsets map[string]int // field name -> ord in fields slice
+	offsets map[string]int
+	typ     reflect.Type
 }
 
 type fieldInfo struct {
-	typ    reflect.Type
-	offset uintptr
-	path   []int
-	ord    int
-	codec  codec
 	prefix []byte
+	typ    reflect.Type
+	codec  codec
+	offset uintptr
+	ord    int
 	meta   jsonMeta
 }
 
@@ -159,7 +165,7 @@ func compileStructInfo(t reflect.Type, seen seenStructs, canAddr bool) (*structI
 
 	info := &structInfo{
 		typ:     t,
-		offsets: make(map[string]int),
+		offsets: make(map[string]int, t.NumField()),
 	}
 	seen[t] = info
 
@@ -194,7 +200,7 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 	ambiguousTags := make(map[string]int)
 
 	fields := make([]fieldInfo, 0, t.NumField())
-	embeddedFields := make([]embeddedField, 0, 10)
+	embeddedFields := make([]embeddedField, 0, 5)
 
 	for i := range t.NumField() {
 		f := t.Field(i)
@@ -247,10 +253,7 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			}
 		}
 
-		c, err := resolveCodecCaching(f.Type, seen, canAddr)
-		if err != nil {
-			return nil, err
-		}
+		c := resolveCodecCaching(f.Type, seen, canAddr)
 
 		fields = append(fields, fieldInfo{
 			codec:  c,
@@ -258,7 +261,6 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			meta:   meta,
 			ord:    i << 32,
 			typ:    f.Type,
-			path:   f.Index,
 		})
 
 		// Seed the counters so embedded fields know they are secondary
@@ -286,18 +288,11 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			// all good
 		}
 
-		// Find the parent field index in the struct
-		parentFieldIdx := embfield.ord >> 32
-
 		if embfield.pointer {
 			subfield.codec = mkEmbeddedStructPointerCodec(embfield.subtype.typ, embfield.unexported, subfield.offset, subfield.codec)
 			subfield.offset = embfield.offset
-			// For embedded pointer structs, path should only be the pointer field itself
-			subfield.path = []int{parentFieldIdx}
 		} else {
 			subfield.offset += embfield.offset
-			// For embedded value structs, prepend parent field index to access nested fields
-			subfield.path = append([]int{parentFieldIdx}, subfield.path...)
 		}
 
 		// To prevent dominant flags more than one level below the embeddedFields one.

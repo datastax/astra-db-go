@@ -13,6 +13,12 @@ type decoder func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 type decodeCtx struct {
 }
 
+func decodeError(err error) decoder {
+	return func(_ decodeCtx, src []byte, _ unsafe.Pointer) ([]byte, error) {
+		return src, err
+	}
+}
+
 func decodeBoolKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
@@ -69,9 +75,9 @@ func decodePointer(decode decoder, t reflect.Type) decoder {
 	}
 }
 
-func decodeCustom(t reflect.Type) (decoder, error) {
+func decodeCustom(t reflect.Type) decoder {
 	if !t.Implements(astraCodecType) && !reflect.PointerTo(t).Implements(astraCodecType) {
-		return nil, fmt.Errorf("type %v does not implement AstraCodec", t)
+		return decodeError(fmt.Errorf("type %v does not implement AstraCodec", t))
 	}
 
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -82,13 +88,10 @@ func decodeCustom(t reflect.Type) (decoder, error) {
 		var codec AstraCodec
 		codec = reflect.NewAt(t, p).Interface().(AstraCodec)
 
-		c, err := resolveCodecCaching(reflect.TypeOf((*any)(nil)).Elem(), seenStructs{}, false)
-		if err != nil {
-			return src, err
-		}
+		c := resolveCodecCaching(reflect.TypeOf((*any)(nil)).Elem(), seenStructs{}, false)
 
 		var intermediate any
-		src, err = c.decode(ctx, src, unsafe.Pointer(&intermediate))
+		src, err := c.decode(ctx, src, unsafe.Pointer(&intermediate))
 		if err != nil {
 			return src, err
 		}
@@ -98,7 +101,7 @@ func decodeCustom(t reflect.Type) (decoder, error) {
 		}
 
 		return src, nil
-	}, nil
+	}
 }
 
 func decodeStruct(info *structInfo) decoder {
@@ -257,11 +260,12 @@ func consumeNull(src []byte) ([]byte, bool) {
 }
 
 func skipWS(src []byte) []byte {
-	for i := 0; i < len(src); i++ {
+	for i := range src {
 		if src[i] > ' ' {
 			return src[i:]
 		}
 	}
+
 	return nil
 }
 
@@ -273,21 +277,21 @@ func skipValue(src []byte) ([]byte, error) {
 
 	switch src[0] {
 	case '"':
-		_, n, err := parseStringRaw(src)
+		src, _, err := decodeString(src)
 		if err != nil {
-			return src[n:], err
+			return src, err
 		}
-		return src[n:], nil
+		return src, nil
 
 	case '{', '[':
-		depth, open, close := 0, src[0], src[0]+2
+		depth, open, cls := 0, src[0], src[0]+2
 		if open == '{' {
-			close = '}'
+			cls = '}'
 		}
 		for i := 0; i < len(src); i++ {
 			if src[i] == open {
 				depth++
-			} else if src[i] == close {
+			} else if src[i] == cls {
 				depth--
 			}
 			if depth == 0 {

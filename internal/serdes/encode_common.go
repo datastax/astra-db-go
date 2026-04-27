@@ -15,6 +15,12 @@ type encodeCtx struct {
 
 const startDetectingCyclesAfter = 1000
 
+func encodeError(err error) encoder {
+	return func(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
+		return dst, err
+	}
+}
+
 func encodeBoolKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if *(*bool)(p) {
 		return append(dst, "true"...), nil
@@ -53,9 +59,9 @@ func encodePointer(encode encoder) encoder {
 	}
 }
 
-func encodeCustom(t reflect.Type) (encoder, error) {
+func encodeCustom(t reflect.Type) encoder {
 	if !t.Implements(astraCodecType) && !reflect.PointerTo(t).Implements(astraCodecType) {
-		return nil, fmt.Errorf("type %v does not implement AstraCodec", t)
+		return encodeError(fmt.Errorf("type %v does not implement AstraCodec", t))
 	}
 
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -63,20 +69,12 @@ func encodeCustom(t reflect.Type) (encoder, error) {
 			return append(dst, 0xc0), nil
 		}
 
-		// NewAt(t, p) creates a Value representing a pointer to the data at p.
-		// Interface() boxes that pointer. Go handles the method dispatch
-		// whether AstraCodec is on the value or the pointer.
 		codec := reflect.NewAt(t, p).Interface().(AstraCodec)
-
 		res := codec.ToAstraValue()
-		c, err := resolveCodecCaching(reflect.TypeOf(res), seenStructs{}, false)
-		if err != nil {
-			return dst, err
-		}
 
-		// We use the address of 'res' because it's an interface{}
-		return c.encode(ctx, dst, unsafe.Pointer(&res))
-	}, nil
+		return resolveCodecCaching(reflect.TypeOf(res), seenStructs{}, false).
+			encode(ctx, dst, unsafe.Pointer(&res))
+	}
 }
 
 func encodeStruct(info *structInfo) encoder {

@@ -46,12 +46,12 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		}
 	})
 
-	b.Run("Serialize/StdJSON", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			result, _ = json.Marshal(user)
-		}
-	})
+	//b.Run("Serialize/StdJSON", func(b *testing.B) {
+	//	b.ReportAllocs()
+	//	for i := 0; i < b.N; i++ {
+	//		result, _ = json.Marshal(user)
+	//	}
+	//})
 
 	// --- DESERIALIZATION COMPARISON ---
 	b.Run("Deserialize/Custom-Unsafe", func(b *testing.B) {
@@ -63,12 +63,12 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		}
 	})
 
-	b.Run("Deserialize/StdJSON", func(b *testing.B) {
-		b.ReportAllocs()
-		for i := 0; i < b.N; i++ {
-			var u User
-			_ = json.Unmarshal(jsonData, &u)
-			userResult = u
-		}
-	})
+	//b.Run("Deserialize/StdJSON", func(b *testing.B) {
+	//	b.ReportAllocs()
+	//	for i := 0; i < b.N; i++ {
+	//		var u User
+	//		_ = json.Unmarshal(jsonData, &u)
+	//		userResult = u
+	//	}
+	//})
 }
