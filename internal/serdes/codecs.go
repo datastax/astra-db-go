@@ -75,6 +75,8 @@ func resolveCodec(t reflect.Type, seen seenStructs, canAddr bool) (codec, bool) 
 		panic("time codec")
 	case ipType:
 		panic("ip codec")
+	case rawMessageType:
+		return codec{encodeRawMessage, decodeRawMessage}, true
 	}
 
 	switch k {
@@ -160,7 +162,6 @@ func mkMapCodec(t reflect.Type, seen seenStructs) codec {
 	kt := t.Key()
 	vt := t.Elem()
 
-	//kc := resolveCodecCaching(kt, seen, false)
 	kc := kindCodecs[reflect.String]
 	vc, _ := resolveCodec(vt, seen, false)
 

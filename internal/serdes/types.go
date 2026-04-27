@@ -1,6 +1,7 @@
 package serdes
 
 import (
+	"encoding/json"
 	"net"
 	"reflect"
 	"time"
@@ -14,12 +15,13 @@ var (
 )
 
 var (
-	nilType    = reflect.TypeOf(nil)
-	anyType    = reflect.TypeFor[any]()
-	uuidType   = reflect.TypeFor[datatypes.UUID]()
-	vectorType = reflect.TypeFor[datatypes.DataAPIVector]()
-	timeType   = reflect.TypeFor[time.Time]()
-	ipType     = reflect.TypeFor[net.IP]()
+	nilType        = reflect.TypeOf(nil)
+	anyType        = reflect.TypeFor[any]()
+	uuidType       = reflect.TypeFor[datatypes.UUID]()
+	vectorType     = reflect.TypeFor[datatypes.DataAPIVector]()
+	timeType       = reflect.TypeFor[time.Time]()
+	ipType         = reflect.TypeFor[net.IP]()
+	rawMessageType = reflect.TypeFor[json.RawMessage]()
 )
 
 type iface struct {

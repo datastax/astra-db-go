@@ -36,6 +36,8 @@ func encodeBoolKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 
 func encodeStringKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return appendString(dst, *(*string)(p)), nil
+
+	//return strconv.AppendQuote(dst, *(*string)(p)), nil
 }
 
 func encodeNull(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
@@ -219,4 +221,66 @@ func encodeEmbeddedStructPointer(encode encoder) encoder {
 		}
 		return encode(ctx, dst, p)
 	}
+}
+
+func encodeRawMessage(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	v := *(*[]byte)(p)
+
+	if v == nil {
+		return append(dst, "null"...), nil
+	}
+
+	_, err := decodeInterface(decodeCtx{}, v, unsafe.Pointer(&v))
+	if err != nil {
+		return dst, fmt.Errorf("invalid raw message: %w", err)
+	}
+
+	return append(dst, v...), nil
+}
+
+// Small lookup table for hex conversion
+const hexTable = "0123456789abcdef"
+
+func appendString(dst []byte, s string) []byte {
+	// 1. Pre-allocate: At minimum, we need the original length + 2 quotes.
+	// This reduces the number of heap allocations during append.
+	dst = append(dst, '"')
+
+	start := 0
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+
+		// Fast path: ASCII characters that don't need escaping.
+		// We skip them to avoid frequent small appends.
+		if b >= 0x20 && b != '\\' && b != '"' {
+			continue
+		}
+
+		// Flush the "clean" segment we've skipped over so far
+		dst = append(dst, s[start:i]...)
+
+		// 2. Optimized switch: Use direct byte appends for common escapes.
+		switch b {
+		case '"':
+			dst = append(dst, '\\', '"')
+		case '\\':
+			dst = append(dst, '\\', '\\')
+		case '\n':
+			dst = append(dst, '\\', 'n')
+		case '\r':
+			dst = append(dst, '\\', 'r')
+		case '\t':
+			dst = append(dst, '\\', 't')
+		default:
+			// 3. Simplified hex escape for control characters (0x00 - 0x1F)
+			// JSON spec requires \u00xx for these.
+			// Replacing strconv.QuoteRune with a manual hex append is much faster.
+			dst = append(dst, '\\', 'u', '0', '0', hexTable[b>>4], hexTable[b&0x0f])
+		}
+		start = i + 1
+	}
+
+	// Append the remaining tail and the closing quote
+	dst = append(dst, s[start:]...)
+	return append(dst, '"')
 }

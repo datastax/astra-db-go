@@ -206,7 +206,7 @@ func skipWS(src []byte) []byte {
 func skipValue(src []byte) ([]byte, error) {
 	src = skipWS(src)
 	if len(src) == 0 {
-		return src, errInvalid
+		return src, fmt.Errorf("unexpected end of input")
 	}
 
 	switch src[0] {
@@ -233,7 +233,7 @@ func skipValue(src []byte) ([]byte, error) {
 				}
 			}
 		}
-		return src, errInvalid
+		return src, fmt.Errorf("unexpected end of input while skipping value")
 
 	default:
 		i := 0
@@ -500,4 +500,21 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 
 	*(*any)(p) = val
 	return src, nil
+}
+
+func decodeRawMessage(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src = skipWS(src)
+
+	start := src
+	end, err := skipValue(src)
+	if err != nil {
+		return src, err
+	}
+
+	length := len(start) - len(end)
+	copied := make([]byte, length)
+	copy(copied, start[:length])
+
+	*(*[]byte)(p) = copied
+	return end, nil
 }
