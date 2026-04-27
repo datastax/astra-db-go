@@ -46,6 +46,10 @@ func (bp *bufferPool) Put(b *[]byte) {
 }
 
 func Serialize(data any) ([]byte, error) {
+	if data == nil {
+		return []byte("null"), nil
+	}
+
 	t := reflect.TypeOf(data)
 	p := (*iface)(unsafe.Pointer(&data)).ptr
 

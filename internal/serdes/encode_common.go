@@ -119,6 +119,107 @@ type rollback struct{}
 
 func (rollback) Error() string { return "rollback" }
 
+func encodeMap(t reflect.Type, encodeKey, encodeValue encoder) encoder {
+	return func(ctx encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
+		m := reflect.NewAt(t, p).Elem()
+		if m.IsNil() {
+			return append(b, "null"...), nil
+		}
+
+		keys := m.MapKeys()
+
+		start := len(b)
+		var err error
+		b = append(b, '{')
+
+		for i, k := range keys {
+			v := m.MapIndex(k)
+
+			if i != 0 {
+				b = append(b, ',')
+			}
+
+			if b, err = encodeKey(ctx, b, (*iface)(unsafe.Pointer(&k)).ptr); err != nil {
+				return b[:start], err
+			}
+
+			b = append(b, ':')
+
+			if b, err = encodeValue(ctx, b, (*iface)(unsafe.Pointer(&v)).ptr); err != nil {
+				return b[:start], err
+			}
+		}
+
+		b = append(b, '}')
+		return b, nil
+	}
+}
+
+func encodeSlice(size uintptr, encode encoder) encoder {
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		s := (*slice)(p)
+		
+		if s.data == nil {
+			return append(dst, "null"...), nil
+		}
+		
+		dst = append(dst, '[')
+		
+		for i := 0; i < s.len; i++ {
+			if i > 0 {
+				dst = append(dst, ',')
+			}
+			
+			elemPtr := unsafe.Pointer(uintptr(s.data) + uintptr(i)*size)
+			var err error
+			dst, err = encode(ctx, dst, elemPtr)
+			if err != nil {
+				return dst, err
+			}
+		}
+		
+		return append(dst, ']'), nil
+	}
+}
+
+func encodeArray(n int, size uintptr, encode encoder) encoder {
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		dst = append(dst, '[')
+		
+		for i := 0; i < n; i++ {
+			if i > 0 {
+				dst = append(dst, ',')
+			}
+			
+			elemPtr := unsafe.Pointer(uintptr(p) + uintptr(i)*size)
+			var err error
+			dst, err = encode(ctx, dst, elemPtr)
+			if err != nil {
+				return dst, err
+			}
+		}
+		
+		return append(dst, ']'), nil
+	}
+}
+
+func encodeInterface(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	val := *(*any)(p)
+	
+	if val == nil {
+		return append(dst, "null"...), nil
+	}
+	
+	t := reflect.TypeOf(val)
+	c := resolveCodecCaching(t, seenStructs{}, false)
+	
+	// Extract the actual pointer to the value from the interface
+	valPtr := (*iface)(unsafe.Pointer(&val)).ptr
+	
+	return c.encode(ctx, dst, valPtr)
+}
+
+
 func encodeEmbeddedStructPointer(encode encoder) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		p = *(*unsafe.Pointer)(p)

@@ -27,6 +27,12 @@ type iface struct {
 	ptr unsafe.Pointer
 }
 
+type slice struct {
+	data unsafe.Pointer
+	len  int
+	cap  int
+}
+
 func typeid(t reflect.Type) unsafe.Pointer {
 	return (*iface)(unsafe.Pointer(&t)).ptr
 }

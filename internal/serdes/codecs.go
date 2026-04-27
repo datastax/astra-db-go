@@ -74,6 +74,14 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
 		return cacheSet(cache, t, mkPointerCodec(t, seen))
 	case reflect.Struct:
 		return cacheSet(cache, t, mkStructCodec(t, seen, canAddr))
+	case reflect.Map:
+		return cacheSet(cache, t, mkMapCodec(t, seen))
+	case reflect.Slice:
+		return cacheSet(cache, t, mkSliceCodec(t, seen))
+	case reflect.Array:
+		return cacheSet(cache, t, mkArrayCodec(t, seen))
+	case reflect.Interface:
+		return cacheSet(cache, t, mkInterfaceCodec())
 	default:
 		panic("unsupported type: " + t.String())
 	}
@@ -133,6 +141,53 @@ func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintpt
 	return codec{
 		encodeEmbeddedStructPointer(field.encode),
 		decodeEmbeddedStructPointer(t, unexported, offset, field.decode),
+	}
+}
+
+func mkMapCodec(t reflect.Type, seen seenStructs) codec {
+	kt := t.Key()
+	vt := t.Elem()
+	
+	kc := resolveCodecCaching(kt, seen, false)
+	vc := resolveCodecCaching(vt, seen, false)
+	
+	kz := reflect.Zero(kt)
+	vz := reflect.Zero(vt)
+	
+	return codec{
+		encodeMap(t, kc.encode, vc.encode),
+		decodeMap(kt, vt, kz, vz, kc.decode, vc.decode),
+	}
+}
+
+func mkSliceCodec(t reflect.Type, seen seenStructs) codec {
+	elem := t.Elem()
+	c := resolveCodecCaching(elem, seen, false)
+	size := elem.Size()
+	
+	return codec{
+		encodeSlice(size, c.encode),
+		decodeSlice(size, t, c.decode),
+	}
+}
+
+func mkArrayCodec(t reflect.Type, seen seenStructs) codec {
+	elem := t.Elem()
+	n := t.Len()
+	size := elem.Size()
+	
+	c := resolveCodecCaching(elem, seen, false)
+	
+	return codec{
+		encodeArray(n, size, c.encode),
+		decodeArray(n, size, t, c.decode),
+	}
+}
+
+func mkInterfaceCodec() codec {
+	return codec{
+		encodeInterface,
+		decodeInterface,
 	}
 }
 
