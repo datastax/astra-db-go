@@ -159,6 +159,14 @@ type LexicalOptions struct{}
 
 type RerankOptions struct{}
 
+// CollectionInsertOneOptions represents options for inserting a single document.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type CollectionInsertOneOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 type CollectionInsertManyOptions struct {
 	Ordered     *bool       `json:"ordered,omitempty"`
 	ChunkSize   *int        `json:"-"`
@@ -332,6 +340,32 @@ type CollectionFindOneAndDeleteOptions struct {
 	Sort sort.Sortable `json:"sort,omitempty"`
 	// Projection controls which fields are included or excluded in the returned document.
 	Projection map[string]any `json:"projection,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// Side note: REALLY don't like the following name. But not sure what can be done about it.
+
+// CollectionOptionsOptions represents options for fetching a collection's descriptor.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type CollectionOptionsOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// CollectionCountDocumentsOptions represents options for the countDocuments command.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type CollectionCountDocumentsOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// CollectionEstimatedDocumentCountOptions represents options for the estimatedDocumentCount command.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type CollectionEstimatedDocumentCountOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`

@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/datastax/astra-db-go/cursors"
@@ -70,8 +71,13 @@ func (c *Collection) ClientOptions() *options.APIOptions {
 // for this specific collection.
 //
 // Options passed here override those set on the collection.
-func (c *Collection) Options(ctx context.Context, opts ...options.APIOption) (*results.CollectionDescriptor, error) {
-	collections, err := c.db.ListCollections(ctx, opts...)
+func (c *Collection) Options(ctx context.Context, opts ...options.CollectionOptionsOption) (*results.CollectionDescriptor, error) {
+	// Merge and turn into ListCollectionOptions.
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+	collections, err := c.db.ListCollections(ctx, &options.ListCollectionsOptions{APIOptions: merged.APIOptions})
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +94,6 @@ func (c *Collection) Options(ctx context.Context, opts ...options.APIOption) (*r
 // Database returns the parent database.
 func (c *Collection) Database() *Db {
 	return c.db
-}
-
-// newCmd creates a command for this collection. Will merge opts (if any) and apply them
-// as command-level options.
-func (c *Collection) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return newCmdWithOptions(c.db, c.name, name, payload, c.options, cmdOpts...)
 }
 
 // newCmdWithMergedOptions creates a command with a pre-built *APIOptions cmdOpts,
@@ -128,10 +128,14 @@ type insertOneResponse struct {
 // InsertOne inserts a single document into the collection.
 //
 // Options passed here override those set on the collection.
-func (c *Collection) InsertOne(ctx context.Context, document any, opts ...options.APIOption) (*results.InsertOneResult, error) {
-	cmd := c.newCmd("insertOne", insertOnePayload{
+func (c *Collection) InsertOne(ctx context.Context, document any, opts ...options.CollectionInsertOneOption) (*results.InsertOneResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := c.newCmdWithMergedOptions("insertOne", insertOnePayload{
 		Document: document,
-	}, opts...)
+	}, merged.APIOptions)
 
 	b, warnings, err := cmd.Execute(ctx)
 	if err != nil {
@@ -670,8 +674,12 @@ type collectionCountResponse struct {
 // expensive: for this reason, the best practice is to provide a reasonable upperBound.
 //
 // Options passed here override those set on the collection.
-func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upperBound int, opts ...options.APIOption) (int, error) {
-	cmd := c.newCmd("countDocuments", collectionCountPayload{Filter: f}, opts...)
+func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upperBound int, opts ...options.CollectionCountDocumentsOption) (int, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return 0, fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := c.newCmdWithMergedOptions("countDocuments", collectionCountPayload{Filter: f}, merged.APIOptions)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err
@@ -700,8 +708,12 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 // number of documents, whereas CountDocuments may return an error if the count exceeds the upper bound.
 //
 // Options passed here override those set on the collection.
-func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options.APIOption) (int, error) {
-	cmd := c.newCmd("estimatedDocumentCount", struct{}{}, opts...)
+func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options.CollectionEstimatedDocumentCountOption) (int, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return 0, fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := c.newCmdWithMergedOptions("estimatedDocumentCount", struct{}{}, merged.APIOptions)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err

@@ -39,6 +39,12 @@ func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command
 	return newCmdWithOptions(d, "", name, payload, d.options, opts...)
 }
 
+// newCmdWithMergedOptions creates a database-level command with a pre-merged
+// *APIOptions for the command-level overrides.
+func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
+	return newCmdWithMergedOptions(d, "", name, payload, d.options, cmdOpts)
+}
+
 // Endpoint returns the database API endpoint.
 func (d *Db) Endpoint() string {
 	return d.endpoint
@@ -170,8 +176,12 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 //	}
 //
 // Options passed here override those set on the database.
-func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
-	return listCollections(d, ctx, true, opts...)
+func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollectionsOption) ([]results.CollectionDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+	return listCollections(d, ctx, true, merged.APIOptions)
 }
 
 // ListCollectionNames lists the names of all collections in the database.
@@ -190,8 +200,12 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.APIOption) ([]
 //	}
 //
 // Options passed here override those set on the database.
-func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.APIOption) ([]string, error) {
-	collections, err := listCollections(d, ctx, false, opts...)
+func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionNamesOption) ([]string, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+	collections, err := listCollections(d, ctx, false, merged.APIOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -251,14 +265,14 @@ func (r *listCollectionsResponse) UnmarshalJSON(data []byte) error {
 }
 
 // listCollections is the internal helper for listing collections
-func listCollections(d *Db, ctx context.Context, explain bool, opts ...options.APIOption) ([]results.CollectionDescriptor, error) {
+func listCollections(d *Db, ctx context.Context, explain bool, cmdOpts *options.APIOptions) ([]results.CollectionDescriptor, error) {
 	payload := map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
 	}
 
-	cmd := d.newCmd("findCollections", payload, opts...)
+	cmd := d.newCmdWithMergedOptions("findCollections", payload, cmdOpts)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err

@@ -396,11 +396,15 @@ type ColumnTypeInfo struct {
 //		Rating:        4.5,
 //	}
 //	resp, err := table.InsertOne(ctx, book)
-func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.APIOption) (TableInsertResponse, error) {
+func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableInsertOneOption) (TableInsertResponse, error) {
 	var resp TableInsertResponse
-	cmd := t.newCmd("insertOne", tableInsertOnePayload{
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return resp, fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := t.newCmdWithMergedOptions("insertOne", tableInsertOnePayload{
 		Document: row,
-	}, opts...)
+	}, merged.APIOptions)
 	// Note: Warnings are accessible via the WarningHandler option callback only.
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
@@ -424,7 +428,7 @@ func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.APIOptio
 //		{Title: "Book 2", Author: "Author 2", NumberOfPages: 200, Rating: 4.5},
 //	}
 //	resp, err := table.InsertMany(ctx, books)
-func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.APIOption) (TableInsertResponse, error) {
+func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableInsertManyOption) (TableInsertResponse, error) {
 	var resp TableInsertResponse
 
 	// Ensure we have a slice with rows
@@ -433,9 +437,13 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.APIOpt
 		return resp, fmt.Errorf("rows: %w", err)
 	}
 
-	cmd := t.newCmd("insertMany", tableInsertManyPayload{
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return resp, fmt.Errorf("invalid options: %w", err)
+	}
+	cmd := t.newCmdWithMergedOptions("insertMany", tableInsertManyPayload{
 		Documents: rows,
-	}, opts...)
+	}, merged.APIOptions)
 	// Note: Warnings are accessible via the WarningHandler option callback only.
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {

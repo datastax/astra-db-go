@@ -117,6 +117,52 @@ func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuild
 	return b
 }
 
+// CollectionCountDocumentsOption configures a CollectionCountDocuments operation.
+// You can use the fluent-style builder or a pointer to [CollectionCountDocumentsOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionCountDocuments]):
+//
+//	opts := options.CollectionCountDocuments().SetAPIOptions(...)
+//
+// Example using a pointer to [CollectionCountDocumentsOptions] without the fluent builder:
+//
+//	opts := &options.CollectionCountDocumentsOptions{...}
+type CollectionCountDocumentsOption = Builder[CollectionCountDocumentsOptions]
+
+// Setters implements Builder[CollectionCountDocumentsOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionCountDocumentsOptions].
+func (o *CollectionCountDocumentsOptions) Setters() []func(*CollectionCountDocumentsOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionCountDocumentsOptions.
+func (o *CollectionCountDocumentsOptions) Validate() error { return nil }
+
+// collectionCountDocumentsOptionsBuilder is a builder for CollectionCountDocumentsOptions.
+type collectionCountDocumentsOptionsBuilder struct {
+	setters []func(*CollectionCountDocumentsOptions)
+}
+
+// CollectionCountDocuments creates a new builder for [CollectionCountDocumentsOptions].
+func CollectionCountDocuments() *collectionCountDocumentsOptionsBuilder {
+	return &collectionCountDocumentsOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionCountDocumentsOptions].
+func (b *collectionCountDocumentsOptionsBuilder) Setters() []func(*CollectionCountDocumentsOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *collectionCountDocumentsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionCountDocumentsOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionCountDocumentsOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // CollectionDefaultIdOption configures a CollectionDefaultId operation.
 // You can use the fluent-style builder or a pointer to [CollectionDefaultIdOptions] interchangeably.
 //
@@ -266,6 +312,52 @@ func (b *collectionDeleteOneOptionsBuilder) SetSort(v sort.Sortable) *collection
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionDeleteOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionDeleteOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// CollectionEstimatedDocumentCountOption configures a CollectionEstimatedDocumentCount operation.
+// You can use the fluent-style builder or a pointer to [CollectionEstimatedDocumentCountOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionEstimatedDocumentCount]):
+//
+//	opts := options.CollectionEstimatedDocumentCount().SetAPIOptions(...)
+//
+// Example using a pointer to [CollectionEstimatedDocumentCountOptions] without the fluent builder:
+//
+//	opts := &options.CollectionEstimatedDocumentCountOptions{...}
+type CollectionEstimatedDocumentCountOption = Builder[CollectionEstimatedDocumentCountOptions]
+
+// Setters implements Builder[CollectionEstimatedDocumentCountOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionEstimatedDocumentCountOptions].
+func (o *CollectionEstimatedDocumentCountOptions) Setters() []func(*CollectionEstimatedDocumentCountOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionEstimatedDocumentCountOptions.
+func (o *CollectionEstimatedDocumentCountOptions) Validate() error { return nil }
+
+// collectionEstimatedDocumentCountOptionsBuilder is a builder for CollectionEstimatedDocumentCountOptions.
+type collectionEstimatedDocumentCountOptionsBuilder struct {
+	setters []func(*CollectionEstimatedDocumentCountOptions)
+}
+
+// CollectionEstimatedDocumentCount creates a new builder for [CollectionEstimatedDocumentCountOptions].
+func CollectionEstimatedDocumentCount() *collectionEstimatedDocumentCountOptionsBuilder {
+	return &collectionEstimatedDocumentCountOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionEstimatedDocumentCountOptions].
+func (b *collectionEstimatedDocumentCountOptionsBuilder) Setters() []func(*CollectionEstimatedDocumentCountOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *collectionEstimatedDocumentCountOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionEstimatedDocumentCountOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionEstimatedDocumentCountOptions) {
 		o.APIOptions = Merge(v...)
 	})
 	return b
@@ -708,6 +800,98 @@ func (b *collectionInsertManyOptionsBuilder) SetConcurrency(v int) *collectionIn
 // SetAPIOptions sets the APIOptions option.
 func (b *collectionInsertManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionInsertManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// CollectionInsertOneOption configures a CollectionInsertOne operation.
+// You can use the fluent-style builder or a pointer to [CollectionInsertOneOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionInsertOne]):
+//
+//	opts := options.CollectionInsertOne().SetAPIOptions(...)
+//
+// Example using a pointer to [CollectionInsertOneOptions] without the fluent builder:
+//
+//	opts := &options.CollectionInsertOneOptions{...}
+type CollectionInsertOneOption = Builder[CollectionInsertOneOptions]
+
+// Setters implements Builder[CollectionInsertOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionInsertOneOptions].
+func (o *CollectionInsertOneOptions) Setters() []func(*CollectionInsertOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionInsertOneOptions.
+func (o *CollectionInsertOneOptions) Validate() error { return nil }
+
+// collectionInsertOneOptionsBuilder is a builder for CollectionInsertOneOptions.
+type collectionInsertOneOptionsBuilder struct {
+	setters []func(*CollectionInsertOneOptions)
+}
+
+// CollectionInsertOne creates a new builder for [CollectionInsertOneOptions].
+func CollectionInsertOne() *collectionInsertOneOptionsBuilder {
+	return &collectionInsertOneOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionInsertOneOptions].
+func (b *collectionInsertOneOptionsBuilder) Setters() []func(*CollectionInsertOneOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *collectionInsertOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionInsertOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionInsertOneOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// CollectionOptionsOption configures a CollectionOptions operation.
+// You can use the fluent-style builder or a pointer to [CollectionOptionsOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionOptions]):
+//
+//	opts := options.CollectionOptions().SetAPIOptions(...)
+//
+// Example using a pointer to [CollectionOptionsOptions] without the fluent builder:
+//
+//	opts := &options.CollectionOptionsOptions{...}
+type CollectionOptionsOption = Builder[CollectionOptionsOptions]
+
+// Setters implements Builder[CollectionOptionsOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionOptionsOptions].
+func (o *CollectionOptionsOptions) Setters() []func(*CollectionOptionsOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CollectionOptionsOptions.
+func (o *CollectionOptionsOptions) Validate() error { return nil }
+
+// collectionOptionsOptionsBuilder is a builder for CollectionOptionsOptions.
+type collectionOptionsOptionsBuilder struct {
+	setters []func(*CollectionOptionsOptions)
+}
+
+// CollectionOptions creates a new builder for [CollectionOptionsOptions].
+func CollectionOptions() *collectionOptionsOptionsBuilder {
+	return &collectionOptionsOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionOptionsOptions].
+func (b *collectionOptionsOptionsBuilder) Setters() []func(*CollectionOptionsOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *collectionOptionsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionOptionsOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionOptionsOptions) {
 		o.APIOptions = Merge(v...)
 	})
 	return b
@@ -1488,57 +1672,6 @@ func (b *indexingOptionsBuilder) SetDeny(v ...string) *indexingOptionsBuilder {
 	return b
 }
 
-// InsertOneOption configures a InsertOne operation.
-// You can use the fluent-style builder or a pointer to [InsertOneOptions] interchangeably.
-//
-// Example using the fluent builder ([InsertOne]):
-//
-//	// No need to use pointer for builder; the builder handles that for you.
-//	opts := options.InsertOne().SetOrdered(false)
-//
-// Example using a pointer to [InsertOneOptions] without the fluent builder:
-//
-//	opts := &options.InsertOneOptions{Ordered: ptr.To(false)}
-type InsertOneOption = Builder[InsertOneOptions]
-
-// Setters implements Builder[InsertOneOptions] allowing the raw struct to be
-// passed directly to methods that accept ...Builder[InsertOneOptions].
-func (o *InsertOneOptions) Setters() []func(*InsertOneOptions) {
-	return NoopBuilder(o)
-}
-
-// Validate implements Validator for InsertOneOptions.
-func (o *InsertOneOptions) Validate() error { return nil }
-
-// insertOneOptionsBuilder is a builder for InsertOneOptions.
-type insertOneOptionsBuilder struct {
-	setters []func(*InsertOneOptions)
-}
-
-// InsertOne creates a new builder for [InsertOneOptions].
-func InsertOne() *insertOneOptionsBuilder {
-	return &insertOneOptionsBuilder{}
-}
-
-// Setters implements Builder[InsertOneOptions].
-func (b *insertOneOptionsBuilder) Setters() []func(*InsertOneOptions) {
-	return b.setters
-}
-
-// SetOrdered sets the Ordered option.
-// Ordered controls whether the insert should be ordered.
-func (b *insertOneOptionsBuilder) SetOrdered(v bool) *insertOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *InsertOneOptions) { o.Ordered = &v })
-	return b
-}
-
-// SetTimeout sets the Timeout option.
-// Timeout sets the timeout for the insert operation (client-side, not sent to the API).
-func (b *insertOneOptionsBuilder) SetTimeout(v time.Duration) *insertOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *InsertOneOptions) { o.Timeout = &v })
-	return b
-}
-
 // LexicalOption configures a Lexical operation.
 type LexicalOption = Builder[LexicalOptions]
 
@@ -1564,6 +1697,98 @@ func Lexical() *lexicalOptionsBuilder {
 // Setters implements Builder[LexicalOptions].
 func (b *lexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
 	return b.setters
+}
+
+// ListCollectionNamesOption configures a ListCollectionNames operation.
+// You can use the fluent-style builder or a pointer to [ListCollectionNamesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListCollectionNames]):
+//
+//	opts := options.ListCollectionNames().SetAPIOptions(...)
+//
+// Example using a pointer to [ListCollectionNamesOptions] without the fluent builder:
+//
+//	opts := &options.ListCollectionNamesOptions{...}
+type ListCollectionNamesOption = Builder[ListCollectionNamesOptions]
+
+// Setters implements Builder[ListCollectionNamesOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListCollectionNamesOptions].
+func (o *ListCollectionNamesOptions) Setters() []func(*ListCollectionNamesOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListCollectionNamesOptions.
+func (o *ListCollectionNamesOptions) Validate() error { return nil }
+
+// listCollectionNamesOptionsBuilder is a builder for ListCollectionNamesOptions.
+type listCollectionNamesOptionsBuilder struct {
+	setters []func(*ListCollectionNamesOptions)
+}
+
+// ListCollectionNames creates a new builder for [ListCollectionNamesOptions].
+func ListCollectionNames() *listCollectionNamesOptionsBuilder {
+	return &listCollectionNamesOptionsBuilder{}
+}
+
+// Setters implements Builder[ListCollectionNamesOptions].
+func (b *listCollectionNamesOptionsBuilder) Setters() []func(*ListCollectionNamesOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *listCollectionNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listCollectionNamesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListCollectionNamesOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// ListCollectionsOption configures a ListCollections operation.
+// You can use the fluent-style builder or a pointer to [ListCollectionsOptions] interchangeably.
+//
+// Example using the fluent builder ([ListCollections]):
+//
+//	opts := options.ListCollections().SetAPIOptions(...)
+//
+// Example using a pointer to [ListCollectionsOptions] without the fluent builder:
+//
+//	opts := &options.ListCollectionsOptions{...}
+type ListCollectionsOption = Builder[ListCollectionsOptions]
+
+// Setters implements Builder[ListCollectionsOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListCollectionsOptions].
+func (o *ListCollectionsOptions) Setters() []func(*ListCollectionsOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListCollectionsOptions.
+func (o *ListCollectionsOptions) Validate() error { return nil }
+
+// listCollectionsOptionsBuilder is a builder for ListCollectionsOptions.
+type listCollectionsOptionsBuilder struct {
+	setters []func(*ListCollectionsOptions)
+}
+
+// ListCollections creates a new builder for [ListCollectionsOptions].
+func ListCollections() *listCollectionsOptionsBuilder {
+	return &listCollectionsOptionsBuilder{}
+}
+
+// Setters implements Builder[ListCollectionsOptions].
+func (b *listCollectionsOptionsBuilder) Setters() []func(*ListCollectionsOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *listCollectionsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listCollectionsOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListCollectionsOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
 }
 
 // ListDatabasesOption configures a ListDatabases operation.
@@ -1921,6 +2146,98 @@ func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOption
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *tableFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// TableInsertManyOption configures a TableInsertMany operation.
+// You can use the fluent-style builder or a pointer to [TableInsertManyOptions] interchangeably.
+//
+// Example using the fluent builder ([TableInsertMany]):
+//
+//	opts := options.TableInsertMany().SetAPIOptions(...)
+//
+// Example using a pointer to [TableInsertManyOptions] without the fluent builder:
+//
+//	opts := &options.TableInsertManyOptions{...}
+type TableInsertManyOption = Builder[TableInsertManyOptions]
+
+// Setters implements Builder[TableInsertManyOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableInsertManyOptions].
+func (o *TableInsertManyOptions) Setters() []func(*TableInsertManyOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for TableInsertManyOptions.
+func (o *TableInsertManyOptions) Validate() error { return nil }
+
+// tableInsertManyOptionsBuilder is a builder for TableInsertManyOptions.
+type tableInsertManyOptionsBuilder struct {
+	setters []func(*TableInsertManyOptions)
+}
+
+// TableInsertMany creates a new builder for [TableInsertManyOptions].
+func TableInsertMany() *tableInsertManyOptionsBuilder {
+	return &tableInsertManyOptionsBuilder{}
+}
+
+// Setters implements Builder[TableInsertManyOptions].
+func (b *tableInsertManyOptionsBuilder) Setters() []func(*TableInsertManyOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *tableInsertManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// TableInsertOneOption configures a TableInsertOne operation.
+// You can use the fluent-style builder or a pointer to [TableInsertOneOptions] interchangeably.
+//
+// Example using the fluent builder ([TableInsertOne]):
+//
+//	opts := options.TableInsertOne().SetAPIOptions(...)
+//
+// Example using a pointer to [TableInsertOneOptions] without the fluent builder:
+//
+//	opts := &options.TableInsertOneOptions{...}
+type TableInsertOneOption = Builder[TableInsertOneOptions]
+
+// Setters implements Builder[TableInsertOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableInsertOneOptions].
+func (o *TableInsertOneOptions) Setters() []func(*TableInsertOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for TableInsertOneOptions.
+func (o *TableInsertOneOptions) Validate() error { return nil }
+
+// tableInsertOneOptionsBuilder is a builder for TableInsertOneOptions.
+type tableInsertOneOptionsBuilder struct {
+	setters []func(*TableInsertOneOptions)
+}
+
+// TableInsertOne creates a new builder for [TableInsertOneOptions].
+func TableInsertOne() *tableInsertOneOptionsBuilder {
+	return &tableInsertOneOptionsBuilder{}
+}
+
+// Setters implements Builder[TableInsertOneOptions].
+func (b *tableInsertOneOptionsBuilder) Setters() []func(*TableInsertOneOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *tableInsertOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableInsertOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableInsertOneOptions) {
 		o.APIOptions = Merge(v...)
 	})
 	return b

@@ -68,6 +68,22 @@ func (b *tableFindOptionsBuilder) SetPageState(pageState string) *tableFindOptio
 	return b
 }
 
+// TableInsertOneOptions represents options for inserting a single row in a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type TableInsertOneOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// TableInsertManyOptions represents options for inserting multiple rows in a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type TableInsertManyOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // TableUpdateOneOptions represents options for updating a single row in a table.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type TableUpdateOneOptions struct {
