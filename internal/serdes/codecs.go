@@ -79,7 +79,7 @@ func resolveCodecCaching(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	case reflect.Slice:
 		return cacheSet(cache, t, mkSliceCodec(t, seen))
 	case reflect.Array:
-		return cacheSet(cache, t, mkArrayCodec(t, seen))
+		return cacheSet(cache, t, mkArrayCodec(t, seen, canAddr))
 	case reflect.Interface:
 		return cacheSet(cache, t, mkInterfaceCodec())
 	default:
@@ -96,6 +96,10 @@ func cacheLoad() map[unsafe.Pointer]codec {
 }
 
 func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
+	if inlined(t) {
+		c.encode = encodeInlined(c.encode)
+	}
+
 	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
 	maps.Copy(newCache, oldCache)
 	newCache[typeid(t)] = c
@@ -147,13 +151,17 @@ func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintpt
 func mkMapCodec(t reflect.Type, seen seenStructs) codec {
 	kt := t.Key()
 	vt := t.Elem()
-	
+
 	kc := resolveCodecCaching(kt, seen, false)
 	vc := resolveCodecCaching(vt, seen, false)
-	
+
 	kz := reflect.Zero(kt)
 	vz := reflect.Zero(vt)
-	
+
+	if inlined(vt) {
+		vc.encode = encodeInlined(vc.encode)
+	}
+
 	return codec{
 		encodeMap(t, kc.encode, vc.encode),
 		decodeMap(kt, vt, kz, vz, kc.decode, vc.decode),
@@ -162,22 +170,22 @@ func mkMapCodec(t reflect.Type, seen seenStructs) codec {
 
 func mkSliceCodec(t reflect.Type, seen seenStructs) codec {
 	elem := t.Elem()
-	c := resolveCodecCaching(elem, seen, false)
+	c := resolveCodecCaching(elem, seen, true)
 	size := elem.Size()
-	
+
 	return codec{
 		encodeSlice(size, c.encode),
 		decodeSlice(size, t, c.decode),
 	}
 }
 
-func mkArrayCodec(t reflect.Type, seen seenStructs) codec {
+func mkArrayCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	elem := t.Elem()
 	n := t.Len()
 	size := elem.Size()
-	
-	c := resolveCodecCaching(elem, seen, false)
-	
+
+	c := resolveCodecCaching(elem, seen, canAddr)
+
 	return codec{
 		encodeArray(n, size, c.encode),
 		decodeArray(n, size, t, c.decode),

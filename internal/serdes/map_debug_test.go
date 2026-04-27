@@ -5,18 +5,21 @@ import (
 )
 
 func TestMapEncodingDebug(t *testing.T) {
-	m := map[string]int{
-		"math":    95,
-		"english": 88,
+	type TestStruct struct {
+		Scores map[string]int
 	}
 
-	data, err := Serialize(m)
+	input := TestStruct{
+		Scores: map[string]int{"math": 95, "english": 88},
+	}
+
+	data, err := Serialize(input)
 	if err != nil {
 		t.Fatalf("Serialize failed: %v", err)
 	}
 
 	t.Logf("Map serialized: %s", string(data))
-	
+
 	// Should produce something like: {"math":95,"english":88}
 	if len(data) < 10 {
 		t.Errorf("Serialized map is too short: %s", string(data))

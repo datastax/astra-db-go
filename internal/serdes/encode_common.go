@@ -21,6 +21,12 @@ func encodeError(err error) encoder {
 	}
 }
 
+func encodeInlined(encode encoder) encoder {
+	return func(e encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
+		return encode(e, b, noescape(unsafe.Pointer(&p)))
+	}
+}
+
 func encodeBoolKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if *(*bool)(p) {
 		return append(dst, "true"...), nil
@@ -156,69 +162,52 @@ func encodeMap(t reflect.Type, encodeKey, encodeValue encoder) encoder {
 }
 
 func encodeSlice(size uintptr, encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
 		s := (*slice)(p)
-		
-		if s.data == nil {
-			return append(dst, "null"...), nil
+
+		if s.data == nil && s.len == 0 && s.cap == 0 {
+			return append(b, "null"...), nil
 		}
-		
-		dst = append(dst, '[')
-		
-		for i := 0; i < s.len; i++ {
-			if i > 0 {
-				dst = append(dst, ',')
-			}
-			
-			elemPtr := unsafe.Pointer(uintptr(s.data) + uintptr(i)*size)
-			var err error
-			dst, err = encode(ctx, dst, elemPtr)
-			if err != nil {
-				return dst, err
-			}
-		}
-		
-		return append(dst, ']'), nil
+
+		return encodeArray(s.len, size, encode)(ctx, b, s.data)
 	}
 }
 
 func encodeArray(n int, size uintptr, encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		dst = append(dst, '[')
-		
-		for i := 0; i < n; i++ {
-			if i > 0 {
-				dst = append(dst, ',')
+	return func(ctx encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
+		start := len(b)
+		var err error
+		b = append(b, '[')
+
+		for i := range n {
+			if i != 0 {
+				b = append(b, ',')
 			}
-			
-			elemPtr := unsafe.Pointer(uintptr(p) + uintptr(i)*size)
-			var err error
-			dst, err = encode(ctx, dst, elemPtr)
-			if err != nil {
-				return dst, err
+			if b, err = encode(ctx, b, unsafe.Pointer(uintptr(p)+(uintptr(i)*size))); err != nil {
+				return b[:start], err
 			}
 		}
-		
-		return append(dst, ']'), nil
+
+		b = append(b, ']')
+		return b, nil
 	}
 }
 
 func encodeInterface(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	val := *(*any)(p)
-	
+
 	if val == nil {
 		return append(dst, "null"...), nil
 	}
-	
+
 	t := reflect.TypeOf(val)
 	c := resolveCodecCaching(t, seenStructs{}, false)
-	
+
 	// Extract the actual pointer to the value from the interface
 	valPtr := (*iface)(unsafe.Pointer(&val)).ptr
-	
+
 	return c.encode(ctx, dst, valPtr)
 }
-
 
 func encodeEmbeddedStructPointer(encode encoder) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {

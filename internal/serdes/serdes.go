@@ -17,6 +17,7 @@ package serdes
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"sync"
 	"unsafe"
 )
@@ -59,6 +60,8 @@ func Serialize(data any) ([]byte, error) {
 
 	var err error
 	*buf, err = c.encode(encodeCtx{}, *buf, p)
+	runtime.KeepAlive(data)
+	
 	ret := make([]byte, len(*buf))
 	copy(ret, *buf)
 
