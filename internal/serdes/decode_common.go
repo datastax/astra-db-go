@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
-	"strconv"
 	"unsafe"
 )
 
@@ -38,12 +37,17 @@ func decodeBoolKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func decodeStringKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	src, str, err := decodeString(src)
+	src, str, isNew, err := parseStringUnquote(src)
 	if err != nil {
 		return src, err
 	}
 
-	*(*string)(p) = str
+	if isNew {
+		*(*string)(p) = unsafeString(str)
+	} else {
+		*(*string)(p) = string(str)
+	}
+
 	return src, nil
 }
 
@@ -117,7 +121,7 @@ func decodeStruct(info *structInfo) decoder {
 		}
 		src = src[1:] // skip '{'
 
-		var key string
+		var key []byte
 		var err error
 
 		for i := 0; ; i++ {
@@ -138,7 +142,7 @@ func decodeStruct(info *structInfo) decoder {
 				src = skipWS(src[1:])
 			}
 
-			src, key, err = decodeString(src)
+			src, key, _, err = parseStringUnquote(src)
 			if err != nil {
 				return src, err
 			}
@@ -149,7 +153,7 @@ func decodeStruct(info *structInfo) decoder {
 			}
 			src = skipWS(src[1:])
 
-			if fieldIdx, ok := info.offsets[key]; ok {
+			if fieldIdx, ok := info.offsets[unsafeString(key)]; ok {
 				f := &info.fields[fieldIdx]
 
 				// Jump to memory location via offset instead of FieldByIndex
@@ -182,75 +186,6 @@ func decodeEmbeddedStructPointer(t reflect.Type, unexported bool, offset uintptr
 	}
 }
 
-func decodeInt(src []byte) ([]byte, int64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] == '-' || (src[end] >= '0' && src[end] <= '9')) {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, fmt.Errorf("expected integer")
-	}
-
-	num, err := strconv.ParseInt(string(src[:end]), 10, 64)
-	return src[end:], num, err
-}
-
-func decodeUint(src []byte) ([]byte, uint64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] >= '0' && src[end] <= '9') {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, fmt.Errorf("expected unsigned integer")
-	}
-
-	num, err := strconv.ParseUint(string(src[:end]), 10, 64)
-	return src[end:], num, err
-}
-
-func decodeFloat(src []byte) ([]byte, float64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] == '-' || src[end] == '.' || (src[end] >= '0' && src[end] <= '9') || src[end] == 'e' || src[end] == 'E' || src[end] == '+') {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, fmt.Errorf("expected float")
-	}
-
-	f, err := strconv.ParseFloat(string(src[:end]), 64)
-	return src[end:], f, err
-}
-
-func decodeString(src []byte) ([]byte, string, error) {
-	src = skipWS(src)
-	if len(src) == 0 || src[0] != '"' {
-		return src, "", fmt.Errorf("expected string")
-	}
-
-	end := 1
-	for end < len(src) {
-		if src[end] == '\\' {
-			end += 2
-		} else if src[end] == '"' {
-			break
-		} else {
-			end++
-		}
-	}
-
-	if end >= len(src) {
-		return src, "", fmt.Errorf("unterminated string")
-	}
-
-	return src[end+1:], string(src[1:end]), nil
-}
-
 func consumeNull(src []byte) ([]byte, bool) {
 	src = skipWS(src)
 	if len(src) >= 4 && src[0] == 'n' && src[1] == 'u' && src[2] == 'l' && src[3] == 'l' {
@@ -265,7 +200,6 @@ func skipWS(src []byte) []byte {
 			return src[i:]
 		}
 	}
-
 	return nil
 }
 
@@ -277,27 +211,29 @@ func skipValue(src []byte) ([]byte, error) {
 
 	switch src[0] {
 	case '"':
-		src, _, err := decodeString(src)
+		src, _, _, err := parseString(src)
 		if err != nil {
 			return src, err
 		}
 		return src, nil
 
 	case '{', '[':
-		depth, open, cls := 0, src[0], src[0]+2
-		if open == '{' {
-			cls = '}'
+		depth, open, cls := 0, src[0], byte('}')
+		if open == '[' {
+			cls = ']'
 		}
+
 		for i := 0; i < len(src); i++ {
 			if src[i] == open {
 				depth++
 			} else if src[i] == cls {
 				depth--
-			}
-			if depth == 0 {
-				return src[i+1:], nil
+				if depth == 0 {
+					return src[i+1:], nil
+				}
 			}
 		}
+		return src, errInvalid
 
 	default:
 		i := 0
@@ -306,8 +242,6 @@ func skipValue(src []byte) ([]byte, error) {
 		}
 		return src[i:], nil
 	}
-
-	return src, errInvalid
 }
 
 var empty struct{}

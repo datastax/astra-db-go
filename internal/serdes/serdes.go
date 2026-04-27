@@ -29,7 +29,7 @@ type bufferPool struct {
 var encodingBufferPool = bufferPool{
 	pool: sync.Pool{
 		New: func() any {
-			b := make([]byte, 0, 1024)
+			b := make([]byte, 0, 4096)
 			return &b
 		},
 	},
