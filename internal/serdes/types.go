@@ -50,13 +50,6 @@ func inlined(t reflect.Type) bool {
 	}
 }
 
-// noescape hides a pointer from escape analysis.  noescape is
-// the identity function but escape analysis doesn't think the
-// output depends on the input. noescape is inlined and currently
-// compiles down to zero instructions.
-// USE CAREFULLY!
-// This was copied from the runtime; see issues 23382 and 7921.
-//
 //go:nosplit
 func noescape(p unsafe.Pointer) unsafe.Pointer {
 	x := uintptr(p)
@@ -64,5 +57,18 @@ func noescape(p unsafe.Pointer) unsafe.Pointer {
 }
 
 func unsafeString(b []byte) string {
-	return unsafe.String(unsafe.SliceData(b), len(b))
+	return *(*string)(unsafe.Pointer(&b))
+}
+
+func alignedSize(t reflect.Type) uintptr {
+	a := t.Align()
+	s := t.Size()
+	return align(uintptr(a), s)
+}
+
+func align(align, size uintptr) uintptr {
+	if align != 0 && (size%align) != 0 {
+		size = ((size / align) + 1) * align
+	}
+	return size
 }

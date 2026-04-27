@@ -180,7 +180,7 @@ func mkMapCodec(t reflect.Type, seen seenStructs) codec {
 func mkSliceCodec(t reflect.Type, seen seenStructs) codec {
 	elem := t.Elem()
 	c, _ := resolveCodec(elem, seen, true)
-	size := elem.Size()
+	size := alignedSize(elem)
 
 	return codec{
 		encodeSlice(size, c.encode),
@@ -190,10 +190,9 @@ func mkSliceCodec(t reflect.Type, seen seenStructs) codec {
 
 func mkArrayCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
 	elem := t.Elem()
-	n := t.Len()
-	size := elem.Size()
-
+	size := alignedSize(elem)
 	c, _ := resolveCodec(elem, seen, canAddr)
+	n := t.Len()
 
 	return codec{
 		encodeArray(n, size, c.encode),

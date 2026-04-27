@@ -65,12 +65,6 @@ func parseString(src []byte) ([]byte, []byte, bool, error) {
 
 	var n int
 	if len(src) >= 9 {
-		// This is an optimization for short strings. We read 8/16 bytes,
-		// and XOR each with 0x22 (") so that these bytes (and only
-		// these bytes) are now zero. We use the hasless(u,1) trick
-		// from https://graphics.stanford.edu/~seander/bithacks.html#ZeroInWord
-		// to determine whether any bytes are zero. Finally, we CTZ
-		// to find the index of that byte.
 		const mask1 = 0x2222222222222222
 		const mask2 = 0x0101010101010101
 		const mask3 = 0x8080808080808080

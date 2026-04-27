@@ -206,7 +206,6 @@ func encodeInterface(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	t := reflect.TypeOf(val)
 	c, _ := resolveCodec(t, seenStructs{}, false)
 
-	// Extract the actual pointer to the value from the interface
 	valPtr := (*iface)(unsafe.Pointer(&val)).ptr
 
 	return c.encode(ctx, dst, valPtr)
