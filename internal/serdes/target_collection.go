@@ -17,6 +17,9 @@ var CollectionTarget = Target{
 	kindOverrides: map[reflect.Kind]func(codecCtx, reflect.Type, seenStructs, bool) codec{
 		reflect.Map: mkCollectionMapCodec,
 	},
+	dollarDatatypes: map[string]typedCodec{
+		"$uuid": {codec{encodeCollUUID, decodeCollUUID}, uuidType},
+	},
 }
 
 // UUIDs

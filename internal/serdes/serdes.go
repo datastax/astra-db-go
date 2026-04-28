@@ -60,10 +60,11 @@ func serializeAppend(data any, target Target, dst []byte) ([]byte, error) {
 	t := reflect.TypeOf(data)
 	p := (*iface)(unsafe.Pointer(&data)).ptr
 
-	c := resolveCodecCaching(codecCtx{target: target}, t, seenStructs{})
+	ctx := encodeCtx{codecCtx: codecCtx{target: target}}
+	c := resolveCodecCaching(ctx.codecCtx, t, seenStructs{})
 
 	var err error
-	dst, err = c.encode(encodeCtx{}, dst, p)
+	dst, err = c.encode(ctx, dst, p)
 	runtime.KeepAlive(data)
 
 	return dst, err
@@ -77,8 +78,9 @@ func Deserialize(data []byte, res any, target Target) error {
 		return fmt.Errorf("deserialize requires a pointer, got %v", t)
 	}
 
-	c := resolveCodecCaching(codecCtx{target: target}, t.Elem(), seenStructs{})
+	ctx := decodeCtx{codecCtx: codecCtx{target: target}}
+	c := resolveCodecCaching(ctx.codecCtx, t.Elem(), seenStructs{})
 
-	_, err := c.decode(decodeCtx{}, data, p)
+	_, err := c.decode(ctx, data, p)
 	return err
 }

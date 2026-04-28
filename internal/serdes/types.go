@@ -23,19 +23,26 @@ var (
 )
 
 var (
-	nilType        = reflect.TypeOf(nil)
-	anyType        = reflect.TypeFor[any]()
-	uuidType       = reflect.TypeFor[datatypes.UUID]()
-	oidType        = reflect.TypeFor[datatypes.ObjectId]()
-	vectorType     = reflect.TypeFor[datatypes.DataAPIVector]()
-	timeType       = reflect.TypeFor[time.Time]()
-	ipType         = reflect.TypeFor[net.IP]()
-	rawMessageType = reflect.TypeFor[json.RawMessage]()
+	nilType          = reflect.TypeOf(nil)
+	anyType          = reflect.TypeFor[any]()
+	stringType       = reflect.TypeFor[string]()
+	float32SliceType = reflect.TypeFor[[]float32]()
+	uuidType         = reflect.TypeFor[datatypes.UUID]()
+	oidType          = reflect.TypeFor[datatypes.ObjectId]()
+	vectorType       = reflect.TypeFor[datatypes.DataAPIVector]()
+	timeType         = reflect.TypeFor[time.Time]()
+	ipType           = reflect.TypeFor[net.IP]()
+	rawMessageType   = reflect.TypeFor[json.RawMessage]()
 )
 
 var (
 	uuidTag = []byte("uuid")
 	oidTag  = []byte("objectid")
+)
+
+var (
+	stringEmpty = reflect.Zero(stringType)
+	anyEmpty    = reflect.Zero(anyType)
 )
 
 type iface struct {

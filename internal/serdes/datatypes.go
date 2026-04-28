@@ -220,23 +220,39 @@ func encodeVector(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	})
 }
 
-func decodeVector(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	src, vector, err := parseDollarDatatype(src, []byte("binary"), func(b []byte) ([]byte, datatypes.DataAPIVector, error) {
-		src, str, isNew, err := parseStringUnquote(b)
-		if err != nil {
-			return src, datatypes.DataAPIVector{}, fmt.Errorf("invalid vector string: %w", err)
-		}
+func decodeVector(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src = skipWS(src)
 
-		if isNew {
-			return src, datatypes.NewVector(unsafeString(str)), nil
+	if len(src) == 0 || src[0] == '[' {
+		var arr []float32
+		src, err := decodeSlice(4, float32SliceType, decodeFloat32Kind)(ctx, src, unsafe.Pointer(&arr))
+		if err == nil {
+			vector := datatypes.NewVector(arr)
+			*(*datatypes.DataAPIVector)(p) = vector
 		}
-		return src, datatypes.NewVector(string(str)), nil
-	})
-
-	if err == nil {
-		*(*datatypes.DataAPIVector)(p) = vector
+		return src, err
 	}
-	return src, err
+
+	if len(src) == 0 || src[0] == '{' {
+		src, vector, err := parseDollarDatatype(src, []byte("binary"), func(b []byte) ([]byte, datatypes.DataAPIVector, error) {
+			src, str, isNew, err := parseStringUnquote(b)
+			if err != nil {
+				return src, datatypes.DataAPIVector{}, fmt.Errorf("invalid vector string: %w", err)
+			}
+
+			if isNew {
+				return src, datatypes.NewVector(unsafeString(str)), nil
+			}
+			return src, datatypes.NewVector(string(str)), nil
+		})
+
+		if err == nil {
+			*(*datatypes.DataAPIVector)(p) = vector
+		}
+		return src, err
+	}
+
+	return src, fmt.Errorf("expected []float32 or {\"$binary\":\"<base64>\"} for vector value")
 }
 
 // Helpers

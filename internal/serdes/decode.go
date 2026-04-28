@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"reflect"
 	"unsafe"
+
+	"github.com/datastax/astra-db-go/datatypes"
 )
 
 type decoder func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
@@ -312,7 +314,7 @@ func decodeArray(n int, size uintptr, decode decoder) decoder {
 	}
 }
 
-func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func decodeInterface(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 {
@@ -321,6 +323,20 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 
 	var val any
 	var err error
+
+	if ctx.fieldHint == vectorField {
+		var v datatypes.DataAPIVector
+		src, err = decodeVector(ctx, src, unsafe.Pointer(&v))
+		val = v
+		goto decoded
+	}
+
+	if ctx.fieldHint == vectorizeField {
+		var s string
+		src, err = decodeStringKind(ctx, src, unsafe.Pointer(&s))
+		val = s
+		goto decoded
+	}
 
 	switch src[0] {
 	case 'n':
@@ -332,45 +348,86 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 
 	case 't', 'f':
 		var b bool
-		src, err = decodeBoolKind(decodeCtx{}, src, unsafe.Pointer(&b))
+		src, err = decodeBoolKind(ctx, src, unsafe.Pointer(&b))
 		val = b
 
 	case '"':
 		var s string
-		src, err = decodeStringKind(decodeCtx{}, src, unsafe.Pointer(&s))
+		src, err = decodeStringKind(ctx, src, unsafe.Pointer(&s))
 		val = s
 
 	case '[':
 		var arr []any
 		arrType := reflect.TypeOf(arr)
-		src, err = decodeSlice(unsafe.Sizeof(arr[0]), arrType, decodeInterface)(decodeCtx{}, src, unsafe.Pointer(&arr))
+		src, err = decodeSlice(unsafe.Sizeof(arr[0]), arrType, decodeInterface)(ctx, src, unsafe.Pointer(&arr))
 		val = arr
 
 	case '{':
+		var a any
+		var wasDD bool
+		if src, err, wasDD = decodeDollarDatatype(ctx, src, unsafe.Pointer(&a)); wasDD {
+			val = a
+			goto decoded
+		}
+
 		var m map[string]any
-		kt := reflect.TypeOf("")
-		vt := reflect.TypeOf((*any)(nil)).Elem()
-		kz := reflect.Zero(kt)
-		vz := reflect.Zero(vt)
-		src, err = decodeCollectionMap(reflect.MapOf(kt, vt), kt, vt, kz, vz, decodeStringKind, decodeInterface)(decodeCtx{}, src, unsafe.Pointer(&m))
+		kt := stringType
+		vt := anyType
+		kz := stringEmpty
+		vz := anyEmpty
+		src, err = decodeCollectionMap(reflect.MapOf(kt, vt), kt, vt, kz, vz, decodeStringKind, decodeInterface)(ctx, src, unsafe.Pointer(&m))
 		val = m
 
 	default:
 		if src[0] == '-' || (src[0] >= '0' && src[0] <= '9') {
 			var f float64
-			src, err = decodeFloat64Kind(decodeCtx{}, src, unsafe.Pointer(&f))
+			src, err = decodeFloat64Kind(ctx, src, unsafe.Pointer(&f))
 			val = f
 		} else {
 			return src, fmt.Errorf("unexpected character: %c", src[0])
 		}
 	}
 
+decoded:
 	if err != nil {
 		return src, err
 	}
 
 	*(*any)(p) = val
 	return src, nil
+}
+
+func decodeDollarDatatype(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error, bool) {
+	initSrc := src
+
+	src = skipWS(src)
+	if len(src) == 0 || src[0] != '{' {
+		return initSrc, nil, false
+	}
+
+	src = skipWS(src[1:])
+	if !bytes.HasPrefix(src, []byte(`"$`)) {
+		return initSrc, nil, false
+	}
+
+	src, datatype, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, err, true
+	}
+
+	if codec, ok := ctx.target.dollarDatatypes[unsafeString(datatype)]; ok {
+		valPtr := reflect.New(codec.typ)
+
+		src, err = codec.decode(ctx, initSrc, valuePtr(valPtr.Elem()))
+		if err != nil {
+			return src, err, true
+		}
+
+		*(*any)(p) = valPtr.Elem().Interface() // I don't like this at all...
+		return src, nil, true
+	}
+
+	return initSrc, nil, false
 }
 
 func decodeRawMessage(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {

@@ -39,16 +39,16 @@ const MaxUintptr = ^uintptr(0)
 
 func init() {
 {{range .}}
-kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}Kind, decode{{.Type | Title}}Kind}
+kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}kind, decode{{.Type | Title}}kind}
 {{end}}
 }
 
 {{range .}}
-func encode{{.Type | Title}}Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func encode{{.Type | Title}}kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.Args}}), nil
 }
 
-func decode{{.Type | Title}}Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func decode{{.Type | Title}}kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}

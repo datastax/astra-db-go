@@ -5,10 +5,16 @@ import (
 	"unsafe"
 )
 
+type typedCodec struct {
+	codec
+	typ reflect.Type
+}
+
 type Target struct {
-	kind          targetKind
-	typeOverrides map[unsafe.Pointer]codec
-	kindOverrides map[reflect.Kind]func(codecCtx, reflect.Type, seenStructs, bool) codec
+	kind            targetKind
+	typeOverrides   map[unsafe.Pointer]codec
+	kindOverrides   map[reflect.Kind]func(codecCtx, reflect.Type, seenStructs, bool) codec
+	dollarDatatypes map[string]typedCodec
 }
 
 type targetKind int
