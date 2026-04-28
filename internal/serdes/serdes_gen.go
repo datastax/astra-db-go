@@ -27,31 +27,31 @@ const MaxUintptr = ^uintptr(0)
 
 func init() {
 
-kindCodecs[reflect.Int] = codec{encodeIntKind, decodeIntKind}
+    kindCodecs[reflect.Int] = codec{encodeIntKind, decodeIntKind}
 
-kindCodecs[reflect.Int8] = codec{encodeInt8Kind, decodeInt8Kind}
+    kindCodecs[reflect.Int8] = codec{encodeInt8Kind, decodeInt8Kind}
 
-kindCodecs[reflect.Int16] = codec{encodeInt16Kind, decodeInt16Kind}
+    kindCodecs[reflect.Int16] = codec{encodeInt16Kind, decodeInt16Kind}
 
-kindCodecs[reflect.Int32] = codec{encodeInt32Kind, decodeInt32Kind}
+    kindCodecs[reflect.Int32] = codec{encodeInt32Kind, decodeInt32Kind}
 
-kindCodecs[reflect.Int64] = codec{encodeInt64Kind, decodeInt64Kind}
+    kindCodecs[reflect.Int64] = codec{encodeInt64Kind, decodeInt64Kind}
 
-kindCodecs[reflect.Uint] = codec{encodeUintKind, decodeUintKind}
+    kindCodecs[reflect.Uint] = codec{encodeUintKind, decodeUintKind}
 
-kindCodecs[reflect.Uint8] = codec{encodeUint8Kind, decodeUint8Kind}
+    kindCodecs[reflect.Uint8] = codec{encodeUint8Kind, decodeUint8Kind}
 
-kindCodecs[reflect.Uint16] = codec{encodeUint16Kind, decodeUint16Kind}
+    kindCodecs[reflect.Uint16] = codec{encodeUint16Kind, decodeUint16Kind}
 
-kindCodecs[reflect.Uint32] = codec{encodeUint32Kind, decodeUint32Kind}
+    kindCodecs[reflect.Uint32] = codec{encodeUint32Kind, decodeUint32Kind}
 
-kindCodecs[reflect.Uint64] = codec{encodeUint64Kind, decodeUint64Kind}
+    kindCodecs[reflect.Uint64] = codec{encodeUint64Kind, decodeUint64Kind}
 
-kindCodecs[reflect.Uintptr] = codec{encodeUintptrKind, decodeUintptrKind}
+    kindCodecs[reflect.Uintptr] = codec{encodeUintptrKind, decodeUintptrKind}
 
-kindCodecs[reflect.Float32] = codec{encodeFloat32Kind, decodeFloat32Kind}
+    kindCodecs[reflect.Float32] = codec{encodeFloat32Kind, decodeFloat32Kind}
 
-kindCodecs[reflect.Float64] = codec{encodeFloat64Kind, decodeFloat64Kind}
+    kindCodecs[reflect.Float64] = codec{encodeFloat64Kind, decodeFloat64Kind}
 
 }
 

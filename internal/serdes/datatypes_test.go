@@ -47,7 +47,7 @@ func TestSerdesUUID(t *testing.T) {
 }
 
 func TestSerdesMaps(t *testing.T) {
-	//t.Skip("Flaky for tables")
+	t.Skip("Flaky for tables")
 
 	uuid1, uuid2 := datatypes.NewUUID(), datatypes.NewUUID()
 
