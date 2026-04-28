@@ -39,7 +39,7 @@ const MaxUintptr = ^uintptr(0)
 
 func init() {
 {{range .}}
-kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}kind, decode{{.Type | Title}}kind}
+    kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}kind, decode{{.Type | Title}}kind}
 {{end}}
 }
 

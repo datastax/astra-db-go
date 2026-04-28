@@ -5,11 +5,9 @@ import (
 	"testing"
 )
 
-// Type aliases
 type UserID int64
 type Email string
 
-// Embedded structs
 type Address struct {
 	Street  string `json:"street"`
 	City    string `json:"city"`
@@ -21,7 +19,6 @@ type ContactInfo struct {
 	Phone string `json:"phone,omitempty"`
 }
 
-// Complex nested struct with embedded fields and deep pointers
 type User struct {
 	ID         UserID     `json:"id"`
 	Name       string     `json:"name"`
@@ -34,14 +31,13 @@ type User struct {
 	Ignored    string     `json:"-"`
 }
 
-// Global variables to prevent compiler optimization
+// just to try to prevent compiler optimizations
 var (
 	result     []byte
 	userResult User
 )
 
 func BenchmarkSerDesComparison(b *testing.B) {
-	// --- SETUP DATA ---
 	age := 30
 	score := 95
 	scorePtr := &score
@@ -67,7 +63,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 
 	jsonData, _ := json.Marshal(user)
 
-	// --- SERIALIZATION COMPARISON ---
+	// Serialization benchmarks
 	b.Run("Serialize/Custom-Collection", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
@@ -89,7 +85,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		}
 	})
 
-	// --- DESERIALIZATION COMPARISON ---
+	// Deserialization benchmarks
 	b.Run("Deserialize/Custom-Collection", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
