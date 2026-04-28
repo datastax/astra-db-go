@@ -29,20 +29,19 @@ package serdes
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"unsafe"
-	"math"
 )
 
 const MaxUintptr = ^uintptr(0)
 
 func init() {
 {{range .}}
-    kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}Kind, decode{{.Type | Title}}Kind}
+	kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}Kind, decode{{.Type | Title}}Kind}
 {{end}}
 }
-
 {{range .}}
 func encode{{.Type | Title}}Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.Args}}), nil
