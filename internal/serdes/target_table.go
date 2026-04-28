@@ -1,7 +1,9 @@
 package serdes
 
 import (
+	"fmt"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/datatypes"
@@ -10,7 +12,8 @@ import (
 var TableTarget = Target{
 	kind: tableKind,
 	typeOverrides: map[unsafe.Pointer]codec{
-		typePtr(uuidType): {encodeTableUUID, decodeTableUUID},
+		typePtr(uuidType):     {encodeTableUUID, decodeTableUUID},
+		typePtr(dApiTimeType): {encodeTableTimestamp, decodeTableTimestamp},
 	},
 	kindOverrides: map[reflect.Kind]func(codecCtx, reflect.Type, seenStructs, bool) codec{
 		reflect.Map: mkTableMapCodec,
@@ -29,6 +32,31 @@ func decodeTableUUID(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		*(*datatypes.UUID)(p) = uuid
 	}
 	return src, err
+}
+
+// Timestamps
+
+func encodeTableTimestamp(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	ts := (*datatypes.DataAPITimestamp)(p)
+	dst = append(dst, '"')
+	dst = append(dst, ts.String()...)
+	dst = append(dst, '"')
+	return dst, nil
+}
+
+func decodeTableTimestamp(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src, str, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, fmt.Errorf("invalid timestamp string: %w", err)
+	}
+
+	t, err := time.Parse(time.RFC3339Nano, unsafeString(str))
+	if err != nil {
+		return src, fmt.Errorf("invalid timestamp string: %w", err)
+	}
+
+	*(*datatypes.DataAPITimestamp)(p) = datatypes.NewDataAPITimestamp(t)
+	return src, nil
 }
 
 // Maps

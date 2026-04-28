@@ -3,6 +3,7 @@ package serdes
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/datatypes"
@@ -11,14 +12,17 @@ import (
 var CollectionTarget = Target{
 	kind: collectionKind,
 	typeOverrides: map[unsafe.Pointer]codec{
-		typePtr(uuidType): {encodeCollUUID, decodeCollUUID},
-		typePtr(oidType):  {encodeCollObjId, decodeCollObjId},
+		typePtr(uuidType):     {encodeCollUUID, decodeCollUUID},
+		typePtr(oidType):      {encodeCollObjId, decodeCollObjId},
+		typePtr(dApiTimeType): {encodeCollTimestamp, decodeCollTimestamp},
 	},
 	kindOverrides: map[reflect.Kind]func(codecCtx, reflect.Type, seenStructs, bool) codec{
 		reflect.Map: mkCollectionMapCodec,
 	},
 	dollarDatatypes: map[string]typedCodec{
-		"$uuid": {codec{encodeCollUUID, decodeCollUUID}, uuidType},
+		"$uuid":     {codec{encodeCollUUID, decodeCollUUID}, uuidType},
+		"$objectId": {codec{encodeCollObjId, decodeCollObjId}, oidType},
+		"$date":     {codec{encodeCollTimestamp, decodeCollTimestamp}, dApiTimeType},
 	},
 }
 
@@ -50,6 +54,25 @@ func decodeCollObjId(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	src, oid, err := parseDollarDatatype(src, oidTag, decodeObjectID)
 	if err == nil {
 		*(*datatypes.ObjectId)(p) = oid
+	}
+	return src, err
+}
+
+// Timestamps
+
+func encodeCollTimestamp(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return encodeDollarDatatype(dst, []byte("date"), func(dst []byte) ([]byte, error) {
+		ts := (*datatypes.DataAPITimestamp)(p)
+		return strconv.AppendInt(dst, ts.UnixMillis(), 10), nil
+	})
+}
+
+func decodeCollTimestamp(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src, ms, err := parseDollarDatatype(src, []byte("date"), func(b []byte) ([]byte, int64, error) {
+		return parseInt(b)
+	})
+	if err == nil {
+		*(*datatypes.DataAPITimestamp)(p) = datatypes.DataAPITimestampFromMillis(ms)
 	}
 	return src, err
 }

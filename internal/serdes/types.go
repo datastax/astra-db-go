@@ -29,6 +29,7 @@ var (
 	float32SliceType = reflect.TypeFor[[]float32]()
 	uuidType         = reflect.TypeFor[datatypes.UUID]()
 	oidType          = reflect.TypeFor[datatypes.ObjectId]()
+	dApiTimeType     = reflect.TypeFor[datatypes.DataAPITimestamp]()
 	vectorType       = reflect.TypeFor[datatypes.DataAPIVector]()
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
