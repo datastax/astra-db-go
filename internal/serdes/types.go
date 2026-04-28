@@ -10,6 +10,14 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 )
 
+type fieldHint int
+
+const (
+	unknownField fieldHint = iota
+	vectorField
+	vectorizeField
+)
+
 var (
 	astraCodecType = reflect.TypeFor[AstraCodec]()
 )
@@ -18,10 +26,16 @@ var (
 	nilType        = reflect.TypeOf(nil)
 	anyType        = reflect.TypeFor[any]()
 	uuidType       = reflect.TypeFor[datatypes.UUID]()
+	oidType        = reflect.TypeFor[datatypes.ObjectId]()
 	vectorType     = reflect.TypeFor[datatypes.DataAPIVector]()
 	timeType       = reflect.TypeFor[time.Time]()
 	ipType         = reflect.TypeFor[net.IP]()
 	rawMessageType = reflect.TypeFor[json.RawMessage]()
+)
+
+var (
+	uuidTag = []byte("uuid")
+	oidTag  = []byte("objectid")
 )
 
 type iface struct {
@@ -35,8 +49,12 @@ type slice struct {
 	cap  int
 }
 
-func typeid(t reflect.Type) unsafe.Pointer {
+func typePtr(t reflect.Type) unsafe.Pointer {
 	return (*iface)(unsafe.Pointer(&t)).ptr
+}
+
+func valuePtr(v reflect.Value) unsafe.Pointer {
+	return (*iface)(unsafe.Pointer(&v)).ptr
 }
 
 func inlined(t reflect.Type) bool {
@@ -73,4 +91,16 @@ func align(align, size uintptr) uintptr {
 		size = ((size / align) + 1) * align
 	}
 	return size
+}
+
+func extractFieldHint(field string) fieldHint {
+	if len(field) > 0 && field[0] == '$' {
+		switch {
+		case field[1:] == "vector":
+			return vectorField
+		case field[1:] == "vectorize":
+			return vectorizeField
+		}
+	}
+	return unknownField
 }

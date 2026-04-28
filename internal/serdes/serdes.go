@@ -46,30 +46,30 @@ func (bp *bufferPool) Put(b *[]byte) {
 	}
 }
 
-func Serialize(data any) ([]byte, error) {
+func Serialize(data any, target Target) ([]byte, error) {
+	buf := encodingBufferPool.Get()
+	defer encodingBufferPool.Put(buf)
+	return serializeAppend(data, target, *buf)
+}
+
+func serializeAppend(data any, target Target, dst []byte) ([]byte, error) {
 	if data == nil {
-		return []byte("null"), nil
+		return append(dst, "null"...), nil
 	}
 
 	t := reflect.TypeOf(data)
 	p := (*iface)(unsafe.Pointer(&data)).ptr
 
-	c := resolveCodecCaching(t, seenStructs{})
-
-	buf := encodingBufferPool.Get()
+	c := resolveCodecCaching(codecCtx{target: target}, t, seenStructs{})
 
 	var err error
-	*buf, err = c.encode(encodeCtx{}, *buf, p)
+	dst, err = c.encode(encodeCtx{}, dst, p)
 	runtime.KeepAlive(data)
 
-	ret := make([]byte, len(*buf))
-	copy(ret, *buf)
-
-	encodingBufferPool.Put(buf)
-	return ret, err
+	return dst, err
 }
 
-func Deserialize(data []byte, res any) error {
+func Deserialize(data []byte, res any, target Target) error {
 	t := reflect.TypeOf(res)
 	p := (*iface)(unsafe.Pointer(&res)).ptr
 
@@ -77,7 +77,7 @@ func Deserialize(data []byte, res any) error {
 		return fmt.Errorf("deserialize requires a pointer, got %v", t)
 	}
 
-	c := resolveCodecCaching(t.Elem(), seenStructs{})
+	c := resolveCodecCaching(codecCtx{target: target}, t.Elem(), seenStructs{})
 
 	_, err := c.decode(decodeCtx{}, data, p)
 	return err

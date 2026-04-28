@@ -8,7 +8,15 @@ import (
 	"strconv"
 )
 
-func decodeInt(src []byte) ([]byte, int64, error) {
+func consumeNull(src []byte) ([]byte, bool) {
+	src = skipWS(src)
+	if len(src) >= 4 && src[0] == 'n' && src[1] == 'u' && src[2] == 'l' && src[3] == 'l' {
+		return src[4:], true
+	}
+	return src, false
+}
+
+func parseInt(src []byte) ([]byte, int64, error) {
 	src = skipWS(src)
 	end := 0
 	for end < len(src) && (src[end] == '-' || (src[end] >= '0' && src[end] <= '9')) {
@@ -23,7 +31,7 @@ func decodeInt(src []byte) ([]byte, int64, error) {
 	return src[end:], num, err
 }
 
-func decodeUint(src []byte) ([]byte, uint64, error) {
+func parseUint(src []byte) ([]byte, uint64, error) {
 	src = skipWS(src)
 	end := 0
 	for end < len(src) && (src[end] >= '0' && src[end] <= '9') {
@@ -38,10 +46,17 @@ func decodeUint(src []byte) ([]byte, uint64, error) {
 	return src[end:], num, err
 }
 
-func decodeFloat(src []byte) ([]byte, float64, error) {
+var floatChars = [256]uint8{
+	'0': 1, '1': 1, '2': 1, '3': 1, '4': 1,
+	'5': 1, '6': 1, '7': 1, '8': 1, '9': 1,
+	'.': 1, '-': 1, '+': 1, 'e': 1, 'E': 1,
+}
+
+func parseFloat(src []byte) ([]byte, float64, error) {
 	src = skipWS(src)
 	end := 0
-	for end < len(src) && (src[end] == '-' || src[end] == '.' || (src[end] >= '0' && src[end] <= '9')) {
+
+	for end < len(src) && floatChars[src[end]] != 0 {
 		end++
 	}
 
@@ -53,6 +68,8 @@ func decodeFloat(src []byte) ([]byte, float64, error) {
 	return src[end:], f, err
 }
 
+// parseString is vendored and modified from:
+// https://github.com/segmentio/encoding/blob/fd406855de30c54110d23eace25478ab9c6fa2cc/json/parse.go#L405
 func parseString(src []byte) ([]byte, []byte, bool, error) {
 	src = skipWS(src)
 
@@ -109,4 +126,54 @@ func parseStringUnquote(src []byte) ([]byte, []byte, bool, error) {
 	}
 
 	return src, []byte(res), true, nil
+}
+
+func skipWS(src []byte) []byte {
+	for i := range src {
+		if src[i] > ' ' {
+			return src[i:]
+		}
+	}
+	return nil
+}
+
+func skipValue(src []byte) ([]byte, error) {
+	src = skipWS(src)
+	if len(src) == 0 {
+		return src, fmt.Errorf("unexpected end of input")
+	}
+
+	switch src[0] {
+	case '"':
+		src, _, _, err := parseString(src)
+		if err != nil {
+			return src, err
+		}
+		return src, nil
+
+	case '{', '[':
+		depth, open, cls := 0, src[0], byte('}')
+		if open == '[' {
+			cls = ']'
+		}
+
+		for i := 0; i < len(src); i++ {
+			if src[i] == open {
+				depth++
+			} else if src[i] == cls {
+				depth--
+				if depth == 0 {
+					return src[i+1:], nil
+				}
+			}
+		}
+		return src, fmt.Errorf("unexpected end of input while skipping value")
+
+	default:
+		i := 0
+		for i < len(src) && src[i] != ',' && src[i] != '}' && src[i] != ']' {
+			i++
+		}
+		return src[i:], nil
+	}
 }

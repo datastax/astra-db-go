@@ -101,3 +101,18 @@ func RunJSONTestCases(t *testing.T, cases []JSONTestCase) {
 		})
 	}
 }
+
+type Pair[A any, B any] struct {
+	First  A
+	Second B
+}
+
+func Cart[A any, B any](a []A, b []B) []Pair[A, B] {
+	var pairs []Pair[A, B]
+	for _, x := range a {
+		for _, y := range b {
+			pairs = append(pairs, Pair[A, B]{First: x, Second: y})
+		}
+	}
+	return pairs
+}

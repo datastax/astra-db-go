@@ -21,7 +21,7 @@ type AstraCodec interface {
 }
 
 var (
-	typeCodecs atomic.Pointer[map[unsafe.Pointer]codec]
+	typeCodecs atomic.Pointer[[3]map[unsafe.Pointer]codec]
 	kindCodecs [reflect.String + 1]codec
 )
 
@@ -37,83 +37,104 @@ var nilCodec = codec{
 	decodeNull,
 }
 
+type codecCtx struct {
+	target    Target
+	fieldHint fieldHint
+}
+
 type seenStructs = map[reflect.Type]*structInfo
 
-func resolveCodecCaching(t reflect.Type, seen seenStructs) codec {
+func resolveCodecCaching(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	tid := typePtr(t)
 	cache := cacheLoad()
-	if c, ok := cache[typeid(t)]; ok {
+
+	if c, ok := cache[0][tid]; ok {
 		return c
 	}
 
-	codec, shouldCache := resolveCodec(t, seen, t.Kind() == reflect.Ptr)
-	if shouldCache {
-		return cacheSet(cacheLoad(), t, codec)
+	if c, ok := cache[ctx.target.kind][tid]; ok {
+		return c
 	}
-	return codec
+
+	codec, purity := resolveCodec(ctx, t, seen, t.Kind() == reflect.Ptr)
+
+	return cacheSet(cache, t, int(purity)*int(ctx.target.kind), codec)
 }
 
-func resolveCodec(t reflect.Type, seen seenStructs, canAddr bool) (codec, bool) {
+func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (c codec, p purity) {
 	if t == nil || t == nilType {
-		return nilCodec, false
+		return nilCodec, pure
 	}
 
 	if t.Implements(astraCodecType) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-		return mkCustomCodec(t), true
+		return mkCustomCodec(t), pure
 	}
 
 	k := t.Kind()
 	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
-		return kindCodecs[k], false
+		return kindCodecs[k], pure
+	}
+
+	if c, ok := ctx.target.typeOverrides[typePtr(t)]; ok {
+		return c, impure
+	}
+
+	if mkC, ok := ctx.target.kindOverrides[k]; ok {
+		return mkC(ctx, t, seen, canAddr), impure
 	}
 
 	switch t {
-	case uuidType:
-		panic("uuid codec")
-	case vectorType:
-		panic("vector codec")
-	case timeType:
-		panic("time codec")
-	case ipType:
-		panic("ip codec")
 	case rawMessageType:
-		return codec{encodeRawMessage, decodeRawMessage}, true
+		return codec{encodeRawMessage, decodeRawMessage}, pure
+	case vectorType:
+		return codec{encodeVector, decodeVector}, pure
+	}
+
+	if c.encode != nil {
+		return
 	}
 
 	switch k {
 	case reflect.Ptr:
-		return mkPointerCodec(t, seen), true
+		c, p = mkPointerCodec(ctx, t, seen)
 	case reflect.Struct:
-		return mkStructCodec(t, seen, canAddr), true
-	case reflect.Map:
-		return mkMapCodec(t, seen), true
+		c, p = mkStructCodec(ctx, t, seen, canAddr)
 	case reflect.Slice:
-		return mkSliceCodec(t, seen), true
+		c, p = mkSliceCodec(ctx, t, seen)
 	case reflect.Array:
-		return mkArrayCodec(t, seen, canAddr), true
+		c, p = mkArrayCodec(ctx, t, seen, canAddr)
 	case reflect.Interface:
-		return mkInterfaceCodec(), true
+		c, p = mkInterfaceCodec(), pure
 	default:
 		panic("unsupported type: " + t.String())
 	}
+
+	return
 }
 
-func cacheLoad() map[unsafe.Pointer]codec {
+func cacheLoad() [3]map[unsafe.Pointer]codec {
 	p := typeCodecs.Load()
 	if p == nil {
-		return nil
+		return [3]map[unsafe.Pointer]codec{}
 	}
 	return *p
 }
 
-func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
+func cacheSet(oldCache [3]map[unsafe.Pointer]codec, t reflect.Type, i int, c codec) codec {
 	if inlined(t) {
 		c.encode = encodeInlined(c.encode)
 	}
 
-	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
-	maps.Copy(newCache, oldCache)
-	newCache[typeid(t)] = c
-	typeCodecs.Store(&newCache)
+	newCacheArray := oldCache
+
+	oldMap := newCacheArray[i]
+	newMap := make(map[unsafe.Pointer]codec, len(oldMap)+1)
+	maps.Copy(newMap, oldMap)
+	newMap[typePtr(t)] = c
+
+	newCacheArray[i] = newMap
+	typeCodecs.Store(&newCacheArray)
+
 	return c
 }
 
@@ -128,27 +149,27 @@ func mkCustomCodec(t reflect.Type) codec {
 	return codec{encodeCustom(t), decodeCustom(t)}
 }
 
-func mkPointerCodec(t reflect.Type, seen seenStructs) codec {
+func mkPointerCodec(ctx codecCtx, t reflect.Type, seen seenStructs) (codec, purity) {
 	el := t.Elem()
-	c, _ := resolveCodec(el, seen, true)
+	c, p := resolveCodec(ctx, el, seen, true)
 
 	return codec{
 		encodePointer(c.encode),
 		decodePointer(c.decode, el),
-	}
+	}, p
 }
 
-func mkStructCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
-	info, err := compileStructInfo(t, seen, canAddr)
+func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (codec, purity) {
+	info, err := compileStructInfo(ctx, t, seen, canAddr)
 
 	if err != nil {
-		return mkErroredCodec(fmt.Errorf("failed to compile struct %s: %w", t.String(), err))
+		return mkErroredCodec(fmt.Errorf("failed to compile struct %s: %w", t.String(), err)), pure
 	}
 
 	return codec{
 		encodeStruct(info),
 		decodeStruct(info),
-	}
+	}, info.purity
 }
 
 func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
@@ -158,47 +179,27 @@ func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintpt
 	}
 }
 
-func mkMapCodec(t reflect.Type, seen seenStructs) codec {
-	kt := t.Key()
-	vt := t.Elem()
-
-	kc := kindCodecs[reflect.String]
-	vc, _ := resolveCodec(vt, seen, false)
-
-	kz := reflect.Zero(kt)
-	vz := reflect.Zero(vt)
-
-	if inlined(vt) {
-		vc.encode = encodeInlined(vc.encode)
-	}
-
-	return codec{
-		encodeMap(t, kc.encode, vc.encode),
-		decodeMap(kt, vt, kz, vz, kc.decode, vc.decode),
-	}
-}
-
-func mkSliceCodec(t reflect.Type, seen seenStructs) codec {
+func mkSliceCodec(ctx codecCtx, t reflect.Type, seen seenStructs) (codec, purity) {
 	elem := t.Elem()
-	c, _ := resolveCodec(elem, seen, true)
+	c, p := resolveCodec(ctx, elem, seen, true)
 	size := alignedSize(elem)
 
 	return codec{
 		encodeSlice(size, c.encode),
 		decodeSlice(size, t, c.decode),
-	}
+	}, p
 }
 
-func mkArrayCodec(t reflect.Type, seen seenStructs, canAddr bool) codec {
+func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (codec, purity) {
 	elem := t.Elem()
 	size := alignedSize(elem)
-	c, _ := resolveCodec(elem, seen, canAddr)
+	c, p := resolveCodec(ctx, elem, seen, canAddr)
 	n := t.Len()
 
 	return codec{
 		encodeArray(n, size, c.encode),
-		decodeArray(n, size, t, c.decode),
-	}
+		decodeArray(n, size, c.decode),
+	}, p
 }
 
 func mkInterfaceCodec() codec {
@@ -212,6 +213,7 @@ type structInfo struct {
 	fields  []fieldInfo
 	offsets map[string]int
 	typ     reflect.Type
+	purity  purity
 }
 
 type fieldInfo struct {
@@ -230,7 +232,7 @@ type jsonMeta struct {
 	tagged    bool
 }
 
-func compileStructInfo(t reflect.Type, seen seenStructs, canAddr bool) (*structInfo, error) {
+func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (*structInfo, error) {
 	if info, ok := seen[t]; ok {
 		return info, nil
 	}
@@ -238,11 +240,13 @@ func compileStructInfo(t reflect.Type, seen seenStructs, canAddr bool) (*structI
 	info := &structInfo{
 		typ:     t,
 		offsets: make(map[string]int, t.NumField()),
+		purity:  pure,
 	}
 	seen[t] = info
 
-	fields, err := compileStructFields(t, seen, canAddr)
+	fields, p, err := compileStructFields(ctx, t, seen, canAddr)
 	info.fields = fields
+	info.purity = p
 
 	if err != nil {
 		delete(seen, t)
@@ -257,7 +261,8 @@ func compileStructInfo(t reflect.Type, seen seenStructs, canAddr bool) (*structI
 	return info, nil
 }
 
-func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
+func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, purity, error) {
+	overallPurity := pure
 	type embeddedField struct {
 		ord        int
 		offset     uintptr
@@ -282,7 +287,7 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			unexported = len(f.PkgPath) != 0
 		)
 
-		if unexported && !embedded { // unexported
+		if unexported && !embedded {
 			continue
 		}
 
@@ -292,7 +297,7 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			continue
 		}
 
-		if embedded && !meta.tagged { // embeddedFields
+		if embedded && !meta.tagged { // embedded w/out a tagged name
 			typ := f.Type
 			ptr := f.Type.Kind() == reflect.Ptr
 
@@ -301,9 +306,9 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			}
 
 			if typ.Kind() == reflect.Struct {
-				subtype, err := compileStructInfo(typ, seen, canAddr)
+				subtype, err := compileStructInfo(ctx, typ, seen, canAddr)
 				if err != nil {
-					return nil, err
+					return nil, pure, err
 				}
 
 				for j := range subtype.fields {
@@ -317,6 +322,7 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 					})
 				}
 
+				overallPurity |= subtype.purity
 				continue
 			}
 
@@ -325,7 +331,8 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			}
 		}
 
-		c, _ := resolveCodec(f.Type, seen, canAddr)
+		c, p := resolveCodec(ctx, f.Type, seen, canAddr)
+		overallPurity |= p
 
 		fields = append(fields, fieldInfo{
 			codec:  c,
@@ -335,12 +342,13 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			typ:    f.Type,
 		})
 
-		// Seed the counters so embedded fields know they are secondary
+		// seeds the counters so embedded fields know they are secondary
 		topLevelNames[meta.name] = struct{}{}
 		ambiguousNames[meta.name]++
 		ambiguousTags[meta.name]++
 	}
 
+	// first pass to count the number of fields w/ each name so we can resolve ambiguities in the next pass
 	for _, embfield := range embeddedFields {
 		ambiguousNames[embfield.subfield.meta.name]++
 		if embfield.subfield.meta.tagged {
@@ -355,7 +363,8 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 		case shadowed:
 			continue
 		case ambiguous:
-			return nil, fmt.Errorf("unresolvable ambiguity for field %q in struct %s", subfield.meta.name, t.String())
+			// TODO this is allowed w/ normal json ser/des but I'm tempted to error for correctness
+			return nil, pure, fmt.Errorf("unresolvable ambiguity for fieldHint %q in struct %s", subfield.meta.name, t.String())
 		case unambiguous:
 			// all good
 		}
@@ -367,10 +376,10 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 			subfield.offset += embfield.offset
 		}
 
-		// To prevent dominant flags more than one level below the embeddedFields one.
+		// prevents dominant flags more than one level below the embedded one
 		subfield.meta.tagged = false
 
-		// To ensure the order of the fields in the output is the same is in the struct type.
+		// ensures order of the fields is the same is in the struct type
 		subfield.ord = embfield.ord
 
 		fields = append(fields, subfield)
@@ -380,8 +389,12 @@ func compileStructFields(t reflect.Type, seen seenStructs, canAddr bool) ([]fiel
 		fields[i].prefix = []byte(`,"` + fields[i].meta.name + `":`)
 	}
 
+	// TODO:
+	// I'm just sorting because it's cheap and easy (since only called when building the codec)
+	// That being said it doesn't really matter for the output so I'm fine to remove it...
 	sort.Slice(fields, func(i, j int) bool { return fields[i].ord < fields[j].ord })
-	return fields, nil
+
+	return fields, overallPurity, nil
 }
 
 func parseJsonMeta(f reflect.StructField) jsonMeta {
@@ -419,26 +432,21 @@ const (
 )
 
 func resolveEmbeddedAmbiguity(meta jsonMeta, topLevelNames map[string]struct{}, nameCounts, tagCounts map[string]int) embeddedAmbiguity {
-	// 1. Shadowing: If a top-level field exists, the embedded one NEVER wins.
 	if _, exists := topLevelNames[meta.name]; exists {
-		return shadowed
+		return shadowed // top level fieldHint with the same name exists so ignore this embedded fieldHint
 	}
 
-	// 2. No Collision: If this name only appears once in all embedded structs, it's the winner.
 	if nameCounts[meta.name] == 1 {
-		return unambiguous
+		return unambiguous // no collisions so all good to go
 	}
 
-	// 3. Tag Dominance: If there are multiple fields with this name,
-	// a field wins ONLY if it is the ONLY one with an explicit tag.
 	if tagCounts[meta.name] == 1 && meta.tagged {
-		return unambiguous
+		return unambiguous // multiple fields with the same name, so the fieldHint with the tag wins
 	}
 
-	// 4. Ambiguity: Multiple tags or zero tags with the same name.
 	if tagCounts[meta.name] != 1 {
-		return ambiguous
+		return ambiguous // zero or multiple tags w/ the same name so we can't resolve anything
 	}
 
-	return shadowed
+	return shadowed // fieldHint collided and lost to a tagged fieldHint.
 }

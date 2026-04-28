@@ -5,6 +5,35 @@ import (
 	"testing"
 )
 
+// Type aliases
+type UserID int64
+type Email string
+
+// Embedded structs
+type Address struct {
+	Street  string `json:"street"`
+	City    string `json:"city"`
+	ZipCode string `json:"zip_code,omitempty"`
+}
+
+type ContactInfo struct {
+	Email Email  `json:"email"`
+	Phone string `json:"phone,omitempty"`
+}
+
+// Complex nested struct with embedded fields and deep pointers
+type User struct {
+	ID         UserID     `json:"id"`
+	Name       string     `json:"name"`
+	Age        *int       `json:"age,omitempty"`
+	Score      **int      `json:"score,omitempty"`  // Double pointer
+	Rating     ***float64 `json:"rating,omitempty"` // Triple pointer
+	IsActive   bool       `json:"is_active"`
+	Address               // Embedded value struct
+	BestFriend *User      `json:"best_friend,omitempty"` // Nested pointer
+	Ignored    string     `json:"-"`
+}
+
 // Global variables to prevent compiler optimization
 var (
 	result     []byte
@@ -39,36 +68,52 @@ func BenchmarkSerDesComparison(b *testing.B) {
 	jsonData, _ := json.Marshal(user)
 
 	// --- SERIALIZATION COMPARISON ---
-	b.Run("Serialize/Custom-Unsafe", func(b *testing.B) {
+	b.Run("Serialize/Custom-Collection", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			result, _ = Serialize(user)
+			result, _ = Serialize(user, CollectionTarget)
 		}
 	})
 
-	//b.Run("Serialize/StdJSON", func(b *testing.B) {
-	//	b.ReportAllocs()
-	//	for i := 0; i < b.N; i++ {
-	//		result, _ = json.Marshal(user)
-	//	}
-	//})
+	b.Run("Serialize/Custom-Table", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ = Serialize(user, TableTarget)
+		}
+	})
+
+	b.Run("Serialize/StdJSON", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			result, _ = json.Marshal(user)
+		}
+	})
 
 	// --- DESERIALIZATION COMPARISON ---
-	b.Run("Deserialize/Custom-Unsafe", func(b *testing.B) {
+	b.Run("Deserialize/Custom-Collection", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var u User
-			_ = Deserialize(jsonData, &u)
+			_ = Deserialize(jsonData, &u, CollectionTarget)
 			userResult = u
 		}
 	})
 
-	//b.Run("Deserialize/StdJSON", func(b *testing.B) {
-	//	b.ReportAllocs()
-	//	for i := 0; i < b.N; i++ {
-	//		var u User
-	//		_ = json.Unmarshal(jsonData, &u)
-	//		userResult = u
-	//	}
-	//})
+	b.Run("Deserialize/Custom-Table", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			var u User
+			_ = Deserialize(jsonData, &u, TableTarget)
+			userResult = u
+		}
+	})
+
+	b.Run("Deserialize/StdJSON", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			var u User
+			_ = json.Unmarshal(jsonData, &u)
+			userResult = u
+		}
+	})
 }

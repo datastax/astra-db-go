@@ -76,7 +76,7 @@ func main() {
 			Type:        t,
 			Cast:        "int64",
 			SerFunc:     "AppendInt",
-			DesFunc:     "decodeInt",
+			DesFunc:     "parseInt",
 			BoundsCheck: fmt.Sprintf("num < math.Min%s || num > math.Max%s", title(t), title(t)),
 			Args:        ", 10",
 		})
@@ -87,7 +87,7 @@ func main() {
 			Type:        t,
 			Cast:        "uint64",
 			SerFunc:     "AppendUint",
-			DesFunc:     "decodeUint",
+			DesFunc:     "parseUint",
 			BoundsCheck: fmt.Sprintf("num < 0 || num > math.Max%s", title(t)),
 			Args:        ", 10",
 		})
@@ -97,7 +97,7 @@ func main() {
 		Type:        "uintptr",
 		Cast:        "uint64",
 		SerFunc:     "AppendUint",
-		DesFunc:     "decodeUint",
+		DesFunc:     "parseUint",
 		BoundsCheck: "num < 0 || num > uint64(MaxUintptr)",
 		Args:        ", 10",
 	})
@@ -107,7 +107,7 @@ func main() {
 			Type:        fmt.Sprintf("float%d", t),
 			Cast:        "float64",
 			SerFunc:     "AppendFloat",
-			DesFunc:     "decodeFloat",
+			DesFunc:     "parseFloat",
 			BoundsCheck: "false",
 			Args:        fmt.Sprintf(", 'g', -1, %d", t),
 		})

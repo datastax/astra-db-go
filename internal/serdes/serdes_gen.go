@@ -65,7 +65,7 @@ func decodeIntKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := decodeInt(src)
+	src, num, err := parseInt(src)
 	if err != nil {
 		return src, err
 	}
@@ -87,7 +87,7 @@ func decodeInt8Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := decodeInt(src)
+	src, num, err := parseInt(src)
 	if err != nil {
 		return src, err
 	}
@@ -109,7 +109,7 @@ func decodeInt16Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := decodeInt(src)
+	src, num, err := parseInt(src)
 	if err != nil {
 		return src, err
 	}
@@ -131,7 +131,7 @@ func decodeInt32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := decodeInt(src)
+	src, num, err := parseInt(src)
 	if err != nil {
 		return src, err
 	}
@@ -153,7 +153,7 @@ func decodeInt64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := decodeInt(src)
+	src, num, err := parseInt(src)
 	if err != nil {
 		return src, err
 	}
@@ -175,7 +175,7 @@ func decodeUintKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := decodeUint(src)
+	src, num, err := parseUint(src)
 	if err != nil {
 		return src, err
 	}
@@ -197,7 +197,7 @@ func decodeUint8Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := decodeUint(src)
+	src, num, err := parseUint(src)
 	if err != nil {
 		return src, err
 	}
@@ -219,7 +219,7 @@ func decodeUint16Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	src, num, err := decodeUint(src)
+	src, num, err := parseUint(src)
 	if err != nil {
 		return src, err
 	}
@@ -241,7 +241,7 @@ func decodeUint32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	src, num, err := decodeUint(src)
+	src, num, err := parseUint(src)
 	if err != nil {
 		return src, err
 	}
@@ -263,7 +263,7 @@ func decodeUint64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	src, num, err := decodeUint(src)
+	src, num, err := parseUint(src)
 	if err != nil {
 		return src, err
 	}
@@ -285,7 +285,7 @@ func decodeUintptrKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 		return b, nil
 	}
 
-	src, num, err := decodeUint(src)
+	src, num, err := parseUint(src)
 	if err != nil {
 		return src, err
 	}
@@ -307,7 +307,7 @@ func decodeFloat32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 		return b, nil
 	}
 
-	src, num, err := decodeFloat(src)
+	src, num, err := parseFloat(src)
 	if err != nil {
 		return src, err
 	}
@@ -329,7 +329,7 @@ func decodeFloat64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 		return b, nil
 	}
 
-	src, num, err := decodeFloat(src)
+	src, num, err := parseFloat(src)
 	if err != nil {
 		return src, err
 	}

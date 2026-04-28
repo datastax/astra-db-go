@@ -10,6 +10,7 @@ import (
 type decoder func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 
 type decodeCtx struct {
+	codecCtx
 }
 
 func decodeError(err error) decoder {
@@ -92,7 +93,7 @@ func decodeCustom(t reflect.Type) decoder {
 		var codec AstraCodec
 		codec = reflect.NewAt(t, p).Interface().(AstraCodec)
 
-		c, _ := resolveCodec(reflect.TypeOf((*any)(nil)).Elem(), seenStructs{}, false)
+		c := resolveCodecCaching(ctx.codecCtx, reflect.TypeOf((*any)(nil)).Elem(), seenStructs{})
 
 		var intermediate any
 		src, err := c.decode(ctx, src, unsafe.Pointer(&intermediate))
@@ -137,7 +138,7 @@ func decodeStruct(info *structInfo) decoder {
 
 			if i > 0 {
 				if src[0] != ',' {
-					return src, fmt.Errorf("expected ',' after field value")
+					return src, fmt.Errorf("expected ',' after fieldHint value")
 				}
 				src = skipWS(src[1:])
 			}
@@ -156,8 +157,8 @@ func decodeStruct(info *structInfo) decoder {
 			if fieldIdx, ok := info.offsets[unsafeString(key)]; ok {
 				f := &info.fields[fieldIdx]
 
-				// Jump to memory location via offset instead of FieldByIndex
 				ptr := unsafe.Pointer(uintptr(p) + f.offset)
+				ctx.fieldHint = extractFieldHint(f.meta.name)
 
 				src, err = f.codec.decode(ctx, src, ptr)
 				if err != nil {
@@ -186,137 +187,7 @@ func decodeEmbeddedStructPointer(t reflect.Type, unexported bool, offset uintptr
 	}
 }
 
-func consumeNull(src []byte) ([]byte, bool) {
-	src = skipWS(src)
-	if len(src) >= 4 && src[0] == 'n' && src[1] == 'u' && src[2] == 'l' && src[3] == 'l' {
-		return src[4:], true
-	}
-	return src, false
-}
-
-func skipWS(src []byte) []byte {
-	for i := range src {
-		if src[i] > ' ' {
-			return src[i:]
-		}
-	}
-	return nil
-}
-
-func skipValue(src []byte) ([]byte, error) {
-	src = skipWS(src)
-	if len(src) == 0 {
-		return src, fmt.Errorf("unexpected end of input")
-	}
-
-	switch src[0] {
-	case '"':
-		src, _, _, err := parseString(src)
-		if err != nil {
-			return src, err
-		}
-		return src, nil
-
-	case '{', '[':
-		depth, open, cls := 0, src[0], byte('}')
-		if open == '[' {
-			cls = ']'
-		}
-
-		for i := 0; i < len(src); i++ {
-			if src[i] == open {
-				depth++
-			} else if src[i] == cls {
-				depth--
-				if depth == 0 {
-					return src[i+1:], nil
-				}
-			}
-		}
-		return src, fmt.Errorf("unexpected end of input while skipping value")
-
-	default:
-		i := 0
-		for i < len(src) && src[i] != ',' && src[i] != '}' && src[i] != ']' {
-			i++
-		}
-		return src[i:], nil
-	}
-}
-
 var empty struct{}
-
-func decodeMap(kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
-	return func(ctx decodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
-		if b, ok := consumeNull(b); ok {
-			*(*unsafe.Pointer)(p) = nil
-			return b, nil
-		}
-
-		if len(b) < 2 || b[0] != '{' {
-			return b, fmt.Errorf("expected '{'")
-		}
-		i := 0
-		m := reflect.NewAt(reflect.MapOf(kt, vt), p).Elem()
-
-		k := reflect.New(kt).Elem()
-		v := reflect.New(vt).Elem()
-
-		kptr := (*iface)(unsafe.Pointer(&k)).ptr
-		vptr := (*iface)(unsafe.Pointer(&v)).ptr
-
-		if m.IsNil() {
-			m = reflect.MakeMap(reflect.MapOf(kt, vt))
-		}
-
-		var err error
-		b = b[1:]
-		for {
-			k.Set(kz)
-			v.Set(vz)
-			b = skipWS(b)
-
-			if len(b) != 0 && b[0] == '}' {
-				*(*unsafe.Pointer)(p) = unsafe.Pointer(m.Pointer())
-				return b[1:], nil
-			}
-
-			if i != 0 {
-				if len(b) == 0 {
-					return b, fmt.Errorf("unexpected end of JSON input after object field value")
-				}
-				if b[0] != ',' {
-					return b, fmt.Errorf("expected ',' after object field value but found '%c'", b[0])
-				}
-				b = skipWS(b[1:])
-			}
-
-			if b, ok := consumeNull(b); ok {
-				return b, fmt.Errorf("cannot decode object key string from 'null' value")
-			}
-
-			if b, err = decodeKey(ctx, b, kptr); err != nil {
-				return b, err
-			}
-			b = skipWS(b)
-
-			if len(b) == 0 {
-				return b, fmt.Errorf("unexpected end of JSON input after object field key")
-			}
-			if b[0] != ':' {
-				return b, fmt.Errorf("expected ':' after object field key but found '%c'", b[0])
-			}
-			b = skipWS(b[1:])
-
-			if b, err = decodeValue(ctx, b, vptr); err != nil {
-				return b, err
-			}
-
-			m.SetMapIndex(k, v)
-			i++
-		}
-	}
-}
 
 func decodeSlice(size uintptr, t reflect.Type, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -386,7 +257,7 @@ func extendSlice(t reflect.Type, s *slice, newCap int) slice {
 	}
 }
 
-func decodeArray(n int, size uintptr, t reflect.Type, decode decoder) decoder {
+func decodeArray(n int, size uintptr, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
@@ -481,7 +352,7 @@ func decodeInterface(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		vt := reflect.TypeOf((*any)(nil)).Elem()
 		kz := reflect.Zero(kt)
 		vz := reflect.Zero(vt)
-		src, err = decodeMap(kt, vt, kz, vz, decodeStringKind, decodeInterface)(decodeCtx{}, src, unsafe.Pointer(&m))
+		src, err = decodeCollectionMap(reflect.MapOf(kt, vt), kt, vt, kz, vz, decodeStringKind, decodeInterface)(decodeCtx{}, src, unsafe.Pointer(&m))
 		val = m
 
 	default:
