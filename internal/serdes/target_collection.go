@@ -23,19 +23,20 @@ var CollectionTarget = Target{
 		"$uuid":     {codec{encodeCollUUID, decodeCollUUID}, uuidType},
 		"$objectId": {codec{encodeCollObjId, decodeCollObjId}, oidType},
 		"$date":     {codec{encodeCollTimestamp, decodeCollTimestamp}, dApiTimeType},
+		"$binary":   {codec{encodeBinary, decodeBinary}, byteSliceType},
 	},
 }
 
 // UUIDs
 
 func encodeCollUUID(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return encodeDollarDatatype(dst, uuidTag, func(dst []byte) ([]byte, error) {
+	return encodeDollarDatatype(dst, []byte("uuid"), func(dst []byte) ([]byte, error) {
 		return encodeUUID(dst, p)
 	})
 }
 
 func decodeCollUUID(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	src, uuid, err := parseDollarDatatype(src, uuidTag, decodeUUID)
+	src, uuid, err := parseDollarDatatype(src, []byte("uuid"), decodeUUID)
 	if err == nil {
 		*(*datatypes.UUID)(p) = uuid
 	}
@@ -45,13 +46,13 @@ func decodeCollUUID(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 // ObjectIDs
 
 func encodeCollObjId(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return encodeDollarDatatype(dst, oidTag, func(dst []byte) ([]byte, error) {
+	return encodeDollarDatatype(dst, []byte("objectId"), func(dst []byte) ([]byte, error) {
 		return encodeObjectID(dst, p)
 	})
 }
 
 func decodeCollObjId(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	src, oid, err := parseDollarDatatype(src, oidTag, decodeObjectID)
+	src, oid, err := parseDollarDatatype(src, []byte("objectId"), decodeObjectID)
 	if err == nil {
 		*(*datatypes.ObjectId)(p) = oid
 	}

@@ -53,6 +53,17 @@ var floatChars = [256]uint8{
 }
 
 func parseFloat(src []byte) ([]byte, float64, error) {
+	src, numStr, err := parseNumber(src)
+	if err != nil {
+		return src, 0, fmt.Errorf("invalid float: %w", err)
+	}
+
+	f, err := strconv.ParseFloat(unsafeString(numStr), 64)
+	return src, f, err
+}
+
+// parseNumber extracts a number string without parsing it, for use with big.Int and big.Float
+func parseNumber(src []byte) ([]byte, []byte, error) {
 	src = skipWS(src)
 	end := 0
 
@@ -61,11 +72,10 @@ func parseFloat(src []byte) ([]byte, float64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, fmt.Errorf("expected float")
+		return src, nil, fmt.Errorf("expected number")
 	}
 
-	f, err := strconv.ParseFloat(unsafeString(src[:end]), 64)
-	return src[end:], f, err
+	return src[end:], src[:end], nil
 }
 
 // parseString is vendored and modified from:

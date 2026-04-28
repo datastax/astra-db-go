@@ -3,6 +3,7 @@ package serdes
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 	"reflect"
 	"unsafe"
 
@@ -53,6 +54,62 @@ func decodeObjectID(src []byte) ([]byte, datatypes.ObjectId, error) {
 	}
 
 	return src, objectID, nil
+}
+
+// big.Int
+
+func encodeBigInt(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	bi := *(*big.Int)(p)
+	return append(dst, bi.String()...), nil
+}
+
+func decodeBigInt(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src = skipWS(src)
+
+	if b, ok := consumeNull(src); ok {
+		return b, nil
+	}
+
+	src, numStr, err := parseNumber(src)
+	if err != nil {
+		return src, fmt.Errorf("invalid big.Int: %w", err)
+	}
+
+	var bi big.Int
+	if _, ok := bi.SetString(unsafeString(numStr), 10); !ok {
+		return src, fmt.Errorf("invalid big.Int value: %s", numStr)
+	}
+
+	*(*big.Int)(p) = bi
+	return src, nil
+}
+
+// big.Float
+
+func encodeBigFloat(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	bf := *(*big.Float)(p)
+	return append(dst, bf.Text('g', -1)...), nil
+}
+
+func decodeBigFloat(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src = skipWS(src)
+
+	if b, ok := consumeNull(src); ok {
+		return b, nil
+	}
+
+	src, numStr, err := parseNumber(src)
+	if err != nil {
+		return src, fmt.Errorf("invalid big.Float: %w", err)
+	}
+
+	var bf big.Float
+	if _, ok := bf.SetString(unsafeString(numStr)); !ok {
+		return src, fmt.Errorf("invalid big.Float value: %s", numStr)
+	}
+
+	*(*big.Float)(p) = bf
+	return src, nil
 }
 
 // Maps
@@ -253,6 +310,57 @@ func decodeVector(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	}
 
 	return src, fmt.Errorf("expected []float32 or {\"$binary\":\"<base64>\"} for vector value")
+}
+
+// Binary
+
+func encodeBinary(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return encodeDollarDatatype(dst, []byte("binary"), func(b []byte) ([]byte, error) {
+		dst = append(dst, '"')
+		dst = append(dst, *(*[]byte)(p)...)
+		dst = append(dst, '"')
+		return dst, nil
+	})
+}
+
+func decodeBinary(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src = skipWS(src)
+
+	if len(src) == 0 || src[0] == '"' {
+		src, str, _, err := parseStringUnquote(src)
+		if err != nil {
+			return src, err
+		}
+
+		*(*[]byte)(p) = str
+		return src, nil
+	}
+
+	if len(src) == 0 || src[0] == '{' {
+		src, data, err := parseDollarDatatype(src, []byte("binary"), func(b []byte) ([]byte, []byte, error) {
+			src, str, _, err := parseStringUnquote(b)
+			if err != nil {
+				return src, nil, fmt.Errorf("invalid binary string: %w", err)
+			}
+			return src, str, nil
+		})
+
+		if err == nil {
+			*(*[]byte)(p) = data
+		}
+		return src, err
+	}
+
+	if len(src) == 0 || src[0] == '[' {
+		var arr []byte
+		src, err := decodeSlice(1, byteSliceType, decodeUint8Kind)(ctx, src, unsafe.Pointer(&arr))
+		if err == nil {
+			*(*[]byte)(p) = arr
+		}
+		return src, err
+	}
+
+	return src, fmt.Errorf("expected string, []byte, or {\"$binary\":\"<base64>\"} for []byte value")
 }
 
 // Helpers

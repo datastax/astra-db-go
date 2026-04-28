@@ -18,6 +18,9 @@ var TableTarget = Target{
 	kindOverrides: map[reflect.Kind]func(codecCtx, reflect.Type, seenStructs, bool) codec{
 		reflect.Map: mkTableMapCodec,
 	},
+	dollarDatatypes: map[string]typedCodec{
+		"$binary": {codec{encodeBinary, decodeBinary}, byteSliceType},
+	},
 }
 
 // UUIDs

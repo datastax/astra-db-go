@@ -2,6 +2,7 @@ package serdes
 
 import (
 	"encoding/json"
+	"math/big"
 	"net"
 	"reflect"
 	"time"
@@ -27,6 +28,7 @@ var (
 	anyType          = reflect.TypeFor[any]()
 	stringType       = reflect.TypeFor[string]()
 	float32SliceType = reflect.TypeFor[[]float32]()
+	byteSliceType    = reflect.TypeFor[[]byte]()
 	uuidType         = reflect.TypeFor[datatypes.UUID]()
 	oidType          = reflect.TypeFor[datatypes.ObjectId]()
 	dApiTimeType     = reflect.TypeFor[datatypes.DataAPITimestamp]()
@@ -34,11 +36,8 @@ var (
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
 	rawMessageType   = reflect.TypeFor[json.RawMessage]()
-)
-
-var (
-	uuidTag = []byte("uuid")
-	oidTag  = []byte("objectid")
+	bigIntType       = reflect.TypeFor[big.Int]()
+	bigFloatType     = reflect.TypeFor[big.Float]()
 )
 
 var (

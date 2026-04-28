@@ -88,6 +88,12 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return codec{encodeRawMessage, decodeRawMessage}, pure
 	case vectorType:
 		return codec{encodeVector, decodeVector}, pure
+	case bigIntType:
+		return codec{encodeBigInt, decodeBigInt}, pure
+	case bigFloatType:
+		return codec{encodeBigFloat, decodeBigFloat}, pure
+	case byteSliceType:
+		return codec{encodeBinary, decodeBinary}, pure
 	}
 
 	if c.encode != nil {
@@ -104,7 +110,7 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	case reflect.Array:
 		c, p = mkArrayCodec(ctx, t, seen, canAddr)
 	case reflect.Interface:
-		c, p = mkInterfaceCodec(), pure
+		c, p = codec{encodeInterface, decodeInterface}, pure
 	default:
 		panic("unsupported type: " + t.String())
 	}
@@ -200,13 +206,6 @@ func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		encodeArray(n, size, c.encode),
 		decodeArray(n, size, c.decode),
 	}, p
-}
-
-func mkInterfaceCodec() codec {
-	return codec{
-		encodeInterface,
-		decodeInterface,
-	}
 }
 
 type structInfo struct {
