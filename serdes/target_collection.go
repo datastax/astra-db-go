@@ -10,7 +10,6 @@ import (
 )
 
 var CollectionTarget = Target{
-	kind: collectionKind,
 	typeOverrides: map[unsafe.Pointer]codec{
 		typePtr(uuidType):     {encodeCollUUID, decodeCollUUID},
 		typePtr(oidType):      {encodeCollObjId, decodeCollObjId},

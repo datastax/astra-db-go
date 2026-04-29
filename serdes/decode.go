@@ -15,6 +15,14 @@ type decodeCtx struct {
 	codecCtx
 }
 
+type AstraUnmarshaler interface {
+	UnmarshalAstra(target targetKind, value any) error
+}
+
+type AstraRawUnmarshaler interface {
+	UnmarshalAstraRaw(target targetKind, value []byte) error
+}
+
 func decodeError(err error) decoder {
 	return func(_ decodeCtx, src []byte, _ unsafe.Pointer) ([]byte, error) {
 		return src, err
@@ -82,32 +90,38 @@ func decodePointer(decode decoder, t reflect.Type) decoder {
 	}
 }
 
-func decodeCustom(t reflect.Type) decoder {
-	if !t.Implements(astraCodecType) && !reflect.PointerTo(t).Implements(astraCodecType) {
-		return decodeError(fmt.Errorf("type %v does not implement AstraCodec", t))
-	}
-
+func decodeAstraUnmarshaler(t reflect.Type) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-		if p == nil {
-			return src, fmt.Errorf("cannot decode into nil pointer for %v", t)
-		}
-
-		var codec AstraCodec
-		codec = reflect.NewAt(t, p).Interface().(AstraCodec)
-
-		c := resolveCodecCaching(ctx.codecCtx, reflect.TypeOf((*any)(nil)).Elem(), seenStructs{})
-
 		var intermediate any
-		src, err := c.decode(ctx, src, unsafe.Pointer(&intermediate))
+		src, err := decodeInterface(ctx, src, unsafe.Pointer(&intermediate))
 		if err != nil {
 			return src, err
 		}
 
-		if err = codec.FromAstraValue(intermediate); err != nil {
+		u := reflect.NewAt(t, p)
+		if u.IsNil() {
+			u.Set(reflect.New(t))
+		}
+
+		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target.kind, intermediate)
+	}
+}
+
+func decodeAstraRawUnmarshaler(t reflect.Type) decoder {
+	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		u := reflect.NewAt(t, p)
+		if u.IsNil() {
+			u.Set(reflect.New(t))
+		}
+
+		srcAfter, err := skipValue(src)
+		if err != nil {
 			return src, err
 		}
 
-		return src, nil
+		splitPoint := len(src) - len(srcAfter)
+
+		return srcAfter, u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx.target.kind, src[:splitPoint])
 	}
 }
 

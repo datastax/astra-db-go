@@ -43,6 +43,6 @@ func (p Target) String() string {
 	case tableKind:
 		return "table"
 	default:
-		panic("unknown target")
+		return "unknown"
 	}
 }

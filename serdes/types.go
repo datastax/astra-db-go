@@ -20,7 +20,10 @@ const (
 )
 
 var (
-	astraCodecType = reflect.TypeFor[AstraCodec]()
+	astraMarshalerType      = reflect.TypeFor[AstraMarshaler]()
+	astraRawMarshalerType   = reflect.TypeFor[AstraRawMarshaler]()
+	astraUnmarshalerType    = reflect.TypeFor[AstraUnmarshaler]()
+	astraRawUnmarshalerType = reflect.TypeFor[AstraRawUnmarshaler]()
 )
 
 var (

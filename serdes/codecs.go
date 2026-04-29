@@ -15,17 +15,12 @@ type codec struct {
 	decode decoder
 }
 
-type AstraCodec interface {
-	FromAstraValue(v any) error
-	ToAstraValue() any
-}
-
 var (
 	typeCodecs atomic.Pointer[[3]map[unsafe.Pointer]codec]
 	kindCodecs [reflect.String + 1]codec
 )
 
-//go:generate go run -modfile=../../tools/gen-serdes/go.mod ../../tools/gen-serdes/main.go
+//go:generate go run -modfile=../tools/gen-serdes/go.mod ../tools/gen-serdes/main.go
 
 func init() {
 	kindCodecs[reflect.Bool] = codec{encodeBoolKind, decodeBoolKind}
@@ -66,21 +61,12 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return nilCodec, pure
 	}
 
-	if t.Implements(astraCodecType) || (t.Kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-		return mkCustomCodec(t), pure
-	}
-
-	k := t.Kind()
-	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
-		return kindCodecs[k], pure
-	}
+	//if t.Implements(astraCodecType) || (t.kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
+	//	return mkCustomCodec(t), pure
+	//}
 
 	if c, ok := ctx.target.typeOverrides[typePtr(t)]; ok {
 		return c, impure
-	}
-
-	if mkC, ok := ctx.target.kindOverrides[k]; ok {
-		return mkC(ctx, t, seen, canAddr), impure
 	}
 
 	switch t {
@@ -100,6 +86,16 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return
 	}
 
+	k := t.Kind()
+
+	if mkC, ok := ctx.target.kindOverrides[k]; ok {
+		c, p = mkC(ctx, t, seen, canAddr), impure
+	}
+
+	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
+		c, p = kindCodecs[k], pure
+	}
+
 	switch k {
 	case reflect.Ptr:
 		c, p = mkPointerCodec(ctx, t, seen)
@@ -112,7 +108,29 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	case reflect.Interface:
 		c, p = codec{encodeInterface, decodeInterface}, pure
 	default:
-		panic("unsupported type: " + t.String())
+		if c.encode == nil {
+			c, p = mkErroredCodec(fmt.Errorf("unsupported type %s", t.String())), pure
+		}
+	}
+
+	ptr := reflect.PointerTo(t)
+
+	switch {
+	case t.Implements(astraMarshalerType):
+		c.encode = encodeAstraMarshaler(t, false)
+	case t.Implements(astraRawMarshalerType):
+		c.encode = encodeAstraRawMarshaler(t, false)
+	case canAddr && ptr.Implements(astraMarshalerType):
+		c.encode = encodeAstraMarshaler(t, true)
+	case canAddr && ptr.Implements(astraRawMarshalerType):
+		c.encode = encodeAstraRawMarshaler(t, true)
+	}
+
+	switch {
+	case ptr.Implements(astraUnmarshalerType):
+		c.decode = decodeAstraUnmarshaler(t)
+	case ptr.Implements(astraRawUnmarshalerType):
+		c.decode = decodeAstraRawUnmarshaler(t)
 	}
 
 	return
@@ -149,10 +167,6 @@ func mkErroredCodec(err error) codec {
 		encodeError(err),
 		decodeError(err),
 	}
-}
-
-func mkCustomCodec(t reflect.Type) codec {
-	return codec{encodeCustom(t), decodeCustom(t)}
 }
 
 func mkPointerCodec(ctx codecCtx, t reflect.Type, seen seenStructs) (codec, purity) {

@@ -14,6 +14,14 @@ type encodeCtx struct {
 	ptrSeen  map[unsafe.Pointer]struct{}
 }
 
+type AstraMarshaler interface {
+	MarshalAstra(target targetKind) (any, error)
+}
+
+type AstraRawMarshaler interface {
+	MarshalAstraRaw(target targetKind, dst []byte) ([]byte, error)
+}
+
 const startDetectingCyclesAfter = 1000
 
 func encodeError(err error) encoder {
@@ -66,21 +74,40 @@ func encodePointer(encode encoder) encoder {
 	}
 }
 
-func encodeCustom(t reflect.Type) encoder {
-	if !t.Implements(astraCodecType) && !reflect.PointerTo(t).Implements(astraCodecType) {
-		return encodeError(fmt.Errorf("type %v does not implement AstraCodec", t))
-	}
-
+func encodeAstraMarshaler(t reflect.Type, isPtr bool) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		if p == nil {
-			return append(dst, 0xc0), nil
+		v := reflect.NewAt(t, p)
+		if !isPtr {
+			v = v.Elem()
 		}
 
-		codec := reflect.NewAt(t, p).Interface().(AstraCodec)
-		res := codec.ToAstraValue()
+		k := v.Kind()
+		if (k == reflect.Ptr || k == reflect.Interface) && v.IsNil() {
+			return append(dst, "null"...), nil
+		}
 
-		c := resolveCodecCaching(ctx.codecCtx, reflect.TypeOf(res), seenStructs{})
-		return c.encode(ctx, dst, unsafe.Pointer(&res))
+		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx.target.kind)
+		if err != nil {
+			return dst, fmt.Errorf("error calling MarshalAstra on type %v: %w", t, err)
+		}
+
+		return encodeInterface(ctx, dst, unsafe.Pointer(&res))
+	}
+}
+
+func encodeAstraRawMarshaler(t reflect.Type, isPtr bool) encoder {
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		v := reflect.NewAt(t, p)
+		if !isPtr {
+			v = v.Elem()
+		}
+
+		k := v.Kind()
+		if (k == reflect.Ptr || k == reflect.Interface) && v.IsNil() {
+			return append(dst, "null"...), nil
+		}
+
+		return v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx.target.kind, dst)
 	}
 }
 
@@ -161,7 +188,7 @@ func encodeArray(n int, size uintptr, encode encoder) encoder {
 }
 
 func encodeInterface(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return serializeAppend(*(*any)(p), ctx.target, dst)
+	return SerializeInto(*(*any)(p), ctx.target, dst)
 }
 
 func encodeEmbeddedStructPointer(encode encoder) encoder {

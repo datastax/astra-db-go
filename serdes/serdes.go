@@ -49,10 +49,10 @@ func (bp *bufferPool) Put(b *[]byte) {
 func Serialize(data any, target Target) ([]byte, error) {
 	buf := encodingBufferPool.Get()
 	defer encodingBufferPool.Put(buf)
-	return serializeAppend(data, target, *buf)
+	return SerializeInto(data, target, *buf)
 }
 
-func serializeAppend(data any, target Target, dst []byte) ([]byte, error) {
+func SerializeInto(data any, target Target, dst []byte) ([]byte, error) {
 	if data == nil {
 		return append(dst, "null"...), nil
 	}
