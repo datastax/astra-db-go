@@ -17,11 +17,16 @@ type Target struct {
 	dollarDatatypes map[string]typedCodec
 }
 
+var UnknownTarget = Target{
+	kind: unknownKind,
+}
+
 type targetKind int
 
 const (
-	collectionKind targetKind = 1
-	tableKind                 = 2
+	unknownKind targetKind = iota
+	collectionKind
+	tableKind
 )
 
 type purity int
