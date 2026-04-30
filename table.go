@@ -128,7 +128,7 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 // Example usage:
 //
 //	definition := table.Definition{
-//		Columns: map[string]table.Column{
+//		Columns: table.Columns{
 //			"title":           table.Text(),
 //			"number_of_pages": table.Int(),
 //			"rating":          table.Float(),
@@ -177,6 +177,105 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 		db:   d,
 		name: name,
 	}, nil
+}
+
+// alterTablePayload is the payload for the alterTable command.
+type alterTablePayload struct {
+	Operation table.AlterOperation `json:"operation"`
+}
+
+// AlterTable modifies the table's schema. Exactly one operation must be set on
+// op — Add, Drop, AddVectorize, or DropVectorize. The four operations are
+// mutually exclusive per call.
+//
+// Note that the Data API does not allow column type changes (drop and re-add
+// instead) and does not support renaming a table. Dropping a vectorize
+// integration preserves any embeddings already stored in the column; only
+// the auto-embedding integration is removed.
+//
+// After adding columns, index any new columns you intend to filter or sort on.
+//
+// Example — add columns:
+//
+//	err := tbl.AlterTable(ctx, table.AlterOperation{
+//	    Add: &table.AddColumns{
+//	        Columns: table.Columns{
+//	            "is_summer_reading": table.Boolean(),
+//	            "library_branch":    table.Text(),
+//	        },
+//	    },
+//	})
+//
+// Example — drop columns:
+//
+//	err := tbl.AlterTable(ctx, table.AlterOperation{
+//	    Drop: &table.DropColumns{Columns: []string{"borrower"}},
+//	})
+//
+// Example — add vectorize on a vector column:
+//
+//	err := tbl.AlterTable(ctx, table.AlterOperation{
+//	    AddVectorize: &table.AddVectorize{
+//	        Columns: map[string]table.VectorService{
+//	            "summary_vec": {
+//	                Provider:  "openai",
+//	                ModelName: "text-embedding-3-small",
+//	                Authentication: map[string]string{
+//	                    "providerKey": "OPENAI_API_KEY",
+//	                },
+//	            },
+//	        },
+//	    },
+//	})
+//
+// Example — drop vectorize:
+//
+//	err := tbl.AlterTable(ctx, table.AlterOperation{
+//	    DropVectorize: &table.DropVectorize{Columns: []string{"summary_vec"}},
+//	})
+//
+// Note: Warnings are accessible via the WarningHandler option callback only.
+func (t *Table) AlterTable(ctx context.Context, op table.AlterOperation, opts ...options.AlterTableOption) error {
+	if err := validateAlterOperation(op); err != nil {
+		return err
+	}
+
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return fmt.Errorf("invalid options: %w", err)
+	}
+
+	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
+		Operation: op,
+	}, merged.APIOptions)
+	_, _, err = cmd.Execute(ctx)
+	return err
+}
+
+// validateAlterOperation enforces that exactly one operation field is set on
+// the alterTable operation. The Data API rejects payloads with zero or more
+// than one operation; we surface that locally to give callers a clear error.
+func validateAlterOperation(op table.AlterOperation) error {
+	count := 0
+	if op.Add != nil {
+		count++
+	}
+	if op.Drop != nil {
+		count++
+	}
+	if op.AddVectorize != nil {
+		count++
+	}
+	if op.DropVectorize != nil {
+		count++
+	}
+	if count == 0 {
+		return fmt.Errorf("alterTable: operation must set one of Add, Drop, AddVectorize, DropVectorize")
+	}
+	if count > 1 {
+		return fmt.Errorf("alterTable: only one operation may be set per call (Add, Drop, AddVectorize, DropVectorize are mutually exclusive)")
+	}
+	return nil
 }
 
 // dropTablePayload is the payload for the dropTable command

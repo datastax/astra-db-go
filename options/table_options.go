@@ -108,3 +108,11 @@ type TableDeleteManyOptions struct {
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
+
+// AlterTableOptions represents options for altering a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type AlterTableOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}

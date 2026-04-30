@@ -58,7 +58,7 @@ func main() {
 func createTable(ctx context.Context, db *astradb.Db) *astradb.Table {
 	logHeader("Creating Table")
 	definition := table.Definition{
-		Columns: map[string]table.Column{
+		Columns: table.Columns{
 			"id":     table.Text(),
 			"title":  table.Text(),
 			"author": table.Text(),

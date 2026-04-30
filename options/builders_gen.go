@@ -117,6 +117,52 @@ func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuild
 	return b
 }
 
+// AlterTableOption configures a AlterTable operation.
+// You can use the fluent-style builder or a pointer to [AlterTableOptions] interchangeably.
+//
+// Example using the fluent builder ([AlterTable]):
+//
+//	opts := options.AlterTable().SetAPIOptions(...)
+//
+// Example using a pointer to [AlterTableOptions] without the fluent builder:
+//
+//	opts := &options.AlterTableOptions{...}
+type AlterTableOption = Builder[AlterTableOptions]
+
+// Setters implements Builder[AlterTableOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[AlterTableOptions].
+func (o *AlterTableOptions) Setters() []func(*AlterTableOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for AlterTableOptions.
+func (o *AlterTableOptions) Validate() error { return nil }
+
+// alterTableOptionsBuilder is a builder for AlterTableOptions.
+type alterTableOptionsBuilder struct {
+	setters []func(*AlterTableOptions)
+}
+
+// AlterTable creates a new builder for [AlterTableOptions].
+func AlterTable() *alterTableOptionsBuilder {
+	return &alterTableOptionsBuilder{}
+}
+
+// Setters implements Builder[AlterTableOptions].
+func (b *alterTableOptionsBuilder) Setters() []func(*AlterTableOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *alterTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *alterTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *AlterTableOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // CollectionCountDocumentsOption configures a CollectionCountDocuments operation.
 // You can use the fluent-style builder or a pointer to [CollectionCountDocumentsOptions] interchangeably.
 //

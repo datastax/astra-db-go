@@ -43,6 +43,7 @@ func init() {
 		{Name: "TableFindWithProjection", Run: TableFindWithProjection},
 		{Name: "TableListIndexes", Run: TableListIndexes},
 		{Name: "TableVectorIndex", Run: TableVectorIndex},
+		{Name: "TableAlter", Run: TableAlter},
 		{Name: "TableDrop", Run: TableDrop},
 	}
 	harness.Register(t...)
@@ -588,6 +589,108 @@ func TableVectorIndex(e *harness.TestEnv) error {
 		return fmt.Errorf("failed to drop vector table: %w", err)
 	}
 
+	return nil
+}
+
+// TableAlter exercises alterTable end-to-end against a freshly-created
+// throwaway table.
+func TableAlter(e *harness.TestEnv) error {
+	// TODO: add vectorize add/drop.
+	ctx := context.Background()
+	db := e.DefaultDb()
+
+	// Use a self-contained table so this test doesn't depend on or mess
+	// up other tests.
+	const alterTableName = "go_test_alter_books"
+
+	tbl, err := db.CreateTable(ctx, alterTableName, table.Definition{
+		Columns: table.Columns{
+			"title":  table.Text(),
+			"author": table.Text(),
+		},
+		PrimaryKey: table.PrimaryKey{
+			PartitionBy: []string{"title"},
+		},
+	}, options.CreateTable().SetIfNotExists(true))
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+	defer func() {
+		// Clean up after our test. If we don't already have an error, return any
+		// error from cleanup. Otherwise, let the test runner show the original error
+		// because it probably has more useful diagnostic info.
+		cleanupErr := db.DropTable(ctx, alterTableName)
+		if cleanupErr != nil && err == nil {
+			err = fmt.Errorf("failed to drop table: %w", cleanupErr)
+		}
+	}()
+
+	// Add some columns!
+	err = tbl.AlterTable(ctx, table.AlterOperation{
+		Add: &table.AddColumns{
+			Columns: table.Columns{
+				"is_summer_reading": table.Boolean(),
+				"library_branch":    table.Text(),
+			},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("AlterTable Add failed: %w", err)
+	}
+
+	// AlteredBook sounds a tad sinister. But I swear it's just a book with some
+	// extra columns. Not a book altered to mislead anybody.
+	type AlteredBook struct {
+		Title           string `json:"title"`
+		Author          string `json:"author"`
+		IsSummerReading bool   `json:"is_summer_reading"`
+		LibraryBranch   string `json:"library_branch"`
+	}
+
+	// Insert a row populating the newly-added columns and read it back to
+	// prove they made it onto the schema.
+	row := AlteredBook{
+		Title:           "Summer Adventures",
+		Author:          "Jane Doe",
+		IsSummerReading: true,
+		LibraryBranch:   "Downtown",
+	}
+	if _, err := tbl.InsertOne(ctx, row); err != nil {
+		return fmt.Errorf("insert using added columns failed: %w", err)
+	}
+
+	var got AlteredBook
+	if err := tbl.FindOne(ctx, filter.Eq("title", "Summer Adventures")).Decode(&got); err != nil {
+		return fmt.Errorf("findOne after add failed: %w", err)
+	}
+	if !got.IsSummerReading {
+		return fmt.Errorf("expected is_summer_reading=true, got %v", got.IsSummerReading)
+	}
+	if got.LibraryBranch != "Downtown" {
+		return fmt.Errorf("expected library_branch=%q, got %v", "Downtown", got.LibraryBranch)
+	}
+
+	// Drop one of the new columns and verify the remaining row no longer
+	// exposes it (the other added column must survive untouched).
+	err = tbl.AlterTable(ctx, table.AlterOperation{
+		Drop: &table.DropColumns{Columns: []string{"library_branch"}},
+	})
+	if err != nil {
+		return fmt.Errorf("AlterTable Drop failed: %w", err)
+	}
+
+	// Using a map here because we want to just inspect the raw fields to verify
+	// dropped columns are not present.
+	var afterDrop map[string]any
+	if err := tbl.FindOne(ctx, filter.Eq("title", "Summer Adventures")).Decode(&afterDrop); err != nil {
+		return fmt.Errorf("findOne after drop failed: %w", err)
+	}
+	if _, present := afterDrop["library_branch"]; present {
+		return fmt.Errorf("expected library_branch to be missing after drop, but row was %v", afterDrop)
+	}
+	if v, ok := afterDrop["is_summer_reading"].(bool); !ok || !v {
+		return fmt.Errorf("expected is_summer_reading to survive the drop, got %v", afterDrop["is_summer_reading"])
+	}
 	return nil
 }
 

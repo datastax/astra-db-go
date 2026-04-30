@@ -1610,3 +1610,232 @@ func TestTableDeleteMany_EnforceNonNilFilter(t *testing.T) {
 }
 
 // #endregion
+
+// #region Table.AlterTable tests
+
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add
+const exampleAlterTableAddPayloadJSON = `{
+  "alterTable": {
+    "operation": {
+      "add": {
+        "columns": {
+          "is_summer_reading": {"type":"boolean"},
+          "library_branch": {"type":"text"}
+        }
+      }
+    }
+  }
+}`
+
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add-vector
+// Vector form of an "add" operation.
+const exampleAlterTableAddVectorColumnPayloadJSON = `{
+  "alterTable": {
+    "operation": {
+      "add": {
+        "columns": {
+          "example_vector": {"type":"vector","dimension":1024}
+        }
+      }
+    }
+  }
+}`
+
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-drop
+const exampleAlterTableDropPayloadJSON = `{
+  "alterTable": {
+    "operation": {
+      "drop": {
+        "columns": ["is_summer_reading", "library_branch"]
+      }
+    }
+  }
+}`
+
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add-vectorize
+const exampleAlterTableAddVectorizePayloadJSON = `{
+  "alterTable": {
+    "operation": {
+      "addVectorize": {
+        "columns": {
+          "summary_vec": {
+            "provider": "openai",
+            "modelName": "text-embedding-3-small",
+            "authentication": {"providerKey": "OPENAI_API_KEY"},
+			"parameters": {"organizationId": "ORGANIZATION_ID","projectId": "PROJECT_ID"}
+          }
+        }
+      }
+    }
+  }
+}`
+
+// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-drop-vectorize
+const exampleAlterTableDropVectorizePayloadJSON = `{
+  "alterTable": {
+    "operation": {
+      "dropVectorize": {
+        "columns": ["plot_synopsis"]
+      }
+    }
+  }
+}`
+
+// TestTableAlter_CommandMarshal verifies that the alterTable payload for each
+// of the four operations matches the docs curl examples.
+func TestTableAlter_CommandMarshal(t *testing.T) {
+	tbl := getTestTable(t)
+	tests := []testutils.JSONTestCase{{
+		Name:     "Add columns",
+		Expected: exampleAlterTableAddPayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: table.AlterOperation{
+					Add: &table.AddColumns{
+						Columns: map[string]table.Column{
+							"is_summer_reading": table.Boolean(),
+							"library_branch":    table.Text(),
+						},
+					},
+				},
+			}),
+		},
+	}, {
+		Name:     "Add vector column",
+		Expected: exampleAlterTableAddVectorColumnPayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: table.AlterOperation{
+					Add: &table.AddColumns{
+						Columns: map[string]table.Column{
+							"example_vector": table.Vector(1024),
+						},
+					},
+				},
+			}),
+		},
+	}, {
+		Name:     "Drop columns",
+		Expected: exampleAlterTableDropPayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: table.AlterOperation{
+					Drop: &table.DropColumns{
+						Columns: []string{"is_summer_reading", "library_branch"},
+					},
+				},
+			}),
+		},
+	}, {
+		Name:     "Add vectorize",
+		Expected: exampleAlterTableAddVectorizePayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: table.AlterOperation{
+					AddVectorize: &table.AddVectorize{
+						Columns: map[string]table.VectorService{
+							"summary_vec": {
+								Provider:  "openai",
+								ModelName: "text-embedding-3-small",
+								Authentication: map[string]string{
+									"providerKey": "OPENAI_API_KEY",
+								},
+								Parameters: map[string]string{
+									"organizationId": "ORGANIZATION_ID",
+									"projectId":      "PROJECT_ID",
+								},
+							},
+						},
+					},
+				},
+			}),
+		},
+	}, {
+		Name:     "Drop vectorize",
+		Expected: exampleAlterTableDropVectorizePayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: table.AlterOperation{
+					DropVectorize: &table.DropVectorize{
+						Columns: []string{"plot_synopsis"},
+					},
+				},
+			}),
+		},
+	}}
+	testutils.RunJSONTestCases(t, tests)
+}
+
+// TestTableAlter_HappyPath verifies that AlterTable posts the expected request
+// body for an "add columns" call, reads the documented success response, and
+// returns nil.
+func TestTableAlter_HappyPath(t *testing.T) {
+	var gotBody atomic.Value
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read request body: %v", err)
+		}
+		if r.Header.Get("Token") != "test-token" {
+			t.Errorf("expected token %q in request header, got %q", "test-token", r.Header.Get("Token"))
+		}
+		gotBody.Store(b)
+		w.Header().Set("Content-Type", "application/json")
+		// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html
+		fmt.Fprint(w, `{"status":{"ok":1}}`)
+	}))
+	defer ts.Close()
+
+	tbl := httpTestTable(ts)
+	err := tbl.AlterTable(context.Background(), table.AlterOperation{
+		Add: &table.AddColumns{
+			Columns: map[string]table.Column{
+				"is_summer_reading": table.Boolean(),
+			},
+		},
+	}, options.AlterTable())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	body, _ := gotBody.Load().([]byte)
+	var sentBody map[string]any
+	if err := json.Unmarshal(body, &sentBody); err != nil {
+		t.Fatalf("server-received body was not JSON: %v (%s)", err, body)
+	}
+	inner, ok := sentBody["alterTable"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected top-level key %q, got: %s", "alterTable", body)
+	}
+	op, ok := inner["operation"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected operation key in alterTable payload, got: %s", body)
+	}
+	if _, ok := op["add"]; !ok {
+		t.Errorf("expected add key in operation payload, got: %s", body)
+	}
+}
+
+// TestTableAlter_RejectsZeroOrMultipleOperations ensures the client refuses
+// payloads where the operation field is empty or sets more than one of
+// Add/Drop/AddVectorize/DropVectorize, matching the Data API constraint.
+func TestTableAlter_RejectsZeroOrMultipleOperations(t *testing.T) {
+	tbl := getTestTable(t)
+	t.Run("empty operation", func(t *testing.T) {
+		err := tbl.AlterTable(context.Background(), table.AlterOperation{})
+		if err == nil {
+			t.Fatal("expected error for empty operation, got nil")
+		}
+	})
+	t.Run("two operations set", func(t *testing.T) {
+		err := tbl.AlterTable(context.Background(), table.AlterOperation{
+			Add:  &table.AddColumns{Columns: map[string]table.Column{"x": table.Text()}},
+			Drop: &table.DropColumns{Columns: []string{"y"}},
+		})
+		if err == nil {
+			t.Fatal("expected error for multiple operations, got nil")
+		}
+	})
+}
+
+// #endregion
