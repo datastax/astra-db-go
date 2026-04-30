@@ -124,6 +124,29 @@ func (p *PrimaryKey) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalJSON implements custom JSON unmarshaling for Column.
+// It accepts either a JSON object (e.g. {"type":"text"}) or a plain
+// string (e.g. "text"). The string form appears in real-world API
+// responses for nested valueType fields on list/set/map columns.
+// For example, this shows the simple string form:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/create-table.html#create-a-table-with-a-compound-primary-key
+// And this shows the nested JSON object form:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/create-table.html#example-create-table-udt
+func (c *Column) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err == nil {
+		*c = Column{Type: s}
+		return nil
+	}
+	type colAlias Column
+	var col colAlias
+	if err := json.Unmarshal(data, &col); err != nil {
+		return err
+	}
+	*c = Column(col)
+	return nil
+}
+
 // Sort order constants
 const (
 	SortAscending  = 1

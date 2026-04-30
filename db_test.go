@@ -257,3 +257,43 @@ func TestListTablesResponseUnmarshal_ExplainFalse(t *testing.T) {
 		t.Errorf("expected second name 'another_table', got %q", resp.Status.Tables[1])
 	}
 }
+
+// This response is a real response that broke in integration tests.
+// Also this looks slightly strange because it was pasted from a structured log file.
+// So, escaped quotes instead of string literal.
+const listTablesBrokenResp = "{\"status\":{\"tables\":[{\"name\":\"go_test_books\",\"definition\":{\"columns\":{\"title\":{\"type\":\"text\"},\"author\":{\"type\":\"text\"},\"genres\":{\"type\":\"list\",\"valueType\":\"text\"},\"is_checked_out\":{\"type\":\"boolean\"},\"number_of_pages\":{\"type\":\"int\"},\"rating\":{\"type\":\"float\"}},\"primaryKey\":{\"partitionBy\":[\"title\"],\"partitionSort\":{}}}},{\"name\":\"test_table_go_integration_tests\",\"definition\":{\"columns\":{\"title\":{\"type\":\"text\"},\"is_checked_out\":{\"type\":\"boolean\"},\"number_of_pages\":{\"type\":\"int\"},\"rating\":{\"type\":\"float\"}},\"primaryKey\":{\"partitionBy\":[\"title\"],\"partitionSort\":{}}}}]}}"
+
+func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
+	var resp listTablesResponse[[]results.TableDescriptor]
+	if err := json.Unmarshal([]byte(listTablesBrokenResp), &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(resp.Status.Tables) != 2 {
+		t.Fatalf("expected 2 tables, got %d", len(resp.Status.Tables))
+	}
+	td := resp.Status.Tables[0]
+	if td.Name != "go_test_books" {
+		t.Errorf("expected name 'go_test_books', got %q", td.Name)
+	}
+	if got := resp.Status.Tables[1].Name; got != "test_table_go_integration_tests" {
+		t.Errorf("expected second table 'test_table_go_integration_tests', got %q", got)
+	}
+	if got := td.Definition.Columns["title"].Type; got != "text" {
+		t.Errorf("expected title type 'text', got %q", got)
+	}
+	// genres is a list column whose valueType is the string form ("text")
+	// rather than an object — this is the case that broke in integration tests.
+	genres := td.Definition.Columns["genres"]
+	if genres.Type != "list" {
+		t.Errorf("expected genres type 'list', got %q", genres.Type)
+	}
+	if genres.ValueType == nil || genres.ValueType.Type != "text" {
+		t.Errorf("expected genres valueType 'text', got %+v", genres.ValueType)
+	}
+	if got := td.Definition.PrimaryKey.PartitionBy; len(got) != 1 || got[0] != "title" {
+		t.Errorf("expected PartitionBy=[\"title\"], got %v", got)
+	}
+	if got := td.Definition.PrimaryKey.PartitionSort; len(got) != 0 {
+		t.Errorf("expected empty PartitionSort, got %v", got)
+	}
+}
