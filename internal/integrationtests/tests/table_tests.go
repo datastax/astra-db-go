@@ -42,6 +42,7 @@ func init() {
 		{Name: "TableFindWithSort", Run: TableFindWithSort},
 		{Name: "TableFindWithProjection", Run: TableFindWithProjection},
 		{Name: "TableListIndexes", Run: TableListIndexes},
+		{Name: "TableListTables", Run: TableListTables},
 		{Name: "TableVectorIndex", Run: TableVectorIndex},
 		{Name: "TableDrop", Run: TableDrop},
 	}
@@ -64,6 +65,9 @@ func TableCreate(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 
+	// TODO: at some point we could switch this to using newer infer method.
+	// But it might be better to have a separate test so we exercise both infer
+	// and table.Definition.
 	definition := table.Definition{
 		Columns: map[string]table.Column{
 			"title":           table.Text(),
@@ -452,6 +456,68 @@ func TableListIndexes(e *harness.TestEnv) error {
 	// Clean up the index
 	if err := db.DropTableIndex(ctx, indexName); err != nil {
 		return fmt.Errorf("failed to drop index: %w", err)
+	}
+
+	return nil
+}
+
+// TableListTables tests listing tables with both names-only and full metadata (explain=true).
+// This should be run after TableCreate and before TableDrop. One of the things I have
+// thought about is improving how `IntegrationTest` registers tests to allow running
+// single tests that have dependencies. Something like:
+//
+//	type IntegrationTest struct {
+//		Name string
+//		Run  func(e *TestEnv) error
+//		DependsOn []string // Ensure these have run before this test
+//		CleanUp   []string // Ensure these tests run after this test
+//	}
+//
+// That would allow us to set `TEST_PREFIX=TableListTables` and just run this test with
+// dependencies. Right now, to test ListTables you need to run all the table tests
+// (`TEST_PREFIX=Table`).
+func TableListTables(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+
+	// Names-only listing
+	names, err := db.ListTableNames(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list table names: %w", err)
+	}
+	found := false
+	for _, n := range names {
+		if n == tableName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("expected to find table %q in ListTableNames result, got %v", tableName, names)
+	}
+
+	// Full descriptors with explain=true
+	tables, err := db.ListTables(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list tables: %w", err)
+	}
+	var desc *results.TableDescriptor
+	for i := range tables {
+		if tables[i].Name == tableName {
+			desc = &tables[i]
+			break
+		}
+	}
+	if desc == nil {
+		return fmt.Errorf("expected to find table %q in ListTables result", tableName)
+	}
+	if len(desc.Definition.Columns) == 0 {
+		return errors.New("expected non-empty Definition.Columns")
+	}
+	// TableCreate uses PartitionBy=["title"]. This also exercises PrimaryKey.UnmarshalJSON
+	// (the API returns the single-column form as a string).
+	if pk := desc.Definition.PrimaryKey.PartitionBy; len(pk) != 1 || pk[0] != "title" {
+		return fmt.Errorf("expected PartitionBy=[\"title\"], got %v", pk)
 	}
 
 	return nil

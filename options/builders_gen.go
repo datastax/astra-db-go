@@ -1902,6 +1902,98 @@ func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilde
 	return b
 }
 
+// ListTableNamesOption configures a ListTableNames operation.
+// You can use the fluent-style builder or a pointer to [ListTableNamesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListTableNames]):
+//
+//	opts := options.ListTableNames().SetAPIOptions(...)
+//
+// Example using a pointer to [ListTableNamesOptions] without the fluent builder:
+//
+//	opts := &options.ListTableNamesOptions{...}
+type ListTableNamesOption = Builder[ListTableNamesOptions]
+
+// Setters implements Builder[ListTableNamesOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListTableNamesOptions].
+func (o *ListTableNamesOptions) Setters() []func(*ListTableNamesOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListTableNamesOptions.
+func (o *ListTableNamesOptions) Validate() error { return nil }
+
+// listTableNamesOptionsBuilder is a builder for ListTableNamesOptions.
+type listTableNamesOptionsBuilder struct {
+	setters []func(*ListTableNamesOptions)
+}
+
+// ListTableNames creates a new builder for [ListTableNamesOptions].
+func ListTableNames() *listTableNamesOptionsBuilder {
+	return &listTableNamesOptionsBuilder{}
+}
+
+// Setters implements Builder[ListTableNamesOptions].
+func (b *listTableNamesOptionsBuilder) Setters() []func(*ListTableNamesOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *listTableNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTableNamesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTableNamesOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
+// ListTablesOption configures a ListTables operation.
+// You can use the fluent-style builder or a pointer to [ListTablesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListTables]):
+//
+//	opts := options.ListTables().SetAPIOptions(...)
+//
+// Example using a pointer to [ListTablesOptions] without the fluent builder:
+//
+//	opts := &options.ListTablesOptions{...}
+type ListTablesOption = Builder[ListTablesOptions]
+
+// Setters implements Builder[ListTablesOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListTablesOptions].
+func (o *ListTablesOptions) Setters() []func(*ListTablesOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListTablesOptions.
+func (o *ListTablesOptions) Validate() error { return nil }
+
+// listTablesOptionsBuilder is a builder for ListTablesOptions.
+type listTablesOptionsBuilder struct {
+	setters []func(*ListTablesOptions)
+}
+
+// ListTables creates a new builder for [ListTablesOptions].
+func ListTables() *listTablesOptionsBuilder {
+	return &listTablesOptionsBuilder{}
+}
+
+// Setters implements Builder[ListTablesOptions].
+func (b *listTablesOptionsBuilder) Setters() []func(*ListTablesOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *listTablesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTablesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTablesOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // RerankOption configures a Rerank operation.
 type RerankOption = Builder[RerankOptions]
 

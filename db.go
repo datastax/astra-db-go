@@ -286,6 +286,86 @@ func listCollections(d *Db, ctx context.Context, explain bool, cmdOpts *options.
 	return resp.Status.Collections, nil
 }
 
+// ListTables lists all tables in the database with their full definitions.
+//
+// You can specify API options via the options parameter to override settings
+// for this command.
+//
+// Example:
+//
+//	tables, err := db.ListTables(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, t := range tables {
+//	    fmt.Printf("Table: %s (%d columns)\n", t.Name, len(t.Definition.Columns))
+//	}
+//
+// Options passed here override those set on the database.
+func (d *Db) ListTables(ctx context.Context, opts ...options.ListTablesOption) ([]results.TableDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+	return listTables[[]results.TableDescriptor](d, ctx, true, merged.APIOptions)
+}
+
+// ListTableNames lists the names of all tables in the database.
+//
+// Example:
+//
+//	names, err := db.ListTableNames(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, name := range names {
+//	    fmt.Printf("Table: %s\n", name)
+//	}
+//
+// Options passed here override those set on the database.
+func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTableNamesOption) ([]string, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+	return listTables[[]string](d, ctx, false, merged.APIOptions)
+}
+
+// listTablesCommand builds the listTables command for the database.
+func listTablesCommand(d *Db, explain bool, cmdOpts *options.APIOptions) command {
+	payload := map[string]any{
+		"options": map[string]any{
+			"explain": explain,
+		},
+	}
+	return d.newCmdWithMergedOptions("listTables", payload, cmdOpts)
+}
+
+// Type constraint for generic listTables function.
+type tables interface {
+	[]results.TableDescriptor | []string
+}
+
+// listTablesResponse is the response from the listTables command
+type listTablesResponse[T tables] struct {
+	Status struct {
+		Tables T `json:"tables"`
+	} `json:"status"`
+}
+
+// listTables is the internal helper for listing tables
+func listTables[T tables](d *Db, ctx context.Context, explain bool, cmdOpts *options.APIOptions) (T, error) {
+	cmd := listTablesCommand(d, explain, cmdOpts)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	var resp listTablesResponse[T]
+	err = json.Unmarshal(b, &resp)
+	return resp.Status.Tables, err
+}
+
 // DatabaseAdmin returns a DatabaseAdmin for managing keyspaces on this database.
 // The concrete implementation depends on the environment:
 //   - Astra environments return an [AstraDbAdmin] (DevOps API)

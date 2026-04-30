@@ -20,6 +20,7 @@ import (
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
+	"github.com/datastax/astra-db-go/results"
 )
 
 func TestCreateCollectionCommand(t *testing.T) {
@@ -141,5 +142,118 @@ func TestListCollectionsUnmarshal(t *testing.T) {
 				t.Errorf("expected second collection name 'quickstart_collection', got '%s'", resp.Status.Collections[1].Name)
 			}
 		})
+	}
+}
+
+// Example json from docs:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/list-table-metadata.html#list-table-metadata
+const exampleListTablesExplainPayloadJSON = `{
+  "listTables": {
+    "options": {
+      "explain": true
+    }
+  }
+}`
+
+// TestListTablesCommandMarshal verifies that the listTables command with explain=true
+// marshals to the JSON shown in the docs.
+func TestListTablesCommandMarshal(t *testing.T) {
+	cmd := listTablesCommand(getTestDb(t), true, nil)
+	cmdBytes, err := json.MarshalIndent(cmd, "", "  ")
+	if err != nil {
+		t.Fatalf("json.MarshalIndent: %v", err)
+	}
+	if string(cmdBytes) != exampleListTablesExplainPayloadJSON {
+		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleListTablesExplainPayloadJSON, string(cmdBytes))
+	}
+}
+
+// Example json from docs:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/list-table-metadata.html#result
+const listTablesExplainTrueResp = `{
+  "status": {
+    "tables": [
+      {
+        "name": "customers",
+        "definition": {
+          "columns": {
+            "order_date": { "type": "timestamp" },
+            "preferences": {
+              "type": "map",
+              "keyType": "text",
+              "valueType": { "type": "text" }
+            },
+            "is_active": { "type": "boolean" },
+            "user_id": { "type": "uuid" },
+            "name": { "type": "text" },
+            "login_attempts": {
+              "type": "set",
+              "valueType": { "type": "int" }
+            },
+            "photo": { "type": "blob" },
+            "salary": { "type": "decimal" },
+            "order_id": { "type": "uuid" },
+            "age": { "type": "int" },
+            "tags": {
+              "type": "list",
+              "valueType": { "type": "text" }
+            }
+          },
+          "primaryKey": {
+            "partitionBy": ["user_id"],
+            "partitionSort": {
+              "order_id": 1,
+              "order_date": -1
+            }
+          }
+        }
+      }
+    ]
+  }
+}`
+
+func TestListTablesResponseUnmarshal_ExplainTrue(t *testing.T) {
+	var resp listTablesResponse[[]results.TableDescriptor]
+	if err := json.Unmarshal([]byte(listTablesExplainTrueResp), &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(resp.Status.Tables) != 1 {
+		t.Fatalf("expected 1 table, got %d", len(resp.Status.Tables))
+	}
+	td := resp.Status.Tables[0]
+	if td.Name != "customers" {
+		t.Errorf("expected name 'customers', got %q", td.Name)
+	}
+	if len(td.Definition.Columns) == 0 {
+		t.Error("expected non-empty Definition.Columns")
+	}
+	if got := td.Definition.Columns["user_id"].Type; got != "uuid" {
+		t.Errorf("expected user_id type 'uuid', got %q", got)
+	}
+	if got := td.Definition.PrimaryKey.PartitionBy; len(got) != 1 || got[0] != "user_id" {
+		t.Errorf("expected PartitionBy=[\"user_id\"], got %v", got)
+	}
+	if td.Definition.PrimaryKey.PartitionSort["order_date"] != -1 {
+		t.Errorf("expected order_date sort -1, got %d", td.Definition.PrimaryKey.PartitionSort["order_date"])
+	}
+}
+
+// Example json from docs:
+// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/list-table-names.html#result
+const listTablesExplainFalseResp = `{"status":{"tables":["quickstart_table","another_table"]}}`
+
+func TestListTablesResponseUnmarshal_ExplainFalse(t *testing.T) {
+	var resp listTablesResponse[[]string]
+	if err := json.Unmarshal([]byte(listTablesExplainFalseResp), &resp); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(resp.Status.Tables) != 2 {
+		t.Fatalf("expected 2 tables, got %d", len(resp.Status.Tables))
+	}
+	if resp.Status.Tables[0] != "quickstart_table" {
+		t.Errorf("expected first name 'quickstart_table', got %q", resp.Status.Tables[0])
+	}
+	if resp.Status.Tables[1] != "another_table" {
+		t.Errorf("expected second name 'another_table', got %q", resp.Status.Tables[1])
 	}
 }
