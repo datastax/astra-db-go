@@ -181,7 +181,7 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollection
 	if err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
-	return listCollections(d, ctx, true, merged.APIOptions)
+	return listCollections[[]results.CollectionDescriptor](d, ctx, true, merged.APIOptions)
 }
 
 // ListCollectionNames lists the names of all collections in the database.
@@ -205,85 +205,37 @@ func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollec
 	if err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
-	collections, err := listCollections(d, ctx, false, merged.APIOptions)
-	if err != nil {
-		return nil, err
-	}
+	return listCollections[[]string](d, ctx, false, merged.APIOptions)
+}
 
-	names := make([]string, len(collections))
-	for i, coll := range collections {
-		names[i] = coll.Name
-	}
-
-	return names, nil
+// Type constraint for generic listCollections function.
+type collections interface {
+	[]results.CollectionDescriptor | []string
 }
 
 // listCollectionsResponse is the response from the findCollections command
-type listCollectionsResponse struct {
+type listCollectionsResponse[T collections] struct {
 	Status struct {
-		Collections []results.CollectionDescriptor `json:"collections"`
+		Collections T `json:"collections"`
 	} `json:"status"`
 }
 
-// UnmarshalJSON implements custom unmarshaling to handle both the "explain=true"
-// response (where collections is an array of objects) and the "explain=false"
-// response (where collections is an array of strings).
-func (r *listCollectionsResponse) UnmarshalJSON(data []byte) error {
-	// Use an alias type to avoid infinite recursion (argh), and capture the inner
-	// collections field as raw JSON so we can decide how to decode it.
-	var raw struct {
-		Status struct {
-			Collections json.RawMessage `json:"collections"`
-		} `json:"status"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-
-	if len(raw.Status.Collections) == 0 {
-		// Nothing to do.
-		return nil
-	}
-
-	// First try the rich object form (explain=true).
-	var descriptors []results.CollectionDescriptor
-	if err := json.Unmarshal(raw.Status.Collections, &descriptors); err == nil {
-		r.Status.Collections = descriptors
-		return nil
-	}
-
-	// Fall back to the string-only form (explain=false).
-	var names []string
-	if err := json.Unmarshal(raw.Status.Collections, &names); err != nil {
-		return err
-	}
-	r.Status.Collections = make([]results.CollectionDescriptor, len(names))
-	for i, n := range names {
-		r.Status.Collections[i] = results.CollectionDescriptor{Name: n}
-	}
-	return nil
-}
-
 // listCollections is the internal helper for listing collections
-func listCollections(d *Db, ctx context.Context, explain bool, cmdOpts *options.APIOptions) ([]results.CollectionDescriptor, error) {
+func listCollections[T collections](d *Db, ctx context.Context, explain bool, cmdOpts *options.APIOptions) (T, error) {
 	payload := map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
 	}
-
 	cmd := d.newCmdWithMergedOptions("findCollections", payload, cmdOpts)
 	b, _, err := cmd.Execute(ctx)
 	if err != nil {
-		return nil, err
+		var zero T
+		return zero, err
 	}
-
-	var resp listCollectionsResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
-		return nil, err
-	}
-
-	return resp.Status.Collections, nil
+	var resp listCollectionsResponse[T]
+	err = json.Unmarshal(b, &resp)
+	return resp.Status.Collections, err
 }
 
 // ListTables lists all tables in the database with their full definitions.

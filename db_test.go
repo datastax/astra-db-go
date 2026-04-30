@@ -117,31 +117,37 @@ const listCollectionsExplainFalseResp = "{\"status\":{\"collections\":[\"GoTest\
 
 // TestListCollectionsUnmarshal verifies that both types of listCollection responses can
 // be properly json.Unmarshal'd into the internal listCollectionsResponse struct.
-func TestListCollectionsUnmarshal(t *testing.T) {
-	var tests = []struct {
-		name string
-		resp string
-	}{
-		{name: "explain=true response", resp: listCollectionsExplainTrueResp},
-		{name: "explain=false response", resp: listCollectionsExplainFalseResp},
+func TestListCollectionsUnmarshal_ExplainTrue(t *testing.T) {
+	var resp listCollectionsResponse[[]results.CollectionDescriptor]
+	err := json.Unmarshal([]byte(listCollectionsExplainTrueResp), &resp)
+	if err != nil {
+		t.Fatalf("Unmarshal: %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var resp listCollectionsResponse
-			err := json.Unmarshal([]byte(tt.resp), &resp)
-			if err != nil {
-				t.Fatalf("Unmarshal: %v", err)
-			}
-			if len(resp.Status.Collections) != 2 {
-				t.Fatalf("expected 2 collections, got %d", len(resp.Status.Collections))
-			}
-			if resp.Status.Collections[0].Name != "GoTest" {
-				t.Errorf("expected first collection name 'GoTest', got '%s'", resp.Status.Collections[0].Name)
-			}
-			if resp.Status.Collections[1].Name != "quickstart_collection" {
-				t.Errorf("expected second collection name 'quickstart_collection', got '%s'", resp.Status.Collections[1].Name)
-			}
-		})
+	if len(resp.Status.Collections) != 2 {
+		t.Fatalf("expected 2 collections, got %d", len(resp.Status.Collections))
+	}
+	if resp.Status.Collections[0].Name != "GoTest" {
+		t.Errorf("expected first collection name 'GoTest', got '%s'", resp.Status.Collections[0].Name)
+	}
+	if resp.Status.Collections[1].Name != "quickstart_collection" {
+		t.Errorf("expected second collection name 'quickstart_collection', got '%s'", resp.Status.Collections[1].Name)
+	}
+}
+
+func TestListCollectionsUnmarshal_ExplainFalse(t *testing.T) {
+	var resp listCollectionsResponse[[]string]
+	err := json.Unmarshal([]byte(listCollectionsExplainFalseResp), &resp)
+	if err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if len(resp.Status.Collections) != 2 {
+		t.Fatalf("expected 2 collections, got %d", len(resp.Status.Collections))
+	}
+	if resp.Status.Collections[0] != "GoTest" {
+		t.Errorf("expected first collection name 'GoTest', got '%s'", resp.Status.Collections[0])
+	}
+	if resp.Status.Collections[1] != "quickstart_collection" {
+		t.Errorf("expected second collection name 'quickstart_collection', got '%s'", resp.Status.Collections[1])
 	}
 }
 
