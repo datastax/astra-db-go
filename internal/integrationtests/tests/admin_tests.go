@@ -129,8 +129,8 @@ func AdminCreateDropDatabase(e *harness.TestEnv) error {
 	// Create a database (non-blocking to keep test fast)
 	params := astradb.CreateDatabaseParams{
 		Name:          "go-sdk-integration-test",
-		CloudProvider: "gcp",
-		Region:        "us-east1",
+		CloudProvider: "aws",
+		Region:        "us-east-2",
 	}
 
 	slog.Info("Creating database", "name", params.Name, "provider", params.CloudProvider, "region", params.Region)
