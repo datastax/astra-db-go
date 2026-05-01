@@ -13,23 +13,24 @@ type decoder func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 
 type decodeCtx struct {
 	codecCtx
+	target Target
 }
 
 type AstraUnmarshaler interface {
-	UnmarshalAstra(target targetKind, value any) error
+	UnmarshalAstra(target Target, value any) error
 }
 
 type AstraRawUnmarshaler interface {
-	UnmarshalAstraRaw(target targetKind, value []byte) error
+	UnmarshalAstraRaw(target Target, value []byte) error
 }
 
-func decodeError(err error) decoder {
+func mkErrorDecoder(err error) decoder {
 	return func(_ decodeCtx, src []byte, _ unsafe.Pointer) ([]byte, error) {
 		return src, err
 	}
 }
 
-func decodeBoolKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func boolDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -47,7 +48,7 @@ func decodeBoolKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, fmt.Errorf("expected boolean")
 }
 
-func decodeStringKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func stringDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src, str, isNew, err := parseStringUnquote(src)
 	if err != nil {
 		return src, err
@@ -62,14 +63,14 @@ func decodeStringKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	return src, nil
 }
 
-func decodeNull(_ decodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
+func nullDecoder(_ decodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(b); ok {
 		return b, nil
 	}
-	return nil, fmt.Errorf("expected null")
+	return b, fmt.Errorf("expected null")
 }
 
-func decodePointer(decode decoder, t reflect.Type) decoder {
+func mkPointerDecoder(decode decoder, t reflect.Type) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		if b, ok := consumeNull(src); ok {
 			pp := *(*unsafe.Pointer)(p)
@@ -90,10 +91,10 @@ func decodePointer(decode decoder, t reflect.Type) decoder {
 	}
 }
 
-func decodeAstraUnmarshaler(t reflect.Type) decoder {
+func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		var intermediate any
-		src, err := decodeInterface(ctx, src, unsafe.Pointer(&intermediate))
+		src, err := interfaceDecoder(ctx, src, unsafe.Pointer(&intermediate))
 		if err != nil {
 			return src, err
 		}
@@ -103,11 +104,12 @@ func decodeAstraUnmarshaler(t reflect.Type) decoder {
 			u.Set(reflect.New(t))
 		}
 
-		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target.kind, intermediate)
+		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target, intermediate)
+		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target, intermediate)
 	}
 }
 
-func decodeAstraRawUnmarshaler(t reflect.Type) decoder {
+func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		u := reflect.NewAt(t, p)
 		if u.IsNil() {
@@ -121,11 +123,11 @@ func decodeAstraRawUnmarshaler(t reflect.Type) decoder {
 
 		splitPoint := len(src) - len(srcAfter)
 
-		return srcAfter, u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx.target.kind, src[:splitPoint])
+		return srcAfter, u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx.target, src[:splitPoint])
 	}
 }
 
-func decodeStruct(info *structInfo) decoder {
+func mkStructDecoder(info *structInfo) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
@@ -187,7 +189,7 @@ func decodeStruct(info *structInfo) decoder {
 	}
 }
 
-func decodeEmbeddedStructPointer(t reflect.Type, unexported bool, offset uintptr, decode decoder) decoder {
+func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, offset uintptr, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		v := *(*unsafe.Pointer)(p)
 
@@ -205,7 +207,7 @@ func decodeEmbeddedStructPointer(t reflect.Type, unexported bool, offset uintptr
 
 var empty struct{}
 
-func decodeSlice(size uintptr, t reflect.Type, decode decoder) decoder {
+func mkSliceDecoder(size uintptr, t reflect.Type, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
@@ -273,7 +275,7 @@ func extendSlice(t reflect.Type, s *slice, newCap int) slice {
 	}
 }
 
-func decodeArray(n int, size uintptr, decode decoder) decoder {
+func mkArrayDecoder(n int, size uintptr, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
@@ -328,7 +330,7 @@ func decodeArray(n int, size uintptr, decode decoder) decoder {
 	}
 }
 
-func decodeInterface(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func interfaceDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 {
@@ -340,14 +342,14 @@ func decodeInterface(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 	if ctx.fieldHint == vectorField {
 		var v datatypes.DataAPIVector
-		src, err = decodeVector(ctx, src, unsafe.Pointer(&v))
+		src, err = vectorDecoder(ctx, src, unsafe.Pointer(&v))
 		val = v
 		goto decoded
 	}
 
 	if ctx.fieldHint == vectorizeField {
 		var s string
-		src, err = decodeStringKind(ctx, src, unsafe.Pointer(&s))
+		src, err = stringDecoder(ctx, src, unsafe.Pointer(&s))
 		val = s
 		goto decoded
 	}
@@ -362,18 +364,18 @@ func decodeInterface(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 	case 't', 'f':
 		var b bool
-		src, err = decodeBoolKind(ctx, src, unsafe.Pointer(&b))
+		src, err = boolDecoder(ctx, src, unsafe.Pointer(&b))
 		val = b
 
 	case '"':
 		var s string
-		src, err = decodeStringKind(ctx, src, unsafe.Pointer(&s))
+		src, err = stringDecoder(ctx, src, unsafe.Pointer(&s))
 		val = s
 
 	case '[':
 		var arr []any
 		arrType := reflect.TypeOf(arr)
-		src, err = decodeSlice(unsafe.Sizeof(arr[0]), arrType, decodeInterface)(ctx, src, unsafe.Pointer(&arr))
+		src, err = mkSliceDecoder(unsafe.Sizeof(arr[0]), arrType, interfaceDecoder)(ctx, src, unsafe.Pointer(&arr))
 		val = arr
 
 	case '{':
@@ -389,13 +391,13 @@ func decodeInterface(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 		vt := anyType
 		kz := stringEmpty
 		vz := anyEmpty
-		src, err = decodeCollectionMap(reflect.MapOf(kt, vt), kt, vt, kz, vz, decodeStringKind, decodeInterface)(ctx, src, unsafe.Pointer(&m))
+		src, err = mkNormalMapDecoder(reflect.MapOf(kt, vt), kt, vt, kz, vz, stringDecoder, interfaceDecoder)(ctx, src, unsafe.Pointer(&m))
 		val = m
 
 	default:
 		if src[0] == '-' || (src[0] >= '0' && src[0] <= '9') {
 			var f float64
-			src, err = decodeFloat64Kind(ctx, src, unsafe.Pointer(&f))
+			src, err = float64Decoder(ctx, src, unsafe.Pointer(&f)) // TODO figure out better way of handling numbers
 			val = f
 		} else {
 			return src, fmt.Errorf("unexpected character: %c", src[0])
@@ -444,7 +446,7 @@ func decodeDollarDatatype(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, 
 	return initSrc, nil, false
 }
 
-func decodeRawMessage(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func rawMessageDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	start := src

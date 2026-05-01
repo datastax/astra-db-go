@@ -16,24 +16,23 @@ type codec struct {
 }
 
 var (
-	typeCodecs atomic.Pointer[[3]map[unsafe.Pointer]codec]
+	typeCodecs atomic.Pointer[map[unsafe.Pointer]codec] // TODO may be able to just reuse the same cache for all targets and let the resolution be at execution time?
 	kindCodecs [reflect.String + 1]codec
 )
 
 //go:generate go run -modfile=../tools/gen-serdes/go.mod ../tools/gen-serdes/main.go
 
 func init() {
-	kindCodecs[reflect.Bool] = codec{encodeBoolKind, decodeBoolKind}
-	kindCodecs[reflect.String] = codec{encodeStringKind, decodeStringKind}
+	kindCodecs[reflect.Bool] = codec{boolEncoder, boolDecoder}
+	kindCodecs[reflect.String] = codec{stringEncoder, stringDecoder}
 }
 
 var nilCodec = codec{
-	encodeNull,
-	decodeNull,
+	nullEncoder,
+	nullDecoder,
 }
 
 type codecCtx struct {
-	target    Target
 	fieldHint fieldHint
 }
 
@@ -43,43 +42,37 @@ func resolveCodecCaching(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	tid := typePtr(t)
 	cache := cacheLoad()
 
-	if c, ok := cache[0][tid]; ok {
+	if c, ok := cache[tid]; ok {
 		return c
 	}
 
-	if c, ok := cache[ctx.target.kind][tid]; ok {
-		return c
-	}
+	codec := resolveCodec(ctx, t, seen, t.Kind() == reflect.Ptr)
 
-	codec, purity := resolveCodec(ctx, t, seen, t.Kind() == reflect.Ptr)
-
-	return cacheSet(cache, t, int(purity)*int(ctx.target.kind), codec)
+	return cacheSet(cache, t, 0, codec)
 }
 
-func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (c codec, p purity) {
+func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (c codec) {
 	if t == nil || t == nilType {
-		return nilCodec, pure
-	}
-
-	//if t.Implements(astraCodecType) || (t.kind() != reflect.Pointer && reflect.PointerTo(t).Implements(astraCodecType)) {
-	//	return mkCustomCodec(t), pure
-	//}
-
-	if c, ok := ctx.target.typeOverrides[typePtr(t)]; ok {
-		return c, impure
+		return nilCodec
 	}
 
 	switch t {
 	case rawMessageType:
-		return codec{encodeRawMessage, decodeRawMessage}, pure
+		return codec{rawMessageEncoder, rawMessageDecoder}
 	case vectorType:
-		return codec{encodeVector, decodeVector}, pure
+		return codec{vectorEncoder, vectorDecoder}
 	case bigIntType:
-		return codec{encodeBigInt, decodeBigInt}, pure
+		return codec{bigIntEncoder, bigIntDecoder}
 	case bigFloatType:
-		return codec{encodeBigFloat, decodeBigFloat}, pure
+		return codec{bigFloatEncoder, bigFloatDecoder}
 	case byteSliceType:
-		return codec{encodeBinary, decodeBinary}, pure
+		return codec{binaryEncoder, binaryDecoder}
+	case uuidType:
+		return codec{uuidEncoder, uuidDecoder}
+	case oidType:
+		return codec{objectIdEncoder, objectIdDecoder}
+	case dApiTimeType:
+		return codec{timestampEncoder, timestampDecoder}
 	}
 
 	if c.encode != nil {
@@ -88,28 +81,26 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 
 	k := t.Kind()
 
-	if mkC, ok := ctx.target.kindOverrides[k]; ok {
-		c, p = mkC(ctx, t, seen, canAddr), impure
-	}
-
 	if int(k) < len(kindCodecs) && kindCodecs[k].encode != nil {
-		c, p = kindCodecs[k], pure
+		c = kindCodecs[k]
 	}
 
 	switch k {
 	case reflect.Ptr:
-		c, p = mkPointerCodec(ctx, t, seen)
+		c = mkPointerCodec(ctx, t, seen)
 	case reflect.Struct:
-		c, p = mkStructCodec(ctx, t, seen, canAddr)
+		c = mkStructCodec(ctx, t, seen, canAddr)
 	case reflect.Slice:
-		c, p = mkSliceCodec(ctx, t, seen)
+		c = mkSliceCodec(ctx, t, seen)
 	case reflect.Array:
-		c, p = mkArrayCodec(ctx, t, seen, canAddr)
+		c = mkArrayCodec(ctx, t, seen, canAddr)
+	case reflect.Map:
+		c = mkMapCodec(ctx, t, seen)
 	case reflect.Interface:
-		c, p = codec{encodeInterface, decodeInterface}, pure
+		c = codec{interfaceEncoder, interfaceDecoder}
 	default:
 		if c.encode == nil {
-			c, p = mkErroredCodec(fmt.Errorf("unsupported type %s", t.String())), pure
+			c = mkErroredCodec(fmt.Errorf("unsupported type %s", t.String()))
 		}
 	}
 
@@ -117,116 +108,110 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 
 	switch {
 	case t.Implements(astraMarshalerType):
-		c.encode = encodeAstraMarshaler(t, false)
+		c.encode = mkAstraMarshalerEncoder(t, false)
 	case t.Implements(astraRawMarshalerType):
-		c.encode = encodeAstraRawMarshaler(t, false)
+		c.encode = mkAstraRawMarshalerEncoder(t, false)
 	case canAddr && ptr.Implements(astraMarshalerType):
-		c.encode = encodeAstraMarshaler(t, true)
+		c.encode = mkAstraMarshalerEncoder(t, true)
 	case canAddr && ptr.Implements(astraRawMarshalerType):
-		c.encode = encodeAstraRawMarshaler(t, true)
+		c.encode = mkAstraRawMarshalerEncoder(t, true)
 	}
 
 	switch {
 	case ptr.Implements(astraUnmarshalerType):
-		c.decode = decodeAstraUnmarshaler(t)
+		c.decode = mkAstraUnmarshalerDecoder(t)
 	case ptr.Implements(astraRawUnmarshalerType):
-		c.decode = decodeAstraRawUnmarshaler(t)
+		c.decode = mkAstraRawUnmarshalerDecoder(t)
 	}
 
 	return
 }
 
-func cacheLoad() [3]map[unsafe.Pointer]codec {
+func cacheLoad() map[unsafe.Pointer]codec {
 	p := typeCodecs.Load()
 	if p == nil {
-		return [3]map[unsafe.Pointer]codec{}
+		return map[unsafe.Pointer]codec{}
 	}
 	return *p
 }
 
-func cacheSet(oldCache [3]map[unsafe.Pointer]codec, t reflect.Type, i int, c codec) codec {
+func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, i int, c codec) codec {
 	if inlined(t) {
-		c.encode = encodeInlined(c.encode)
+		c.encode = mkInlineEncoder(c.encode)
 	}
 
-	newCacheArray := oldCache
-
-	oldMap := newCacheArray[i]
-	newMap := make(map[unsafe.Pointer]codec, len(oldMap)+1)
-	maps.Copy(newMap, oldMap)
-	newMap[typePtr(t)] = c
-
-	newCacheArray[i] = newMap
-	typeCodecs.Store(&newCacheArray)
+	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
+	newCache[typePtr(t)] = c
+	maps.Copy(newCache, oldCache)
+	typeCodecs.Store(&newCache)
 
 	return c
 }
 
 func mkErroredCodec(err error) codec {
 	return codec{
-		encodeError(err),
-		decodeError(err),
+		mkErrorEncoder(err),
+		mkErrorDecoder(err),
 	}
 }
 
-func mkPointerCodec(ctx codecCtx, t reflect.Type, seen seenStructs) (codec, purity) {
+func mkPointerCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	el := t.Elem()
-	c, p := resolveCodec(ctx, el, seen, true)
+	c := resolveCodec(ctx, el, seen, true)
 
 	return codec{
-		encodePointer(c.encode),
-		decodePointer(c.decode, el),
-	}, p
+		mkPointerEncoder(c.encode),
+		mkPointerDecoder(c.decode, el),
+	}
 }
 
-func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (codec, purity) {
+func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) codec {
 	info, err := compileStructInfo(ctx, t, seen, canAddr)
 
 	if err != nil {
-		return mkErroredCodec(fmt.Errorf("failed to compile struct %s: %w", t.String(), err)), pure
+		return mkErroredCodec(fmt.Errorf("failed to compile struct %s: %w", t.String(), err))
 	}
 
 	return codec{
-		encodeStruct(info),
-		decodeStruct(info),
-	}, info.purity
+		mkStructEncoder(info),
+		mkStructDecoder(info),
+	}
 }
 
 func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
 	return codec{
-		encodeEmbeddedStructPointer(field.encode),
-		decodeEmbeddedStructPointer(t, unexported, offset, field.decode),
+		mkEmbeddedStructPointerEncoder(field.encode),
+		mkEmbeddedStructPointerDecoder(t, unexported, offset, field.decode),
 	}
 }
 
-func mkSliceCodec(ctx codecCtx, t reflect.Type, seen seenStructs) (codec, purity) {
+func mkSliceCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	elem := t.Elem()
-	c, p := resolveCodec(ctx, elem, seen, true)
+	c := resolveCodec(ctx, elem, seen, true)
 	size := alignedSize(elem)
 
 	return codec{
-		encodeSlice(size, c.encode),
-		decodeSlice(size, t, c.decode),
-	}, p
+		mkSliceEncoder(size, c.encode),
+		mkSliceDecoder(size, t, c.decode),
+	}
 }
 
-func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (codec, purity) {
+func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) codec {
 	elem := t.Elem()
 	size := alignedSize(elem)
-	c, p := resolveCodec(ctx, elem, seen, canAddr)
+	c := resolveCodec(ctx, elem, seen, canAddr)
 	n := t.Len()
 
 	return codec{
-		encodeArray(n, size, c.encode),
-		decodeArray(n, size, c.decode),
-	}, p
+		mkArrayEncoder(n, size, c.encode),
+		mkArrayDecoder(n, size, c.decode),
+	}
 }
 
 type structInfo struct {
 	fields  []fieldInfo
 	offsets map[string]int
 	typ     reflect.Type
-	purity  purity
 }
 
 type fieldInfo struct {
@@ -253,13 +238,11 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 	info := &structInfo{
 		typ:     t,
 		offsets: make(map[string]int, t.NumField()),
-		purity:  pure,
 	}
 	seen[t] = info
 
-	fields, p, err := compileStructFields(ctx, t, seen, canAddr)
+	fields, err := compileStructFields(ctx, t, seen, canAddr)
 	info.fields = fields
-	info.purity = p
 
 	if err != nil {
 		delete(seen, t)
@@ -274,8 +257,7 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 	return info, nil
 }
 
-func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, purity, error) {
-	overallPurity := pure
+func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
 	type embeddedField struct {
 		ord        int
 		offset     uintptr
@@ -321,7 +303,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 			if typ.Kind() == reflect.Struct {
 				subtype, err := compileStructInfo(ctx, typ, seen, canAddr)
 				if err != nil {
-					return nil, pure, err
+					return nil, err
 				}
 
 				for j := range subtype.fields {
@@ -335,7 +317,6 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 					})
 				}
 
-				overallPurity |= subtype.purity
 				continue
 			}
 
@@ -344,8 +325,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 			}
 		}
 
-		c, p := resolveCodec(ctx, f.Type, seen, canAddr)
-		overallPurity |= p
+		c := resolveCodec(ctx, f.Type, seen, canAddr)
 
 		fields = append(fields, fieldInfo{
 			codec:  c,
@@ -377,7 +357,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 			continue
 		case ambiguous:
 			// TODO this is allowed w/ normal json ser/des but I'm tempted to error for correctness
-			return nil, pure, fmt.Errorf("unresolvable ambiguity for fieldHint %q in struct %s", subfield.meta.name, t.String())
+			return nil, fmt.Errorf("unresolvable ambiguity for fieldHint %q in struct %s", subfield.meta.name, t.String())
 		case unambiguous:
 			// all good
 		}
@@ -407,7 +387,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 	// That being said it doesn't really matter for the output so I'm fine to remove it...
 	sort.Slice(fields, func(i, j int) bool { return fields[i].ord < fields[j].ord })
 
-	return fields, overallPurity, nil
+	return fields, nil
 }
 
 func parseJsonMeta(f reflect.StructField) jsonMeta {

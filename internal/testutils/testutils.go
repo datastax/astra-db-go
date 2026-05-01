@@ -73,14 +73,14 @@ func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 //	tests := []testutils.JSONTestCase{{
 //		Name:     "ascending",
 //		Expected: `{"rating":1}`,
-//		Args: []any{
+//		SerArgs: []any{
 //			sort.Asc("rating"),  // fluent
 //			sort.S{"rating": 1}, // raw map
 //		},
 //	}, {
 //		Name:     "descending",
 //		Expected: `{"title":-1}`,
-//		Args: []any{
+//		SerArgs: []any{
 //			sort.Desc("title"),  // fluent
 //			sort.S{"title": -1}, // raw map
 //		},

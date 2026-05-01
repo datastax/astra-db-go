@@ -67,14 +67,14 @@ func BenchmarkSerDesComparison(b *testing.B) {
 	b.Run("Serialize/Custom-Collection", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			result, _ = Serialize(user, CollectionTarget)
+			result, _ = Serialize(user, TargetCollection)
 		}
 	})
 
 	b.Run("Serialize/Custom-Table", func(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
-			result, _ = Serialize(user, TableTarget)
+			result, _ = Serialize(user, TargetTable)
 		}
 	})
 
@@ -90,7 +90,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var u User
-			_ = Deserialize(jsonData, &u, CollectionTarget)
+			_ = Deserialize(jsonData, &u, TargetCollection)
 			userResult = u
 		}
 	})
@@ -99,7 +99,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var u User
-			_ = Deserialize(jsonData, &u, TableTarget)
+			_ = Deserialize(jsonData, &u, TargetTable)
 			userResult = u
 		}
 	})

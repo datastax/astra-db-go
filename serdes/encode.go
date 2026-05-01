@@ -10,53 +10,60 @@ type encoder func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error)
 
 type encodeCtx struct {
 	codecCtx
+	target   Target
 	ptrDepth int
 	ptrSeen  map[unsafe.Pointer]struct{}
 }
 
 type AstraMarshaler interface {
-	MarshalAstra(target targetKind) (any, error)
+	MarshalAstra(target Target) (any, error)
 }
 
 type AstraRawMarshaler interface {
-	MarshalAstraRaw(target targetKind, dst []byte) ([]byte, error)
+	MarshalAstraRaw(target Target, dst []byte) ([]byte, error)
+}
+
+type rollback struct{}
+
+func (rollback) Error() string {
+	return "rollback"
 }
 
 const startDetectingCyclesAfter = 1000
 
-func encodeError(err error) encoder {
+func mkErrorEncoder(err error) encoder {
 	return func(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
 		return dst, err
 	}
 }
 
-func encodeInlined(encode encoder) encoder {
+func mkInlineEncoder(encode encoder) encoder {
 	return func(e encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
 		return encode(e, b, noescape(unsafe.Pointer(&p)))
 	}
 }
 
-func encodeBoolKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func boolEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if *(*bool)(p) {
 		return append(dst, "true"...), nil
 	}
 	return append(dst, "false"...), nil
 }
 
-func encodeStringKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func stringEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return appendString(dst, *(*string)(p)), nil
 }
 
-func encodeNull(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
+func nullEncoder(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
 	return append(dst, "null"...), nil
 }
 
-func encodePointer(encode encoder) encoder {
+func mkPointerEncoder(encode encoder) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		p = *(*unsafe.Pointer)(p)
 
 		if p == nil {
-			return encodeNull(ctx, dst, p)
+			return nullEncoder(ctx, dst, p)
 		}
 
 		if ctx.ptrDepth++; ctx.ptrDepth >= startDetectingCyclesAfter {
@@ -74,7 +81,7 @@ func encodePointer(encode encoder) encoder {
 	}
 }
 
-func encodeAstraMarshaler(t reflect.Type, isPtr bool) encoder {
+func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		v := reflect.NewAt(t, p)
 		if !isPtr {
@@ -86,16 +93,16 @@ func encodeAstraMarshaler(t reflect.Type, isPtr bool) encoder {
 			return append(dst, "null"...), nil
 		}
 
-		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx.target.kind)
+		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx.target)
 		if err != nil {
 			return dst, fmt.Errorf("error calling MarshalAstra on type %v: %w", t, err)
 		}
 
-		return encodeInterface(ctx, dst, unsafe.Pointer(&res))
+		return interfaceEncoder(ctx, dst, unsafe.Pointer(&res))
 	}
 }
 
-func encodeAstraRawMarshaler(t reflect.Type, isPtr bool) encoder {
+func mkAstraRawMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		v := reflect.NewAt(t, p)
 		if !isPtr {
@@ -107,11 +114,11 @@ func encodeAstraRawMarshaler(t reflect.Type, isPtr bool) encoder {
 			return append(dst, "null"...), nil
 		}
 
-		return v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx.target.kind, dst)
+		return v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx.target, dst)
 	}
 }
 
-func encodeStruct(info *structInfo) encoder {
+func mkStructEncoder(info *structInfo) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		start := len(dst)
 		dst = append(dst, '{')
@@ -151,11 +158,7 @@ func encodeStruct(info *structInfo) encoder {
 	}
 }
 
-type rollback struct{}
-
-func (rollback) Error() string { return "rollback" }
-
-func encodeSlice(size uintptr, encode encoder) encoder {
+func mkSliceEncoder(size uintptr, encode encoder) encoder {
 	return func(ctx encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
 		s := (*slice)(p)
 
@@ -163,11 +166,11 @@ func encodeSlice(size uintptr, encode encoder) encoder {
 			return append(b, "null"...), nil
 		}
 
-		return encodeArray(s.len, size, encode)(ctx, b, s.data)
+		return mkArrayEncoder(s.len, size, encode)(ctx, b, s.data)
 	}
 }
 
-func encodeArray(n int, size uintptr, encode encoder) encoder {
+func mkArrayEncoder(n int, size uintptr, encode encoder) encoder {
 	return func(ctx encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
 		start := len(b)
 		var err error
@@ -187,11 +190,11 @@ func encodeArray(n int, size uintptr, encode encoder) encoder {
 	}
 }
 
-func encodeInterface(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func interfaceEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return SerializeInto(*(*any)(p), ctx.target, dst)
 }
 
-func encodeEmbeddedStructPointer(encode encoder) encoder {
+func mkEmbeddedStructPointerEncoder(encode encoder) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		p = *(*unsafe.Pointer)(p)
 		if p == nil {
@@ -201,14 +204,14 @@ func encodeEmbeddedStructPointer(encode encoder) encoder {
 	}
 }
 
-func encodeRawMessage(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func rawMessageEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	v := *(*[]byte)(p)
 
 	if v == nil {
 		return append(dst, "null"...), nil
 	}
 
-	_, err := decodeInterface(decodeCtx{}, v, unsafe.Pointer(&v))
+	_, err := interfaceDecoder(decodeCtx{}, v, unsafe.Pointer(&v))
 	if err != nil {
 		return dst, fmt.Errorf("invalid raw message: %w", err)
 	}

@@ -147,6 +147,15 @@ func skipWS(src []byte) []byte {
 	return nil
 }
 
+func skipWSRev(src []byte) []byte {
+	for i := len(src) - 1; i >= 0; i-- {
+		if src[i] > ' ' {
+			return src[:i+1]
+		}
+	}
+	return nil
+}
+
 func skipValue(src []byte) ([]byte, error) {
 	src = skipWS(src)
 	if len(src) == 0 {

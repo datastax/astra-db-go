@@ -154,7 +154,7 @@ func (f Filter) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error
 }
 
 func (f Filter) MarshalJSON() ([]byte, error) {
-	return f.MarshalAstraRaw(serdes.UnknownTarget, nil)
+	return serdes.Serialize(f, serdes.TargetUnknown)
 }
 
 func Eq(key string, val any) Filter  { return fieldOp(OpEqual, key, val) }

@@ -27,39 +27,39 @@ const MaxUintptr = ^uintptr(0)
 
 func init() {
 
-	kindCodecs[reflect.Int] = codec{encodeIntKind, decodeIntKind}
+	kindCodecs[reflect.Int] = codec{intEncoder, intDecoder}
 
-	kindCodecs[reflect.Int8] = codec{encodeInt8Kind, decodeInt8Kind}
+	kindCodecs[reflect.Int8] = codec{int8Encoder, int8Decoder}
 
-	kindCodecs[reflect.Int16] = codec{encodeInt16Kind, decodeInt16Kind}
+	kindCodecs[reflect.Int16] = codec{int16Encoder, int16Decoder}
 
-	kindCodecs[reflect.Int32] = codec{encodeInt32Kind, decodeInt32Kind}
+	kindCodecs[reflect.Int32] = codec{int32Encoder, int32Decoder}
 
-	kindCodecs[reflect.Int64] = codec{encodeInt64Kind, decodeInt64Kind}
+	kindCodecs[reflect.Int64] = codec{int64Encoder, int64Decoder}
 
-	kindCodecs[reflect.Uint] = codec{encodeUintKind, decodeUintKind}
+	kindCodecs[reflect.Uint] = codec{uintEncoder, uintDecoder}
 
-	kindCodecs[reflect.Uint8] = codec{encodeUint8Kind, decodeUint8Kind}
+	kindCodecs[reflect.Uint8] = codec{uint8Encoder, uint8Decoder}
 
-	kindCodecs[reflect.Uint16] = codec{encodeUint16Kind, decodeUint16Kind}
+	kindCodecs[reflect.Uint16] = codec{uint16Encoder, uint16Decoder}
 
-	kindCodecs[reflect.Uint32] = codec{encodeUint32Kind, decodeUint32Kind}
+	kindCodecs[reflect.Uint32] = codec{uint32Encoder, uint32Decoder}
 
-	kindCodecs[reflect.Uint64] = codec{encodeUint64Kind, decodeUint64Kind}
+	kindCodecs[reflect.Uint64] = codec{uint64Encoder, uint64Decoder}
 
-	kindCodecs[reflect.Uintptr] = codec{encodeUintptrKind, decodeUintptrKind}
+	kindCodecs[reflect.Uintptr] = codec{uintptrEncoder, uintptrDecoder}
 
-	kindCodecs[reflect.Float32] = codec{encodeFloat32Kind, decodeFloat32Kind}
+	kindCodecs[reflect.Float32] = codec{float32Encoder, float32Decoder}
 
-	kindCodecs[reflect.Float64] = codec{encodeFloat64Kind, decodeFloat64Kind}
+	kindCodecs[reflect.Float64] = codec{float64Encoder, float64Decoder}
 
 }
 
-func encodeIntKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func intEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int)(p)), 10), nil
 }
 
-func decodeIntKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func intDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -77,11 +77,11 @@ func decodeIntKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func encodeInt8Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int8Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int8)(p)), 10), nil
 }
 
-func decodeInt8Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int8Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -99,11 +99,11 @@ func decodeInt8Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func encodeInt16Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int16Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int16)(p)), 10), nil
 }
 
-func decodeInt16Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int16Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -121,11 +121,11 @@ func decodeInt16Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, nil
 }
 
-func encodeInt32Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int32Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int32)(p)), 10), nil
 }
 
-func decodeInt32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -143,11 +143,11 @@ func decodeInt32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, nil
 }
 
-func encodeInt64Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int64Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int64)(p)), 10), nil
 }
 
-func decodeInt64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -165,11 +165,11 @@ func decodeInt64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, nil
 }
 
-func encodeUintKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uintEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint)(p)), 10), nil
 }
 
-func decodeUintKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uintDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -187,11 +187,11 @@ func decodeUintKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func encodeUint8Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint8Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint8)(p)), 10), nil
 }
 
-func decodeUint8Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint8Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -209,11 +209,11 @@ func decodeUint8Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, nil
 }
 
-func encodeUint16Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint16Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint16)(p)), 10), nil
 }
 
-func decodeUint16Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint16Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -231,11 +231,11 @@ func decodeUint16Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	return src, nil
 }
 
-func encodeUint32Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint32Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint32)(p)), 10), nil
 }
 
-func decodeUint32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -253,11 +253,11 @@ func decodeUint32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	return src, nil
 }
 
-func encodeUint64Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint64Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint64)(p)), 10), nil
 }
 
-func decodeUint64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -275,11 +275,11 @@ func decodeUint64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	return src, nil
 }
 
-func encodeUintptrKind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uintptrEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uintptr)(p)), 10), nil
 }
 
-func decodeUintptrKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uintptrDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -297,11 +297,11 @@ func decodeUintptrKind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	return src, nil
 }
 
-func encodeFloat32Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func float32Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendFloat(dst, float64(*(*float32)(p)), 'g', -1, 32), nil
 }
 
-func decodeFloat32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func float32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -319,11 +319,11 @@ func decodeFloat32Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	return src, nil
 }
 
-func encodeFloat64Kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func float64Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendFloat(dst, float64(*(*float64)(p)), 'g', -1, 64), nil
 }
 
-func decodeFloat64Kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func float64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}

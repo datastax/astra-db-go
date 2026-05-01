@@ -507,7 +507,7 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 
 func TestTableFindOptions(t *testing.T) {
 	t.Run("with all options", func(t *testing.T) {
-		opts, err := options.MergeAndValidate(
+		opts, err := options.MergeAndValidate[options.TableFindOptions](
 			options.TableFind().
 				SetSort(sort.Asc("rating")).
 				SetProjection(map[string]any{"title": true}).
@@ -552,6 +552,8 @@ func TestFilterWithStructuredFilters(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
+
+	t.Logf("Marshalled filter: %s", string(b))
 
 	// Should produce something like:
 	// {"$and":[{"is_checked_out":false},{"number_of_pages":{"$lt":300}}]}

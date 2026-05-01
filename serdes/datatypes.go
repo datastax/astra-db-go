@@ -5,12 +5,39 @@ import (
 	"fmt"
 	"math/big"
 	"reflect"
+	"strconv"
+	"time"
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/datatypes"
 )
 
 // UUIDs
+
+func uuidEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.target.kind == collectionKind {
+		return encodeDollarDatatype(dst, []byte("uuid"), func(dst []byte) ([]byte, error) {
+			return encodeUUID(dst, p)
+		})
+	}
+	return encodeUUID(dst, p)
+}
+
+func uuidDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	var uuid datatypes.UUID
+	var err error
+
+	if ctx.target.kind == collectionKind {
+		src, uuid, err = parseDollarDatatype(src, []byte("uuid"), decodeUUID)
+	} else {
+		src, uuid, err = decodeUUID(src)
+	}
+
+	if err == nil {
+		*(*datatypes.UUID)(p) = uuid
+	}
+	return src, nil
+}
 
 func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
 	dst = append(dst, '"')
@@ -35,35 +62,88 @@ func decodeUUID(src []byte) ([]byte, datatypes.UUID, error) {
 
 // ObjectIDs
 
-func encodeObjectID(dst []byte, p unsafe.Pointer) ([]byte, error) {
+func objectIdEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.target.kind != collectionKind {
+		return dst, fmt.Errorf("cannot encode ObjectId in a non-collection")
+	}
+
+	return encodeDollarDatatype(dst, []byte("objectId"), func(dst []byte) ([]byte, error) {
+		dst = append(dst, '"')
+		dst = append(dst, (*(*datatypes.ObjectId)(p)).String()...)
+		dst = append(dst, '"')
+		return dst, nil
+	})
+}
+
+func objectIdDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.target.kind != collectionKind {
+		return src, fmt.Errorf("cannot decode ObjectId from a non-collection")
+	}
+
+	src, str, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, fmt.Errorf("invalid ObjectId string: %w", err)
+	}
+
+	oid, err := datatypes.ParseObjectId(unsafeString(str))
+	if err != nil {
+		return src, fmt.Errorf("invalid ObjectId string: %w", err)
+	}
+
+	*(*datatypes.ObjectId)(p) = oid
+	return src, err
+}
+
+// Timestamps
+
+func timestampEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	ts := (*datatypes.DataAPITimestamp)(p)
+
+	if ctx.target.kind == collectionKind {
+		return encodeDollarDatatype(dst, []byte("date"), func(dst []byte) ([]byte, error) {
+			return strconv.AppendInt(dst, ts.UnixMillis(), 10), nil
+		})
+	}
+
 	dst = append(dst, '"')
-	dst = append(dst, (*(*datatypes.ObjectId)(p)).String()...)
+	dst = append(dst, ts.String()...)
 	dst = append(dst, '"')
 	return dst, nil
 }
 
-func decodeObjectID(src []byte) ([]byte, datatypes.ObjectId, error) {
+func timestampDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.target.kind == collectionKind {
+		src, ms, err := parseDollarDatatype(src, []byte("date"), func(b []byte) ([]byte, int64, error) {
+			return parseInt(b)
+		})
+		if err == nil {
+			*(*datatypes.DataAPITimestamp)(p) = datatypes.DataAPITimestampFromMillis(ms)
+		}
+		return src, err
+	}
+
 	src, str, _, err := parseStringUnquote(src)
 	if err != nil {
-		return src, datatypes.ObjectId{}, fmt.Errorf("invalid ObjectId string: %w", err)
+		return src, fmt.Errorf("invalid timestamp string: %w", err)
 	}
 
-	objectID, err := datatypes.ParseObjectId(unsafeString(str))
+	t, err := time.Parse(time.RFC3339Nano, unsafeString(str))
 	if err != nil {
-		return src, datatypes.ObjectId{}, fmt.Errorf("invalid ObjectId string: %w", err)
+		return src, fmt.Errorf("invalid timestamp string: %w", err)
 	}
 
-	return src, objectID, nil
+	*(*datatypes.DataAPITimestamp)(p) = datatypes.NewDataAPITimestamp(t)
+	return src, nil
 }
 
 // big.Int
 
-func encodeBigInt(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func bigIntEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	bi := *(*big.Int)(p)
 	return append(dst, bi.String()...), nil
 }
 
-func decodeBigInt(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func bigIntDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -86,12 +166,12 @@ func decodeBigInt(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 // big.Float
 
-func encodeBigFloat(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func bigFloatEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	bf := *(*big.Float)(p)
 	return append(dst, bf.Text('g', -1)...), nil
 }
 
-func decodeBigFloat(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func bigFloatDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -114,23 +194,76 @@ func decodeBigFloat(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 // Maps
 
-func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs, mkCodec func(kt, vt reflect.Type, kz, vz reflect.Value, vc codec) codec) codec {
+func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	kt := t.Key()
 	vt := t.Elem()
 
 	kz := reflect.Zero(kt)
 	vz := reflect.Zero(vt)
 
-	vc, _ := resolveCodec(ctx, vt, seen, false)
+	kc := resolveCodec(ctx, kt, seen, false)
+	vc := resolveCodec(ctx, vt, seen, false)
 
 	if inlined(vt) {
-		vc.encode = encodeInlined(vc.encode)
+		vc.encode = mkInlineEncoder(vc.encode)
 	}
 
-	return mkCodec(kt, vt, kz, vz, vc)
+	return codec{
+		mkMapEncoder(t, kt, kc.encode, vc.encode),
+		mkMapDecoder(t, kt, vt, kz, vz, kc.decode, vc.decode),
+	}
 }
 
-func encodeMap(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, sep byte) encoder {
+func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
+	stringKeyEncoder := func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		dst, err := encodeKey(ctx, dst, p)
+		if err != nil {
+			return dst, err
+		}
+
+		dst = skipWSRev(dst)
+		if len(dst) == 0 || dst[len(dst)-1] != '"' {
+			return dst, rollback{}
+		}
+
+		return dst, nil
+	}
+
+	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue)
+	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '[', ']', ',')
+
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		dst, err := encodeObjectMap(ctx, dst, p)
+		if _, ok := err.(rollback); !ok {
+			return dst, err
+		}
+
+		if ctx.target.kind == tableKind {
+			return encodeArrayMap(ctx, dst, p)
+		}
+
+		return dst, fmt.Errorf("cannot have a map with non-string keys in tables")
+	}
+}
+
+func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
+	decodeObjectMap := mkNormalMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue)
+	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',')
+
+	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		if len(src) > 0 && (src[0] == '{' || src[0] == 'n') {
+			return decodeObjectMap(ctx, src, p)
+		}
+
+		if ctx.target.kind == tableKind {
+			return decodeArrayMap(ctx, src, p)
+		}
+
+		return src, fmt.Errorf("expected a json object or null when parsing map")
+	}
+}
+
+func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, sep byte) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		m := reflect.NewAt(t, p).Elem()
 		if m.IsNil() {
@@ -183,7 +316,7 @@ func encodeMap(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, 
 	}
 }
 
-func decodeMap(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, open, close, sep byte) decoder {
+func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, open, close, sep byte) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		if b, ok := consumeNull(src); ok {
 			*(*unsafe.Pointer)(p) = nil
@@ -266,9 +399,63 @@ func decodeMap(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeVa
 	}
 }
 
+func mkNormalMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
+	return mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '{', '}', ':')
+}
+
+func mkNormalMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
+	return mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '{', '}', ':')
+}
+
+func mkTableMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
+	stringKeyEncoder := func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		dst, err := encodeKey(ctx, dst, p)
+		if err != nil {
+			return dst, err
+		}
+
+		dst = skipWSRev(dst)
+		if len(dst) == 0 || dst[len(dst)-1] != '"' {
+			return dst, rollback{}
+		}
+
+		return dst, nil
+	}
+
+	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue)
+	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '[', ']', ',')
+
+	// can't check for kind in case an alias has a custom encoder
+	if kt == stringType {
+		return encodeObjectMap
+	}
+
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		if dst, err := encodeObjectMap(ctx, dst, p); err != nil {
+			if _, ok := err.(rollback); ok {
+				return encodeArrayMap(ctx, dst, p)
+			}
+			return dst, err
+		}
+		return dst, nil
+	}
+}
+
+func mkTableMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
+	decodeObjectMap := mkNormalMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue)
+	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',')
+
+	return func(ctx decodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
+		if len(b) > 0 && (b[0] == '{' || b[0] == 'n') {
+			return decodeObjectMap(ctx, b, p)
+		}
+		return decodeArrayMap(ctx, b, p)
+	}
+}
+
 // Vectors
 
-func encodeVector(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func vectorEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(b []byte) ([]byte, error) {
 		dst = append(dst, '"')
 		dst = append(dst, (*datatypes.DataAPIVector)(p).AsBase64()...)
@@ -277,12 +464,12 @@ func encodeVector(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	})
 }
 
-func decodeVector(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func vectorDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 || src[0] == '[' {
 		var arr []float32
-		src, err := decodeSlice(4, float32SliceType, decodeFloat32Kind)(ctx, src, unsafe.Pointer(&arr))
+		src, err := mkSliceDecoder(4, float32SliceType, float32Decoder)(ctx, src, unsafe.Pointer(&arr))
 		if err == nil {
 			vector := datatypes.NewVector(arr)
 			*(*datatypes.DataAPIVector)(p) = vector
@@ -314,7 +501,7 @@ func decodeVector(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 // Binary
 
-func encodeBinary(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func binaryEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(b []byte) ([]byte, error) {
 		dst = append(dst, '"')
 		dst = append(dst, *(*[]byte)(p)...)
@@ -323,7 +510,7 @@ func encodeBinary(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	})
 }
 
-func decodeBinary(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func binaryDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 || src[0] == '"' {
@@ -353,7 +540,7 @@ func decodeBinary(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 	if len(src) == 0 || src[0] == '[' {
 		var arr []byte
-		src, err := decodeSlice(1, byteSliceType, decodeUint8Kind)(ctx, src, unsafe.Pointer(&arr))
+		src, err := mkSliceDecoder(1, byteSliceType, uint8Decoder)(ctx, src, unsafe.Pointer(&arr))
 		if err == nil {
 			*(*[]byte)(p) = arr
 		}

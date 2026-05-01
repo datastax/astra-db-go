@@ -39,15 +39,15 @@ const MaxUintptr = ^uintptr(0)
 
 func init() {
 {{range .}}
-	kindCodecs[reflect.{{.Type | Title}}] = codec{encode{{.Type | Title}}kind, decode{{.Type | Title}}kind}
+	kindCodecs[reflect.{{.Type | Title}}] = codec{{"{"}}{{.Type}}Encoder, {{.Type}}Decoder}
 {{end}}
 }
 {{range .}}
-func encode{{.Type | Title}}kind(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.Args}}), nil
+func {{.Type}}Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.SerArgs}}), nil
 }
 
-func decode{{.Type | Title}}kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func {{.Type}}Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -67,7 +67,7 @@ func decode{{.Type | Title}}kind(_ decodeCtx, src []byte, p unsafe.Pointer) ([]b
 {{end}}`))
 
 func main() {
-	type spec struct{ Type, Cast, SerFunc, DesFunc, BoundsCheck, Args string }
+	type spec struct{ Type, Cast, SerFunc, DesFunc, BoundsCheck, SerArgs string }
 
 	var specs []spec
 	for _, t := range []string{"int", "int8", "int16", "int32", "int64"} {
@@ -77,7 +77,7 @@ func main() {
 			SerFunc:     "AppendInt",
 			DesFunc:     "parseInt",
 			BoundsCheck: fmt.Sprintf("num < math.Min%s || num > math.Max%s", title(t), title(t)),
-			Args:        ", 10",
+			SerArgs:     ", 10",
 		})
 	}
 
@@ -88,7 +88,7 @@ func main() {
 			SerFunc:     "AppendUint",
 			DesFunc:     "parseUint",
 			BoundsCheck: fmt.Sprintf("num < 0 || num > math.Max%s", title(t)),
-			Args:        ", 10",
+			SerArgs:     ", 10",
 		})
 	}
 
@@ -98,7 +98,7 @@ func main() {
 		SerFunc:     "AppendUint",
 		DesFunc:     "parseUint",
 		BoundsCheck: "num < 0 || num > uint64(MaxUintptr)",
-		Args:        ", 10",
+		SerArgs:     ", 10",
 	})
 
 	for _, t := range []int{32, 64} {
@@ -108,7 +108,7 @@ func main() {
 			SerFunc:     "AppendFloat",
 			DesFunc:     "parseFloat",
 			BoundsCheck: "false",
-			Args:        fmt.Sprintf(", 'g', -1, %d", t),
+			SerArgs:     fmt.Sprintf(", 'g', -1, %d", t),
 		})
 	}
 
