@@ -56,6 +56,12 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return nilCodec
 	}
 
+	// we could have some of these define MarshalAstraRaw and UnmarshalAstraRaw in their own files,
+	// but naive benchmarks show that having the codecs directly here is noticeably faster by a small
+	// margin, and also avoids an extra allocation (see bench_test.go)
+	//
+	// now whether this performance really matters... probably not, but keeping the codecs
+	// centralized seems clearer to me anyhow, with the tiny speed boost just being a happy bonus
 	switch t {
 	case rawMessageType:
 		return codec{rawMessageEncoder, rawMessageDecoder}

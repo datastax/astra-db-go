@@ -6,7 +6,7 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 )
 
-var targets = []Target{TargetCollection, TargetTable}
+var targets = []Target{TargetUnknown, TargetCollection, TargetTable}
 
 var mkUUIDs = []func() datatypes.UUID{datatypes.NewUUID, datatypes.NewUUIDv1, datatypes.NewUUIDv4, datatypes.NewUUIDv6, datatypes.NewUUIDv7}
 

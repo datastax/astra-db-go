@@ -150,7 +150,7 @@ func (f Filter) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error
 		filters[f.field] = map[FilterOperator]any{f.op: f.value}
 		return serdes.SerializeInto(filters, target, dst)
 	}
-	return nil, nil
+	return append(dst, "null"...), nil
 }
 
 func (f Filter) MarshalJSON() ([]byte, error) {
