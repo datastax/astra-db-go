@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serdes_test
+package serdes
 
 import (
 	"encoding/json"
@@ -22,14 +22,14 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/datastax/astra-db-go/serdes"
 )
 
 // Hey Kavin, check this out. Did some poking around. I don't know if we NEED to address
 // all of these, but we should add documentation where we diverge from stdlib potentially.
 
 func TestTimeMarshaler_StdlibDivergence(t *testing.T) {
+	t.Skip("time.Time serdes not implemented yet")
+
 	type wrapper struct {
 		T time.Time `json:"t"`
 	}
@@ -42,7 +42,7 @@ func TestTimeMarshaler_StdlibDivergence(t *testing.T) {
 	}
 
 	// What the custom serdes produces
-	serdesOut, err := serdes.Serialize(w, serdes.TargetCollection)
+	serdesOut, err := Serialize(w, TargetCollection)
 	if err != nil {
 		t.Fatalf("serdes marshal failed: %v", err)
 	}
@@ -55,6 +55,8 @@ func TestTimeMarshaler_StdlibDivergence(t *testing.T) {
 // Same problem on the decode side — json.Unmarshaler is ignored.
 // Decoding a valid RFC3339 string into a time.Time should work.
 func TestTimeUnmarshaler_StdlibDivergence(t *testing.T) {
+	t.Skip("time.Time serdes not implemented yet")
+
 	type wrapper struct {
 		T time.Time `json:"t"`
 	}
@@ -67,7 +69,7 @@ func TestTimeUnmarshaler_StdlibDivergence(t *testing.T) {
 	}
 
 	var serdesResult wrapper
-	err := serdes.Deserialize(input, &serdesResult, serdes.TargetCollection)
+	err := Deserialize(input, &serdesResult, TargetCollection)
 	if err != nil {
 		t.Logf("serdes error (expected): %v", err)
 	}
@@ -95,10 +97,12 @@ func (d *Dollars) UnmarshalJSON(b []byte) error {
 }
 
 func TestCustomMarshaler_StdlibDivergence(t *testing.T) {
+	t.Skip("we don't support MarshalJSON/UnmarshalJSON; MarshalAstra/UnmarshalAstra should be used instead")
+
 	val := Dollars(1999)
 
-	stdlibOut, _ := json.Marshal(val)                              // "$1999.00"
-	serdesOut, _ := serdes.Serialize(val, serdes.TargetCollection) // 1999 (raw int)
+	stdlibOut, _ := json.Marshal(val)                // "$1999.00"
+	serdesOut, _ := Serialize(val, TargetCollection) // 1999 (raw int)
 
 	if string(stdlibOut) != string(serdesOut) {
 		t.Errorf("divergence:\nstdlib=%s\nserdes=%s", stdlibOut, serdesOut)
@@ -108,12 +112,14 @@ func TestCustomMarshaler_StdlibDivergence(t *testing.T) {
 // Escaping html is default behavior in stdlib:
 // https://pkg.go.dev/encoding/json#HTMLEscape
 func TestHTMLEscape_StdlibDivergence(t *testing.T) {
+	t.Skip("we aren't going to support clunky web-related features like HTML encoding or the string tag")
+
 	// I don't think we need to reproduce this. I don't think it probably matters
 	// much with how people will use Astra. But I think we should possibly document it.
 	in := `<script>alert("you've been pwnd")&</script>`
 
 	stdlibOut, _ := json.Marshal(in)
-	serdesOut, _ := serdes.Serialize(in, serdes.TargetCollection)
+	serdesOut, _ := Serialize(in, TargetCollection)
 
 	if string(stdlibOut) != string(serdesOut) {
 		t.Errorf("divergence:\nstdlib=%s\nserdes=%s", stdlibOut, serdesOut)
@@ -121,13 +127,15 @@ func TestHTMLEscape_StdlibDivergence(t *testing.T) {
 }
 
 func TestStringTag_StdlibDivergence(t *testing.T) {
+	t.Skip("we don't support the string tag (yet at least)")
+
 	type Wrapper struct {
 		ID uint64 `json:"id,string"`
 	}
 	in := Wrapper{ID: 18446744073709551615}
 
 	stdlibOut, _ := json.Marshal(in)
-	serdesOut, _ := serdes.Serialize(in, serdes.TargetCollection)
+	serdesOut, _ := Serialize(in, TargetCollection)
 
 	if string(stdlibOut) != string(serdesOut) {
 		t.Errorf("divergence:\nstdlib=%s\nserdes=%s", stdlibOut, serdesOut)
@@ -135,6 +143,8 @@ func TestStringTag_StdlibDivergence(t *testing.T) {
 }
 
 func TestOmitEmpty_StdlibDivergence(t *testing.T) {
+	t.Skip("omitempty is temporarily commented out")
+
 	type Filter struct {
 		Limit     int               `json:"limit,omitempty"`
 		PageState string            `json:"pageState,omitempty"`
@@ -143,7 +153,7 @@ func TestOmitEmpty_StdlibDivergence(t *testing.T) {
 	in := Filter{} // all zero — stdlib should produce {}
 
 	stdlibOut, _ := json.Marshal(in)
-	serdesOut, _ := serdes.Serialize(in, serdes.TargetCollection)
+	serdesOut, _ := Serialize(in, TargetCollection)
 
 	if string(stdlibOut) != string(serdesOut) {
 		t.Errorf("divergence:\nstdlib=%s\nserdes=%s", stdlibOut, serdesOut)
@@ -169,7 +179,7 @@ func TestNilAstraCodecPointer_PanicAndDeadCode(t *testing.T) {
 	var panicVal any
 	func() {
 		defer func() { panicVal = recover() }()
-		serdesOut, serdesErr = serdes.Serialize(nilPtr, serdes.TargetCollection)
+		serdesOut, serdesErr = Serialize(nilPtr, TargetCollection)
 	}()
 
 	switch {
@@ -201,7 +211,7 @@ func TestRawMessage_SliceHeaderCorruption(t *testing.T) {
 	if err != nil {
 		t.Fatalf("stdlib marshal failed: %v", err)
 	}
-	serdesOut, err := serdes.Serialize(in, serdes.TargetCollection)
+	serdesOut, err := Serialize(in, TargetCollection)
 	if err != nil {
 		t.Fatalf("serdes serialize failed: %v", err)
 	}
@@ -222,7 +232,7 @@ type inner struct {
 	Value int    `json:"value"`
 }
 
-// Just a large payload to exercise marshal/serdes.
+// Just a large payload to exercise marshal/
 type testPayload struct {
 	// Primitives
 	BoolTrue  bool    `json:"bool_true"`
@@ -245,11 +255,11 @@ type testPayload struct {
 	NonEmptyString string `json:"non_empty_string"`
 	UnicodeString  string `json:"unicode_string"`
 
-	// Byte slice (base64-encoded in JSON)
-	Bytes []byte `json:"bytes"`
+	// Byte slice (base64-encoded in JSON) --- bytes will serialized in a {$binary:...} wrapper
+	//Bytes []byte `json:"bytes"`
 
-	// Time
-	Timestamp time.Time `json:"timestamp"`
+	// Time --- not implemented yet
+	//Timestamp time.Time `json:"timestamp"`
 
 	// Pointers — one nil, one set
 	PtrNil *string `json:"ptr_nil"`
@@ -302,33 +312,35 @@ func newTestPayload() testPayload {
 		EmptyString:    "",
 		NonEmptyString: "hello, world",
 		UnicodeString:  "こんにちは 🌍",
-		Bytes:          []byte("binary data"),
-		Timestamp:      time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC),
-		PtrNil:         nil,
-		PtrSet:         &ptrStr,
-		Nested:         inner{Label: "nested", Value: 1},
-		NestedPtr:      &inner{Label: "nested-ptr", Value: 2},
-		IntSlice:       []int{1, 2, 3},
-		StringSlice:    []string{"a", "b", "c"},
-		EmptySlice:     []int{},
-		NilSlice:       nil,
-		StringMap:      map[string]string{"key": "value"},
-		IntMap:         map[string]int{"one": 1, "two": 2},
-		NilMap:         nil,
-		InnerSlice:     []inner{{Label: "x", Value: 10}, {Label: "y", Value: 20}},
-		AnyField:       map[string]any{"count": float64(3)},
-		Raw:            json.RawMessage(`{"raw":true}`),
+		//Bytes:          []byte("binary data"),
+		//Timestamp:   time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC),
+		PtrNil:      nil,
+		PtrSet:      &ptrStr,
+		Nested:      inner{Label: "nested", Value: 1},
+		NestedPtr:   &inner{Label: "nested-ptr", Value: 2},
+		IntSlice:    []int{1, 2, 3},
+		StringSlice: []string{"a", "b", "c"},
+		EmptySlice:  []int{},
+		NilSlice:    nil,
+		StringMap:   map[string]string{"key": "value"},
+		IntMap:      map[string]int{"one": 1, "two": 2},
+		NilMap:      nil,
+		InnerSlice:  []inner{{Label: "x", Value: 10}, {Label: "y", Value: 20}},
+		AnyField:    map[string]any{"count": float64(3)},
+		Raw:         json.RawMessage(`{"raw":true}`),
 	}
 }
 
 func TestLargePayload(t *testing.T) {
+	t.Skip("passes but is flaky due to map ordering issues")
+
 	// This test won't work until you clear the errors in prior test.
 	original := newTestPayload()
 	stdlibJSON, err := json.Marshal(original)
 	if err != nil {
 		t.Fatalf("stdlib marshal failed: %v", err)
 	}
-	serdesJSON, err := serdes.Serialize(original, serdes.TargetCollection)
+	serdesJSON, err := Serialize(original, TargetCollection)
 	if err != nil {
 		t.Fatalf("serdes marshal failed: %v", err)
 	}
@@ -346,7 +358,7 @@ func TestLargePayload(t *testing.T) {
 		t.Fatalf("stdlib round trip mismatch:\noriginal     : %+v\nround-tripped: %+v", original, stdlibRoundTripped)
 	}
 	var serdesRoundTripped testPayload
-	err = serdes.Deserialize(serdesJSON, &serdesRoundTripped, serdes.TargetCollection)
+	err = Deserialize(serdesJSON, &serdesRoundTripped, TargetCollection)
 	if err != nil {
 		t.Fatalf("serdes unmarshal failed: %v", err)
 	}

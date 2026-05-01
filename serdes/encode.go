@@ -211,7 +211,8 @@ func rawMessageEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 		return append(dst, "null"...), nil
 	}
 
-	_, err := interfaceDecoder(decodeCtx{}, v, unsafe.Pointer(&v))
+	var throwaway any
+	_, err := interfaceDecoder(decodeCtx{}, v, unsafe.Pointer(&throwaway))
 	if err != nil {
 		return dst, fmt.Errorf("invalid raw message: %w", err)
 	}

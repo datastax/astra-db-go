@@ -2,6 +2,7 @@ package serdes
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -503,10 +504,7 @@ func vectorDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 
 func binaryEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(b []byte) ([]byte, error) {
-		dst = append(dst, '"')
-		dst = append(dst, *(*[]byte)(p)...)
-		dst = append(dst, '"')
-		return dst, nil
+		return encodeBytesAsBase64(b, *(*[]byte)(p)), nil
 	})
 }
 
@@ -524,13 +522,7 @@ func binaryDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	}
 
 	if len(src) == 0 || src[0] == '{' {
-		src, data, err := parseDollarDatatype(src, []byte("binary"), func(b []byte) ([]byte, []byte, error) {
-			src, str, _, err := parseStringUnquote(b)
-			if err != nil {
-				return src, nil, fmt.Errorf("invalid binary string: %w", err)
-			}
-			return src, str, nil
-		})
+		src, data, err := parseDollarDatatype(src, []byte("binary"), decodeBytesFromBase64)
 
 		if err == nil {
 			*(*[]byte)(p) = data
@@ -548,6 +540,45 @@ func binaryDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	}
 
 	return src, fmt.Errorf("expected string, []byte, or {\"$binary\":\"<base64>\"} for []byte value")
+}
+
+func encodeBytesAsBase64(dst []byte, data []byte) []byte {
+	if data == nil {
+		return append(dst, "null"...)
+	}
+
+	b64Len := base64.StdEncoding.EncodedLen(len(data))
+	reqLen := len(dst) + b64Len + 2
+
+	if cap(dst) < reqLen {
+		newDst := make([]byte, len(dst), reqLen)
+		copy(newDst, dst)
+		dst = newDst
+	}
+
+	dst = append(dst, '"')
+
+	start := len(dst)
+	dst = dst[:start+b64Len]
+	base64.StdEncoding.Encode(dst[start:], data) // these lines could probably be simplified but eh it works
+
+	dst = append(dst, '"')
+	return dst
+}
+
+func decodeBytesFromBase64(src []byte) ([]byte, []byte, error) {
+	src, str, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, nil, fmt.Errorf("invalid base64 string: %w", err)
+	}
+
+	data := make([]byte, base64.StdEncoding.DecodedLen(len(str)))
+	n, err := base64.StdEncoding.Decode(data, str)
+	if err != nil {
+		return src, nil, fmt.Errorf("invalid base64 string: %w", err)
+	}
+
+	return src, data[:n], nil
 }
 
 // Helpers
