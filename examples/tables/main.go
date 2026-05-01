@@ -59,14 +59,14 @@ func createTable(ctx context.Context, db *astradb.Db) *astradb.Table {
 	logHeader("Creating Table")
 	definition := table.Definition{
 		Columns: table.Columns{
-			"id":     table.Text(),
-			"title":  table.Text(),
-			"author": table.Text(),
-			"year":   table.Int(),
+			{Name: "id", Column: table.Text()},
+			{Name: "title", Column: table.Text()},
+			{Name: "author", Column: table.Text()},
+			{Name: "year", Column: table.Int()},
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy:   []string{"id"},
-			PartitionSort: map[string]int{"year": -1},
+			PartitionSort: table.PartitionSort{{Name: "year", Order: table.SortDescending}},
 		},
 	}
 	tbl, err := db.CreateTable(ctx, "books", definition)

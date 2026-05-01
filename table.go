@@ -129,10 +129,10 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 //
 //	definition := table.Definition{
 //		Columns: table.Columns{
-//			"title":           table.Text(),
-//			"number_of_pages": table.Int(),
-//			"rating":          table.Float(),
-//			"is_checked_out":  table.Boolean(),
+//			{Name: "title", Column: table.Text()},
+//			{Name: "number_of_pages", Column: table.Int()},
+//			{Name: "rating", Column: table.Float()},
+//			{Name: "is_checked_out", Column: table.Boolean()},
 //		},
 //		PrimaryKey: table.PrimaryKey{
 //			PartitionBy: []string{"title"},

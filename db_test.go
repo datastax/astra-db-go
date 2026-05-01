@@ -233,14 +233,18 @@ func TestListTablesResponseUnmarshal_ExplainTrue(t *testing.T) {
 	if len(td.Definition.Columns) == 0 {
 		t.Error("expected non-empty Definition.Columns")
 	}
-	if got := td.Definition.Columns["user_id"].Type; got != "uuid" {
+	if col, ok := td.Definition.Columns.Get("user_id"); !ok {
+		t.Error("expected user_id column to exist")
+	} else if got := col.Type; got != "uuid" {
 		t.Errorf("expected user_id type 'uuid', got %q", got)
 	}
 	if got := td.Definition.PrimaryKey.PartitionBy; len(got) != 1 || got[0] != "user_id" {
 		t.Errorf("expected PartitionBy=[\"user_id\"], got %v", got)
 	}
-	if td.Definition.PrimaryKey.PartitionSort["order_date"] != -1 {
-		t.Errorf("expected order_date sort -1, got %d", td.Definition.PrimaryKey.PartitionSort["order_date"])
+	if sort, ok := td.Definition.PrimaryKey.PartitionSort.Get("order_date"); !ok {
+		t.Error("expected order_date in PartitionSort")
+	} else if sort != -1 {
+		t.Errorf("expected order_date sort -1, got %d", sort)
 	}
 }
 
@@ -284,12 +288,17 @@ func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
 	if got := resp.Status.Tables[1].Name; got != "test_table_go_integration_tests" {
 		t.Errorf("expected second table 'test_table_go_integration_tests', got %q", got)
 	}
-	if got := td.Definition.Columns["title"].Type; got != "text" {
+	if col, ok := td.Definition.Columns.Get("title"); !ok {
+		t.Error("expected title column to exist")
+	} else if got := col.Type; got != "text" {
 		t.Errorf("expected title type 'text', got %q", got)
 	}
 	// genres is a list column whose valueType is the string form ("text")
 	// rather than an object — this is the case that broke in integration tests.
-	genres := td.Definition.Columns["genres"]
+	genres, ok := td.Definition.Columns.Get("genres")
+	if !ok {
+		t.Error("expected genres column to exist")
+	}
 	if genres.Type != "list" {
 		t.Errorf("expected genres type 'list', got %q", genres.Type)
 	}

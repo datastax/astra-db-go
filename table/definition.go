@@ -15,7 +15,11 @@
 // Package table provides types and utilities for working with Astra DB tables.
 package table
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+)
 
 // Definition represents the full schema for a table, including column names,
 // column data types, and the primary key.
@@ -24,25 +28,106 @@ import "encoding/json"
 //
 //	def := table.Definition{
 //		Columns: table.Columns{
-//			"title":  table.Text(),
-//			"author": table.Text(),
-//			"rating": table.Float(),
+//			{"title", table.Text()},
+//			{"author", table.Text()},
+//			{"rating", table.Float()},
 //		},
 //		PrimaryKey: table.PrimaryKey{
 //			PartitionBy: []string{"title"},
 //		},
 //	}
 type Definition struct {
-	// Columns defines all columns in the table with their types
+	// Columns defines all columns in the table with their types.
+	// Order is preserved on marshal and captured on unmarshal.
 	Columns Columns `json:"columns"`
 
 	// PrimaryKey defines the primary key for the table
 	PrimaryKey PrimaryKey `json:"primaryKey"`
 }
 
-// Columns is a map from column name to its type definition. This is a type alias,
-// so callers can pass a raw map[string]Column literal if they prefer.
-type Columns = map[string]Column
+// Columns is an ordered collection of named columns. It marshals as a JSON
+// object, preserving insertion order on output and input order on parse.
+//
+// Construct with a literal:
+//
+//	table.Columns{
+//	    {"title",  table.Text()},
+//	    {"author", table.Text()},
+//	}
+type Columns []NamedColumn
+
+// NamedColumn pairs a column name with its type definition.
+type NamedColumn struct {
+	Name   string
+	Column Column
+}
+
+// Get returns the column with the given name and whether it was found.
+func (c Columns) Get(name string) (Column, bool) {
+	for _, nc := range c {
+		if nc.Name == name {
+			return nc.Column, true
+		}
+	}
+	return Column{}, false
+}
+
+// MarshalJSON emits the columns as a JSON object in insertion order.
+func (c Columns) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	for i, nc := range c {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		k, err := json.Marshal(nc.Name)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(k)
+		buf.WriteByte(':')
+		v, err := json.Marshal(nc.Column)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(v)
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+// UnmarshalJSON parses a JSON object into Columns, preserving key order.
+func (c *Columns) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
+		return fmt.Errorf("columns: expected JSON object, got %v", tok)
+	}
+	var out Columns
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		name, ok := tok.(string)
+		if !ok {
+			return fmt.Errorf("columns: expected column name, got %v", tok)
+		}
+		var col Column
+		if err := dec.Decode(&col); err != nil {
+			return err
+		}
+		out = append(out, NamedColumn{Name: name, Column: col})
+	}
+	if _, err := dec.Token(); err != nil {
+		return err
+	}
+	*c = out
+	return nil
+}
 
 // Column represents a column's type definition.
 // It can be a simple scalar type, a collection type (set, list, map),
@@ -57,14 +142,59 @@ type Column struct {
 	// Service is used for vector columns with vectorize embedding provider integration
 	Service *VectorService `json:"service,omitempty"`
 
-	// ValueType is used for set and list columns
-	ValueType *Column `json:"valueType,omitempty"`
-
 	// KeyType is used for map columns
 	KeyType *string `json:"keyType,omitempty"`
 
+	// ValueType is used for set, list, and map columns
+	ValueType *Column `json:"valueType,omitempty"`
+
 	// UDTName is used for userDefined columns to specify the UDT name
 	UDTName *string `json:"udtName,omitempty"`
+}
+
+// isSimple reports whether c is just a type name with no modifiers. The Data
+// API accepts a bare string for a simple ValueType inside a set/list/map, and
+// the docs examples use that shorthand.
+func (c Column) isSimple() bool {
+	return c.Dimension == nil && c.Service == nil &&
+		c.KeyType == nil && c.ValueType == nil && c.UDTName == nil
+}
+
+// MarshalJSON emits Column as an object, collapsing a simple inner ValueType
+// to a bare string to match the Data API wire format shown in the docs.
+func (c Column) MarshalJSON() ([]byte, error) {
+	out := struct {
+		Type      string          `json:"type"`
+		Dimension *int            `json:"dimension,omitempty"`
+		Service   *VectorService  `json:"service,omitempty"`
+		KeyType   *string         `json:"keyType,omitempty"`
+		ValueType json.RawMessage `json:"valueType,omitempty"`
+		UDTName   *string         `json:"udtName,omitempty"`
+	}{
+		Type:      c.Type,
+		Dimension: c.Dimension,
+		Service:   c.Service,
+		KeyType:   c.KeyType,
+		UDTName:   c.UDTName,
+	}
+
+	if c.ValueType != nil {
+		if c.ValueType.isSimple() {
+			s, err := json.Marshal(c.ValueType.Type)
+			if err != nil {
+				return nil, err
+			}
+			out.ValueType = s
+		} else {
+			b, err := json.Marshal(*c.ValueType)
+			if err != nil {
+				return nil, err
+			}
+			out.ValueType = b
+		}
+	}
+
+	return json.Marshal(out)
 }
 
 // VectorService defines the embedding provider configuration for vectorize
@@ -88,9 +218,96 @@ type PrimaryKey struct {
 	// PartitionBy lists the partition key columns
 	PartitionBy []string `json:"partitionBy"`
 
-	// PartitionSort defines clustering columns and their sort order (1 for ASC, -1 for DESC)
-	// This is optional and used for compound primary keys
-	PartitionSort map[string]int `json:"partitionSort,omitempty"`
+	// PartitionSort defines clustering columns and their sort order (1 for ASC, -1 for DESC).
+	// Order is significant — it defines the physical sort order of rows within a partition —
+	// and is preserved through JSON marshaling.
+	PartitionSort PartitionSort `json:"partitionSort,omitempty"`
+}
+
+// PartitionSort is an ordered collection of clustering columns with their sort
+// direction. It marshals as a JSON object, preserving declared order on output
+// and input order on parse.
+//
+// Construct with a literal:
+//
+//	table.PartitionSort{
+//	    {"event_time", table.SortDescending},
+//	    {"priority",   table.SortAscending},
+//	}
+type PartitionSort []NamedSort
+
+// NamedSort pairs a clustering-column name with its sort direction
+// (SortAscending or SortDescending).
+type NamedSort struct {
+	Name  string
+	Order int
+}
+
+// Get returns the sort order for the given column and whether it was found.
+func (s PartitionSort) Get(name string) (int, bool) {
+	for _, ns := range s {
+		if ns.Name == name {
+			return ns.Order, true
+		}
+	}
+	return 0, false
+}
+
+// MarshalJSON emits PartitionSort as a JSON object in declared order.
+func (s PartitionSort) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	for i, ns := range s {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		k, err := json.Marshal(ns.Name)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(k)
+		buf.WriteByte(':')
+		v, err := json.Marshal(ns.Order)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(v)
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+// UnmarshalJSON parses a JSON object into PartitionSort, preserving key order.
+func (s *PartitionSort) UnmarshalJSON(data []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	tok, err := dec.Token()
+	if err != nil {
+		return err
+	}
+	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
+		return fmt.Errorf("partitionSort: expected JSON object, got %v", tok)
+	}
+	var out PartitionSort
+	for dec.More() {
+		tok, err := dec.Token()
+		if err != nil {
+			return err
+		}
+		name, ok := tok.(string)
+		if !ok {
+			return fmt.Errorf("partitionSort: expected column name, got %v", tok)
+		}
+		var order int
+		if err := dec.Decode(&order); err != nil {
+			return err
+		}
+		out = append(out, NamedSort{Name: name, Order: order})
+	}
+	if _, err := dec.Token(); err != nil {
+		return err
+	}
+	*s = out
+	return nil
 }
 
 // MarshalJSON implements custom JSON marshaling for PrimaryKey.
@@ -182,6 +399,7 @@ const (
 	TypeList      = "list"
 	TypeMap       = "map"
 	TypeUDT       = "userDefined"
+	TypeDuration  = "duration"
 )
 
 // Text creates a text column
@@ -272,6 +490,11 @@ func Inet() Column {
 // Ascii creates an ascii column
 func Ascii() Column {
 	return Column{Type: TypeAscii}
+}
+
+// Duration creates a duration column
+func Duration() Column {
+	return Column{Type: TypeDuration}
 }
 
 // Vector creates a vector column with the specified dimension

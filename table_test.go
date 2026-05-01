@@ -45,8 +45,8 @@ func TestCreateTablePayloadMarshal(t *testing.T) {
 			payload: createTablePayload{
 				Name: "test_table",
 				Definition: table.Definition{
-					Columns: map[string]table.Column{
-						"title": table.Text(),
+					Columns: table.Columns{
+						{Name: "title", Column: table.Text()},
 					},
 					PrimaryKey: table.PrimaryKey{
 						PartitionBy: []string{"title"},
@@ -60,30 +60,33 @@ func TestCreateTablePayloadMarshal(t *testing.T) {
 			payload: createTablePayload{
 				Name: "test_table",
 				Definition: table.Definition{
-					Columns: map[string]table.Column{
-						"title":  table.Text(),
-						"rating": table.Float(),
+					Columns: table.Columns{
+						{Name: "title", Column: table.Text()},
+						{Name: "rating", Column: table.Float()},
 					},
 					PrimaryKey: table.PrimaryKey{
 						PartitionBy: []string{"title", "rating"},
 					},
 				},
 			},
-			expected: `{"name":"test_table","definition":{"columns":{"rating":{"type":"float"},"title":{"type":"text"}},"primaryKey":{"partitionBy":["title","rating"]}}}`,
+			expected: `{"name":"test_table","definition":{"columns":{"title":{"type":"text"},"rating":{"type":"float"}},"primaryKey":{"partitionBy":["title","rating"]}}}`,
 		},
 		{
 			name: "compound primary key with clustering",
 			payload: createTablePayload{
 				Name: "test_table",
 				Definition: table.Definition{
-					Columns: map[string]table.Column{
-						"title":           table.Text(),
-						"rating":          table.Float(),
-						"number_of_pages": table.Int(),
+					Columns: table.Columns{
+						{Name: "title", Column: table.Text()},
+						{Name: "rating", Column: table.Float()},
+						{Name: "number_of_pages", Column: table.Int()},
 					},
 					PrimaryKey: table.PrimaryKey{
-						PartitionBy:   []string{"title"},
-						PartitionSort: map[string]int{"rating": table.SortAscending, "number_of_pages": table.SortDescending},
+						PartitionBy: []string{"title"},
+						PartitionSort: table.PartitionSort{
+							{Name: "rating", Order: table.SortAscending},
+							{Name: "number_of_pages", Order: table.SortDescending},
+						},
 					},
 				},
 			},
@@ -93,8 +96,8 @@ func TestCreateTablePayloadMarshal(t *testing.T) {
 			payload: createTablePayload{
 				Name: "test_table",
 				Definition: table.Definition{
-					Columns: map[string]table.Column{
-						"id": table.UUID(),
+					Columns: table.Columns{
+						{Name: "id", Column: table.UUID()},
 					},
 					PrimaryKey: table.PrimaryKey{
 						PartitionBy: []string{"id"},
@@ -315,7 +318,7 @@ func TestPrimaryKeyUnmarshal(t *testing.T) {
 			input: `{"partitionBy":["title"],"partitionSort":{"rating":1}}`,
 			expected: table.PrimaryKey{
 				PartitionBy:   []string{"title"},
-				PartitionSort: map[string]int{"rating": 1},
+				PartitionSort: table.PartitionSort{{Name: "rating", Order: 1}},
 			},
 		},
 	}
@@ -1692,9 +1695,9 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 			tbl.newCmd("alterTable", alterTablePayload{
 				Operation: table.AlterOperation{
 					Add: &table.AddColumns{
-						Columns: map[string]table.Column{
-							"is_summer_reading": table.Boolean(),
-							"library_branch":    table.Text(),
+						Columns: table.Columns{
+							{"is_summer_reading", table.Boolean()},
+							{"library_branch", table.Text()},
 						},
 					},
 				},
@@ -1707,8 +1710,8 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 			tbl.newCmd("alterTable", alterTablePayload{
 				Operation: table.AlterOperation{
 					Add: &table.AddColumns{
-						Columns: map[string]table.Column{
-							"example_vector": table.Vector(1024),
+						Columns: table.Columns{
+							{"example_vector", table.Vector(1024)},
 						},
 					},
 				},
@@ -1789,8 +1792,8 @@ func TestTableAlter_HappyPath(t *testing.T) {
 	tbl := httpTestTable(ts)
 	err := tbl.AlterTable(context.Background(), table.AlterOperation{
 		Add: &table.AddColumns{
-			Columns: map[string]table.Column{
-				"is_summer_reading": table.Boolean(),
+			Columns: table.Columns{
+				{"is_summer_reading", table.Boolean()},
 			},
 		},
 	}, options.AlterTable())
@@ -1829,7 +1832,7 @@ func TestTableAlter_RejectsZeroOrMultipleOperations(t *testing.T) {
 	})
 	t.Run("two operations set", func(t *testing.T) {
 		err := tbl.AlterTable(context.Background(), table.AlterOperation{
-			Add:  &table.AddColumns{Columns: map[string]table.Column{"x": table.Text()}},
+			Add:  &table.AddColumns{Columns: table.Columns{{"x", table.Text()}}},
 			Drop: &table.DropColumns{Columns: []string{"y"}},
 		})
 		if err == nil {

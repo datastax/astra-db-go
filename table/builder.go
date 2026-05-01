@@ -30,35 +30,43 @@ package table
 // This is equivalent to the struct-based approach:
 //
 //	definition := table.Definition{
-//		Columns: map[string]table.Column{
-//			"id":         table.UUID(),
-//			"title":      table.Text(),
-//			"rating":     table.Float(),
-//			"genres":     table.List(table.Text()),
-//			"embeddings": table.Vector(1536),
+//		Columns: table.Columns{
+//			{"id", table.UUID()},
+//			{"title", table.Text()},
+//			{"rating", table.Float()},
+//			{"genres", table.List(table.Text())},
+//			{"embeddings", table.Vector(1536)},
 //		},
 //		PrimaryKey: table.PrimaryKey{
 //			PartitionBy: []string{"id"},
 //		},
 //	}
 type DefinitionBuilder struct {
-	columns       map[string]Column
-	partitionBy   []string
-	partitionSort map[string]int
+	columns         Columns
+	columnIdx       map[string]int
+	partitionBy     []string
+	partitionSort   PartitionSort
+	partitionSortIx map[string]int
 }
 
 // NewDefinition creates a new DefinitionBuilder for fluent table definition construction.
 func NewDefinition() *DefinitionBuilder {
 	return &DefinitionBuilder{
-		columns:       make(map[string]Column),
-		partitionBy:   []string{},
-		partitionSort: make(map[string]int),
+		columnIdx:       make(map[string]int),
+		partitionBy:     []string{},
+		partitionSortIx: make(map[string]int),
 	}
 }
 
-// AddColumn adds a column with the specified name and type.
+// AddColumn adds a column with the specified name and type. If a column with
+// the same name already exists, its type is replaced but its position is kept.
 func (b *DefinitionBuilder) AddColumn(name string, columnType Column) *DefinitionBuilder {
-	b.columns[name] = columnType
+	if i, ok := b.columnIdx[name]; ok {
+		b.columns[i].Column = columnType
+		return b
+	}
+	b.columnIdx[name] = len(b.columns)
+	b.columns = append(b.columns, NamedColumn{Name: name, Column: columnType})
 	return b
 }
 
@@ -198,8 +206,14 @@ func (b *DefinitionBuilder) AddPartitionBy(column string) *DefinitionBuilder {
 
 // AddClusteringColumn adds a clustering column with the specified sort order.
 // Use table.SortAscending (1) or table.SortDescending (-1) for the sort order.
+// If the column was already added, its sort order is updated in place.
 func (b *DefinitionBuilder) AddClusteringColumn(column string, sortOrder int) *DefinitionBuilder {
-	b.partitionSort[column] = sortOrder
+	if i, ok := b.partitionSortIx[column]; ok {
+		b.partitionSort[i].Order = sortOrder
+		return b
+	}
+	b.partitionSortIx[column] = len(b.partitionSort)
+	b.partitionSort = append(b.partitionSort, NamedSort{Name: column, Order: sortOrder})
 	return b
 }
 

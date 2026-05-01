@@ -70,13 +70,13 @@ func TableCreate(e *harness.TestEnv) error {
 	// But it might be better to have a separate test so we exercise both infer
 	// and table.Definition.
 	definition := table.Definition{
-		Columns: map[string]table.Column{
-			"title":           table.Text(),
-			"author":          table.Text(),
-			"number_of_pages": table.Int(),
-			"rating":          table.Float(),
-			"is_checked_out":  table.Boolean(),
-			"genres":          table.List(table.Text()),
+		Columns: table.Columns{
+			{Name: "title", Column: table.Text()},
+			{Name: "author", Column: table.Text()},
+			{Name: "number_of_pages", Column: table.Int()},
+			{Name: "rating", Column: table.Float()},
+			{Name: "is_checked_out", Column: table.Boolean()},
+			{Name: "genres", Column: table.List(table.Text())},
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy: []string{"title"},
@@ -539,10 +539,10 @@ func TableVectorIndex(e *harness.TestEnv) error {
 
 	// Create a table with a vector column
 	definition := table.Definition{
-		Columns: map[string]table.Column{
-			"id":        table.Text(),
-			"content":   table.Text(),
-			"embedding": table.Vector(3), // 3-dimensional vectors for testing
+		Columns: table.Columns{
+			{Name: "id", Column: table.Text()},
+			{Name: "content", Column: table.Text()},
+			{Name: "embedding", Column: table.Vector(3)}, // 3-dimensional vectors for testing
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy: []string{"id"},
@@ -671,8 +671,8 @@ func TableAlter(e *harness.TestEnv) error {
 
 	tbl, err := db.CreateTable(ctx, alterTableName, table.Definition{
 		Columns: table.Columns{
-			"title":  table.Text(),
-			"author": table.Text(),
+			{"title", table.Text()},
+			{"author", table.Text()},
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy: []string{"title"},
@@ -695,8 +695,8 @@ func TableAlter(e *harness.TestEnv) error {
 	err = tbl.AlterTable(ctx, table.AlterOperation{
 		Add: &table.AddColumns{
 			Columns: table.Columns{
-				"is_summer_reading": table.Boolean(),
-				"library_branch":    table.Text(),
+				{"is_summer_reading", table.Boolean()},
+				{"library_branch", table.Text()},
 			},
 		},
 	})
