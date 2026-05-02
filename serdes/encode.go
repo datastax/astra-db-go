@@ -98,7 +98,7 @@ func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 			return dst, fmt.Errorf("error calling MarshalAstra on type %v: %w", t, err)
 		}
 
-		return interfaceEncoder(ctx, dst, unsafe.Pointer(&res))
+		return emptyInterfaceEncoder(ctx, dst, unsafe.Pointer(&res))
 	}
 }
 
@@ -190,8 +190,14 @@ func mkArrayEncoder(n int, size uintptr, encode encoder) encoder {
 	}
 }
 
-func interfaceEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func emptyInterfaceEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return SerializeInto(*(*any)(p), ctx.target, dst)
+}
+
+func mkSomeInterfaceEncoder(t reflect.Type) encoder {
+	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		return SerializeInto(reflect.NewAt(t, p).Elem().Interface(), ctx.target, dst)
+	}
 }
 
 func mkEmbeddedStructPointerEncoder(encode encoder) encoder {
@@ -212,7 +218,7 @@ func rawMessageEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	}
 
 	var throwaway any
-	_, err := interfaceDecoder(decodeCtx{}, v, unsafe.Pointer(&throwaway))
+	_, err := emptyInterfaceDecoder(decodeCtx{}, v, unsafe.Pointer(&throwaway))
 	if err != nil {
 		return dst, fmt.Errorf("invalid raw message: %w", err)
 	}

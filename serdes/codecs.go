@@ -63,6 +63,8 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	// now whether this performance really matters... probably not, but keeping the codecs
 	// centralized seems clearer to me anyhow, with the tiny speed boost just being a happy bonus
 	switch t {
+	case anyType:
+		return codec{emptyInterfaceEncoder, emptyInterfaceDecoder}
 	case rawMessageType:
 		return codec{rawMessageEncoder, rawMessageDecoder}
 	case vectorType:
@@ -103,7 +105,7 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	case reflect.Map:
 		c = mkMapCodec(ctx, t, seen)
 	case reflect.Interface:
-		c = codec{interfaceEncoder, interfaceDecoder}
+		c = mkSomeInterfaceCodec(t)
 	default:
 		if c.encode == nil {
 			c = mkErroredCodec(fmt.Errorf("unsupported type %s", t.String()))
@@ -211,6 +213,13 @@ func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	return codec{
 		mkArrayEncoder(n, size, c.encode),
 		mkArrayDecoder(n, size, c.decode),
+	}
+}
+
+func mkSomeInterfaceCodec(t reflect.Type) codec {
+	return codec{
+		mkSomeInterfaceEncoder(t),
+		mkSomeInterfaceDecoder(t),
 	}
 }
 

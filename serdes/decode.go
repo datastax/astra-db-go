@@ -94,7 +94,7 @@ func mkPointerDecoder(decode decoder, t reflect.Type) decoder {
 func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		var intermediate any
-		src, err := interfaceDecoder(ctx, src, unsafe.Pointer(&intermediate))
+		src, err := emptyInterfaceDecoder(ctx, src, unsafe.Pointer(&intermediate))
 		if err != nil {
 			return src, err
 		}
@@ -330,7 +330,7 @@ func mkArrayDecoder(n int, size uintptr, decode decoder) decoder {
 	}
 }
 
-func interfaceDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func emptyInterfaceDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 {
@@ -375,7 +375,7 @@ func interfaceDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 	case '[':
 		var arr []any
 		arrType := reflect.TypeOf(arr)
-		src, err = mkSliceDecoder(unsafe.Sizeof(arr[0]), arrType, interfaceDecoder)(ctx, src, unsafe.Pointer(&arr))
+		src, err = mkSliceDecoder(unsafe.Sizeof(arr[0]), arrType, emptyInterfaceDecoder)(ctx, src, unsafe.Pointer(&arr))
 		val = arr
 
 	case '{':
@@ -391,7 +391,7 @@ func interfaceDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 		vt := anyType
 		kz := stringEmpty
 		vz := anyEmpty
-		src, err = mkNormalMapDecoder(reflect.MapOf(kt, vt), kt, vt, kz, vz, stringDecoder, interfaceDecoder)(ctx, src, unsafe.Pointer(&m))
+		src, err = mkNormalMapDecoder(reflect.MapOf(kt, vt), kt, vt, kz, vz, stringDecoder, emptyInterfaceDecoder)(ctx, src, unsafe.Pointer(&m))
 		val = m
 
 	default:
@@ -411,6 +411,14 @@ decoded:
 
 	*(*any)(p) = val
 	return src, nil
+}
+
+func mkSomeInterfaceDecoder(t reflect.Type) decoder {
+	if t.NumMethod() == 0 {
+		return emptyInterfaceDecoder
+	}
+	// TODO potentially try being able to decode if there's already an implementing struct in the pointer?
+	return mkErrorDecoder(fmt.Errorf("cannot decode into non-empty interface type %s", t))
 }
 
 func decodeDollarDatatype(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error, bool) {
