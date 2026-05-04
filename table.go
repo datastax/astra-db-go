@@ -24,6 +24,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
@@ -73,13 +74,13 @@ func (t *Table) Database() *Db {
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
 func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return newCmdWithOptions(t.db, t.name, name, payload, t.options, cmdOpts...)
+	return newCmdWithOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts...)
 }
 
 // newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
 // used by builder-pattern methods where API options flow through the struct.
 func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, cmdOpts)
+	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts)
 }
 
 // createTablePayload is the payload for the createTable command
@@ -410,13 +411,13 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 	case filter.F, filter.Filter, map[string]any, nil:
 		// Allowed filter types
 	default:
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid filter type: %Raw", f))
+		return results.NewSingleResult(nil, nil, serdes.TargetTable, fmt.Errorf("invalid filter type: %Raw", f))
 	}
 
 	// Build the find options
 	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid options: %w", err))
+		return results.NewSingleResult(nil, nil, serdes.TargetTable, fmt.Errorf("invalid options: %w", err))
 	}
 
 	// Build the payload
@@ -435,7 +436,7 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 
 	cmd := t.newCmdWithMergedOptions("findOne", payload, findOpts.APIOptions)
 	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, err)
+	return results.NewSingleResult(b, warnings, serdes.TargetTable, err)
 }
 
 // tableInsertOnePayload is the payload for insertOne on tables
@@ -509,7 +510,7 @@ func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableIns
 	if err != nil {
 		return resp, err
 	}
-	err = json.Unmarshal(b, &resp)
+	err = serdes.Deserialize(b, &resp, serdes.TargetTable)
 	return resp, err
 }
 
@@ -548,7 +549,7 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return resp, err
 	}
-	err = json.Unmarshal(b, &resp)
+	err = serdes.Deserialize(b, &resp, serdes.TargetTable)
 	return resp, err
 }
 
@@ -909,7 +910,7 @@ type IndexDescriptor struct {
 func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
 	// Try to unmarshal as a string first (names only response)
 	var name string
-	if err := json.Unmarshal(data, &name); err == nil {
+	if err := serdes.Deserialize(data, &name, serdes.TargetTable); err == nil {
 		d.Name = name
 		return nil
 	}
@@ -917,11 +918,15 @@ func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
 	// Otherwise unmarshal as an object (explain=true response)
 	type indexDescriptorAlias IndexDescriptor
 	var alias indexDescriptorAlias
-	if err := json.Unmarshal(data, &alias); err != nil {
+	if err := serdes.Deserialize(data, &alias, serdes.TargetTable); err != nil {
 		return err
 	}
 	*d = IndexDescriptor(alias)
 	return nil
+}
+
+func (d *IndexDescriptor) UnmarshalAstraRaw(_ serdes.Target, value []byte) error {
+	return json.Unmarshal(value, d)
 }
 
 // IndexDefinition describes which column is indexed and its options.
@@ -993,7 +998,7 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 	}
 
 	var resp listIndexesResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
+	if err := serdes.Deserialize(b, &resp, serdes.TargetTable); err != nil {
 		return nil, err
 	}
 

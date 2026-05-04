@@ -34,6 +34,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // Ascending is the sort order value for ascending (1).
@@ -46,6 +48,7 @@ const Descending = -1
 // It is satisfied by [Sort] (the fluent builder) and [S] (raw map).
 type Sortable interface {
 	json.Marshaler
+	serdes.AstraRawMarshaler
 	isSort()
 }
 
@@ -71,6 +74,14 @@ func (S) isSort() {}
 // MarshalJSON marshals the raw sort map to JSON.
 func (s S) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any(s))
+}
+
+func (s S) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+	b, err := s.MarshalJSON()
+	if err != nil {
+		return dst, err
+	}
+	return append(dst, b...), nil
 }
 
 // Clauses represents multiple sort specifications. Use this when you need
@@ -112,6 +123,14 @@ func (s Clauses) MarshalJSON() ([]byte, error) {
 	}
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
+}
+
+func (s Clauses) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+	b, err := s.MarshalJSON()
+	if err != nil {
+		return dst, err
+	}
+	return append(dst, b...), nil
 }
 
 // clause is a single key-value pair in a sort specification.
@@ -226,4 +245,12 @@ func (s Sort) MarshalJSON() ([]byte, error) {
 	}
 	buf.WriteByte('}')
 	return buf.Bytes(), nil
+}
+
+func (s Sort) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+	b, err := s.MarshalJSON()
+	if err != nil {
+		return dst, err
+	}
+	return append(dst, b...), nil
 }

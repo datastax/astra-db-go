@@ -265,6 +265,8 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 }
 
 func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, sep byte) encoder {
+	mkIter := newMapIterMaker(t, true) // TODO make trySort an optional flag
+
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		m := reflect.NewAt(t, p).Elem()
 		if m.IsNil() {
@@ -278,7 +280,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 		start := len(dst)
 		toArray := open == '[' // && close == ']'
 
-		iter := m.MapRange()
+		iter := mkIter(m)
 		first := true
 		var err error
 
@@ -408,56 +410,10 @@ func mkNormalMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey,
 	return mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '{', '}', ':')
 }
 
-func mkTableMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
-	stringKeyEncoder := func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		dst, err := encodeKey(ctx, dst, p)
-		if err != nil {
-			return dst, err
-		}
-
-		dst = skipWSRev(dst)
-		if len(dst) == 0 || dst[len(dst)-1] != '"' {
-			return dst, rollback{}
-		}
-
-		return dst, nil
-	}
-
-	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue)
-	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '[', ']', ',')
-
-	// can't check for kind in case an alias has a custom encoder
-	if kt == stringType {
-		return encodeObjectMap
-	}
-
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		if dst, err := encodeObjectMap(ctx, dst, p); err != nil {
-			if _, ok := err.(rollback); ok {
-				return encodeArrayMap(ctx, dst, p)
-			}
-			return dst, err
-		}
-		return dst, nil
-	}
-}
-
-func mkTableMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
-	decodeObjectMap := mkNormalMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue)
-	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',')
-
-	return func(ctx decodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
-		if len(b) > 0 && (b[0] == '{' || b[0] == 'n') {
-			return decodeObjectMap(ctx, b, p)
-		}
-		return decodeArrayMap(ctx, b, p)
-	}
-}
-
 // Vectors
 
 func vectorEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return encodeDollarDatatype(dst, []byte("binary"), func(b []byte) ([]byte, error) {
+	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
 		dst = append(dst, '"')
 		dst = append(dst, (*datatypes.DataAPIVector)(p).AsBase64()...)
 		dst = append(dst, '"')
@@ -503,8 +459,8 @@ func vectorDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 // Binary
 
 func binaryEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return encodeDollarDatatype(dst, []byte("binary"), func(b []byte) ([]byte, error) {
-		return encodeBytesAsBase64(b, *(*[]byte)(p)), nil
+	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
+		return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
 	})
 }
 

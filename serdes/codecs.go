@@ -245,6 +245,16 @@ type jsonMeta struct {
 	tagged    bool
 }
 
+func (i structInfo) String() string {
+	var sb strings.Builder
+	_, _ = fmt.Fprintf(&sb, "struct %s {", i.typ.String())
+	for _, f := range i.fields {
+		_, _ = fmt.Fprintf(&sb, "\n  %s (offset: %d, type: %s, codec: %p)", f.meta.name, f.offset, f.typ.String(), f.codec.encode)
+	}
+	sb.WriteString("\n}")
+	return sb.String()
+}
+
 func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (*structInfo, error) {
 	if info, ok := seen[t]; ok {
 		return info, nil

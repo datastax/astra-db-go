@@ -26,9 +26,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 	"github.com/datastax/astra-db-go/update"
@@ -111,7 +113,7 @@ func TestCreateTablePayloadMarshal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := json.Marshal(tt.payload)
+			b, err := serdes.Serialize(tt.payload, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("failed to marshal: %v", err)
 			}
@@ -120,7 +122,7 @@ func TestCreateTablePayloadMarshal(t *testing.T) {
 			}
 			// Verify it can be unmarshaled back
 			var result createTablePayload
-			if err := json.Unmarshal(b, &result); err != nil {
+			if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 		})
@@ -255,14 +257,14 @@ func TestColumnDefinitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Verify it can be marshaled
-			b, err := json.Marshal(tt.column)
+			b, err := serdes.Serialize(tt.column, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("failed to marshal: %v", err)
 			}
 
 			// Verify it can be unmarshaled back
 			var result table.Column
-			if err := json.Unmarshal(b, &result); err != nil {
+			if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 
@@ -281,8 +283,7 @@ func TestVectorColumnWithService(t *testing.T) {
 		},
 	}
 	col := table.VectorWithService(1536, service)
-
-	b, err := json.Marshal(col)
+	b, err := serdes.Serialize(col, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
@@ -326,7 +327,7 @@ func TestPrimaryKeyUnmarshal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var pk table.PrimaryKey
-			if err := json.Unmarshal([]byte(tt.input), &pk); err != nil {
+			if err := serdes.Deserialize([]byte(tt.input), &pk, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 			if len(pk.PartitionBy) != len(tt.expected.PartitionBy) {
@@ -417,12 +418,12 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 				if !ok {
 					t.Fatal("expected sort to be a map")
 				}
-				vec, ok := s["$vector"].([]any)
+				vec, ok := s["$vector"].(datatypes.DataAPIVector)
 				if !ok {
-					t.Fatal("expected $vector to be a slice")
+					t.Fatal("expected $vector to be a DataAPIVector")
 				}
-				if len(vec) != 3 {
-					t.Errorf("expected vector length 3, got %d", len(vec))
+				if vec.Dimension() != 3 {
+					t.Errorf("expected vector dimension 3, got %d", vec.Dimension())
 				}
 			},
 		},
@@ -490,13 +491,13 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := json.Marshal(tt.payload)
+			b, err := serdes.Serialize(tt.payload, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("failed to marshal: %v", err)
 			}
 
 			var result map[string]any
-			if err := json.Unmarshal(b, &result); err != nil {
+			if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 
@@ -547,8 +548,7 @@ func TestFilterWithStructuredFilters(t *testing.T) {
 		filter.Eq("is_checked_out", false),
 		filter.Lt("number_of_pages", 300),
 	)
-
-	b, err := json.Marshal(f)
+	b, err := serdes.Serialize(f, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
@@ -558,7 +558,7 @@ func TestFilterWithStructuredFilters(t *testing.T) {
 	// Should produce something like:
 	// {"$and":[{"is_checked_out":false},{"number_of_pages":{"$lt":300}}]}
 	var result map[string]any
-	if err := json.Unmarshal(b, &result); err != nil {
+	if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -585,14 +585,13 @@ func TestTableInsertOnePayloadMarshal(t *testing.T) {
 			Rating: 4.5,
 		},
 	}
-
-	b, err := json.Marshal(payload)
+	b, err := serdes.Serialize(payload, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
 
 	var result map[string]any
-	if err := json.Unmarshal(b, &result); err != nil {
+	if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -624,14 +623,13 @@ func TestTableInsertManyPayloadMarshal(t *testing.T) {
 	payload := tableInsertManyPayload{
 		Documents: rows,
 	}
-
-	b, err := json.Marshal(payload)
+	b, err := serdes.Serialize(payload, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal: %v", err)
 	}
 
 	var result map[string]any
-	if err := json.Unmarshal(b, &result); err != nil {
+	if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -651,7 +649,7 @@ func TestTableInsertResponseUnmarshal(t *testing.T) {
 	t.Run("single column primary key", func(t *testing.T) {
 		jsonResp := `{"status":{"insertedIds":[["The Great Gatsby"]],"primaryKeySchema":{"title":{"type":"text"}}}}`
 		var resp TableInsertResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -677,7 +675,7 @@ func TestTableInsertResponseUnmarshal(t *testing.T) {
 		// For composite keys, each inserted ID is still an array with multiple values
 		jsonResp := `{"status":{"insertedIds":[["Book 1","Author 1"]],"primaryKeySchema":{"title":{"type":"text"},"author":{"type":"text"}}}}`
 		var resp TableInsertResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -701,7 +699,7 @@ func TestTableInsertResponseUnmarshal(t *testing.T) {
 	t.Run("multiple inserts", func(t *testing.T) {
 		jsonResp := `{"status":{"insertedIds":[["Book 1"],["Book 2"],["Book 3"]]}}`
 		var resp TableInsertResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1046,7 +1044,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 		// When explain=false, the API returns an array of strings
 		jsonResp := `{"status":{"indexes":["rating_idx","title_idx"]}}`
 		var resp listIndexesResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1068,7 +1066,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	t.Run("explain response with regular index", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[{"name":"rating_idx","definition":{"column":"rating"},"indexType":"regular"}]}}`
 		var resp listIndexesResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1093,7 +1091,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	t.Run("explain response with vector index", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[{"name":"embedding_idx","definition":{"column":"embedding","options":{"metric":"cosine","sourceModel":"other"}},"indexType":"vector"}]}}`
 		var resp listIndexesResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1127,7 +1125,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	t.Run("empty indexes", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[]}}`
 		var resp listIndexesResponse
-		if err := json.Unmarshal([]byte(jsonResp), &resp); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1153,7 +1151,7 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
-		cmdBytes, _ := json.Marshal(cmd)
+		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
 		// Should not have "options" key when no options provided
 		if string(cmdBytes) != `{"createIndex":{"name":"test_idx","definition":{"column":"test_col"}}}` {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
@@ -1167,7 +1165,7 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
-		cmdBytes, _ := json.Marshal(cmd)
+		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
 		if string(cmdBytes) != `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"caseSensitive":true}},"options":{"ifNotExists":true}}}` {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
@@ -1184,9 +1182,9 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetTable)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false}},"options":{"ifNotExists":true}}}`
 		if string(cmdBytes) != expected {
@@ -1202,9 +1200,9 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetTable)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":false}}}}`
 		if string(cmdBytes) != expected {
@@ -1224,9 +1222,9 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetTable)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`
 		if string(cmdBytes) != expected {
@@ -1363,7 +1361,7 @@ func TestTableUpdateOne_HappyPath(t *testing.T) {
 
 	body, _ := gotBody.Load().([]byte)
 	var sentBody map[string]any
-	if err := json.Unmarshal(body, &sentBody); err != nil {
+	if err := serdes.Deserialize(body, &sentBody, serdes.TargetTable); err != nil {
 		t.Fatalf("server-received body was not JSON: %v (%s)", err, body)
 	}
 	inner, ok := sentBody["updateOne"].(map[string]any)
@@ -1805,7 +1803,7 @@ func TestTableAlter_HappyPath(t *testing.T) {
 
 	body, _ := gotBody.Load().([]byte)
 	var sentBody map[string]any
-	if err := json.Unmarshal(body, &sentBody); err != nil {
+	if err := serdes.Deserialize(body, &sentBody, serdes.TargetTable); err != nil {
 		t.Fatalf("server-received body was not JSON: %v (%s)", err, body)
 	}
 	inner, ok := sentBody["alterTable"].(map[string]any)

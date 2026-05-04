@@ -2,7 +2,6 @@ package astradb_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,6 +13,7 @@ import (
 	astradb "github.com/datastax/astra-db-go"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -77,9 +77,9 @@ func TestDeleteOnePayloadSerialization(t *testing.T) {
 				Sort:   tt.sort,
 			}
 			wrapped := map[string]any{"deleteOne": payload}
-			got, err := json.Marshal(wrapped)
+			got, err := serdes.Serialize(wrapped, serdes.TargetCollection)
 			if err != nil {
-				t.Fatalf("json.Marshal error: %v", err)
+				t.Fatalf("serdes.Serialize error: %v", err)
 			}
 			if string(got) != tt.expected {
 				t.Errorf("payload mismatch\n  got:  %s\n  want: %s", string(got), tt.expected)
@@ -115,8 +115,8 @@ func TestDeleteOneResponseDeserialization(t *testing.T) {
 				} `json:"status"`
 			}
 			var resp deleteOneResponse
-			if err := json.Unmarshal([]byte(tt.response), &resp); err != nil {
-				t.Fatalf("json.Unmarshal error: %v", err)
+			if err := serdes.Deserialize([]byte(tt.response), &resp, serdes.TargetCollection); err != nil {
+				t.Fatalf("serdes.Deserialize error: %v", err)
 			}
 			if resp.Status.DeletedCount != tt.deletedCount {
 				t.Errorf("deletedCount = %d, want %d", resp.Status.DeletedCount, tt.deletedCount)
@@ -168,9 +168,9 @@ func TestDeleteManyPayloadSerialization(t *testing.T) {
 				Filter: tt.filter,
 			}
 			wrapped := map[string]any{"deleteMany": payload}
-			got, err := json.Marshal(wrapped)
+			got, err := serdes.Serialize(wrapped, serdes.TargetCollection)
 			if err != nil {
-				t.Fatalf("json.Marshal error: %v", err)
+				t.Fatalf("serdes.Serialize error: %v", err)
 			}
 			if string(got) != tt.expected {
 				t.Errorf("payload mismatch\n  got:  %s\n  want: %s", string(got), tt.expected)
@@ -217,8 +217,8 @@ func TestDeleteManyResponseDeserialization(t *testing.T) {
 				} `json:"status"`
 			}
 			var resp deleteManyResponse
-			if err := json.Unmarshal([]byte(tt.response), &resp); err != nil {
-				t.Fatalf("json.Unmarshal error: %v", err)
+			if err := serdes.Deserialize([]byte(tt.response), &resp, serdes.TargetCollection); err != nil {
+				t.Fatalf("serdes.Deserialize error: %v", err)
 			}
 			if resp.Status.DeletedCount != tt.deletedCount {
 				t.Errorf("deletedCount = %d, want %d", resp.Status.DeletedCount, tt.deletedCount)

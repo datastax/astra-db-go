@@ -17,7 +17,6 @@ package astradb
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -26,6 +25,7 @@ import (
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -40,6 +40,7 @@ type command struct {
 	databaseAdmin   bool                // When true, URL skips keyspace and resource segments
 	resourceOptions *options.APIOptions // Options from the collection/table level
 	commandOptions  *options.APIOptions // Options for this specific command
+	target          serdes.Target
 }
 
 // newCmd creates a new command from the given DB
@@ -63,17 +64,17 @@ func newDatabaseAdminCmd(db *Db, name string, payload any) command {
 }
 
 // newCmdWithOptions creates a new command with resource and command-level options
-func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, cmdOpts ...options.APIOption) command {
+func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts ...options.APIOption) command {
 	var cmdOptions *options.APIOptions
 	if len(cmdOpts) > 0 {
 		cmdOptions = options.NewAPIOptions(cmdOpts...)
 	}
 
-	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, cmdOptions)
+	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, target, cmdOptions)
 }
 
 // newCmdWithMergedOptions creates a new command with resource and merged command-level options
-func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, cmdOpts *options.APIOptions) command {
+func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts *options.APIOptions) command {
 	return command{
 		db:              d,
 		name:            name,
@@ -81,6 +82,7 @@ func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resource
 		payload:         payload,
 		resourceOptions: resourceOpts,
 		commandOptions:  cmdOpts,
+		target:          target,
 	}
 }
 
@@ -150,9 +152,17 @@ func (c command) MarshalJSON() ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
 		data[c.name] = c.payload
-		return json.Marshal(data)
+		return serdes.Serialize(data, c.target)
 	}
-	return json.Marshal(c.payload)
+	return serdes.Serialize(c.payload, c.target)
+}
+
+func (c command) MarshalAstraRaw(_ serdes.Target, data []byte) ([]byte, error) {
+	b, err := c.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return append(data, b...), nil
 }
 
 // Execute a command against the astra DB web API.
@@ -166,7 +176,7 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error)
 	// Resolve all options for this command
 	opts := c.resolveOptions()
 
-	b, err := json.Marshal(c)
+	b, err := serdes.Serialize(c, c.target)
 	if err != nil {
 		return body, nil, err
 	}
@@ -227,7 +237,7 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr DataAPIError
-		json.Unmarshal(body, &transportErr)
+		serdes.Deserialize(body, &transportErr, serdes.TargetUnknown)
 		if len(transportErr.Message) > 0 {
 			return body, nil, errors.New(transportErr.Message)
 		}
@@ -237,7 +247,7 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 
 	// Parse the full response to get both errors and warnings
 	var resp apiResponse
-	json.Unmarshal(body, &resp)
+	serdes.Deserialize(body, &resp, c.target)
 
 	// Invoke warning handler for each warning if configured
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {

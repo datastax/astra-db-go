@@ -120,17 +120,21 @@ func mkAstraRawMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 
 func mkStructEncoder(info *structInfo) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		start := len(dst)
-		dst = append(dst, '{')
+		xyz := unsafe.Add(p, 40)
+		_ = xyz
+
+		// I have a watch on 'string(reflect.NewAt(info.fields[4].typ, xyz).Elem().Bytes())' where that's the ValueType field (a raw message)
+		start := len(dst)      // string(reflect.NewAt(info.fields[4].typ, xyz).Elem().Bytes()) = `"text"` here
+		dst = append(dst, '{') // string(reflect.NewAt(info.fields[4].typ, xyz).Elem().Bytes()) = `{text"` here. is there a possible buffer overrun somehow? I don't understand
 		firstField := true
 
 		for i := range info.fields {
 			f := &info.fields[i]
-			v := unsafe.Pointer(uintptr(p) + f.offset)
+			v := unsafe.Add(p, f.offset)
 
-			//if f.meta.omitempty && isZeroValue(v, f.typ) { TODO
-			//	continue
-			//}
+			if f.meta.omitempty && reflect.NewAt(f.typ, v).Elem().IsZero() { // TODO figure out a more efficient way to do this
+				continue
+			}
 
 			lengthBeforeKey := len(dst)
 
@@ -266,5 +270,6 @@ func appendString(dst []byte, s string) []byte {
 	}
 
 	dst = append(dst, s[start:]...)
-	return append(dst, '"')
+	dst = append(dst, '"')
+	return dst
 }

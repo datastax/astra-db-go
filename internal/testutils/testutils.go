@@ -17,9 +17,10 @@
 package testutils
 
 import (
-	"encoding/json"
 	"regexp"
 	"testing"
+
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 var whitespace = regexp.MustCompile(`\s+`)
@@ -54,7 +55,8 @@ func cleanString(s string) string {
 func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 	t.Helper() // marks this as a helper so failures point to the call site
 	for _, arg := range args {
-		got, err := json.Marshal(arg)
+		got, err := serdes.Serialize(arg, serdes.TargetUnknown)
+
 		if err != nil {
 			t.Fatalf("failed to marshal argument: %v", err)
 		}
@@ -95,6 +97,7 @@ type JSONTestCase struct {
 
 // RunJSONTestCases runs a series of JSON equality test cases defined by JSONTestCase.
 func RunJSONTestCases(t *testing.T, cases []JSONTestCase) {
+	t.Helper()
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
 			AssertJSONEqual(t, tc.Expected, tc.Args...)

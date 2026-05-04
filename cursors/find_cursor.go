@@ -7,6 +7,7 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
 )
 
@@ -91,13 +92,15 @@ type findCursorImpl struct {
 	initialPage *FindPage
 	warnings    results.Warnings
 	fetcher     findCursorFetcher
+	target      serdes.Target
 }
 
 // newFindCursorImpl creates a new findCursorImpl with the given source, fetcher, and optional initial page state.
-func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, initPageState *string, err error) *findCursorImpl {
+func newFindCursorImpl(source findCursorSource, fetcher findCursorFetcher, target serdes.Target, initPageState *string, err error) *findCursorImpl {
 	impl := findCursorImpl{
 		fcs:     source,
 		fetcher: fetcher,
+		target:  target,
 	}
 
 	impl.abstractCursorImpl = newAbstractCursorImpl[json.RawMessage](&impl, err)
@@ -188,7 +191,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 	c.warnings = append(c.warnings, warnings...)
 
 	var resp findResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
+	if err := serdes.Deserialize(b, &resp, c.target); err != nil {
 		c.currentPage = nil
 		return false, err
 	}
@@ -204,7 +207,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 
 // decode decodes a raw JSON message into the provided result pointer.
 func (c *findCursorImpl) decode(raw json.RawMessage, result any) error {
-	return json.Unmarshal(raw, result)
+	return serdes.Deserialize(raw, result, c.target)
 }
 
 // rewind clears the current page and any warnings

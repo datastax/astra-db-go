@@ -15,10 +15,10 @@
 package table_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -256,13 +256,11 @@ func TestDefinitionBuilder_JSONMarshal(t *testing.T) {
 			PartitionBy: []string{"title"},
 		},
 	}
-
-	jsonBuilder, err := json.Marshal(defBuilder)
+	jsonBuilder, err := serdes.Serialize(defBuilder, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal builder definition: %v", err)
 	}
-
-	jsonStruct, err := json.Marshal(defStruct)
+	jsonStruct, err := serdes.Serialize(defStruct, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal struct definition: %v", err)
 	}
@@ -272,10 +270,10 @@ func TestDefinitionBuilder_JSONMarshal(t *testing.T) {
 	}
 
 	var resultBuilder, resultStruct table.Definition
-	if err := json.Unmarshal(jsonBuilder, &resultBuilder); err != nil {
+	if err := serdes.Deserialize(jsonBuilder, &resultBuilder, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal builder JSON: %v", err)
 	}
-	if err := json.Unmarshal(jsonStruct, &resultStruct); err != nil {
+	if err := serdes.Deserialize(jsonStruct, &resultStruct, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal struct JSON: %v", err)
 	}
 

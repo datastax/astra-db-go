@@ -15,11 +15,11 @@
 package astradb
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // Example response when your application is resuming
@@ -65,7 +65,7 @@ func TestMarshalJSONWithName(t *testing.T) {
 		name:    "createCollection",
 		payload: map[string]any{"name": "my_collection"},
 	}
-	got, err := json.Marshal(cmd)
+	got, err := serdes.Serialize(cmd, serdes.TargetUnknown)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestMarshalJSONWithoutName(t *testing.T) {
 	cmd := command{
 		payload: map[string]string{"key": "value"},
 	}
-	got, err := json.Marshal(cmd)
+	got, err := serdes.Serialize(cmd, serdes.TargetUnknown)
 	if err != nil {
 		t.Fatal(err)
 	}

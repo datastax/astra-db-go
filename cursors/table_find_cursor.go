@@ -3,6 +3,7 @@ package cursors
 import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // TableFindCursor is a cursor for iterating over rows returned by a table find operation.
@@ -44,7 +45,7 @@ func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher find
 		filter:  filter,
 		options: opts,
 	}
-	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState, err)
+	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, serdes.TargetTable, opts.InitialPageState, err)
 	return cursor
 }
 

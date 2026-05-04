@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // Definition represents the full schema for a table, including column names,
@@ -72,58 +74,42 @@ func (c Columns) Get(name string) (Column, bool) {
 	return Column{}, false
 }
 
-// MarshalJSON emits the columns as a JSON object in insertion order.
-func (c Columns) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
+func (c Columns) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error) {
+	dst = append(dst, '{')
+
+	var err error
 	for i, nc := range c {
 		if i > 0 {
-			buf.WriteByte(',')
+			dst = append(dst, ',')
 		}
-		k, err := json.Marshal(nc.Name)
+		dst, err = serdes.SerializeInto(nc.Name, target, dst)
 		if err != nil {
-			return nil, err
+			return dst, err
 		}
-		buf.Write(k)
-		buf.WriteByte(':')
-		v, err := json.Marshal(nc.Column)
+		dst = append(dst, ':')
+		dst, err = serdes.SerializeInto(nc.Column, target, dst)
 		if err != nil {
-			return nil, err
+			return dst, err
 		}
-		buf.Write(v)
 	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
+
+	dst = append(dst, '}')
+	return dst, nil
 }
 
-// UnmarshalJSON parses a JSON object into Columns, preserving key order.
-func (c *Columns) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	tok, err := dec.Token()
-	if err != nil {
+func (c *Columns) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
+	rep := map[string]json.RawMessage{}
+	if err := serdes.Deserialize(value, &rep, target); err != nil {
 		return err
 	}
-	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
-		return fmt.Errorf("columns: expected JSON object, got %v", tok)
-	}
+
 	var out Columns
-	for dec.More() {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		name, ok := tok.(string)
-		if !ok {
-			return fmt.Errorf("columns: expected column name, got %v", tok)
-		}
+	for k, v := range rep {
 		var col Column
-		if err := dec.Decode(&col); err != nil {
+		if err := serdes.Deserialize(v, &col, target); err != nil {
 			return err
 		}
-		out = append(out, NamedColumn{Name: name, Column: col})
-	}
-	if _, err := dec.Token(); err != nil {
-		return err
+		out = append(out, NamedColumn{Name: k, Column: col})
 	}
 	*c = out
 	return nil
@@ -180,13 +166,13 @@ func (c Column) MarshalJSON() ([]byte, error) {
 
 	if c.ValueType != nil {
 		if c.ValueType.isSimple() {
-			s, err := json.Marshal(c.ValueType.Type)
+			s, err := serdes.Serialize(c.ValueType.Type, serdes.TargetUnknown)
 			if err != nil {
 				return nil, err
 			}
 			out.ValueType = s
 		} else {
-			b, err := json.Marshal(*c.ValueType)
+			b, err := serdes.Serialize(*c.ValueType, serdes.TargetUnknown)
 			if err != nil {
 				return nil, err
 			}
@@ -194,7 +180,15 @@ func (c Column) MarshalJSON() ([]byte, error) {
 		}
 	}
 
-	return json.Marshal(out)
+	return serdes.Serialize(out, serdes.TargetUnknown)
+}
+
+func (c Column) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+	b, err := c.MarshalJSON()
+	if err != nil {
+		return dst, err
+	}
+	return append(dst, b...), nil
 }
 
 // VectorService defines the embedding provider configuration for vectorize
@@ -277,6 +271,14 @@ func (s PartitionSort) MarshalJSON() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func (s PartitionSort) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+	b, err := s.MarshalJSON()
+	if err != nil {
+		return dst, err
+	}
+	return append(dst, b...), nil
+}
+
 // UnmarshalJSON parses a JSON object into PartitionSort, preserving key order.
 func (s *PartitionSort) UnmarshalJSON(data []byte) error {
 	dec := json.NewDecoder(bytes.NewReader(data))
@@ -310,6 +312,10 @@ func (s *PartitionSort) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (s *PartitionSort) UnmarshalAstraRaw(_ serdes.Target, data []byte) error {
+	return s.UnmarshalJSON(data)
+}
+
 // MarshalJSON implements custom JSON marshaling for PrimaryKey.
 // If only PartitionBy has a single column and PartitionSort is empty,
 // it marshals as a simple string for convenience.
@@ -322,6 +328,14 @@ func (p PrimaryKey) MarshalJSON() ([]byte, error) {
 	// Otherwise marshal as object
 	type pkAlias PrimaryKey
 	return json.Marshal(pkAlias(p))
+}
+
+func (p PrimaryKey) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+	b, err := p.MarshalJSON()
+	if err != nil {
+		return dst, err
+	}
+	return append(dst, b...), nil
 }
 
 // UnmarshalJSON implements custom JSON unmarshaling for PrimaryKey.
@@ -345,6 +359,10 @@ func (p *PrimaryKey) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (p *PrimaryKey) UnmarshalAstraRaw(_ serdes.Target, data []byte) error {
+	return p.UnmarshalJSON(data)
+}
+
 // UnmarshalJSON implements custom JSON unmarshaling for Column.
 // It accepts either a JSON object (e.g. {"type":"text"}) or a plain
 // string (e.g. "text"). The string form appears in real-world API
@@ -366,6 +384,10 @@ func (c *Column) UnmarshalJSON(data []byte) error {
 	}
 	*c = Column(col)
 	return nil
+}
+
+func (c *Column) UnmarshalAstraRaw(_ serdes.Target, data []byte) error {
+	return c.UnmarshalJSON(data)
 }
 
 // Sort order constants

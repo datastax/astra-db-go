@@ -16,6 +16,8 @@ package results
 
 import (
 	"encoding/json"
+
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // SingleResult represents a document returned from an operation.
@@ -23,13 +25,15 @@ type SingleResult struct {
 	err      error
 	rawResp  []byte
 	warnings Warnings
+	target   serdes.Target
 }
 
 // NewSingleResult creates a new SingleResult with the given response, warnings, and error.
-func NewSingleResult(rawResp []byte, warnings Warnings, err error) *SingleResult {
+func NewSingleResult(rawResp []byte, warnings Warnings, target serdes.Target, err error) *SingleResult {
 	return &SingleResult{
 		rawResp:  rawResp,
 		warnings: warnings,
+		target:   target,
 		err:      err,
 	}
 }
@@ -60,7 +64,7 @@ func (sr *SingleResult) Decode(v any) error {
 	}
 	// First unmarshal to get rawmessage in data.document
 	var singleResult singleResultJSON
-	err := json.Unmarshal(sr.rawResp, &singleResult)
+	err := serdes.Deserialize(sr.rawResp, &singleResult, sr.target)
 	if err != nil {
 		return err
 	}
@@ -69,5 +73,5 @@ func (sr *SingleResult) Decode(v any) error {
 		return ErrNoDocuments
 	}
 	// Then return/unmarshal the document
-	return json.Unmarshal(singleResult.Data.Document, v)
+	return serdes.Deserialize(singleResult.Data.Document, v, sr.target)
 }

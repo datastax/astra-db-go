@@ -24,12 +24,17 @@
 // [Table Update Operators]: https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operators-tables.html
 package update
 
-import "encoding/json"
+import (
+	"encoding/json"
+
+	"github.com/datastax/astra-db-go/serdes"
+)
 
 // CollectionUpdate is implemented by types that can be used as an update document
 // for collection operations. It is satisfied by [CollectionUpdateBuilder] and [U].
 type CollectionUpdate interface {
 	json.Marshaler
+	serdes.AstraRawMarshaler
 	isCollectionUpdate()
 }
 
@@ -37,6 +42,7 @@ type CollectionUpdate interface {
 // for table operations. It is satisfied by [TableUpdateBuilder] and [U].
 type TableUpdate interface {
 	json.Marshaler
+	serdes.AstraRawMarshaler
 	isTableUpdate()
 }
 
@@ -60,6 +66,14 @@ func (u U) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any(u))
 }
 
+func (u U) MarshalAstraRaw(_ serdes.Target, data []byte) ([]byte, error) {
+	b, err := u.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return append(data, b...), nil
+}
+
 // CollectionUpdateBuilder accumulates [Collection Update Operators] and serializes directly to JSON.
 //
 // Construct with Coll():
@@ -76,6 +90,14 @@ func (*CollectionUpdateBuilder) isCollectionUpdate() {}
 
 func (u *CollectionUpdateBuilder) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.ops)
+}
+
+func (u *CollectionUpdateBuilder) MarshalAstraRaw(_ serdes.Target, data []byte) ([]byte, error) {
+	b, err := u.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return append(data, b...), nil
 }
 
 // Coll returns an empty [CollectionUpdateBuilder]. Chain methods like [Set], [Unset], etc. to add operators and fields.
@@ -274,6 +296,14 @@ func (*TableUpdateBuilder) isTableUpdate() {}
 
 func (u *TableUpdateBuilder) MarshalJSON() ([]byte, error) {
 	return json.Marshal(u.ops)
+}
+
+func (u *TableUpdateBuilder) MarshalAstraRaw(_ serdes.Target, data []byte) ([]byte, error) {
+	b, err := u.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return append(data, b...), nil
 }
 
 // Table returns an empty TableUpdateBuilder.
