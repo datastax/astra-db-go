@@ -108,6 +108,13 @@ func RunJSONTestCases(t *testing.T, cases []JSONTestCase) {
 func FailIf(t *testing.T, pred bool, msg string) {
 	t.Helper()
 	if pred {
-		t.Fatalf(msg)
+		t.Fatal(msg)
+	}
+}
+
+func FailIfErr(t *testing.T, err error, msg string) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("%s: %v", msg, err)
 	}
 }

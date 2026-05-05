@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/serdes"
 )
 
@@ -74,44 +75,25 @@ func (c Columns) Get(name string) (Column, bool) {
 	return Column{}, false
 }
 
-func (c Columns) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error) {
-	dst = append(dst, '{')
-
-	var err error
-	for i, nc := range c {
-		if i > 0 {
-			dst = append(dst, ',')
-		}
-		dst, err = serdes.SerializeInto(nc.Name, target, dst)
-		if err != nil {
-			return dst, err
-		}
-		dst = append(dst, ':')
-		dst, err = serdes.SerializeInto(nc.Column, target, dst)
-		if err != nil {
-			return dst, err
-		}
+func (c Columns) MarshalAstra(_ serdes.Target) (any, error) {
+	rep := datatypes.NewOrderedMapWithCapacity[string, Column](len(c))
+	for _, nc := range c {
+		rep.Set(nc.Name, nc.Column)
 	}
-
-	dst = append(dst, '}')
-	return dst, nil
+	return rep, nil
 }
 
 func (c *Columns) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
-	rep := map[string]json.RawMessage{}
+	var rep datatypes.OrderedMap[string, Column]
 	if err := serdes.Deserialize(value, &rep, target); err != nil {
 		return err
 	}
 
-	var out Columns
-	for k, v := range rep {
-		var col Column
-		if err := serdes.Deserialize(v, &col, target); err != nil {
-			return err
-		}
-		out = append(out, NamedColumn{Name: k, Column: col})
+	*c = nil
+	for name, col := range rep.All() {
+		*c = append(*c, NamedColumn{name, col})
 	}
-	*c = out
+
 	return nil
 }
 

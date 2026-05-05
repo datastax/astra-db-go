@@ -193,247 +193,6 @@ func bigFloatDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, nil
 }
 
-// Maps
-
-func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	kt := t.Key()
-	vt := t.Elem()
-
-	kz := reflect.Zero(kt)
-	vz := reflect.Zero(vt)
-
-	kc := resolveCodec(ctx, kt, seen, false)
-	vc := resolveCodec(ctx, vt, seen, false)
-
-	if inlined(vt) {
-		vc.encode = mkInlineEncoder(vc.encode)
-	}
-
-	return codec{
-		mkMapEncoder(t, kt, kc.encode, vc.encode),
-		mkMapDecoder(t, kt, vt, kz, vz, kc.decode, vc.decode),
-	}
-}
-
-func mkOrderedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	kt, _ := t.FieldByName("kType")
-	vt, _ := t.FieldByName("vType")
-
-	kz := reflect.Zero(kt.Type)
-	vz := reflect.Zero(vt.Type)
-
-	kc := resolveCodec(ctx, kt.Type, seen, false)
-	vc := resolveCodec(ctx, vt.Type, seen, false)
-
-	if inlined(vt.Type) {
-		vc.encode = mkInlineEncoder(vc.encode)
-	}
-
-	return codec{
-		mkMapEncoder(t, kt.Type, kc.encode, vc.encode),
-		mkMapDecoder(t, kt.Type, vt.Type, kz, vz, kc.decode, vc.decode),
-	}
-}
-
-//func mkGenericMapCodec(ctx codecCtx, t, kt, vt reflect.Type, seen seenStructs) codec {
-//
-//}
-
-func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
-	stringKeyEncoder := func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		dst, err := encodeKey(ctx, dst, p)
-		if err != nil {
-			return dst, err
-		}
-
-		dst = skipWSRev(dst)
-		if len(dst) == 0 || dst[len(dst)-1] != '"' {
-			return dst, rollback{}
-		}
-
-		return dst, nil
-	}
-
-	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue)
-	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '[', ']', ',')
-
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		dst, err := encodeObjectMap(ctx, dst, p)
-		if _, ok := err.(rollback); !ok {
-			return dst, err
-		}
-
-		if ctx.target.kind == tableKind {
-			return encodeArrayMap(ctx, dst, p)
-		}
-
-		return dst, fmt.Errorf("cannot have a map with non-string keys in tables")
-	}
-}
-
-func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
-	decodeObjectMap := mkNormalMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue)
-	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',')
-
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-		if len(src) > 0 && (src[0] == '{' || src[0] == 'n') {
-			return decodeObjectMap(ctx, src, p)
-		}
-
-		if ctx.target.kind == tableKind {
-			return decodeArrayMap(ctx, src, p)
-		}
-
-		return src, fmt.Errorf("expected a json object or null when parsing map")
-	}
-}
-
-func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, sep byte) encoder {
-	mkIter := newMapIterMaker(t, true) // TODO make trySort an optional flag
-
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		m := reflect.NewAt(t, p).Elem()
-		if m.IsNil() {
-			return append(dst, "null"...), nil
-		}
-
-		if m.Len() == 0 {
-			return append(dst, "{}"...), nil
-		}
-
-		start := len(dst)
-		toArray := open == '[' // && close == ']'
-
-		iter := mkIter(m)
-		first := true
-		var err error
-
-		dst = append(dst, open)
-
-		for iter.Next() {
-			if !first {
-				dst = append(dst, ',')
-			}
-			first = false
-
-			if toArray {
-				dst = append(dst, open)
-			}
-
-			if dst, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
-				return dst[:start], err
-			}
-
-			dst = append(dst, sep)
-
-			if kt.Kind() == reflect.String {
-				ctx.fieldHint = extractFieldHint(iter.Key().String())
-			}
-
-			if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
-				return dst[:start], err
-			}
-
-			if toArray {
-				dst = append(dst, close)
-			}
-		}
-
-		return append(dst, close), nil
-	}
-}
-
-func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, open, close, sep byte) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-		if b, ok := consumeNull(src); ok {
-			*(*unsafe.Pointer)(p) = nil
-			return b, nil
-		}
-
-		if len(src) < 2 || src[0] != open {
-			return src, fmt.Errorf("expected '%c'", open)
-		}
-
-		m := reflect.NewAt(t, p).Elem()
-		if m.IsNil() {
-			m = reflect.MakeMap(t)
-		}
-
-		k := reflect.New(kt).Elem()
-		v := reflect.New(vt).Elem()
-		kptr, vptr := valuePtr(k), valuePtr(v)
-
-		fromArray := open == '[' // && close == ']'
-
-		src = src[1:]
-		for i := 0; ; i++ {
-			src = skipWS(src)
-
-			if len(src) != 0 && src[0] == close {
-				*(*unsafe.Pointer)(p) = unsafe.Pointer(m.Pointer())
-				return src[1:], nil
-			}
-
-			if i != 0 {
-				if len(src) == 0 {
-					return src, fmt.Errorf("unexpected end of JSON")
-				}
-				if src[0] != ',' {
-					return src, fmt.Errorf("expected ',' but found '%c'", src[0])
-				}
-				src = skipWS(src[1:])
-			}
-
-			k.Set(kz)
-			v.Set(vz)
-
-			if fromArray {
-				if len(src) == 0 || src[0] != '[' {
-					return src, fmt.Errorf("expected '[' for table entry")
-				}
-				src = skipWS(src[1:])
-			}
-
-			var err error
-			if src, err = decodeKey(ctx, src, kptr); err != nil {
-				return src, err
-			}
-			src = skipWS(src)
-
-			if len(src) == 0 || src[0] != sep {
-				return src, fmt.Errorf("expected '%c' after key", sep)
-			}
-			src = skipWS(src[1:])
-
-			if kt.Kind() == reflect.String {
-				ctx.fieldHint = extractFieldHint(k.String())
-			}
-
-			if src, err = decodeValue(ctx, src, vptr); err != nil {
-				return src, err
-			}
-			src = skipWS(src)
-
-			if fromArray {
-				if len(src) == 0 || src[0] != ']' {
-					return src, fmt.Errorf("expected ']' after table entry")
-				}
-				src = skipWS(src[1:])
-			}
-
-			m.SetMapIndex(k, v)
-		}
-	}
-}
-
-func mkNormalMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
-	return mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '{', '}', ':')
-}
-
-func mkNormalMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder) decoder {
-	return mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '{', '}', ':')
-}
-
 // Vectors
 
 func vectorEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -615,4 +374,37 @@ func parseDollarDatatype[T any](src []byte, datatype []byte, decode func([]byte)
 	}
 
 	return src[1:], res, nil
+}
+
+func decodeDollarDatatype(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error, bool) {
+	initSrc := src
+
+	src = skipWS(src)
+	if len(src) == 0 || src[0] != '{' {
+		return initSrc, nil, false
+	}
+
+	src = skipWS(src[1:])
+	if !bytes.HasPrefix(src, []byte(`"$`)) {
+		return initSrc, nil, false
+	}
+
+	src, datatype, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, err, true
+	}
+
+	if codec, ok := ctx.target.dollarDatatypes[unsafeString(datatype)]; ok {
+		valPtr := reflect.New(codec.typ)
+
+		src, err = codec.decode(ctx, initSrc, valuePtr(valPtr.Elem()))
+		if err != nil {
+			return src, err, true
+		}
+
+		*(*any)(p) = valPtr.Elem().Interface() // I don't like this at all...
+		return src, nil, true
+	}
+
+	return initSrc, nil, false
 }

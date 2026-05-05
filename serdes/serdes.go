@@ -70,7 +70,7 @@ func SerializeInto(data any, target Target, dst []byte) ([]byte, error) {
 	p := (*iface)(unsafe.Pointer(&data)).ptr
 
 	ctx := encodeCtx{target: target}
-	c := resolveCodecCaching(ctx.codecCtx, t, seenStructs{})
+	c := resolveCodecCaching(ctx.codecCtx, t)
 
 	var err error
 	dst, err = c.encode(ctx, dst, p)
@@ -88,7 +88,7 @@ func Deserialize(data []byte, res any, target Target) error {
 	}
 
 	ctx := decodeCtx{target: target}
-	c := resolveCodecCaching(ctx.codecCtx, t.Elem(), seenStructs{})
+	c := resolveCodecCaching(ctx.codecCtx, t.Elem())
 
 	_, err := c.decode(ctx, data, p)
 	return err

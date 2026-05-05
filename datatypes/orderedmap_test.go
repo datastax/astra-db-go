@@ -11,14 +11,12 @@ import (
 //goland:noinspection GoMaybeNil
 func TestOrderedMapConstructors_NewOrderedMap(t *testing.T) {
 	m := datatypes.NewOrderedMap[string, int]()
-	testutils.FailIf(t, m == nil, "expected NewOrderedMap to return non-nil map")
 	testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
 }
 
 func TestOrderedMapConstructors_NewOrderedMapWithCapacity(t *testing.T) {
 	f := func(capacity uint8) bool {
 		m := datatypes.NewOrderedMapWithCapacity[string, int](int(capacity))
-		testutils.FailIf(t, m == nil, "expected NewOrderedMapWithCapacity to return non-nil map")
 		testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
 		return true
 	}
@@ -228,11 +226,11 @@ func TestOrderedMapFirstLast(t *testing.T) {
 
 		m := datatypes.NewOrderedMap[string, int]()
 
-		_, _, found := m.First()
-		testutils.FailIf(t, found, "expected First to return false for empty map")
+		firstNode := m.First()
+		testutils.FailIf(t, firstNode != nil, "expected First to return nil for empty map")
 
-		_, _, found = m.Last()
-		testutils.FailIf(t, found, "expected Last to return false for empty map")
+		lastNode := m.Last()
+		testutils.FailIf(t, lastNode != nil, "expected Last to return nil for empty map")
 
 		expected := make(map[string]int)
 		var firstUniqueKey string
@@ -252,57 +250,33 @@ func TestOrderedMapFirstLast(t *testing.T) {
 			expected[keys[i]] = val
 		}
 
-		firstKey, firstVal, found := m.First()
-		testutils.FailIf(t, !found, "expected First to return true for non-empty map")
-		testutils.FailIf(t, firstKey != firstUniqueKey, "expected First to return first inserted key")
-		testutils.FailIf(t, firstVal != expected[firstKey], "expected First to return correct value")
+		firstNode = m.First()
+		testutils.FailIf(t, firstNode == nil, "expected First to return non-nil for non-empty map")
 
-		lastKey, lastVal, found := m.Last()
-		testutils.FailIf(t, !found, "expected Last to return true for non-empty map")
-		testutils.FailIf(t, lastKey != lastUniqueKey, "expected Last to return last unique inserted key")
-		testutils.FailIf(t, lastVal != expected[lastKey], "expected Last to return correct value")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestOrderedMapNth(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
+		// Verify first element by iterating
+		i := 0
+		for key, val := range m.All() {
+			if i == 0 {
+				testutils.FailIf(t, key != firstUniqueKey, "expected First to return first inserted key")
+				testutils.FailIf(t, val != expected[key], "expected First to return correct value")
+			}
+			i++
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
+		lastNode = m.Last()
+		testutils.FailIf(t, lastNode == nil, "expected Last to return non-nil for non-empty map")
+
+		// Verify last element by iterating
+		i = 0
+		var lastSeenKey string
+		var lastSeenVal int
+		for key, val := range m.All() {
+			lastSeenKey = key
+			lastSeenVal = val
+			i++
 		}
-
-		size := m.Len()
-		if size == 0 {
-			return true
-		}
-
-		key0, val0, found := m.Nth(0)
-		testutils.FailIf(t, !found, "expected Nth(0) to find element")
-		firstKey, firstVal, _ := m.First()
-		testutils.FailIf(t, key0 != firstKey, "expected Nth(0) to match First")
-		testutils.FailIf(t, val0 != firstVal, "expected Nth(0) value to match First")
-
-		keyNeg1, valNeg1, found := m.Nth(-1)
-		testutils.FailIf(t, !found, "expected Nth(-1) to find element")
-		lastKey, lastVal, _ := m.Last()
-		testutils.FailIf(t, keyNeg1 != lastKey, "expected Nth(-1) to match Last")
-		testutils.FailIf(t, valNeg1 != lastVal, "expected Nth(-1) value to match Last")
-
-		_, _, found = m.Nth(size)
-		testutils.FailIf(t, found, "expected Nth(size) to not find element")
-
-		_, _, found = m.Nth(-(size + 1))
-		testutils.FailIf(t, found, "expected Nth(-(size+1)) to not find element")
+		testutils.FailIf(t, lastSeenKey != lastUniqueKey, "expected Last to return last unique inserted key")
+		testutils.FailIf(t, lastSeenVal != expected[lastSeenKey], "expected Last to return correct value")
 
 		return true
 	}
@@ -332,11 +306,18 @@ func TestOrderedMapClone(t *testing.T) {
 			testutils.FailIf(t, cloneVal != val, "expected clone to have same values")
 		}
 
-		i := 0
+		origKeys := make([]string, 0, m.Len())
 		for origKey := range m.Keys() {
-			cloneKey, _, _ := clone.Nth(i)
-			testutils.FailIf(t, origKey != cloneKey, "expected clone to preserve order")
-			i++
+			origKeys = append(origKeys, origKey)
+		}
+
+		cloneKeys := make([]string, 0, clone.Len())
+		for cloneKey := range clone.Keys() {
+			cloneKeys = append(cloneKeys, cloneKey)
+		}
+
+		for i := range origKeys {
+			testutils.FailIf(t, origKeys[i] != cloneKeys[i], "expected clone to preserve order")
 		}
 
 		m.Set("new-key", 999)
@@ -441,7 +422,7 @@ func TestOrderedMapAllRev(t *testing.T) {
 		}
 
 		var reverseKeys []string
-		for key := range m.AllRev() {
+		for key, _ := range m.AllRev() {
 			reverseKeys = append(reverseKeys, key)
 		}
 

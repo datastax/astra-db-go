@@ -20,6 +20,12 @@ const (
 	vectorizeField
 )
 
+type rollback struct{}
+
+func (rollback) Error() string {
+	return "rollback"
+}
+
 var (
 	astraMarshalerType      = reflect.TypeFor[AstraMarshaler]()
 	astraRawMarshalerType   = reflect.TypeFor[AstraRawMarshaler]()
@@ -30,6 +36,7 @@ var (
 var (
 	nilType          = reflect.TypeOf(nil)
 	anyType          = reflect.TypeFor[any]()
+	emptyType        = reflect.TypeFor[struct{}]()
 	stringType       = reflect.TypeFor[string]()
 	float32SliceType = reflect.TypeFor[[]float32]()
 	byteSliceType    = reflect.TypeFor[[]byte]()
@@ -55,6 +62,7 @@ var (
 )
 
 var (
+	emptyEmpty  = reflect.Zero(emptyType)
 	stringEmpty = reflect.Zero(stringType)
 	anyEmpty    = reflect.Zero(anyType)
 )

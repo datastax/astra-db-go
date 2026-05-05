@@ -196,3 +196,47 @@ func skipValue(src []byte) ([]byte, error) {
 		return src[i:], nil
 	}
 }
+
+// small lut for hex conversion
+const hexTable = "0123456789abcdef"
+
+// appendString efficiently encodes a string to JSON, but does not handle 100% of edge cases
+// It's designed to be fast and simple for all common and even most uncommon cases, but it'll
+// rely on the server to cover the last 0.01% of edge cases that are extremely rare in practice
+func appendString(dst []byte, s string) []byte {
+	dst = append(dst, '"')
+
+	start := 0
+	for i := 0; i < len(s); i++ {
+		b := s[i]
+
+		if b >= 0x20 && b != '\\' && b != '"' {
+			continue
+		}
+
+		dst = append(dst, s[start:i]...)
+
+		switch b {
+		case '"':
+			dst = append(dst, '\\', '"')
+		case '\\':
+			dst = append(dst, '\\', '\\')
+		case '\n':
+			dst = append(dst, '\\', 'n')
+		case '\r':
+			dst = append(dst, '\\', 'r')
+		case '\t':
+			dst = append(dst, '\\', 't')
+		default:
+			// 3. Simplified hex escape for control characters (0x00 - 0x1F)
+			// JSON spec requires \u00xx for these.
+			// Replacing strconv.QuoteRune with a manual hex append is much faster.
+			dst = append(dst, '\\', 'u', '0', '0', hexTable[b>>4], hexTable[b&0x0f])
+		}
+		start = i + 1
+	}
+
+	dst = append(dst, s[start:]...)
+	dst = append(dst, '"')
+	return dst
+}
