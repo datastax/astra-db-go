@@ -50,14 +50,14 @@ func Serialize(data any, target Target) ([]byte, error) {
 	buf := encodingBufferPool.Get()
 	defer encodingBufferPool.Put(buf)
 
-	b, err := SerializeInto(data, target, *buf)
+	dst, err := SerializeInto(data, target, *buf)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ret := make([]byte, len(b))
-	copy(ret, b)
+	ret := make([]byte, len(dst))
+	copy(ret, dst)
 	return ret, nil
 }
 

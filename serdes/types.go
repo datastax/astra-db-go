@@ -1,6 +1,7 @@
 package serdes
 
 import (
+	"bytes"
 	"encoding/json"
 	"math/big"
 	"net"
@@ -41,6 +42,16 @@ var (
 	rawMessageType   = reflect.TypeFor[json.RawMessage]()
 	bigIntType       = reflect.TypeFor[big.Int]()
 	bigFloatType     = reflect.TypeFor[big.Float]()
+)
+
+var (
+	datatypesPkgPath = someOrderedMapType.PkgPath() // this will be the same for all special datatypes for now
+
+	someOrderedMapType     = reflect.TypeFor[datatypes.OrderedMap[any, any]]()
+	someOrderedMapTypeName = typeNameUntilBracket(someOrderedMapType)
+
+	someSetType     = reflect.TypeFor[datatypes.Set[any]]()
+	someSetTypeName = typeNameUntilBracket(someSetType)
 )
 
 var (
@@ -91,12 +102,8 @@ func unsafeString(b []byte) string {
 }
 
 func alignedSize(t reflect.Type) uintptr {
-	a := t.Align()
-	s := t.Size()
-	return align(uintptr(a), s)
-}
-
-func align(align, size uintptr) uintptr {
+	align := uintptr(t.Align())
+	size := t.Size()
 	if align != 0 && (size%align) != 0 {
 		size = ((size / align) + 1) * align
 	}
@@ -113,4 +120,12 @@ func extractFieldHint(field string) fieldHint {
 		}
 	}
 	return unknownField
+}
+
+func typeNameUntilBracket(t reflect.Type) string {
+	name := t.Name()
+	if idx := bytes.IndexByte([]byte(name), '['); idx != -1 {
+		return name[:idx+1]
+	}
+	return name
 }

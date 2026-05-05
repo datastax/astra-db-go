@@ -97,6 +97,9 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	case reflect.Ptr:
 		c = mkPointerCodec(ctx, t, seen)
 	case reflect.Struct:
+		if mkCodec, yes := isSpecialGenericDatatype(t); yes {
+			return mkCodec(ctx, t, seen, canAddr)
+		}
 		c = mkStructCodec(ctx, t, seen, canAddr)
 	case reflect.Slice:
 		c = mkSliceCodec(ctx, t, seen)
@@ -154,6 +157,23 @@ func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, i int, c codec)
 	typeCodecs.Store(&newCache)
 
 	return c
+}
+
+func isSpecialGenericDatatype(t reflect.Type) (func(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) codec, bool) {
+	if t.PkgPath() != datatypesPkgPath {
+		return nil, false
+	}
+
+	tName := t.Name()
+
+	switch {
+	case strings.HasPrefix(tName, someOrderedMapTypeName):
+		return nil, true
+	case strings.HasPrefix(tName, someSetTypeName):
+		return nil, true
+	default:
+		return nil, false
+	}
 }
 
 func mkErroredCodec(err error) codec {

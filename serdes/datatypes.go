@@ -215,6 +215,30 @@ func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	}
 }
 
+func mkOrderedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	kt, _ := t.FieldByName("kType")
+	vt, _ := t.FieldByName("vType")
+
+	kz := reflect.Zero(kt.Type)
+	vz := reflect.Zero(vt.Type)
+
+	kc := resolveCodec(ctx, kt.Type, seen, false)
+	vc := resolveCodec(ctx, vt.Type, seen, false)
+
+	if inlined(vt.Type) {
+		vc.encode = mkInlineEncoder(vc.encode)
+	}
+
+	return codec{
+		mkMapEncoder(t, kt.Type, kc.encode, vc.encode),
+		mkMapDecoder(t, kt.Type, vt.Type, kz, vz, kc.decode, vc.decode),
+	}
+}
+
+//func mkGenericMapCodec(ctx codecCtx, t, kt, vt reflect.Type, seen seenStructs) codec {
+//
+//}
+
 func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder) encoder {
 	stringKeyEncoder := func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		dst, err := encodeKey(ctx, dst, p)
