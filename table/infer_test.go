@@ -168,11 +168,15 @@ const singleColumnPKJSON = `{
         "metadata": {
           "type": "map",
           "keyType": "text",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "genres": {
           "type": "set",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "is_checked_out": {
           "type": "boolean"
@@ -256,11 +260,15 @@ const compositeKeyJSON = `{
         "metadata": {
           "type": "map",
           "keyType": "text",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "genres": {
           "type": "set",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "is_checked_out": {
           "type": "boolean"
@@ -347,11 +355,15 @@ const compoundKeyJSON = `{
         "metadata": {
           "type": "map",
           "keyType": "text",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "genres": {
           "type": "set",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "is_checked_out": {
           "type": "boolean"

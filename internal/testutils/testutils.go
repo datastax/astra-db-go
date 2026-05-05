@@ -118,3 +118,11 @@ func FailIfErr(t *testing.T, err error, msg string) {
 		t.Fatalf("%s: %v", msg, err)
 	}
 }
+
+// CleanString removes all whitespace characters from a string.
+func CleanString(s string) string {
+	// Use a regular expression to replace all whitespace characters (including spaces, tabs, newlines)
+	// with an empty string.
+	re := regexp.MustCompile(`\s+`)
+	return re.ReplaceAllString(s, "")
+}

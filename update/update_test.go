@@ -1,21 +1,12 @@
 package update_test
 
 import (
-	"regexp"
 	"testing"
 
 	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/update"
 )
-
-// cleanString removes all whitespace characters from a string.
-func cleanString(s string) string {
-	// Use a regular expression to replace all whitespace characters (including spaces, tabs, newlines)
-	// with an empty string.
-	re := regexp.MustCompile(`\s+`)
-	return re.ReplaceAllString(s, "")
-}
 
 // Example taken from:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/update-many.html#update-multiple-properties
@@ -51,8 +42,8 @@ func TestUpdateManyExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}
-	if string(j) != cleanString(exampleFromDocs) {
-		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, cleanString(exampleFromDocs))
+	if string(j) != testutils.CleanString(exampleFromDocs) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testutils.CleanString(exampleFromDocs))
 	}
 	// Now let's do the same thing for the fluent builder API, which should produce the same result.
 	fluentExample := update.Coll().Set("color", "blue").
@@ -63,8 +54,8 @@ func TestUpdateManyExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal fluent update: %v", err)
 	}
-	if string(j) != cleanString(exampleFromDocs) {
-		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, cleanString(exampleFromDocs))
+	if string(j) != testutils.CleanString(exampleFromDocs) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testutils.CleanString(exampleFromDocs))
 	}
 }
 
@@ -208,8 +199,8 @@ func TestAdvancedChaining(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}
-	if string(j) != cleanString(expected) {
-		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, cleanString(expected))
+	if string(j) != testutils.CleanString(expected) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testutils.CleanString(expected))
 	}
 }
 

@@ -15,9 +15,9 @@
 package astradb
 
 import (
-	"encoding/json"
 	"testing"
 
+	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
@@ -154,19 +154,19 @@ func TestListCollectionsUnmarshal_ExplainFalse(t *testing.T) {
 
 // Example json from docs:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/list-table-metadata.html#list-table-metadata
-const exampleListTablesExplainPayloadJSON = `{
+var exampleListTablesExplainPayloadJSON = testutils.CleanString(`{
   "listTables": {
     "options": {
       "explain": true
     }
   }
-}`
+}`)
 
 // TestListTablesCommandMarshal verifies that the listTables command with explain=true
 // marshals to the JSON shown in the docs.
 func TestListTablesCommandMarshal(t *testing.T) {
 	cmd := listTablesCommand(getTestDb(t), true, nil)
-	cmdBytes, err := json.MarshalIndent(cmd, "", "  ")
+	cmdBytes, err := serdes.Serialize(cmd, serdes.TargetCollection)
 	if err != nil {
 		t.Fatalf("json.MarshalIndent: %v", err)
 	}

@@ -904,13 +904,13 @@ type IndexDescriptor struct {
 	IndexType string `json:"indexType,omitempty"`
 }
 
-// UnmarshalJSON implements custom unmarshaling for IndexDescriptor.
+// UnmarshalAstraRaw implements custom unmarshaling for IndexDescriptor.
 // The API returns either a string (name only) or an object (full metadata)
 // depending on the explain option.
-func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
+func (d *IndexDescriptor) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	// Try to unmarshal as a string first (names only response)
 	var name string
-	if err := serdes.Deserialize(data, &name, serdes.TargetTable); err == nil {
+	if err := serdes.Deserialize(value, &name, target); err == nil {
 		d.Name = name
 		return nil
 	}
@@ -918,15 +918,11 @@ func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
 	// Otherwise unmarshal as an object (explain=true response)
 	type indexDescriptorAlias IndexDescriptor
 	var alias indexDescriptorAlias
-	if err := serdes.Deserialize(data, &alias, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(value, &alias, target); err != nil {
 		return err
 	}
 	*d = IndexDescriptor(alias)
 	return nil
-}
-
-func (d *IndexDescriptor) UnmarshalAstraRaw(_ serdes.Target, value []byte) error {
-	return json.Unmarshal(value, d)
 }
 
 // IndexDefinition describes which column is indexed and its options.

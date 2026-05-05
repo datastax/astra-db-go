@@ -515,7 +515,7 @@ func TableListTables(e *harness.TestEnv) error {
 	if len(desc.Definition.Columns) == 0 {
 		return errors.New("expected non-empty Definition.Columns")
 	}
-	// TableCreate uses PartitionBy=["title"]. This also exercises PrimaryKey.UnmarshalJSON
+	// TableCreate uses PartitionBy=["title"]. This also exercises PrimaryKey.UnmarshalAstra
 	// (the API returns the single-column form as a string).
 	if pk := desc.Definition.PrimaryKey.PartitionBy; len(pk) != 1 || pk[0] != "title" {
 		return fmt.Errorf("expected PartitionBy=[\"title\"], got %v", pk)
