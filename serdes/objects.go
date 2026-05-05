@@ -32,19 +32,15 @@ func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintpt
 
 func mkStructEncoder(info *structInfo) encoder {
 	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		xyz := unsafe.Add(p, 40)
-		_ = xyz
-
-		// I have a watch on 'string(reflect.NewAt(info.fields[4].typ, xyz).Elem().Bytes())' where that's the ValueType field (a raw message)
-		start := len(dst)      // string(reflect.NewAt(info.fields[4].typ, xyz).Elem().Bytes()) = `"text"` here
-		dst = append(dst, '{') // string(reflect.NewAt(info.fields[4].typ, xyz).Elem().Bytes()) = `{text"` here. is there a possible buffer overrun somehow? I don't understand
+		start := len(dst)
+		dst = append(dst, '{')
 		firstField := true
 
 		for i := range info.fields {
 			f := &info.fields[i]
 			v := unsafe.Add(p, f.offset)
 
-			if f.meta.omitempty && reflect.NewAt(f.typ, v).Elem().IsZero() { // TODO figure out a more efficient way to do this
+			if f.meta.omitempty && f.empty(v) {
 				continue
 			}
 
@@ -177,6 +173,7 @@ type fieldInfo struct {
 	offset uintptr
 	ord    int
 	meta   jsonMeta
+	empty  func(unsafe.Pointer) bool
 }
 
 type jsonMeta struct {
@@ -299,6 +296,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 			meta:   meta,
 			ord:    i << 32,
 			typ:    f.Type,
+			empty:  emptyFuncFor(meta.omitempty, f.Type),
 		})
 
 		// seeds the counters so embedded fields know they are secondary
@@ -408,4 +406,70 @@ func resolveEmbeddedAmbiguity(meta jsonMeta, topLevelNames map[string]struct{}, 
 	}
 
 	return shadowed // fieldHint collided and lost to a tagged fieldHint.
+}
+
+// vendored from segmentio/encode/json
+func emptyFuncFor(omitempty bool, t reflect.Type) func(unsafe.Pointer) bool {
+	if !omitempty {
+		return nil
+	}
+
+	switch t {
+	case byteSliceType, rawMessageType:
+		return func(p unsafe.Pointer) bool { return (*slice)(p).len == 0 }
+	}
+
+	switch t.Kind() {
+	case reflect.Array:
+		if t.Len() == 0 {
+			return func(unsafe.Pointer) bool { return true }
+		}
+
+	case reflect.Map:
+		return func(p unsafe.Pointer) bool { return reflect.NewAt(t, p).Elem().Len() == 0 }
+
+	case reflect.Slice:
+		return func(p unsafe.Pointer) bool { return (*slice)(p).len == 0 }
+
+	case reflect.String:
+		return func(p unsafe.Pointer) bool { return len(*(*string)(p)) == 0 }
+
+	case reflect.Bool:
+		return func(p unsafe.Pointer) bool { return !*(*bool)(p) }
+
+	case reflect.Int, reflect.Uint:
+		return func(p unsafe.Pointer) bool { return *(*uint)(p) == 0 }
+
+	case reflect.Uintptr:
+		return func(p unsafe.Pointer) bool { return *(*uintptr)(p) == 0 }
+
+	case reflect.Int8, reflect.Uint8:
+		return func(p unsafe.Pointer) bool { return *(*uint8)(p) == 0 }
+
+	case reflect.Int16, reflect.Uint16:
+		return func(p unsafe.Pointer) bool { return *(*uint16)(p) == 0 }
+
+	case reflect.Int32, reflect.Uint32:
+		return func(p unsafe.Pointer) bool { return *(*uint32)(p) == 0 }
+
+	case reflect.Int64, reflect.Uint64:
+		return func(p unsafe.Pointer) bool { return *(*uint64)(p) == 0 }
+
+	case reflect.Float32:
+		return func(p unsafe.Pointer) bool { return *(*float32)(p) == 0 }
+
+	case reflect.Float64:
+		return func(p unsafe.Pointer) bool { return *(*float64)(p) == 0 }
+
+	case reflect.Pointer:
+		return func(p unsafe.Pointer) bool { return *(*unsafe.Pointer)(p) == nil }
+
+	case reflect.Interface:
+		return func(p unsafe.Pointer) bool { return (*iface)(p).ptr == nil }
+
+	default:
+		return func(unsafe.Pointer) bool { return false }
+	}
+
+	return func(unsafe.Pointer) bool { return false }
 }
