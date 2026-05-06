@@ -96,6 +96,8 @@ func (c *Columns) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 // Column represents a column's type definition.
 // It can be a simple scalar type, a collection type (set, list, map),
 // a vector type, or a user-defined type.
+//
+//goland:noinspection GoVetStructTag
 type Column struct {
 	// Type is the column type (text, int, float, boolean, uuid, date, vector, set, list, map, userDefined, etc.)
 	Type string `json:"type"`
@@ -114,14 +116,16 @@ type Column struct {
 
 	// UDTName is used for userDefined columns to specify the UDT name
 	UDTName *string `json:"udtName,omitempty"`
+
+	definition *UDTDefinition `json:",omitempty,allowunexported"` // TODO should this just be exported
 }
 
-// isSimple reports whether c is just a type name with no modifiers. The Data
-// API accepts a bare string for a simple ValueType inside a set/list/map, and
-// the docs examples use that shorthand.
-func (c Column) isSimple() bool {
-	return c.Dimension == nil && c.Service == nil &&
-		c.KeyType == nil && c.ValueType == nil && c.UDTName == nil
+func (c *Column) UDTDefinition() *UDTDefinition {
+	return c.definition
+}
+
+type UDTDefinition struct {
+	Fields map[string]Column
 }
 
 // VectorService defines the embedding provider configuration for vectorize

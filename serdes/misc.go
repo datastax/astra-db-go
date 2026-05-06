@@ -215,7 +215,6 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 		}
 
 		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target, intermediate)
-		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target, intermediate)
 	}
 }
 

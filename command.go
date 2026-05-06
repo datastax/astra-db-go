@@ -26,6 +26,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -215,7 +216,9 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error)
 type apiResponse struct {
 	Errors DataAPIErrors `json:"errors"`
 	Status struct {
-		Warnings results.Warnings `json:"warnings"`
+		Warnings         results.Warnings `json:"warnings"`
+		PrimaryKeySchema table.Columns    `json:"primaryKeySchema"`
+		ProjectionSchema table.Columns    `json:"projectionSchema"`
 	} `json:"status"`
 }
 

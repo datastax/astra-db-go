@@ -33,6 +33,16 @@ func TestCommandDBResuming(t *testing.T) {
 	}
 }
 
+const projectionSchemaResponse = "{\"data\":{\"document\":{\"int\":1,\"text\":\"1\"}},\"status\":{\"projectionSchema\":{\"text\":{\"type\":\"text\"},\"int\":{\"type\":\"int\"},\"ascii\":{\"type\":\"ascii\"},\"bigint\":{\"type\":\"bigint\"},\"blob\":{\"type\":\"blob\"},\"boolean\":{\"type\":\"boolean\"},\"date\":{\"type\":\"date\"},\"decimal\":{\"type\":\"decimal\"},\"double\":{\"type\":\"double\"},\"duration\":{\"type\":\"duration\"},\"float\":{\"type\":\"float\"},\"inet\":{\"type\":\"inet\"},\"list\":{\"type\":\"list\",\"valueType\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}}}},\"map\":{\"type\":\"map\",\"keyType\":\"varint\",\"valueType\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}}}},\"set\":{\"type\":\"set\",\"valueType\":\"uuid\"},\"smallint\":{\"type\":\"smallint\"},\"time\":{\"type\":\"time\"},\"timestamp\":{\"type\":\"timestamp\"},\"tinyint\":{\"type\":\"tinyint\"},\"udt\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}},\"apiSupport\":{\"createTable\":true,\"insert\":true,\"read\":true,\"filter\":false,\"cqlDefinition\":\"default_keyspace.example_udt\"}},\"uuid\":{\"type\":\"uuid\"},\"varint\":{\"type\":\"varint\"},\"vector\":{\"type\":\"vector\",\"dimension\":5,\"apiSupport\":{\"createTable\":true,\"insert\":true,\"read\":true,\"filter\":false,\"cqlDefinition\":\"VECTOR<float,5>\"}}}}}"
+
+func TestCommandWithProjectionSchema(t *testing.T) {
+	cmd := command{}
+	_, _, err := cmd.ExtractErrors(200, []byte(projectionSchemaResponse), nil)
+	if err != nil {
+		t.Errorf("Did not expect error but got: %v", err)
+	}
+}
+
 // Example response when already exists
 const createAlreadyExistsResponse = "{\"status\":{\"insertedIds\":[]},\"errors\":[{\"message\":\"Document already exists with the given _id\",\"errorCode\":\"DOCUMENT_ALREADY_EXISTS\",\"id\":\"4055f085-68d8-4c2d-8d91-90a0722b5fef\",\"title\":\"Document already exists with the given _id\",\"family\":\"REQUEST\",\"scope\":\"DOCUMENT\"}]}"
 

@@ -23,10 +23,10 @@ func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool)
 	}
 }
 
-func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
+func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, allowed bool, offset uintptr, field codec) codec {
 	return codec{
 		mkEmbeddedStructPointerEncoder(field.encode),
-		mkEmbeddedStructPointerDecoder(t, unexported, offset, field.decode),
+		mkEmbeddedStructPointerDecoder(t, unexported, allowed, offset, field.decode),
 	}
 }
 
@@ -142,13 +142,13 @@ func mkStructDecoder(info *structInfo) decoder {
 	}
 }
 
-func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, offset uintptr, decode decoder) decoder {
+func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, allowed bool, offset uintptr, decode decoder) decoder {
 	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		v := *(*unsafe.Pointer)(p)
 
 		if v == nil {
-			if unexported {
-				return nil, fmt.Errorf("json: cannot set embedded pointer to unexported struct: %s", t)
+			if unexported && !allowed {
+				return nil, fmt.Errorf("json: cannot set embedded pointer to unexported struct without the \"allowunexported\" struct tag: %s", t)
 			}
 			v = unsafe.Pointer(reflect.New(t).Pointer())
 			*(*unsafe.Pointer)(p) = v
@@ -177,10 +177,11 @@ type fieldInfo struct {
 }
 
 type jsonMeta struct {
-	name      string
-	omitempty bool
-	ignored   bool
-	tagged    bool
+	name            string
+	omitempty       bool
+	ignored         bool
+	tagged          bool
+	allowUnexported bool
 }
 
 func (i structInfo) String() string {
@@ -245,13 +246,13 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 			unexported = len(f.PkgPath) != 0
 		)
 
-		if unexported && !embedded {
-			continue
-		}
-
 		meta := parseJsonMeta(f)
 
 		if meta.ignored {
+			continue
+		}
+
+		if unexported && !embedded && !meta.allowUnexported {
 			continue
 		}
 
@@ -283,7 +284,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 				continue
 			}
 
-			if unexported { // ignore unexported non-struct types
+			if unexported && !meta.allowUnexported { // ignore unallowed unexported non-struct types
 				continue
 			}
 		}
@@ -320,14 +321,13 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 		case shadowed:
 			continue
 		case ambiguous:
-			// TODO this is allowed w/ normal json ser/des but I'm tempted to error for correctness
 			return nil, fmt.Errorf("unresolvable ambiguity for fieldHint %q in struct %s", subfield.meta.name, t.String())
 		case unambiguous:
 			// all good
 		}
 
 		if embfield.pointer {
-			subfield.codec = mkEmbeddedStructPointerCodec(embfield.subtype.typ, embfield.unexported, subfield.offset, subfield.codec)
+			subfield.codec = mkEmbeddedStructPointerCodec(embfield.subtype.typ, embfield.unexported, subfield.meta.allowUnexported, subfield.offset, subfield.codec)
 			subfield.offset = embfield.offset
 		} else {
 			subfield.offset += embfield.offset
@@ -346,9 +346,6 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 		fields[i].prefix = []byte(`,"` + fields[i].meta.name + `":`)
 	}
 
-	// TODO:
-	// I'm just sorting because it's cheap and easy (since only called when building the codec)
-	// That being said it doesn't really matter for the output so I'm fine to remove it...
 	sort.Slice(fields, func(i, j int) bool { return fields[i].ord < fields[j].ord })
 
 	return fields, nil
@@ -359,7 +356,7 @@ func parseJsonMeta(f reflect.StructField) jsonMeta {
 	info.name = f.Name
 
 	if parts := strings.Split(f.Tag.Get("json"), ","); len(parts) != 0 {
-		if len(parts[0]) != 0 {
+		if len(parts[0]) > 0 {
 			info.name = parts[0]
 			info.tagged = true
 		}
@@ -373,6 +370,8 @@ func parseJsonMeta(f reflect.StructField) jsonMeta {
 			switch opt {
 			case "omitempty":
 				info.omitempty = true
+			case "allowunexported":
+				info.allowUnexported = true
 			}
 		}
 	}
