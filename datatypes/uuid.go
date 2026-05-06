@@ -298,7 +298,8 @@ func NewUUIDv7At(t time.Time) UUID {
 // ParseUUID parses a UUID from its string representation.
 // It accepts the canonical form (with dashes) and the 32-hex-digit form (without dashes).
 func ParseUUID(s string) (UUID, error) {
-	// Strip dashes
+	// NOTE: while unlikely to ever happen, `s` should NOT be persisted in the UUID without updating any usages of
+	// ParseUUID to use `string()` instead of `unsafeString()` in the serdes code to avoid potential string modification
 	clean := make([]byte, 0, 32)
 	for i := 0; i < len(s); i++ {
 		if s[i] != '-' {
@@ -317,6 +318,14 @@ func ParseUUID(s string) (UUID, error) {
 
 // String returns the canonical dash-separated UUID string.
 func (u UUID) String() string {
+	return string(u.AppendString(nil))
+}
+
+// AppendString appends the canonical dash-separated UUID string to dst and returns the extended slice.
+func (u UUID) AppendString(dst []byte) []byte {
+	// TODO decide if this is actually a good name
+	// This function is just used internally to avoid the unnecessary
+	// heap allocation when creating the string while JSON encoding
 	var buf [36]byte
 	hex.Encode(buf[0:8], u.value[0:4])
 	buf[8] = '-'
@@ -327,7 +336,7 @@ func (u UUID) String() string {
 	hex.Encode(buf[19:23], u.value[8:10])
 	buf[23] = '-'
 	hex.Encode(buf[24:36], u.value[10:16])
-	return string(buf[:])
+	return append(dst, buf[:]...)
 }
 
 // Version returns the UUID version number (e.g., 4 for v4, 7 for v7).

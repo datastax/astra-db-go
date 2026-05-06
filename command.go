@@ -229,7 +229,7 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr DataAPIError
-		serdes.Deserialize(body, &transportErr, serdes.TargetUnknown)
+		serdes.Deserialize(body, &transportErr, serdes.TargetNone)
 		if len(transportErr.Message) > 0 {
 			return body, nil, errors.New(transportErr.Message)
 		}

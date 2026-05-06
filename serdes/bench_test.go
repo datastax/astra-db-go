@@ -122,7 +122,7 @@ type UUIDM struct {
 }
 
 func (u UUIDM) MarshalAstraRaw(target Target, dst []byte) ([]byte, error) {
-	if target.kind == collectionKind {
+	if target.kind == collectionTarget {
 		return encodeDollarDatatype(dst, []byte("uuid"), func(dst []byte) ([]byte, error) {
 			return encodeUUIDM(dst, u)
 		})
@@ -155,7 +155,7 @@ func (u *UUIDM) UnmarshalAstraRaw(target Target, value []byte) error {
 	var uuid datatypes.UUID
 	var err error
 
-	if target.kind == collectionKind {
+	if target.kind == collectionTarget {
 		_, uuid, err = parseDollarDatatype(value, []byte("uuid"), decodeUUID)
 	} else {
 		_, uuid, err = decodeUUID(value)

@@ -73,16 +73,23 @@ func (v DataAPIVector) AsBase64() string {
 	if v.isB64 {
 		return v.b64
 	}
-	return floatsToBase64(v.floats)
+	return string(floatsToBase64(nil, v.floats))
+}
+
+func (v DataAPIVector) AppendBase64(dst []byte) []byte {
+	if v.isB64 {
+		return append(dst, v.b64...)
+	}
+	return floatsToBase64(dst, v.floats)
 }
 
 // floatsToBase64 encodes a []float32 as a big-endian base64 string.
-func floatsToBase64(floats []float32) string {
+func floatsToBase64(dst []byte, floats []float32) []byte {
 	buf := make([]byte, len(floats)*4)
 	for i, f := range floats {
 		binary.BigEndian.PutUint32(buf[i*4:], math.Float32bits(f))
 	}
-	return base64.StdEncoding.EncodeToString(buf)
+	return base64.StdEncoding.AppendEncode(dst, buf)
 }
 
 // MarshalJSON produces the {$binary: "..."} format, using the stored base64

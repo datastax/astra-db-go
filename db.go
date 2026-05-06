@@ -36,13 +36,13 @@ type Db struct {
 }
 
 func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return newCmdWithOptions(d, "", name, payload, d.options, serdes.TargetUnknown, opts...)
+	return newCmdWithOptions(d, "", name, payload, d.options, serdes.TargetNone, opts...)
 }
 
 // newCmdWithMergedOptions creates a database-level command with a pre-merged
 // *APIOptions for the command-level overrides.
 func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetUnknown, cmdOpts)
+	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdOpts)
 }
 
 // Endpoint returns the database API endpoint.
@@ -234,7 +234,7 @@ func listCollections[T collections](d *Db, ctx context.Context, explain bool, cm
 		return zero, err
 	}
 	var resp listCollectionsResponse[T]
-	err = serdes.Deserialize(b, &resp, serdes.TargetUnknown)
+	err = serdes.Deserialize(b, &resp, serdes.TargetNone)
 	return resp.Status.Collections, err
 }
 
@@ -314,7 +314,7 @@ func listTables[T tables](d *Db, ctx context.Context, explain bool, cmdOpts *opt
 		return zero, err
 	}
 	var resp listTablesResponse[T]
-	err = serdes.Deserialize(b, &resp, serdes.TargetUnknown)
+	err = serdes.Deserialize(b, &resp, serdes.TargetNone)
 	return resp.Status.Tables, err
 }
 

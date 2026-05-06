@@ -55,7 +55,7 @@ func cleanString(s string) string {
 func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 	t.Helper() // marks this as a helper so failures point to the call site
 	for _, arg := range args {
-		got, err := serdes.Serialize(arg, serdes.TargetUnknown)
+		got, err := serdes.Serialize(arg, serdes.TargetNone)
 
 		if err != nil {
 			t.Fatalf("failed to marshal argument: %v", err)

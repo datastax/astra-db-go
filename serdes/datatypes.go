@@ -13,11 +13,15 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 )
 
-// UUIDs
+// ================================
+// | UUIDs - encoded as {"$uuid":"<uuid>"} in collections and as "<uuid>" in all other contexts.
+// ================================
+
+var uuidTag = []byte("uuid")
 
 func uuidEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind == collectionKind {
-		return encodeDollarDatatype(dst, []byte("uuid"), func(dst []byte) ([]byte, error) {
+	if ctx.target.kind == collectionTarget {
+		return encodeDollarDatatype(dst, uuidTag, func(dst []byte) ([]byte, error) {
 			return encodeUUID(dst, p)
 		})
 	}
@@ -28,8 +32,8 @@ func uuidDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	var uuid datatypes.UUID
 	var err error
 
-	if ctx.target.kind == collectionKind {
-		src, uuid, err = parseDollarDatatype(src, []byte("uuid"), decodeUUID)
+	if ctx.target.kind == collectionTarget {
+		src, uuid, err = parseDollarDatatype(src, uuidTag, decodeUUID)
 	} else {
 		src, uuid, err = decodeUUID(src)
 	}
@@ -42,7 +46,7 @@ func uuidDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
 	dst = append(dst, '"')
-	dst = append(dst, (*(*datatypes.UUID)(p)).String()...)
+	(*(*datatypes.UUID)(p)).AppendString(dst)
 	dst = append(dst, '"')
 	return dst, nil
 }
@@ -61,14 +65,21 @@ func decodeUUID(src []byte) ([]byte, datatypes.UUID, error) {
 	return src, uuid, nil
 }
 
-// ObjectIDs
+// ================================
+// | ObjectIDs - encoded in collections as {"$objectId":"<objectId>"};
+// | not allowed to be encoded in other targets
+// |
+// | TODO do we want to allow encoding these outside of collections as plain strings?
+// ================================
+
+var oidTag = []byte("objectId")
 
 func objectIdEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind != collectionKind {
+	if ctx.target.kind != collectionTarget {
 		return dst, fmt.Errorf("cannot encode ObjectId in a non-collection")
 	}
 
-	return encodeDollarDatatype(dst, []byte("objectId"), func(dst []byte) ([]byte, error) {
+	return encodeDollarDatatype(dst, oidTag, func(dst []byte) ([]byte, error) {
 		dst = append(dst, '"')
 		dst = append(dst, (*(*datatypes.ObjectId)(p)).String()...)
 		dst = append(dst, '"')
@@ -77,44 +88,55 @@ func objectIdEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 }
 
 func objectIdDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind != collectionKind {
+	if ctx.target.kind != collectionTarget {
 		return src, fmt.Errorf("cannot decode ObjectId from a non-collection")
 	}
 
-	src, str, _, err := parseStringUnquote(src)
-	if err != nil {
-		return src, fmt.Errorf("invalid ObjectId string: %w", err)
-	}
+	src, oid, err := parseDollarDatatype(src, oidTag, func(b []byte) ([]byte, datatypes.ObjectId, error) {
+		src, str, _, err := parseStringUnquote(b)
+		if err != nil {
+			return src, datatypes.ObjectId{}, fmt.Errorf("invalid ObjectId string: %w", err)
+		}
 
-	oid, err := datatypes.ParseObjectId(unsafeString(str))
-	if err != nil {
-		return src, fmt.Errorf("invalid ObjectId string: %w", err)
-	}
+		oid, err := datatypes.ParseObjectId(unsafeString(str))
+		if err != nil {
+			return src, datatypes.ObjectId{}, fmt.Errorf("invalid ObjectId string: %w", err)
+		}
 
-	*(*datatypes.ObjectId)(p) = oid
+		return src, oid, nil
+	})
+
+	if err == nil {
+		*(*datatypes.ObjectId)(p) = oid
+	}
 	return src, err
 }
 
-// Timestamps
+// ================================
+// | Timestamps - encoded as {"$date":<timestamp>} in collections and as ISO-8601 timestamps
+// | in all other contexts.
+// ================================
+
+var dateTag = []byte("date")
 
 func timestampEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	ts := (*datatypes.DataAPITimestamp)(p)
 
-	if ctx.target.kind == collectionKind {
-		return encodeDollarDatatype(dst, []byte("date"), func(dst []byte) ([]byte, error) {
+	if ctx.target.kind == collectionTarget {
+		return encodeDollarDatatype(dst, dateTag, func(dst []byte) ([]byte, error) {
 			return strconv.AppendInt(dst, ts.UnixMillis(), 10), nil
 		})
 	}
 
 	dst = append(dst, '"')
-	dst = append(dst, ts.String()...)
+	dst = ts.Time().AppendFormat(dst, time.RFC3339Nano)
 	dst = append(dst, '"')
 	return dst, nil
 }
 
 func timestampDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind == collectionKind {
-		src, ms, err := parseDollarDatatype(src, []byte("date"), func(b []byte) ([]byte, int64, error) {
+	if ctx.target.kind == collectionTarget {
+		src, ms, err := parseDollarDatatype(src, dateTag, func(b []byte) ([]byte, int64, error) {
 			return parseInt(b)
 		})
 		if err == nil {
@@ -137,11 +159,13 @@ func timestampDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 	return src, nil
 }
 
-// big.Int
+// ================================
+// | big.Int - encoded as a raw number in all contexts
+// ================================
 
 func bigIntEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	bi := *(*big.Int)(p)
-	return append(dst, bi.String()...), nil
+	return bi.Append(dst, 10), nil
 }
 
 func bigIntDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -165,11 +189,13 @@ func bigIntDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-// big.Float
+// ================================
+// | big.Float - encoded as a raw number in all contexts
+// ================================
 
 func bigFloatEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	bf := *(*big.Float)(p)
-	return append(dst, bf.Text('g', -1)...), nil
+	return bf.Append(dst, 'g', -1), nil
 }
 
 func bigFloatDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -193,12 +219,17 @@ func bigFloatDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, nil
 }
 
-// Vectors
+// ================================
+// | Vectors - encoded as {"$binary":"<base64>"} in all contexts, but can be decoded from either
+// | that format or from a float32 array
+// |
+// | TODO potentially add flags for encoding vectors as a plain []float32
+// ================================
 
 func vectorEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
 		dst = append(dst, '"')
-		dst = append(dst, (*datatypes.DataAPIVector)(p).AsBase64()...)
+		dst = (*datatypes.DataAPIVector)(p).AppendBase64(dst)
 		dst = append(dst, '"')
 		return dst, nil
 	})
@@ -239,7 +270,10 @@ func vectorDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return src, fmt.Errorf("expected []float32 or {\"$binary\":\"<base64>\"} for vector value")
 }
 
-// Binary
+// ================================
+// | Binary data ([]byte) - encoded as {"$binary":"<base64>"} in all contexts,
+// | but can be decoded from either that format or from a base64 string
+// ================================
 
 func binaryEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
@@ -320,7 +354,9 @@ func decodeBytesFromBase64(src []byte) ([]byte, []byte, error) {
 	return src, data[:n], nil
 }
 
-// Helpers
+// ================================
+// | Helpers
+// ================================
 
 func encodeDollarDatatype(dst []byte, datatype []byte, encode func([]byte) ([]byte, error)) ([]byte, error) {
 	dst = append(dst, "{\"$"...)

@@ -8,7 +8,7 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 )
 
-var targets = []Target{TargetUnknown, TargetCollection, TargetTable}
+var targets = []Target{TargetNone, TargetCollection, TargetTable}
 
 var mkUUIDs = []func() datatypes.UUID{datatypes.NewUUID, datatypes.NewUUIDv1, datatypes.NewUUIDv4, datatypes.NewUUIDv6, datatypes.NewUUIDv7}
 
@@ -24,7 +24,7 @@ func TestSerdesUUID(t *testing.T) {
 				}
 
 				expected := `"` + uuid.String() + `"`
-				if target.kind == collectionKind {
+				if target.kind == collectionTarget {
 					expected = `{"$uuid":` + expected + `}`
 				}
 
@@ -110,7 +110,7 @@ func TestSerdesMaps(t *testing.T) {
 	for _, target := range targets {
 		for _, tt := range tests {
 			t.Run(target.String()+"-"+tt.name, func(t *testing.T) {
-				testShouldFail := tt.coll == "" && target.kind != tableKind
+				testShouldFail := tt.coll == "" && target.kind != tableTarget
 
 				encoded, err := Serialize(tt.input, target)
 
@@ -126,11 +126,11 @@ func TestSerdesMaps(t *testing.T) {
 
 				if !testShouldFail {
 					switch target.kind {
-					case collectionKind:
+					case collectionTarget:
 						if !compare(encoded, tt.coll) {
 							t.Fatalf("unexpected serialized form: got %s, expected %s", encoded, tt.coll)
 						}
-					case tableKind:
+					case tableTarget:
 						if !compare(encoded, tt.table) {
 							t.Fatalf("unexpected serialized form: got %s, expected %s", encoded, tt.table)
 						}

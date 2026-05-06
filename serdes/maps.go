@@ -91,7 +91,7 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 			return dst, err
 		}
 
-		if ctx.target.kind == tableKind {
+		if ctx.target.kind == tableTarget {
 			return encodeArrayMap(ctx, dst, p)
 		}
 
@@ -110,7 +110,7 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 			return decodeObjectMap(ctx, src, p)
 		}
 
-		if ctx.target.kind == tableKind {
+		if ctx.target.kind == tableTarget {
 			return decodeArrayMap(ctx, src, p)
 		}
 

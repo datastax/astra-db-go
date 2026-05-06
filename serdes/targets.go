@@ -12,9 +12,9 @@ type typedCodec struct {
 type targetKind int
 
 const (
-	unknownKind targetKind = iota
-	collectionKind
-	tableKind
+	noTarget targetKind = iota
+	collectionTarget
+	tableTarget
 )
 
 type Target struct {
@@ -22,12 +22,12 @@ type Target struct {
 	dollarDatatypes map[string]typedCodec
 }
 
-var TargetUnknown = Target{
-	kind: unknownKind,
+var TargetNone = Target{
+	kind: noTarget,
 }
 
 var TargetCollection = Target{
-	kind: collectionKind,
+	kind: collectionTarget,
 	dollarDatatypes: map[string]typedCodec{
 		"$uuid":     {codec{uuidEncoder, uuidDecoder}, uuidType},
 		"$objectId": {codec{objectIdEncoder, objectIdDecoder}, oidType},
@@ -37,7 +37,7 @@ var TargetCollection = Target{
 }
 
 var TargetTable = Target{
-	kind: tableKind,
+	kind: tableTarget,
 	dollarDatatypes: map[string]typedCodec{
 		"$binary": {codec{binaryEncoder, binaryDecoder}, byteSliceType},
 	},
@@ -45,11 +45,11 @@ var TargetTable = Target{
 
 func (p Target) String() string {
 	switch p.kind {
-	case collectionKind:
+	case collectionTarget:
 		return "collection"
-	case tableKind:
+	case tableTarget:
 		return "table"
 	default:
-		return "unknown"
+		return "none"
 	}
 }
