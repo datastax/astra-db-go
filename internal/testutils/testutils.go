@@ -17,6 +17,7 @@
 package testutils
 
 import (
+	"fmt"
 	"regexp"
 	"testing"
 
@@ -105,17 +106,22 @@ func RunJSONTestCases(t *testing.T, cases []JSONTestCase) {
 	}
 }
 
-func FailIf(t *testing.T, pred bool, msg string) {
+type HasFatal interface {
+	Helper()
+	Fatalf(format string, args ...any)
+}
+
+func FailIf(t HasFatal, pred bool, msg string, args ...any) {
 	t.Helper()
 	if pred {
-		t.Fatal(msg)
+		t.Fatalf(msg, args...)
 	}
 }
 
-func FailIfErr(t *testing.T, err error, msg string) {
+func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
 	if err != nil {
-		t.Fatalf("%s: %v", msg, err)
+		t.Fatalf("%s: %v", fmt.Sprintf(msg, args...), err)
 	}
 }
 

@@ -43,8 +43,12 @@ var TargetTable = Target{
 	},
 }
 
-func (p Target) String() string {
-	switch p.kind {
+func (t Target) Is(other Target) bool {
+	return t.kind == other.kind
+}
+
+func (t Target) String() string {
+	switch t.kind {
 	case collectionTarget:
 		return "collection"
 	case tableTarget:

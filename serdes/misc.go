@@ -239,6 +239,13 @@ func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 
 // Interfaces
 
+func mkSomeInterfaceCodec(t reflect.Type) codec {
+	return codec{
+		mkSomeInterfaceEncoder(t),
+		mkSomeInterfaceDecoder(t),
+	}
+}
+
 func emptyInterfaceEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return SerializeInto(*(*any)(p), ctx.target, dst)
 }

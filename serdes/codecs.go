@@ -76,6 +76,38 @@ func resolveCodecCaching(ctx codecCtx, t reflect.Type) codec {
 	return cacheSet(cache, t, codec)
 }
 
+func cacheLoad() map[unsafe.Pointer]codec {
+	p := typeCodecs.Load()
+	if p == nil {
+		return map[unsafe.Pointer]codec{}
+	}
+	return *p
+}
+
+// I don't fully understand why using the "old" cache from the initial cacheLoad() as the base for the updated cache
+// instead of reloading the cache before updating is the right way to do this, but two major libraries do this:
+// - goccy/go-json: https://github.com/goccy/go-json/blob/e4877d51d546f8c67b1cd9b49ab002ba3af37785/internal/encoder/compiler.go#L46
+// - segmentio/encoding/json: https://github.com/segmentio/encoding/blob/fd406855de30c54110d23eace25478ab9c6fa2cc/json/codec.go#L75
+//
+// I do have my suspicions as to why they're doing this over reloading the cache, but I haven't taken the time to properly verify
+// that this is indeed the best way to do this (I do agree with CoW > mutex or using CaS here at least, not that it's likely
+// to make a huge difference either way)
+//
+// Anyway, at the risk of cargo-culting, I'm going to follow their lead here and do it this way regardless as
+// the authors of those libraries are highly talented and much more knowledgeable about this kind of thing than I am
+func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
+	if inlined(t) {
+		c.encode = mkInlineEncoder(c.encode)
+	}
+
+	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
+	newCache[typePtr(t)] = c
+	maps.Copy(newCache, oldCache)
+	typeCodecs.Store(&newCache)
+
+	return c
+}
+
 func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (c codec) {
 	if t == nil || t == nilType {
 		return nilCodec
@@ -163,27 +195,6 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	return
 }
 
-func cacheLoad() map[unsafe.Pointer]codec {
-	p := typeCodecs.Load()
-	if p == nil {
-		return map[unsafe.Pointer]codec{}
-	}
-	return *p
-}
-
-func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
-	if inlined(t) {
-		c.encode = mkInlineEncoder(c.encode)
-	}
-
-	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
-	newCache[typePtr(t)] = c
-	maps.Copy(newCache, oldCache)
-	typeCodecs.Store(&newCache)
-
-	return c
-}
-
 func isSpecialGenericDatatype(t reflect.Type) (func(ctx codecCtx, t reflect.Type, seen seenStructs) codec, bool) {
 	if t.PkgPath() != datatypesPkgPath {
 		return nil, false
@@ -198,12 +209,5 @@ func isSpecialGenericDatatype(t reflect.Type) (func(ctx codecCtx, t reflect.Type
 		return mkSetCodec, true
 	default:
 		return nil, false
-	}
-}
-
-func mkSomeInterfaceCodec(t reflect.Type) codec {
-	return codec{
-		mkSomeInterfaceEncoder(t),
-		mkSomeInterfaceDecoder(t),
 	}
 }

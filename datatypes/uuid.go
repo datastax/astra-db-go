@@ -316,6 +316,14 @@ func ParseUUID(s string) (UUID, error) {
 	return u, nil
 }
 
+func MustParseUUID(s string) UUID {
+	u, err := ParseUUID(s)
+	if err != nil {
+		panic(fmt.Sprintf("datatypes: invalid UUID string: %q: %v", s, err))
+	}
+	return u
+}
+
 // String returns the canonical dash-separated UUID string.
 func (u UUID) String() string {
 	return string(u.AppendString(nil))

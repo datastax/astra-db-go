@@ -46,7 +46,7 @@ func uuidDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
 	dst = append(dst, '"')
-	(*(*datatypes.UUID)(p)).AppendString(dst)
+	dst = (*(*datatypes.UUID)(p)).AppendString(dst)
 	dst = append(dst, '"')
 	return dst, nil
 }
