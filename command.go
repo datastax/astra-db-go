@@ -17,6 +17,7 @@ package astradb
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
@@ -26,7 +27,6 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/table"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -217,8 +217,8 @@ type apiResponse struct {
 	Errors DataAPIErrors `json:"errors"`
 	Status struct {
 		Warnings         results.Warnings `json:"warnings"`
-		PrimaryKeySchema table.Columns    `json:"primaryKeySchema"`
-		ProjectionSchema table.Columns    `json:"projectionSchema"`
+		PrimaryKeySchema json.RawMessage  `json:"primaryKeySchema"`
+		ProjectionSchema json.RawMessage  `json:"projectionSchema"`
 	} `json:"status"`
 }
 

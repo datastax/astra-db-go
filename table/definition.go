@@ -125,7 +125,7 @@ func (c *Column) UDTDefinition() *UDTDefinition {
 }
 
 type UDTDefinition struct {
-	Fields map[string]Column
+	Fields Columns `json:"fields"`
 }
 
 // VectorService defines the embedding provider configuration for vectorize
