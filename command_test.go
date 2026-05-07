@@ -27,7 +27,7 @@ const resumingResponse = "{\"message\":\"Your database is resuming from hibernat
 
 func TestCommandDBResuming(t *testing.T) {
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(503, []byte(resumingResponse), nil)
+	_, _, _, err := cmd.extractErrors(503, []byte(resumingResponse), nil)
 	if err == nil {
 		t.Error("Expected error but got none")
 	}
@@ -37,7 +37,7 @@ const projectionSchemaResponse = "{\"data\":{\"document\":{\"int\":1,\"text\":\"
 
 func TestCommandWithProjectionSchema(t *testing.T) {
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(200, []byte(projectionSchemaResponse), nil)
+	_, _, _, err := cmd.extractErrors(200, []byte(projectionSchemaResponse), nil)
 	if err != nil {
 		t.Errorf("Did not expect error but got: %v", err)
 	}
@@ -48,7 +48,7 @@ const createAlreadyExistsResponse = "{\"status\":{\"insertedIds\":[]},\"errors\"
 
 func TestCommandAlreadyExistsErr(t *testing.T) {
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(200, []byte(createAlreadyExistsResponse), nil)
+	_, _, _, err := cmd.extractErrors(200, []byte(createAlreadyExistsResponse), nil)
 	t.Logf("err value:\n%s", err)
 	if err == nil {
 		t.Error("Expected error but got none")
@@ -60,7 +60,7 @@ const warningsResponse = "{\"data\":{\"documents\":[{\"number_of_pages\":281,\"a
 
 func TestCommandWarnings(t *testing.T) {
 	cmd := command{}
-	_, warnings, err := cmd.ExtractErrors(200, []byte(warningsResponse), nil)
+	_, warnings, _, err := cmd.extractErrors(200, []byte(warningsResponse), nil)
 	if err != nil {
 		t.Errorf("Did not expect error but got: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 	opts := options.NewAPIOptions(options.WithWarningHandler(handler))
 
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(200, []byte(warningsResponse), opts)
+	_, _, _, err := cmd.extractErrors(200, []byte(warningsResponse), opts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

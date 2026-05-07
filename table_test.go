@@ -121,7 +121,7 @@ func TestCreateTablePayloadMarshal(t *testing.T) {
 			}
 			// Verify it can be unmarshaled back
 			var result createTablePayload
-			if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
+			if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 		})
@@ -263,7 +263,7 @@ func TestColumnDefinitions(t *testing.T) {
 
 			// Verify it can be unmarshaled back
 			var result table.Column
-			if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
+			if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 
@@ -326,7 +326,7 @@ func TestPrimaryKeyUnmarshal(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var pk table.PrimaryKey
-			if err := serdes.Deserialize([]byte(tt.input), &pk, serdes.TargetTable); err != nil {
+			if err := serdes.Deserialize([]byte(tt.input), &pk, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 			if len(pk.PartitionBy) != len(tt.expected.PartitionBy) {
@@ -496,7 +496,7 @@ func TestTableFindPayloadMarshal(t *testing.T) {
 			}
 
 			var result map[string]any
-			if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
+			if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
 
@@ -557,7 +557,7 @@ func TestFilterWithStructuredFilters(t *testing.T) {
 	// Should produce something like:
 	// {"$and":[{"is_checked_out":false},{"number_of_pages":{"$lt":300}}]}
 	var result map[string]any
-	if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -590,7 +590,7 @@ func TestTableInsertOnePayloadMarshal(t *testing.T) {
 	}
 
 	var result map[string]any
-	if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -628,7 +628,7 @@ func TestTableInsertManyPayloadMarshal(t *testing.T) {
 	}
 
 	var result map[string]any
-	if err := serdes.Deserialize(b, &result, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal: %v", err)
 	}
 
@@ -648,7 +648,7 @@ func TestTableInsertResponseUnmarshal(t *testing.T) {
 	t.Run("single column primary key", func(t *testing.T) {
 		jsonResp := `{"status":{"insertedIds":[["The Great Gatsby"]],"primaryKeySchema":{"title":{"type":"text"}}}}`
 		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -674,7 +674,7 @@ func TestTableInsertResponseUnmarshal(t *testing.T) {
 		// For composite keys, each inserted ID is still an array with multiple values
 		jsonResp := `{"status":{"insertedIds":[["Book 1","Author 1"]],"primaryKeySchema":{"title":{"type":"text"},"author":{"type":"text"}}}}`
 		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -698,7 +698,7 @@ func TestTableInsertResponseUnmarshal(t *testing.T) {
 	t.Run("multiple inserts", func(t *testing.T) {
 		jsonResp := `{"status":{"insertedIds":[["Book 1"],["Book 2"],["Book 3"]]}}`
 		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1034,7 +1034,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 		// When explain=false, the API returns an array of strings
 		jsonResp := `{"status":{"indexes":["rating_idx","title_idx"]}}`
 		var resp listIndexesResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1056,7 +1056,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	t.Run("explain response with regular index", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[{"name":"rating_idx","definition":{"column":"rating"},"indexType":"regular"}]}}`
 		var resp listIndexesResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1081,7 +1081,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	t.Run("explain response with vector index", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[{"name":"embedding_idx","definition":{"column":"embedding","options":{"metric":"cosine","sourceModel":"other"}},"indexType":"vector"}]}}`
 		var resp listIndexesResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1115,7 +1115,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	t.Run("empty indexes", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[]}}`
 		var resp listIndexesResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
 
@@ -1351,7 +1351,7 @@ func TestTableUpdateOne_HappyPath(t *testing.T) {
 
 	body, _ := gotBody.Load().([]byte)
 	var sentBody map[string]any
-	if err := serdes.Deserialize(body, &sentBody, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(body, &sentBody, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("server-received body was not JSON: %v (%s)", err, body)
 	}
 	inner, ok := sentBody["updateOne"].(map[string]any)
@@ -1793,7 +1793,7 @@ func TestTableAlter_HappyPath(t *testing.T) {
 
 	body, _ := gotBody.Load().([]byte)
 	var sentBody map[string]any
-	if err := serdes.Deserialize(body, &sentBody, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(body, &sentBody, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("server-received body was not JSON: %v (%s)", err, body)
 	}
 	inner, ok := sentBody["alterTable"].(map[string]any)

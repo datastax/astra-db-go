@@ -103,13 +103,13 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 //	}
 //	coll, err := db.CreateCollection(ctx, "my_collection", options.WithCreateCollectionOptions(opts))
 //
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.CreateCollectionOption) (*Collection, error) {
 	cmd, err := createCollectionCommand(d, name, opts...)
 	if err != nil {
 		return nil, err
 	}
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func createCollectionCommand(d *Db, name string, opts ...options.CreateCollectio
 }
 
 // DropCollection drops a collection from the database.
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) DropCollection(ctx context.Context, name string) error {
 	payload := struct {
 		Name string `json:"name"`
@@ -153,7 +153,7 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 		Name: name,
 	}
 	cmd := newCmd(d, "deleteCollection", payload)
-	_, _, err := cmd.Execute(ctx)
+	_, _, _, err := cmd.Execute(ctx)
 	return err
 }
 
@@ -228,13 +228,13 @@ func listCollections[T collections](d *Db, ctx context.Context, explain bool, cm
 		},
 	}
 	cmd := d.newCmdWithMergedOptions("findCollections", payload, cmdOpts)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		var zero T
 		return zero, err
 	}
 	var resp listCollectionsResponse[T]
-	err = serdes.Deserialize(b, &resp, serdes.TargetNone)
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone)
 	return resp.Status.Collections, err
 }
 
@@ -308,13 +308,13 @@ type listTablesResponse[T tables] struct {
 // listTables is the internal helper for listing tables
 func listTables[T tables](d *Db, ctx context.Context, explain bool, cmdOpts *options.APIOptions) (T, error) {
 	cmd := listTablesCommand(d, explain, cmdOpts)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		var zero T
 		return zero, err
 	}
 	var resp listTablesResponse[T]
-	err = serdes.Deserialize(b, &resp, serdes.TargetNone)
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone)
 	return resp.Status.Tables, err
 }
 

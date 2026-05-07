@@ -27,6 +27,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -160,10 +161,10 @@ func (c command) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
 
 // Execute a command against the astra DB web API.
 // Returns the response body, any warnings from the API, and any error that occurred.
-func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error) {
+func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, *table.LazySchema, error) {
 	var body []byte
 	if c.db == nil {
-		return body, nil, ErrCmdNilDb
+		return body, nil, nil, ErrCmdNilDb
 	}
 
 	// Resolve all options for this command
@@ -171,17 +172,17 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error)
 
 	b, err := serdes.Serialize(c, c.target)
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 	cmdURL, err := c.url()
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 	slog.Debug("Running cmd.Execute", "req.url", cmdURL, "req.body", string(b))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", cmdURL, bytes.NewReader(b))
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 
 	// Set authentication token from resolved options
@@ -200,16 +201,16 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error)
 	httpClient := opts.GetHTTPClient()
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err = io.ReadAll(resp.Body)
 	slog.Debug("cmd.Execute response", "resp.StatusCode", resp.StatusCode, "resp.Status", resp.Status, "resp.body", string(body))
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
-	return c.ExtractErrors(resp.StatusCode, body, opts)
+	return c.extractErrors(resp.StatusCode, body, opts)
 }
 
 // apiResponse captures both errors and warnings from API responses
@@ -222,27 +223,32 @@ type apiResponse struct {
 	} `json:"status"`
 }
 
-// ExtractErrors will extract errors and warnings from body. For example, it will
+type apiStatus struct {
+	warnings results.Warnings
+	schema   json.RawMessage
+}
+
+// extractErrors will extract errors and warnings from body. For example, it will
 // turn this response into an error:
 //
 //	{"message":"Your database is resuming from hibernation and will be available in the next few minutes."}
 //
 // Will call WarningHandler if appropriate.
-func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, error) {
+func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr DataAPIError
-		serdes.Deserialize(body, &transportErr, serdes.TargetNone)
+		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone)
 		if len(transportErr.Message) > 0 {
-			return body, nil, errors.New(transportErr.Message)
+			return body, nil, nil, errors.New(transportErr.Message)
 		}
 		// We can't find a message; just return the body
-		return body, nil, errors.New(string(body))
+		return body, nil, nil, errors.New(string(body))
 	}
 
 	// Parse the full response to get both errors and warnings
 	var resp apiResponse
-	serdes.Deserialize(body, &resp, c.target)
+	serdes.Deserialize(body, &resp, nil, c.target)
 
 	// Invoke warning handler for each warning if configured
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {
@@ -251,12 +257,28 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 		}
 	}
 
-	// Return error if present
-	if len(resp.Errors) > 0 {
-		return body, resp.Status.Warnings, &resp.Errors
+	status := apiStatus{
+		warnings: resp.Status.Warnings,
+		schema:   resp.Status.PrimaryKeySchema,
+	}
+	if resp.Status.ProjectionSchema != nil {
+		status.schema = resp.Status.ProjectionSchema
 	}
 
-	return body, resp.Status.Warnings, nil
+	var schema *table.LazySchema
+	if resp.Status.PrimaryKeySchema != nil {
+		schema = &table.LazySchema{AsRaw: status.schema}
+	}
+	if resp.Status.ProjectionSchema != nil {
+		schema = &table.LazySchema{AsRaw: status.schema}
+	}
+
+	// Return error if present
+	if len(resp.Errors) > 0 {
+		return body, resp.Status.Warnings, schema, &resp.Errors
+	}
+
+	return body, resp.Status.Warnings, schema, nil
 }
 
 // CollectionUpdate is implemented by [update.CollectionUpdateBuilder] and [update.U].

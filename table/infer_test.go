@@ -634,8 +634,8 @@ func TestInfer_JSONEquivalence_CompoundKey(t *testing.T) {
 	manualJSON, _ := serdes.Serialize(manual, serdes.TargetTable)
 
 	var inferredMap, manualMap map[string]any
-	serdes.Deserialize(inferredJSON, &inferredMap, serdes.TargetTable)
-	serdes.Deserialize(manualJSON, &manualMap, serdes.TargetTable)
+	serdes.Deserialize(inferredJSON, &inferredMap, nil, serdes.TargetTable)
+	serdes.Deserialize(manualJSON, &manualMap, nil, serdes.TargetTable)
 
 	if !reflect.DeepEqual(inferredMap, manualMap) {
 		t.Errorf("JSON mismatch:\n  inferred: %s\n  manual:   %s", inferredJSON, manualJSON)

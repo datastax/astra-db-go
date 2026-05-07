@@ -28,6 +28,7 @@ import (
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
+	"github.com/datastax/astra-db-go/table"
 )
 
 // CollectionFilter is implemented by [filter.F] and [filter.Filter].
@@ -122,7 +123,7 @@ type insertOnePayload struct {
 // insertOneResponse is the response from insertOne command
 type insertOneResponse struct {
 	Status struct {
-		InsertedIds []any `json:"insertedIds"`
+		InsertedIds []json.RawMessage `json:"insertedIds"`
 	} `json:"status"`
 }
 
@@ -139,13 +140,13 @@ func (c *Collection) InsertOne(ctx context.Context, document any, opts ...option
 		Document: document,
 	}, merged.APIOptions)
 
-	b, warnings, err := cmd.Execute(ctx)
+	b, warnings, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp insertOneResponse
-	if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 		return nil, err
 	}
 
@@ -153,7 +154,7 @@ func (c *Collection) InsertOne(ctx context.Context, document any, opts ...option
 		return nil, errors.New("no inserted ID returned from server")
 	}
 
-	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings), nil
+	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, serdes.TargetCollection), nil
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
@@ -164,7 +165,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmdWithMergedOptions, insertManyOptions(*merged))
+	return insertMany(ctx, documents, c.newCmdWithMergedOptions, insertManyOptions(*merged), serdes.TargetCollection)
 }
 
 // Payload for collection find one.
@@ -186,15 +187,15 @@ type collectionFindOneOptions struct {
 func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult([]byte{}, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult([]byte{}, nil, nil, serdes.TargetCollection, err)
 	}
 	payload := collectionFindOnePayload{Filter: f, Sort: merged.Sort, Projection: merged.Projection}
 	if merged.IncludeSimilarity != nil {
 		payload.Options = &collectionFindOneOptions{IncludeSimilarity: merged.IncludeSimilarity}
 	}
 	cmd := c.newCmdWithMergedOptions("findOne", payload, merged.APIOptions)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, serdes.TargetCollection, err)
+	b, warnings, _, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
 // Find returns a cursor for iterating over documents matching the filter.
@@ -243,7 +244,7 @@ func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...op
 func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOption) *cursors.CollectionFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
 
-	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
 		cmd := c.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
@@ -291,13 +292,13 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	}
 
 	cmd := c.newCmdWithMergedOptions("updateOne", payload, merged.APIOptions)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp collectionUpdateResponse
-	if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 		return nil, err
 	}
 
@@ -355,13 +356,13 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 
 	for {
 		cmd := c.newCmdWithMergedOptions("updateMany", payload, merged.APIOptions)
-		b, _, err := cmd.Execute(ctx)
+		b, _, _, err := cmd.Execute(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		var resp collectionUpdateResponse
-		if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 			return nil, err
 		}
 
@@ -400,7 +401,7 @@ type collectionFindOneAndUpdatePayload struct {
 func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u CollectionUpdate, opts ...options.CollectionFindOneAndUpdateOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
 	payload := collectionFindOneAndUpdatePayload{
@@ -422,8 +423,8 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 	}
 
 	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", payload, merged.APIOptions)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, serdes.TargetCollection, err)
+	b, warnings, _, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
 // ReplaceOne replaces a single document matching the filter.
@@ -449,7 +450,7 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 	}
 
 	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +492,7 @@ type collectionFindOneAndReplacePayload struct {
 func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts ...options.CollectionFindOneAndReplaceOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
 	payload := collectionFindOneAndReplacePayload{
@@ -513,8 +514,8 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 	}
 
 	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, serdes.TargetCollection, err)
+	b, warnings, _, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
 // collectionDeleteOnePayload is the payload for the deleteOne command on collections.
@@ -548,13 +549,13 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 	}
 
 	cmd := c.newCmdWithMergedOptions("deleteOne", payload, merged.APIOptions)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp collectionDeleteOneResponse
-	if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 		return nil, err
 	}
 
@@ -612,13 +613,13 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 
 	for {
 		cmd := c.newCmdWithMergedOptions("deleteMany", payload, merged.APIOptions)
-		b, _, err := cmd.Execute(ctx)
+		b, _, _, err := cmd.Execute(ctx)
 		if err != nil {
 			return nil, err
 		}
 
 		var resp collectionDeleteManyResponse
-		if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 			return nil, err
 		}
 
@@ -646,7 +647,7 @@ type collectionFindOneAndDeletePayload struct {
 func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneAndDeleteOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
 	payload := collectionFindOneAndDeletePayload{
@@ -656,8 +657,8 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 	}
 
 	cmd := c.newCmdWithMergedOptions("findOneAndDelete", payload, merged.APIOptions)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, serdes.TargetCollection, err)
+	b, warnings, _, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
 // Payload for collection countDocuments.
@@ -682,13 +683,13 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 		return 0, fmt.Errorf("invalid options: %w", err)
 	}
 	cmd := c.newCmdWithMergedOptions("countDocuments", collectionCountPayload{Filter: f}, merged.APIOptions)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err
 	}
 
 	var resp collectionCountResponse
-	if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 		return 0, err
 	}
 
@@ -716,13 +717,13 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 		return 0, fmt.Errorf("invalid options: %w", err)
 	}
 	cmd := c.newCmdWithMergedOptions("estimatedDocumentCount", struct{}{}, merged.APIOptions)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err
 	}
 
 	var resp collectionCountResponse // no "moreData" field in this response, but we can reuse the struct
-	if err := serdes.Deserialize(b, &resp, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
 		return 0, err
 	}
 

@@ -33,7 +33,7 @@ func TestSerdesUUID(t *testing.T) {
 				}
 
 				var decoded datatypes.UUID
-				err = Deserialize(encoded, &decoded, target)
+				err = Deserialize(encoded, &decoded, nil, target)
 				if err != nil {
 					t.Fatalf("failed to deserialize UUID: %v", err)
 				}
@@ -118,7 +118,7 @@ func TestSerdesMaps(t *testing.T) {
 					t.Fatalf("improper serialization")
 				}
 
-				err = Deserialize(encoded, tt.ptr, target)
+				err = Deserialize(encoded, tt.ptr, nil, target)
 
 				if testShouldFail == (err == nil) {
 					t.Fatalf("improper deserialization")

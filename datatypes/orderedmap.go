@@ -9,6 +9,11 @@ type OrderedMap[K comparable, V any] struct {
 	*orderedMap[K, V]
 }
 
+// TODO should I just replace this with an associative list type? I need a map which allows non comparable keys anyways
+// so I might as well just use that for everything and not have to maintain two separate implementations.
+//
+// this implementation isn't super performant anyways.
+
 // IMPORTANT: The field ordering of kType, vType, and data is extremely important:
 // - kType and vType must are at the start of the struct to ensure that no padding is allocated for them
 // - data is the first non-zero-size field, and must be at index 2 – both of these are relied on for reflection and pointer math

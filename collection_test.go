@@ -115,7 +115,7 @@ func TestDeleteOneResponseDeserialization(t *testing.T) {
 				} `json:"status"`
 			}
 			var resp deleteOneResponse
-			if err := serdes.Deserialize([]byte(tt.response), &resp, serdes.TargetCollection); err != nil {
+			if err := serdes.Deserialize([]byte(tt.response), &resp, nil, serdes.TargetCollection); err != nil {
 				t.Fatalf("serdes.Deserialize error: %v", err)
 			}
 			if resp.Status.DeletedCount != tt.deletedCount {
@@ -217,7 +217,7 @@ func TestDeleteManyResponseDeserialization(t *testing.T) {
 				} `json:"status"`
 			}
 			var resp deleteManyResponse
-			if err := serdes.Deserialize([]byte(tt.response), &resp, serdes.TargetCollection); err != nil {
+			if err := serdes.Deserialize([]byte(tt.response), &resp, nil, serdes.TargetCollection); err != nil {
 				t.Fatalf("serdes.Deserialize error: %v", err)
 			}
 			if resp.Status.DeletedCount != tt.deletedCount {

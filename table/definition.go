@@ -20,7 +20,7 @@ import (
 	"github.com/datastax/astra-db-go/serdes"
 )
 
-// Definition represents the full schema for a table, including column names,
+// Definition represents the full Schema for a table, including column names,
 // column data types, and the primary key.
 //
 // Example:
@@ -81,7 +81,7 @@ func (c Columns) MarshalAstra(_ serdes.Target) (any, error) {
 
 func (c *Columns) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	var rep datatypes.OrderedMap[string, Column]
-	if err := serdes.Deserialize(value, &rep, target); err != nil {
+	if err := serdes.Deserialize(value, &rep, nil, target); err != nil {
 		return err
 	}
 
@@ -194,7 +194,7 @@ func (s PartitionSort) MarshalAstra(_ serdes.Target) (any, error) {
 
 func (s *PartitionSort) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	var rep datatypes.OrderedMap[string, int]
-	if err := serdes.Deserialize(value, &rep, target); err != nil {
+	if err := serdes.Deserialize(value, &rep, nil, target); err != nil {
 		return err
 	}
 
@@ -219,7 +219,7 @@ func (p PrimaryKey) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, e
 func (p *PrimaryKey) UnmarshalAstraRaw(target serdes.Target, data []byte) error {
 	// Try to unmarshal as string first
 	var singleColumn string
-	if err := serdes.Deserialize(data, &singleColumn, target); err == nil {
+	if err := serdes.Deserialize(data, &singleColumn, nil, target); err == nil {
 		p.PartitionBy = []string{singleColumn}
 		p.PartitionSort = nil
 		return nil
@@ -228,7 +228,7 @@ func (p *PrimaryKey) UnmarshalAstraRaw(target serdes.Target, data []byte) error 
 	// Otherwise unmarshal as object
 	type pkAlias PrimaryKey
 	var pk pkAlias
-	if err := serdes.Deserialize(data, &pk, target); err != nil {
+	if err := serdes.Deserialize(data, &pk, nil, target); err != nil {
 		return err
 	}
 	*p = PrimaryKey(pk)
@@ -238,7 +238,7 @@ func (p *PrimaryKey) UnmarshalAstraRaw(target serdes.Target, data []byte) error 
 func (c *Column) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	// Try to unmarshal as a string first (e.g. "text")
 	var typ string
-	if err := serdes.Deserialize(value, &typ, target); err == nil {
+	if err := serdes.Deserialize(value, &typ, nil, target); err == nil {
 		*c = Column{Type: typ}
 		return nil
 	}
@@ -246,7 +246,7 @@ func (c *Column) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	// Otherwise unmarshal as a full Column object (e.g. {"type":"text"})
 	type colAlias Column
 	var col colAlias
-	if err := serdes.Deserialize(value, &col, target); err != nil {
+	if err := serdes.Deserialize(value, &col, nil, target); err != nil {
 		return err
 	}
 	*c = Column(col)

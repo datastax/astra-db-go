@@ -28,7 +28,7 @@ func TestSerdesOrderedMap(t *testing.T) {
 	t.Logf("serialized ordered map: %s", b)
 
 	var dst datatypes.OrderedMap[int, any]
-	if err := serdes.Deserialize(b, &dst, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(b, &dst, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to deserialize ordered map: %v", err)
 	}
 	t.Logf("deserialized ordered map: %#v", dst.String())
@@ -56,7 +56,7 @@ func BenchmarkSerdesOrderedMap(t *testing.B) {
 	t.Run("deserialize", func(t *testing.B) {
 		t.ReportAllocs()
 		for i := 0; i < t.N; i++ {
-			if err := serdes.Deserialize(src, &dst, serdes.TargetTable); err != nil {
+			if err := serdes.Deserialize(src, &dst, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to deserialize ordered map: %v", err)
 			}
 		}
@@ -74,7 +74,7 @@ func TestSerdesSet(t *testing.T) {
 	t.Logf("serialized set: %s", b)
 
 	var dst datatypes.Set[string]
-	if err := serdes.Deserialize(b, &dst, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &dst, nil, serdes.TargetCollection); err != nil {
 		t.Fatalf("failed to deserialize set: %v", err)
 	}
 	t.Logf("deserialized set: %#v", dst.String())
@@ -102,7 +102,7 @@ func BenchmarkSerdesSet(t *testing.B) {
 	t.Run("deserialize", func(t *testing.B) {
 		t.ReportAllocs()
 		for i := 0; i < t.N; i++ {
-			if err := serdes.Deserialize(src, &dst, serdes.TargetCollection); err != nil {
+			if err := serdes.Deserialize(src, &dst, nil, serdes.TargetCollection); err != nil {
 				t.Fatalf("failed to deserialize set: %v", err)
 			}
 		}
@@ -113,7 +113,7 @@ func TestSerdesAny_Collection(t *testing.T) {
 	str := `{"$vector":[0.1, 0.2, 0.3],"nested":{"$uuid":"123e4567-e89b-12d3-a456-426614174000"}}}`
 	var dst any
 
-	if err := serdes.Deserialize([]byte(str), &dst, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize([]byte(str), &dst, nil, serdes.TargetCollection); err != nil {
 		t.Fatalf("failed to deserialize: %v", err)
 	}
 
@@ -155,7 +155,7 @@ func (c *CustomWithPointer) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte
 
 func (c *CustomWithPointer) UnmarshalAstraRaw(_ serdes.Target, val []byte) error {
 	var m map[string]any
-	if err := serdes.Deserialize(val, &m, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(val, &m, nil, serdes.TargetCollection); err != nil {
 		return err
 	}
 	if val, ok := m["value"].(string); ok {
@@ -198,7 +198,7 @@ func TestSerdesCustom(t *testing.T) {
 	}
 
 	var dstVal CustomWithValue
-	if err := serdes.Deserialize([]byte(`{"value":"hello"}`), &dstVal, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize([]byte(`{"value":"hello"}`), &dstVal, nil, serdes.TargetCollection); err != nil {
 		t.Fatalf("failed to deserialize into CustomWithValue: %v", err)
 	}
 	if dstVal.Value != "hello" {
@@ -206,7 +206,7 @@ func TestSerdesCustom(t *testing.T) {
 	}
 
 	var dstPtr *CustomWithPointer
-	if err := serdes.Deserialize([]byte(`{"value":"world"}`), &dstPtr, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize([]byte(`{"value":"world"}`), &dstPtr, nil, serdes.TargetCollection); err != nil {
 		t.Fatalf("failed to deserialize into CustomWithPointer: %v", err)
 	}
 	if dstPtr == nil || dstPtr.Value != "world" {

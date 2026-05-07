@@ -34,7 +34,7 @@ func TestSerdesUUIDS_Typed(t *testing.T) {
 		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded datatypes.UUID
-		err = serdes.Deserialize(encoded, &decoded, target)
+		err = serdes.Deserialize(encoded, &decoded, nil, target)
 		testutils.FailIfErr(t, err, "failed to deserialize UUID")
 
 		testutils.FailIf(t, uuid != decoded, "mismatch after serdes: original %s, decoded %s", uuid, decoded)
@@ -54,7 +54,7 @@ func TestSerdesUUIDS_Untyped_Collection(t *testing.T) {
 		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded any
-		err = serdes.Deserialize(encoded, &decoded, serdes.TargetCollection)
+		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
 		testutils.FailIfErr(t, err, "failed to deserialize UUID")
 
 		testutils.FailIf(t, decoded != uuidAny, "mismatch after serdes: original %s, decoded %v", uuid, decoded)
@@ -80,7 +80,7 @@ func TestObjectIds_Typed_Collection(t *testing.T) {
 		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded datatypes.ObjectId
-		err = serdes.Deserialize(encoded, &decoded, serdes.TargetCollection)
+		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
 		testutils.FailIfErr(t, err, "failed to deserialize ObjectId")
 
 		testutils.FailIf(t, oid != decoded, "mismatch after serdes: original %s, decoded %s", oid, decoded)
@@ -112,7 +112,7 @@ func TestObjectIds_Untyped_Collection(t *testing.T) {
 		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded any
-		err = serdes.Deserialize(encoded, &decoded, serdes.TargetCollection)
+		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
 		testutils.FailIfErr(t, err, "failed to deserialize ObjectId via any")
 
 		testutils.FailIf(t, decoded != oidAny, "mismatch after serdes: original %v, decoded %v", oidAny, decoded)

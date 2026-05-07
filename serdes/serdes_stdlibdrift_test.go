@@ -69,7 +69,7 @@ func TestTimeUnmarshaler_StdlibDivergence(t *testing.T) {
 	}
 
 	var serdesResult wrapper
-	err := Deserialize(input, &serdesResult, TargetCollection)
+	err := Deserialize(input, &serdesResult, nil, TargetCollection)
 	if err != nil {
 		t.Logf("serdes error (expected): %v", err)
 	}
@@ -358,7 +358,7 @@ func TestLargePayload(t *testing.T) {
 		t.Fatalf("stdlib round trip mismatch:\noriginal     : %+v\nround-tripped: %+v", original, stdlibRoundTripped)
 	}
 	var serdesRoundTripped testPayload
-	err = Deserialize(serdesJSON, &serdesRoundTripped, TargetCollection)
+	err = Deserialize(serdesJSON, &serdesRoundTripped, nil, TargetCollection)
 	if err != nil {
 		t.Fatalf("serdes unmarshal failed: %v", err)
 	}

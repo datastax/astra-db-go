@@ -270,10 +270,10 @@ func TestDefinitionBuilder_JSONMarshal(t *testing.T) {
 	}
 
 	var resultBuilder, resultStruct table.Definition
-	if err := serdes.Deserialize(jsonBuilder, &resultBuilder, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(jsonBuilder, &resultBuilder, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal builder JSON: %v", err)
 	}
-	if err := serdes.Deserialize(jsonStruct, &resultStruct, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(jsonStruct, &resultStruct, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal struct JSON: %v", err)
 	}
 

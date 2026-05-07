@@ -93,7 +93,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var u User
-			_ = Deserialize(jsonData, &u, TargetCollection)
+			_ = Deserialize(jsonData, &u, nil, TargetCollection)
 			userResult = u
 		}
 	})
@@ -102,7 +102,7 @@ func BenchmarkSerDesComparison(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var u User
-			_ = Deserialize(jsonData, &u, TargetTable)
+			_ = Deserialize(jsonData, &u, nil, TargetTable)
 			userResult = u
 		}
 	})
@@ -231,7 +231,7 @@ func BenchmarkDirectVsMarshal(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var d Data1
-			_ = Deserialize(jsonData, &d, TargetTable)
+			_ = Deserialize(jsonData, &d, nil, TargetTable)
 			data1Result = d
 		}
 	})
@@ -240,7 +240,7 @@ func BenchmarkDirectVsMarshal(b *testing.B) {
 		b.ReportAllocs()
 		for i := 0; i < b.N; i++ {
 			var d Data2
-			_ = Deserialize(jsonData, &d, TargetTable)
+			_ = Deserialize(jsonData, &d, nil, TargetTable)
 			data2Result = d
 		}
 	})

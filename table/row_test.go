@@ -59,8 +59,8 @@ func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, serdes.TargetTable)
+			row := &Row{Schema: tt.schema}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -175,8 +175,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, serdes.TargetTable)
+			row := &Row{Schema: tt.schema}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -210,13 +210,13 @@ func TestRow_UnmarshalAstraRaw_NullHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, serdes.TargetTable)
+			row := &Row{Schema: tt.schema}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
 
-			// Check that all schema fields exist in Data
+			// Check that all Schema fields exist in Data
 			for _, nc := range tt.schema {
 				val, ok := row.ToMap()[nc.Name]
 				if !ok {
@@ -313,8 +313,8 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, serdes.TargetTable)
+			row := &Row{Schema: tt.schema}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -324,7 +324,7 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 }
 
 func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
-	// Define a simple UDT schema
+	// Define a simple UDT Schema
 	addressDef := &UDTDefinition{
 		Fields: Columns{
 			{Name: "street", Column: Column{Type: TypeText}},
@@ -342,8 +342,8 @@ func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
 
 	jsonData := `{"address": {"street": "123 Main St", "city": "Springfield", "zip": 12345}}`
 
-	row := &Row{schema: schema}
-	err := serdes.Deserialize([]byte(jsonData), row, serdes.TargetTable)
+	row := &Row{Schema: schema}
+	err := serdes.Deserialize([]byte(jsonData), row, nil, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
@@ -436,8 +436,8 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, serdes.TargetTable)
+			row := &Row{Schema: tt.schema}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -451,8 +451,8 @@ func TestRow_UnmarshalAstraRaw_InvalidJSON(t *testing.T) {
 		{Name: "id", Column: Column{Type: TypeInt}},
 	}
 
-	row := &Row{schema: schema}
-	err := serdes.Deserialize([]byte(`{invalid json}`), row, serdes.TargetTable)
+	row := &Row{Schema: schema}
+	err := serdes.Deserialize([]byte(`{invalid json}`), row, nil, serdes.TargetTable)
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
 	}
@@ -489,8 +489,8 @@ func TestRow_UnmarshalAstraRaw_MissingCollectionType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, serdes.TargetTable)
+			row := &Row{Schema: tt.schema}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
 			if err == nil {
 				t.Error("expected error for missing collection type, got nil")
 			}

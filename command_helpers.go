@@ -25,6 +25,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // #region InsertMany helpers
@@ -42,12 +43,12 @@ type insertManyOptions struct {
 // insertManyResponse is the response from insertMany command
 type insertManyResponse struct {
 	Status struct {
-		InsertedIds []any `json:"insertedIds"`
+		InsertedIds []json.RawMessage `json:"insertedIds"`
 	} `json:"status"`
 	Errors []DataAPIError `json:"errors,omitempty"`
 }
 
-func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts insertManyOptions) (*results.InsertManyResult, error) {
+func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	recordsVal := reflect.ValueOf(records)
 	if recordsVal.Kind() != reflect.Slice {
 		return nil, errors.New("records must be a slice")
@@ -64,17 +65,18 @@ func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts in
 	}
 
 	if *opts.Ordered {
-		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts)
+		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target)
 	}
-	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts)
+	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target)
 }
 
 // insertManyOrdered processes documents sequentially in chunks
-func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions) (*results.InsertManyResult, error) {
+func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
-	allInsertedIds := make([]any, 0, totalDocs)
+	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
 	var allWarnings results.Warnings
+	var count int
 
 	for i := 0; i < totalDocs; i += *opts.ChunkSize {
 		end := i + *opts.ChunkSize
@@ -84,28 +86,26 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkInser
 
 		slice := records.Slice(i, end).Interface()
 
-		result, warnings, err := runInsertMany(ctx, slice, mkCmd, opts)
-		allWarnings = append(allWarnings, warnings...)
+		batch, warnings, apiErrors, err := runInsertMany(ctx, slice, mkCmd, opts)
 
+		allWarnings = append(allWarnings, warnings...)
 		if err != nil {
 			return nil, err
 		}
 
-		allInsertedIds = append(allInsertedIds, result.Status.InsertedIds...)
+		batches = append(batches, batch)
+		count += len(batch.InsertedIds)
 
-		if result.Errors != nil {
-			return nil, &InsertManyError{
-				Errors:      result.Errors,
-				InsertedIds: allInsertedIds,
-			}
+		if len(apiErrors) > 0 {
+			return nil, &InsertManyError{} // TODO
 		}
 	}
 
-	return results.NewInsertManyResult(allInsertedIds, allWarnings), nil
+	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
 // insertManyUnordered processes documents concurrently using goroutines
-func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions) (*results.InsertManyResult, error) {
+func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -117,9 +117,10 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 	var wg sync.WaitGroup
 	var resultsMu sync.Mutex
 
-	insertedIds := make([]any, 0, totalDocs)
-	var apiErrors DataAPIErrors
+	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
+	var allApiErrors DataAPIErrors
 	var allWarnings results.Warnings
+	var count int
 
 	for w := 0; w < *opts.Concurrency; w++ {
 		wg.Add(1)
@@ -141,7 +142,7 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 					return
 				}
 
-				res, warn, err := runInsertMany(ctx, slice, mkCmd, opts)
+				batch, warnings, apiErrors, err := runInsertMany(ctx, slice, mkCmd, opts)
 
 				if err != nil {
 					if criticalErr.CompareAndSwap(nil, &err) {
@@ -151,9 +152,10 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 				}
 
 				resultsMu.Lock()
-				insertedIds = append(insertedIds, res.Status.InsertedIds...)
-				apiErrors = append(apiErrors, res.Errors...)
-				allWarnings = append(allWarnings, warn...)
+				batches = append(batches, batch)
+				allApiErrors = append(allApiErrors, apiErrors...)
+				allWarnings = append(allWarnings, warnings...)
+				count += len(batch.InsertedIds)
 				resultsMu.Unlock()
 			}
 		}()
@@ -165,17 +167,14 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 		return nil, *err
 	}
 
-	if len(apiErrors) > 0 {
-		return nil, &InsertManyError{
-			Errors:      apiErrors,
-			InsertedIds: insertedIds,
-		}
+	if len(allApiErrors) > 0 {
+		return nil, &InsertManyError{} // TODO
 	}
-	return results.NewInsertManyResult(insertedIds, allWarnings), nil
+	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
 // runInsertMany executes a single insertMany command for a slice of documents
-func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts *insertManyOptions) (*insertManyResponse, results.Warnings, error) {
+func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, DataAPIErrors, error) {
 	cmd := mkCmd("insertMany", map[string]any{
 		"documents": records,
 		"options": map[string]any{
@@ -183,19 +182,25 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts
 		},
 	}, opts.APIOptions)
 
-	b, warnings, execErr := cmd.Execute(ctx)
+	b, warnings, schema, execErr := cmd.Execute(ctx)
+
+	batch := results.InsertManyBatch{
+		InsertedIds: nil,
+		Schema:      schema,
+	}
 
 	var apiErr *DataAPIError
 	if execErr != nil && !errors.As(execErr, &apiErr) {
-		return nil, warnings, execErr
+		return batch, warnings, nil, execErr
 	}
 
 	var resp *insertManyResponse
 	if unmarshalErr := json.Unmarshal(b, &resp); unmarshalErr != nil {
-		return nil, warnings, unmarshalErr
+		return batch, warnings, nil, unmarshalErr
 	}
 
-	return resp, warnings, nil
+	batch.InsertedIds = resp.Status.InsertedIds
+	return batch, warnings, resp.Errors, nil
 }
 
 // #endregion

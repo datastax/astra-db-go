@@ -9,6 +9,7 @@ import (
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
+	"github.com/datastax/astra-db-go/table"
 )
 
 // FindCursor is a lazy iterable over the results of a find operation on a collection or table.
@@ -50,7 +51,7 @@ type FindCursor interface {
 	//    // process items
 	//  }
 	//
-	//  if warnings := cursor.Warnings(); len(warnings) > 0 {
+	//  if warnings := cursor.warnings(); len(warnings) > 0 {
 	//    // handle warnings
 	//  }
 	Warnings() results.Warnings
@@ -62,11 +63,12 @@ type FindPage struct {
 	NextPageState *string                  `json:"nextPageState"`
 	Results       []json.RawMessage        `json:"data"`
 	SortVector    *datatypes.DataAPIVector `json:"sortVector,omitempty"`
+	schema        *table.LazySchema
 }
 
 // findCursorFetcher is a function type that fetches a page of results from the server,
 // returning the raw response bytes, any warnings, and an error if the fetch failed.
-type findCursorFetcher = func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error)
+type findCursorFetcher = func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error)
 
 // findCursorSource holds the "abstract methods" that the findCursorImpl
 // relies on to interact with the underlying find operation (collection or table).
@@ -183,7 +185,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 	}
 
 	payload := c.fcs.mkPayload(pageState)
-	b, warnings, err := c.fetcher(ctx, payload, c.fcs.apiOptions())
+	b, warnings, schema, err := c.fetcher(ctx, payload, c.fcs.apiOptions())
 	if err != nil {
 		return false, err
 	}
@@ -191,7 +193,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 	c.warnings = append(c.warnings, warnings...)
 
 	var resp findResponse
-	if err := serdes.Deserialize(b, &resp, c.target); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, c.target); err != nil {
 		c.currentPage = nil
 		return false, err
 	}
@@ -200,6 +202,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 		NextPageState: resp.Data.NextPageState,
 		Results:       resp.Data.Documents,
 		SortVector:    resp.Data.SortVector,
+		schema:        schema,
 	}
 
 	return resp.Data.NextPageState != nil, nil
@@ -207,7 +210,7 @@ func (c *findCursorImpl) fetchNextPage(ctx context.Context) (bool, error) {
 
 // decode decodes a raw JSON message into the provided result pointer.
 func (c *findCursorImpl) decode(raw json.RawMessage, result any) error {
-	return serdes.Deserialize(raw, result, c.target)
+	return serdes.Deserialize(raw, result, c.currentPage.schema, c.target)
 }
 
 // rewind clears the current page and any warnings
