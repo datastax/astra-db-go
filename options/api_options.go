@@ -83,7 +83,7 @@ type SerdesOptions struct {
 }
 
 // WarningHandler is a callback function invoked for each warning in API responses.
-// Warnings indicate non-fatal conditions such as missing indexes or deprecated features.
+// warnings indicate non-fatal conditions such as missing indexes or deprecated features.
 type WarningHandler func(w results.Warning)
 
 // APIOption is a function that modifies APIOptions.
@@ -318,7 +318,7 @@ func WithDataAPIBackend(backend DataAPIBackend) APIOption {
 //		}),
 //	)
 //
-// Warnings can indicate missing indexes, deprecated features, or other
+// warnings can indicate missing indexes, deprecated features, or other
 // non-fatal conditions that don't prevent the operation from completing.
 func WithWarningHandler(handler WarningHandler) APIOption {
 	return func(o *APIOptions) {

@@ -31,7 +31,7 @@ type DataAPIDatabaseAdmin struct {
 // ListKeyspaces returns the keyspace names for this database via the Data API.
 func (d *DataAPIDatabaseAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
 	cmd := newDatabaseAdminCmd(d.db, "findKeyspaces", struct{}{})
-	body, _, err := cmd.Execute(ctx)
+	body, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 	}
 
 	cmd := newDatabaseAdminCmd(d.db, "createKeyspace", payload)
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -88,6 +88,6 @@ func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 		Name string `json:"name"`
 	}{Name: keyspace}
 	cmd := newDatabaseAdminCmd(d.db, "dropKeyspace", payload)
-	_, _, err := cmd.Execute(ctx)
+	_, _, _, err := cmd.Execute(ctx)
 	return err
 }

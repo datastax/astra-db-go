@@ -15,7 +15,6 @@
 package table
 
 import (
-	"encoding/json"
 	"net"
 	"reflect"
 	"strings"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 func TestGoTypeToColumn(t *testing.T) {
@@ -168,11 +168,15 @@ const singleColumnPKJSON = `{
         "metadata": {
           "type": "map",
           "keyType": "text",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "genres": {
           "type": "set",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "is_checked_out": {
           "type": "boolean"
@@ -256,11 +260,15 @@ const compositeKeyJSON = `{
         "metadata": {
           "type": "map",
           "keyType": "text",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "genres": {
           "type": "set",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "is_checked_out": {
           "type": "boolean"
@@ -347,11 +355,15 @@ const compoundKeyJSON = `{
         "metadata": {
           "type": "map",
           "keyType": "text",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "genres": {
           "type": "set",
-          "valueType": "text"
+          "valueType": { 
+			"type": "text"
+		  }
         },
         "is_checked_out": {
           "type": "boolean"
@@ -618,13 +630,12 @@ func TestInfer_JSONEquivalence_CompoundKey(t *testing.T) {
 		},
 		PrimaryKey: PrimaryKey{PartitionBy: []string{"event_date", "id"}},
 	}
-
-	inferredJSON, _ := json.Marshal(inferred)
-	manualJSON, _ := json.Marshal(manual)
+	inferredJSON, _ := serdes.Serialize(inferred, serdes.TargetTable)
+	manualJSON, _ := serdes.Serialize(manual, serdes.TargetTable)
 
 	var inferredMap, manualMap map[string]any
-	json.Unmarshal(inferredJSON, &inferredMap)
-	json.Unmarshal(manualJSON, &manualMap)
+	serdes.Deserialize(inferredJSON, &inferredMap, nil, serdes.TargetTable)
+	serdes.Deserialize(manualJSON, &manualMap, nil, serdes.TargetTable)
 
 	if !reflect.DeepEqual(inferredMap, manualMap) {
 		t.Errorf("JSON mismatch:\n  inferred: %s\n  manual:   %s", inferredJSON, manualJSON)

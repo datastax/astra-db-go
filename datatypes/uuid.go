@@ -57,12 +57,12 @@ var (
 	gregMu       sync.Mutex
 	gregLastTime int64   // last 60-bit Gregorian timestamp
 	gregClockSeq uint16  // 14-bit clock sequence
-	gregNodeID   [6]byte // random node ID (multicast bit set)
+	gregNodeID   [6]byte // random OrderedMapNode ID (multicast bit set)
 	gregInited   bool
 )
 
 // randomClockSeqAndNode generates a random 14-bit clock sequence and 6-byte
-// node ID (with multicast bit set). Used by the "At" UUID constructors.
+// OrderedMapNode ID (with multicast bit set). Used by the "At" UUID constructors.
 func randomClockSeqAndNode() (uint16, [6]byte) {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -89,7 +89,7 @@ func initGreg() {
 }
 
 // getGregTime returns a monotonically increasing 60-bit Gregorian timestamp,
-// a 14-bit clock sequence, and the random node ID.
+// a 14-bit clock sequence, and the random OrderedMapNode ID.
 func getGregTime() (timestamp int64, clockSeq uint16, node [6]byte) {
 	gregMu.Lock()
 	defer gregMu.Unlock()
@@ -117,7 +117,7 @@ func gregorianToTime(ticks uint64) time.Time {
 	return time.Unix(unixHundredNanos/10_000_000, (unixHundredNanos%10_000_000)*100)
 }
 
-// NewUUIDv1 generates a new v1 (Gregorian time + random node) UUID.
+// NewUUIDv1 generates a new v1 (Gregorian time + random OrderedMapNode) UUID.
 // The timestamp bits are scattered across the first 8 bytes per RFC 4122.
 func NewUUIDv1() UUID {
 	ts, clockSeq, node := getGregTime()
@@ -125,7 +125,7 @@ func NewUUIDv1() UUID {
 }
 
 // NewUUIDv1At generates a v1 UUID encoding the given timestamp.
-// Clock sequence and node ID are random. This does not participate in
+// Clock sequence and OrderedMapNode ID are random. This does not participate in
 // monotonic ordering with NewUUIDv1 calls.
 func NewUUIDv1At(t time.Time) UUID {
 	ts := t.UnixNano()/100 + gregorianUnixOffset
@@ -150,7 +150,7 @@ func buildV1(ts int64, clockSeq uint16, node [6]byte) UUID {
 	u.value[8] = 0x80 | byte(clockSeq>>8)&0x3F
 	// clock_seq_low: lower 8 bits
 	u.value[9] = byte(clockSeq)
-	// node: bytes 10–15
+	// OrderedMapNode: bytes 10–15
 	copy(u.value[10:], node[:])
 	return u
 }
@@ -163,7 +163,7 @@ func NewUUIDv6() UUID {
 }
 
 // NewUUIDv6At generates a v6 UUID encoding the given timestamp.
-// Clock sequence and node ID are random. This does not participate in
+// Clock sequence and OrderedMapNode ID are random. This does not participate in
 // monotonic ordering with NewUUIDv6 calls.
 func NewUUIDv6At(t time.Time) UUID {
 	ts := t.UnixNano()/100 + gregorianUnixOffset
@@ -188,7 +188,7 @@ func buildV6(ts int64, clockSeq uint16, node [6]byte) UUID {
 	u.value[8] = 0x80 | byte(clockSeq>>8)&0x3F
 	// clock_seq_low: lower 8 bits
 	u.value[9] = byte(clockSeq)
-	// node: bytes 10–15
+	// OrderedMapNode: bytes 10–15
 	copy(u.value[10:], node[:])
 	return u
 }
@@ -298,7 +298,8 @@ func NewUUIDv7At(t time.Time) UUID {
 // ParseUUID parses a UUID from its string representation.
 // It accepts the canonical form (with dashes) and the 32-hex-digit form (without dashes).
 func ParseUUID(s string) (UUID, error) {
-	// Strip dashes
+	// NOTE: while unlikely to ever happen, `s` should NOT be persisted in the UUID without updating any usages of
+	// ParseUUID to use `string()` instead of `unsafeString()` in the serdes code to avoid potential string modification
 	clean := make([]byte, 0, 32)
 	for i := 0; i < len(s); i++ {
 		if s[i] != '-' {
@@ -315,8 +316,24 @@ func ParseUUID(s string) (UUID, error) {
 	return u, nil
 }
 
+func MustParseUUID(s string) UUID {
+	u, err := ParseUUID(s)
+	if err != nil {
+		panic(fmt.Sprintf("datatypes: invalid UUID string: %q: %v", s, err))
+	}
+	return u
+}
+
 // String returns the canonical dash-separated UUID string.
 func (u UUID) String() string {
+	return string(u.AppendString(nil))
+}
+
+// AppendString appends the canonical dash-separated UUID string to dst and returns the extended slice.
+func (u UUID) AppendString(dst []byte) []byte {
+	// TODO decide if this is actually a good name
+	// This function is just used internally to avoid the unnecessary
+	// heap allocation when creating the string while JSON encoding
 	var buf [36]byte
 	hex.Encode(buf[0:8], u.value[0:4])
 	buf[8] = '-'
@@ -327,7 +344,7 @@ func (u UUID) String() string {
 	hex.Encode(buf[19:23], u.value[8:10])
 	buf[23] = '-'
 	hex.Encode(buf[24:36], u.value[10:16])
-	return string(buf[:])
+	return append(dst, buf[:]...)
 }
 
 // Version returns the UUID version number (e.g., 4 for v4, 7 for v7).

@@ -24,19 +24,19 @@
 // [Table Update Operators]: https://docs.datastax.com/en/astra-db-serverless/api-reference/update-operators-tables.html
 package update
 
-import "encoding/json"
+import (
+	"github.com/datastax/astra-db-go/serdes"
+)
 
 // CollectionUpdate is implemented by types that can be used as an update document
 // for collection operations. It is satisfied by [CollectionUpdateBuilder] and [U].
 type CollectionUpdate interface {
-	json.Marshaler
 	isCollectionUpdate()
 }
 
 // TableUpdate is implemented by types that can be used as an update document
 // for table operations. It is satisfied by [TableUpdateBuilder] and [U].
 type TableUpdate interface {
-	json.Marshaler
 	isTableUpdate()
 }
 
@@ -56,10 +56,6 @@ type U map[string]any
 func (U) isCollectionUpdate() {}
 func (U) isTableUpdate()      {}
 
-func (u U) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any(u))
-}
-
 // CollectionUpdateBuilder accumulates [Collection Update Operators] and serializes directly to JSON.
 //
 // Construct with Coll():
@@ -74,8 +70,8 @@ type CollectionUpdateBuilder struct {
 // dummy implementation to satisfy interface.
 func (*CollectionUpdateBuilder) isCollectionUpdate() {}
 
-func (u *CollectionUpdateBuilder) MarshalJSON() ([]byte, error) {
-	return json.Marshal(u.ops)
+func (u *CollectionUpdateBuilder) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	return u.ops, nil
 }
 
 // Coll returns an empty [CollectionUpdateBuilder]. Chain methods like [Set], [Unset], etc. to add operators and fields.
@@ -272,8 +268,8 @@ type TableUpdateBuilder struct {
 
 func (*TableUpdateBuilder) isTableUpdate() {}
 
-func (u *TableUpdateBuilder) MarshalJSON() ([]byte, error) {
-	return json.Marshal(u.ops)
+func (u *TableUpdateBuilder) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	return u.ops, nil
 }
 
 // Table returns an empty TableUpdateBuilder.

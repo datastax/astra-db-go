@@ -17,34 +17,41 @@ package results
 import (
 	"encoding/json"
 	"errors"
+
+	"github.com/datastax/astra-db-go/internal/guards"
+	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 )
 
 // InsertOneResult represents the result of an insertOne operation.
 type InsertOneResult struct {
-	insertedId any
+	insertedId json.RawMessage
+	schema     *table.LazySchema
 	warnings   Warnings
+	target     serdes.Target
 }
 
 // InsertManyResult represents the result of an insertMany operation.
 type InsertManyResult struct {
-	insertedIds []any
-	warnings    Warnings
+	batches  []InsertManyBatch
+	count    int
+	warnings Warnings
+	target   serdes.Target
+}
+
+type InsertManyBatch struct {
+	InsertedIds []json.RawMessage
+	Schema      *table.LazySchema
 }
 
 // NewInsertOneResult creates a new InsertOneResult.
-func NewInsertOneResult(insertedId any, warnings Warnings) *InsertOneResult {
-	return &InsertOneResult{
-		insertedId: insertedId,
-		warnings:   warnings,
-	}
+func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, schema *table.LazySchema, target serdes.Target) *InsertOneResult {
+	return &InsertOneResult{insertedId, schema, warnings, target}
 }
 
 // NewInsertManyResult creates a new InsertManyResult.
-func NewInsertManyResult(insertedIds []any, warnings Warnings) *InsertManyResult {
-	return &InsertManyResult{
-		insertedIds: insertedIds,
-		warnings:    warnings,
-	}
+func NewInsertManyResult(batches []InsertManyBatch, count int, warnings Warnings, target serdes.Target) *InsertManyResult {
+	return &InsertManyResult{batches, count, warnings, target}
 }
 
 // Warnings returns any warnings from the API response.
@@ -59,7 +66,7 @@ func (r *InsertManyResult) Warnings() Warnings {
 
 // InsertedCount returns the number of documents successfully inserted.
 func (r *InsertManyResult) InsertedCount() int {
-	return len(r.insertedIds)
+	return r.count
 }
 
 // RawID returns the raw inserted ID as any.
@@ -67,43 +74,65 @@ func (r *InsertOneResult) RawID() (any, error) {
 	if r.insertedId == nil {
 		return nil, errors.New("no inserted ID available")
 	}
-	return r.insertedId, nil
+	var id any
+	if err := serdes.Deserialize(r.insertedId, &id, r.schema, r.target); err != nil {
+		return nil, err
+	}
+	return id, nil
 }
 
 // DecodeID unmarshalls the inserted ID into v.
 // v should be a pointer to the appropriate ID type (string, int, ObjectId, UUID, etc.)
 func (r *InsertOneResult) DecodeID(v any) error {
-	rawId, err := r.RawID()
-	if err != nil {
-		return err
+	if r.insertedId == nil {
+		return errors.New("no inserted ID available")
 	}
-
-	b, err := json.Marshal(rawId)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(b, v)
+	return serdes.Deserialize(r.insertedId, v, r.schema, r.target)
 }
 
 // RawIDs returns the raw inserted IDs as a slice of any.
 func (r *InsertManyResult) RawIDs() ([]any, error) {
-	if r.insertedIds == nil {
-		return nil, errors.New("no inserted IDs available")
+	ids := make([]any, 0, r.count)
+	for _, batch := range r.batches {
+		for _, rawId := range batch.InsertedIds {
+			var id any
+			if err := serdes.Deserialize(rawId, &id, batch.Schema, r.target); err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
 	}
-	return r.insertedIds, nil
+	return ids, nil
 }
 
 // DecodeIDs unmarshalls the inserted IDs into v.
 // v should be a pointer to a slice of the appropriate ID type.
 func (r *InsertManyResult) DecodeIDs(v any) error {
-	rawIds, err := r.RawIDs()
+	resultsPtr, sliceVal, err := guards.RequireSlicePtr(v) // TODO optimize
 	if err != nil {
 		return err
 	}
 
-	b, err := json.Marshal(rawIds)
-	if err != nil {
-		return err
+	defer func() {
+		resultsPtr.Elem().Set(sliceVal)
+	}()
+
+	if sliceVal.Cap() < r.count {
+		sliceVal.Grow(r.count - sliceVal.Len())
 	}
-	return json.Unmarshal(b, v)
+	sliceVal.SetLen(r.count)
+
+	idx := 0
+	for _, batch := range r.batches {
+		for _, rawId := range batch.InsertedIds {
+			targetAddr := sliceVal.Index(idx).Addr().Interface()
+			if err := serdes.Deserialize(rawId, targetAddr, batch.Schema, r.target); err != nil {
+				sliceVal.SetLen(idx)
+				return err
+			}
+			idx++
+		}
+	}
+
+	return nil
 }

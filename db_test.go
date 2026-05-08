@@ -15,12 +15,13 @@
 package astradb
 
 import (
-	"encoding/json"
 	"testing"
 
+	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 func TestCreateCollectionCommand(t *testing.T) {
@@ -29,9 +30,9 @@ func TestCreateCollectionCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createCollectionCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		// Should not have "options" key when no options provided
 		expected := `{"createCollection":{"name":"my_collection"}}`
@@ -49,9 +50,9 @@ func TestCreateCollectionCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createCollectionCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		expected := `{"createCollection":{"name":"my_collection","options":{"vector":{"dimension":1024,"metric":"cosine"}}}}`
 		if string(cmdBytes) != expected {
@@ -74,9 +75,9 @@ func TestCreateCollectionCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createCollectionCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		// Last-write-wins: dimension=1024, metric=cosine
 		expected := `{"createCollection":{"name":"my_collection","options":{"vector":{"dimension":1024,"metric":"cosine"}}}}`
@@ -95,9 +96,9 @@ func TestCreateCollectionCommand(t *testing.T) {
 		if err != nil {
 			t.Fatalf("createCollectionCommand: %v", err)
 		}
-		cmdBytes, err := json.Marshal(cmd)
+		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
 		if err != nil {
-			t.Fatalf("json.Marshal: %v", err)
+			t.Fatalf("serdes.Serialize: %v", err)
 		}
 		expected := `{"createCollection":{"name":"my_collection","options":{"defaultId":{"type":"uuidv7"}}}}`
 		if string(cmdBytes) != expected {
@@ -119,7 +120,7 @@ const listCollectionsExplainFalseResp = "{\"status\":{\"collections\":[\"GoTest\
 // be properly json.Unmarshal'd into the internal listCollectionsResponse struct.
 func TestListCollectionsUnmarshal_ExplainTrue(t *testing.T) {
 	var resp listCollectionsResponse[[]results.CollectionDescriptor]
-	err := json.Unmarshal([]byte(listCollectionsExplainTrueResp), &resp)
+	err := serdes.Deserialize([]byte(listCollectionsExplainTrueResp), &resp, nil, serdes.TargetNone)
 	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestListCollectionsUnmarshal_ExplainTrue(t *testing.T) {
 
 func TestListCollectionsUnmarshal_ExplainFalse(t *testing.T) {
 	var resp listCollectionsResponse[[]string]
-	err := json.Unmarshal([]byte(listCollectionsExplainFalseResp), &resp)
+	err := serdes.Deserialize([]byte(listCollectionsExplainFalseResp), &resp, nil, serdes.TargetNone)
 	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
@@ -153,19 +154,19 @@ func TestListCollectionsUnmarshal_ExplainFalse(t *testing.T) {
 
 // Example json from docs:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/list-table-metadata.html#list-table-metadata
-const exampleListTablesExplainPayloadJSON = `{
+var exampleListTablesExplainPayloadJSON = testutils.CleanString(`{
   "listTables": {
     "options": {
       "explain": true
     }
   }
-}`
+}`)
 
 // TestListTablesCommandMarshal verifies that the listTables command with explain=true
 // marshals to the JSON shown in the docs.
 func TestListTablesCommandMarshal(t *testing.T) {
 	cmd := listTablesCommand(getTestDb(t), true, nil)
-	cmdBytes, err := json.MarshalIndent(cmd, "", "  ")
+	cmdBytes, err := serdes.Serialize(cmd, serdes.TargetCollection)
 	if err != nil {
 		t.Fatalf("json.MarshalIndent: %v", err)
 	}
@@ -220,7 +221,7 @@ const listTablesExplainTrueResp = `{
 
 func TestListTablesResponseUnmarshal_ExplainTrue(t *testing.T) {
 	var resp listTablesResponse[[]results.TableDescriptor]
-	if err := json.Unmarshal([]byte(listTablesExplainTrueResp), &resp); err != nil {
+	if err := serdes.Deserialize([]byte(listTablesExplainTrueResp), &resp, nil, serdes.TargetNone); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if len(resp.Status.Tables) != 1 {
@@ -254,7 +255,7 @@ const listTablesExplainFalseResp = `{"status":{"tables":["quickstart_table","ano
 
 func TestListTablesResponseUnmarshal_ExplainFalse(t *testing.T) {
 	var resp listTablesResponse[[]string]
-	if err := json.Unmarshal([]byte(listTablesExplainFalseResp), &resp); err != nil {
+	if err := serdes.Deserialize([]byte(listTablesExplainFalseResp), &resp, nil, serdes.TargetNone); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if len(resp.Status.Tables) != 2 {
@@ -275,7 +276,7 @@ const listTablesBrokenResp = "{\"status\":{\"tables\":[{\"name\":\"go_test_books
 
 func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
 	var resp listTablesResponse[[]results.TableDescriptor]
-	if err := json.Unmarshal([]byte(listTablesBrokenResp), &resp); err != nil {
+	if err := serdes.Deserialize([]byte(listTablesBrokenResp), &resp, nil, serdes.TargetNone); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if len(resp.Status.Tables) != 2 {

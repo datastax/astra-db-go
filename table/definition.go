@@ -16,12 +16,11 @@
 package table
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
+	"github.com/datastax/astra-db-go/datatypes"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
-// Definition represents the full schema for a table, including column names,
+// Definition represents the full Schema for a table, including column names,
 // column data types, and the primary key.
 //
 // Example:
@@ -72,66 +71,33 @@ func (c Columns) Get(name string) (Column, bool) {
 	return Column{}, false
 }
 
-// MarshalJSON emits the columns as a JSON object in insertion order.
-func (c Columns) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	for i, nc := range c {
-		if i > 0 {
-			buf.WriteByte(',')
-		}
-		k, err := json.Marshal(nc.Name)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(k)
-		buf.WriteByte(':')
-		v, err := json.Marshal(nc.Column)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(v)
+func (c Columns) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	rep := datatypes.NewOrderedMapWithCapacity[string, Column](len(c))
+	for _, nc := range c {
+		rep.Set(nc.Name, nc.Column)
 	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
+	return rep, nil
 }
 
-// UnmarshalJSON parses a JSON object into Columns, preserving key order.
-func (c *Columns) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	tok, err := dec.Token()
-	if err != nil {
+func (c *Columns) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	var rep datatypes.OrderedMap[string, Column]
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
 		return err
 	}
-	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
-		return fmt.Errorf("columns: expected JSON object, got %v", tok)
+
+	*c = nil
+	for name, col := range rep.All() {
+		*c = append(*c, NamedColumn{name, col})
 	}
-	var out Columns
-	for dec.More() {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		name, ok := tok.(string)
-		if !ok {
-			return fmt.Errorf("columns: expected column name, got %v", tok)
-		}
-		var col Column
-		if err := dec.Decode(&col); err != nil {
-			return err
-		}
-		out = append(out, NamedColumn{Name: name, Column: col})
-	}
-	if _, err := dec.Token(); err != nil {
-		return err
-	}
-	*c = out
+
 	return nil
 }
 
 // Column represents a column's type definition.
 // It can be a simple scalar type, a collection type (set, list, map),
 // a vector type, or a user-defined type.
+//
+//goland:noinspection GoVetStructTag
 type Column struct {
 	// Type is the column type (text, int, float, boolean, uuid, date, vector, set, list, map, userDefined, etc.)
 	Type string `json:"type"`
@@ -150,51 +116,16 @@ type Column struct {
 
 	// UDTName is used for userDefined columns to specify the UDT name
 	UDTName *string `json:"udtName,omitempty"`
+
+	definition *UDTDefinition `json:",omitempty,allowunexported"` // TODO should this just be exported
 }
 
-// isSimple reports whether c is just a type name with no modifiers. The Data
-// API accepts a bare string for a simple ValueType inside a set/list/map, and
-// the docs examples use that shorthand.
-func (c Column) isSimple() bool {
-	return c.Dimension == nil && c.Service == nil &&
-		c.KeyType == nil && c.ValueType == nil && c.UDTName == nil
+func (c *Column) UDTDefinition() *UDTDefinition {
+	return c.definition
 }
 
-// MarshalJSON emits Column as an object, collapsing a simple inner ValueType
-// to a bare string to match the Data API wire format shown in the docs.
-func (c Column) MarshalJSON() ([]byte, error) {
-	out := struct {
-		Type      string          `json:"type"`
-		Dimension *int            `json:"dimension,omitempty"`
-		Service   *VectorService  `json:"service,omitempty"`
-		KeyType   *string         `json:"keyType,omitempty"`
-		ValueType json.RawMessage `json:"valueType,omitempty"`
-		UDTName   *string         `json:"udtName,omitempty"`
-	}{
-		Type:      c.Type,
-		Dimension: c.Dimension,
-		Service:   c.Service,
-		KeyType:   c.KeyType,
-		UDTName:   c.UDTName,
-	}
-
-	if c.ValueType != nil {
-		if c.ValueType.isSimple() {
-			s, err := json.Marshal(c.ValueType.Type)
-			if err != nil {
-				return nil, err
-			}
-			out.ValueType = s
-		} else {
-			b, err := json.Marshal(*c.ValueType)
-			if err != nil {
-				return nil, err
-			}
-			out.ValueType = b
-		}
-	}
-
-	return json.Marshal(out)
+type UDTDefinition struct {
+	Fields Columns `json:"fields"`
 }
 
 // VectorService defines the embedding provider configuration for vectorize
@@ -253,83 +184,42 @@ func (s PartitionSort) Get(name string) (int, bool) {
 	return 0, false
 }
 
-// MarshalJSON emits PartitionSort as a JSON object in declared order.
-func (s PartitionSort) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	for i, ns := range s {
-		if i > 0 {
-			buf.WriteByte(',')
-		}
-		k, err := json.Marshal(ns.Name)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(k)
-		buf.WriteByte(':')
-		v, err := json.Marshal(ns.Order)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(v)
+func (s PartitionSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	rep := datatypes.NewOrderedMapWithCapacity[string, int](len(s))
+	for _, ns := range s {
+		rep.Set(ns.Name, ns.Order)
 	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
+	return rep, nil
 }
 
-// UnmarshalJSON parses a JSON object into PartitionSort, preserving key order.
-func (s *PartitionSort) UnmarshalJSON(data []byte) error {
-	dec := json.NewDecoder(bytes.NewReader(data))
-	tok, err := dec.Token()
-	if err != nil {
+func (s *PartitionSort) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	var rep datatypes.OrderedMap[string, int]
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
 		return err
 	}
-	if delim, ok := tok.(json.Delim); !ok || delim != '{' {
-		return fmt.Errorf("partitionSort: expected JSON object, got %v", tok)
+
+	*s = nil
+	for name, order := range rep.All() {
+		*s = append(*s, NamedSort{Name: name, Order: order})
 	}
-	var out PartitionSort
-	for dec.More() {
-		tok, err := dec.Token()
-		if err != nil {
-			return err
-		}
-		name, ok := tok.(string)
-		if !ok {
-			return fmt.Errorf("partitionSort: expected column name, got %v", tok)
-		}
-		var order int
-		if err := dec.Decode(&order); err != nil {
-			return err
-		}
-		out = append(out, NamedSort{Name: name, Order: order})
-	}
-	if _, err := dec.Token(); err != nil {
-		return err
-	}
-	*s = out
 	return nil
 }
 
-// MarshalJSON implements custom JSON marshaling for PrimaryKey.
-// If only PartitionBy has a single column and PartitionSort is empty,
-// it marshals as a simple string for convenience.
-func (p PrimaryKey) MarshalJSON() ([]byte, error) {
+func (p PrimaryKey) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	// If single partition key with no clustering columns, marshal as string
 	if len(p.PartitionBy) == 1 && len(p.PartitionSort) == 0 {
-		return json.Marshal(p.PartitionBy[0])
+		return serdes.SerializeInto(p.PartitionBy[0], ctx.Target, dst) // TODO is there really a point in special-casing this here
 	}
 
 	// Otherwise marshal as object
 	type pkAlias PrimaryKey
-	return json.Marshal(pkAlias(p))
+	return serdes.SerializeInto(pkAlias(p), ctx.Target, dst)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for PrimaryKey.
-// It handles both string format (single column) and object format (compound key).
-func (p *PrimaryKey) UnmarshalJSON(data []byte) error {
+func (p *PrimaryKey) UnmarshalAstraRaw(ctx serdes.DecodeCtx, data []byte) error {
 	// Try to unmarshal as string first
 	var singleColumn string
-	if err := json.Unmarshal(data, &singleColumn); err == nil {
+	if err := serdes.Deserialize(data, &singleColumn, nil, ctx.Target); err == nil {
 		p.PartitionBy = []string{singleColumn}
 		p.PartitionSort = nil
 		return nil
@@ -338,30 +228,25 @@ func (p *PrimaryKey) UnmarshalJSON(data []byte) error {
 	// Otherwise unmarshal as object
 	type pkAlias PrimaryKey
 	var pk pkAlias
-	if err := json.Unmarshal(data, &pk); err != nil {
+	if err := serdes.Deserialize(data, &pk, nil, ctx.Target); err != nil {
 		return err
 	}
 	*p = PrimaryKey(pk)
 	return nil
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for Column.
-// It accepts either a JSON object (e.g. {"type":"text"}) or a plain
-// string (e.g. "text"). The string form appears in real-world API
-// responses for nested valueType fields on list/set/map columns.
-// For example, this shows the simple string form:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/create-table.html#create-a-table-with-a-compound-primary-key
-// And this shows the nested JSON object form:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/create-table.html#example-create-table-udt
-func (c *Column) UnmarshalJSON(data []byte) error {
-	var s string
-	if err := json.Unmarshal(data, &s); err == nil {
-		*c = Column{Type: s}
+func (c *Column) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	// Try to unmarshal as a string first (e.g. "text")
+	var typ string
+	if err := serdes.Deserialize(value, &typ, nil, ctx.Target); err == nil {
+		*c = Column{Type: typ}
 		return nil
 	}
+
+	// Otherwise unmarshal as a full Column object (e.g. {"type":"text"})
 	type colAlias Column
 	var col colAlias
-	if err := json.Unmarshal(data, &col); err != nil {
+	if err := serdes.Deserialize(value, &col, nil, ctx.Target); err != nil {
 		return err
 	}
 	*c = Column(col)

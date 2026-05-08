@@ -35,3 +35,6 @@ logs/
 *.ipr
 *.iws
 .idea/
+
+# rapid
+testdata/

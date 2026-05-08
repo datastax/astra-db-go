@@ -26,6 +26,8 @@ import (
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -40,6 +42,7 @@ type command struct {
 	databaseAdmin   bool                // When true, URL skips keyspace and resource segments
 	resourceOptions *options.APIOptions // Options from the collection/table level
 	commandOptions  *options.APIOptions // Options for this specific command
+	target          serdes.Target
 }
 
 // newCmd creates a new command from the given DB
@@ -63,17 +66,17 @@ func newDatabaseAdminCmd(db *Db, name string, payload any) command {
 }
 
 // newCmdWithOptions creates a new command with resource and command-level options
-func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, cmdOpts ...options.APIOption) command {
+func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts ...options.APIOption) command {
 	var cmdOptions *options.APIOptions
 	if len(cmdOpts) > 0 {
 		cmdOptions = options.NewAPIOptions(cmdOpts...)
 	}
 
-	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, cmdOptions)
+	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, target, cmdOptions)
 }
 
 // newCmdWithMergedOptions creates a new command with resource and merged command-level options
-func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, cmdOpts *options.APIOptions) command {
+func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts *options.APIOptions) command {
 	return command{
 		db:              d,
 		name:            name,
@@ -81,6 +84,7 @@ func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resource
 		payload:         payload,
 		resourceOptions: resourceOpts,
 		commandOptions:  cmdOpts,
+		target:          target,
 	}
 }
 
@@ -146,39 +150,39 @@ func (c *command) url() (string, error) {
 // But if we don't have a command name, we just marshal the payload directly.
 //
 // [.NET client]: https://github.com/datastax/astra-db-csharp/blob/699ac093494b1a5adbb65c65be57af5b48eb8cc2/src/DataStax.AstraDB.DataApi/Core/Commands/Command.cs#L92
-func (c command) MarshalJSON() ([]byte, error) {
+func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
 		data[c.name] = c.payload
-		return json.Marshal(data)
+		return serdes.SerializeInto(data, c.target, dst)
 	}
-	return json.Marshal(c.payload)
+	return serdes.SerializeInto(c.payload, c.target, dst)
 }
 
 // Execute a command against the astra DB web API.
 // Returns the response body, any warnings from the API, and any error that occurred.
-func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error) {
+func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, *table.LazySchema, error) {
 	var body []byte
 	if c.db == nil {
-		return body, nil, ErrCmdNilDb
+		return body, nil, nil, ErrCmdNilDb
 	}
 
 	// Resolve all options for this command
 	opts := c.resolveOptions()
 
-	b, err := json.Marshal(c)
+	b, err := serdes.Serialize(c, c.target)
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 	cmdURL, err := c.url()
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 	slog.Debug("Running cmd.Execute", "req.url", cmdURL, "req.body", string(b))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", cmdURL, bytes.NewReader(b))
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 
 	// Set authentication token from resolved options
@@ -197,47 +201,54 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, error)
 	httpClient := opts.GetHTTPClient()
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err = io.ReadAll(resp.Body)
 	slog.Debug("cmd.Execute response", "resp.StatusCode", resp.StatusCode, "resp.Status", resp.Status, "resp.body", string(body))
 	if err != nil {
-		return body, nil, err
+		return body, nil, nil, err
 	}
-	return c.ExtractErrors(resp.StatusCode, body, opts)
+	return c.extractErrors(resp.StatusCode, body, opts)
 }
 
 // apiResponse captures both errors and warnings from API responses
 type apiResponse struct {
 	Errors DataAPIErrors `json:"errors"`
 	Status struct {
-		Warnings results.Warnings `json:"warnings"`
+		Warnings         results.Warnings `json:"warnings"`
+		PrimaryKeySchema json.RawMessage  `json:"primaryKeySchema"`
+		ProjectionSchema json.RawMessage  `json:"projectionSchema"`
 	} `json:"status"`
 }
 
-// ExtractErrors will extract errors and warnings from body. For example, it will
+type apiStatus struct {
+	warnings results.Warnings
+	schema   json.RawMessage
+}
+
+// extractErrors will extract errors and warnings from body. For example, it will
 // turn this response into an error:
 //
 //	{"message":"Your database is resuming from hibernation and will be available in the next few minutes."}
 //
 // Will call WarningHandler if appropriate.
-func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, error) {
+func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr DataAPIError
-		json.Unmarshal(body, &transportErr)
+		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone)
 		if len(transportErr.Message) > 0 {
-			return body, nil, errors.New(transportErr.Message)
+			return body, nil, nil, errors.New(transportErr.Message)
 		}
 		// We can't find a message; just return the body
-		return body, nil, errors.New(string(body))
+		return body, nil, nil, errors.New(string(body))
 	}
 
 	// Parse the full response to get both errors and warnings
 	var resp apiResponse
-	json.Unmarshal(body, &resp)
+	serdes.Deserialize(body, &resp, nil, c.target)
 
 	// Invoke warning handler for each warning if configured
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {
@@ -246,12 +257,28 @@ func (c *command) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 		}
 	}
 
-	// Return error if present
-	if len(resp.Errors) > 0 {
-		return body, resp.Status.Warnings, &resp.Errors
+	status := apiStatus{
+		warnings: resp.Status.Warnings,
+		schema:   resp.Status.PrimaryKeySchema,
+	}
+	if resp.Status.ProjectionSchema != nil {
+		status.schema = resp.Status.ProjectionSchema
 	}
 
-	return body, resp.Status.Warnings, nil
+	var schema *table.LazySchema
+	if resp.Status.PrimaryKeySchema != nil {
+		schema = &table.LazySchema{AsRaw: status.schema}
+	}
+	if resp.Status.ProjectionSchema != nil {
+		schema = &table.LazySchema{AsRaw: status.schema}
+	}
+
+	// Return error if present
+	if len(resp.Errors) > 0 {
+		return body, resp.Status.Warnings, schema, &resp.Errors
+	}
+
+	return body, resp.Status.Warnings, schema, nil
 }
 
 // CollectionUpdate is implemented by [update.CollectionUpdateBuilder] and [update.U].

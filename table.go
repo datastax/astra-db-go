@@ -24,6 +24,7 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
@@ -73,13 +74,13 @@ func (t *Table) Database() *Db {
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
 func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return newCmdWithOptions(t.db, t.name, name, payload, t.options, cmdOpts...)
+	return newCmdWithOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts...)
 }
 
 // newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
 // used by builder-pattern methods where API options flow through the struct.
 func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, cmdOpts)
+	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts)
 }
 
 // createTablePayload is the payload for the createTable command
@@ -167,8 +168,8 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 
 	// Execute the command
 	// Response is in format: {"status":{"ok":1}}
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	_, _, _, err = cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -234,7 +235,7 @@ type alterTablePayload struct {
 //	    DropVectorize: &table.DropVectorize{Columns: []string{"summary_vec"}},
 //	})
 //
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (t *Table) AlterTable(ctx context.Context, op table.AlterOperation, opts ...options.AlterTableOption) error {
 	if err := validateAlterOperation(op); err != nil {
 		return err
@@ -248,7 +249,7 @@ func (t *Table) AlterTable(ctx context.Context, op table.AlterOperation, opts ..
 	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
 		Operation: op,
 	}, merged.APIOptions)
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -289,10 +290,10 @@ type dropTablePayload struct {
 //
 //	err := db.DropTable(ctx, "my_table")
 //
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) DropTable(ctx context.Context, name string) error {
 	cmd := d.newCmd("dropTable", dropTablePayload{Name: name})
-	_, _, err := cmd.Execute(ctx)
+	_, _, _, err := cmd.Execute(ctx)
 	return err
 }
 
@@ -307,10 +308,10 @@ type dropIndexPayload struct {
 //
 //	err := db.DropTableIndex(ctx, "rating_idx")
 //
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) DropTableIndex(ctx context.Context, name string) error {
 	cmd := dropTableIndexCommand(d, name)
-	_, _, err := cmd.Execute(ctx)
+	_, _, _, err := cmd.Execute(ctx)
 	return err
 }
 
@@ -389,7 +390,7 @@ type tableFindResponse struct {
 func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.TableFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
 
-	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
 		cmd := t.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
@@ -410,13 +411,13 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 	case filter.F, filter.Filter, map[string]any, nil:
 		// Allowed filter types
 	default:
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid filter type: %Raw", f))
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, fmt.Errorf("invalid filter type: %Raw", f))
 	}
 
 	// Build the find options
 	findOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid options: %w", err))
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, fmt.Errorf("invalid options: %w", err))
 	}
 
 	// Build the payload
@@ -434,8 +435,8 @@ func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOpt
 	}
 
 	cmd := t.newCmdWithMergedOptions("findOne", payload, findOpts.APIOptions)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, err)
+	b, warnings, schema, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, schema, serdes.TargetTable, err)
 }
 
 // tableInsertOnePayload is the payload for insertOne on tables
@@ -504,12 +505,12 @@ func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableIns
 	cmd := t.newCmdWithMergedOptions("insertOne", tableInsertOnePayload{
 		Document: row,
 	}, merged.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	b, _, err := cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	b, _, schema, err := cmd.Execute(ctx)
 	if err != nil {
 		return resp, err
 	}
-	err = json.Unmarshal(b, &resp)
+	err = serdes.Deserialize(b, &resp, schema, serdes.TargetTable)
 	return resp, err
 }
 
@@ -543,12 +544,12 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	cmd := t.newCmdWithMergedOptions("insertMany", tableInsertManyPayload{
 		Documents: rows,
 	}, merged.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	b, _, err := cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	b, _, schema, err := cmd.Execute(ctx)
 	if err != nil {
 		return resp, err
 	}
-	err = json.Unmarshal(b, &resp)
+	err = serdes.Deserialize(b, &resp, schema, serdes.TargetTable)
 	return resp, err
 }
 
@@ -586,8 +587,8 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 		Filter: f,
 		Update: u,
 	}, updateOpts.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -617,8 +618,8 @@ func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.Ta
 	cmd := t.newCmdWithMergedOptions("deleteOne", tableDeleteOnePayload{
 		Filter: f,
 	}, deleteOpts.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -655,7 +656,7 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 	cmd := t.newCmdWithMergedOptions("deleteMany", tableDeleteManyPayload{
 		Filter: f,
 	}, deleteOpts.APIOptions)
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -740,8 +741,8 @@ func (t *Table) CreateIndex(ctx context.Context, name string, column any, opts .
 	if err != nil {
 		return err
 	}
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -842,8 +843,8 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 	if err != nil {
 		return err
 	}
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -903,13 +904,13 @@ type IndexDescriptor struct {
 	IndexType string `json:"indexType,omitempty"`
 }
 
-// UnmarshalJSON implements custom unmarshaling for IndexDescriptor.
+// UnmarshalAstraRaw implements custom unmarshaling for IndexDescriptor.
 // The API returns either a string (name only) or an object (full metadata)
 // depending on the explain option.
-func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
+func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	// Try to unmarshal as a string first (names only response)
 	var name string
-	if err := json.Unmarshal(data, &name); err == nil {
+	if err := serdes.Deserialize(value, &name, nil, ctx.Target); err == nil {
 		d.Name = name
 		return nil
 	}
@@ -917,7 +918,7 @@ func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
 	// Otherwise unmarshal as an object (explain=true response)
 	type indexDescriptorAlias IndexDescriptor
 	var alias indexDescriptorAlias
-	if err := json.Unmarshal(data, &alias); err != nil {
+	if err := serdes.Deserialize(value, &alias, nil, ctx.Target); err != nil {
 		return err
 	}
 	*d = IndexDescriptor(alias)
@@ -987,13 +988,13 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 	if err != nil {
 		return nil, err
 	}
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp listIndexesResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable); err != nil {
 		return nil, err
 	}
 

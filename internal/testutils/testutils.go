@@ -17,9 +17,11 @@
 package testutils
 
 import (
-	"encoding/json"
+	"fmt"
 	"regexp"
 	"testing"
+
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 var whitespace = regexp.MustCompile(`\s+`)
@@ -54,7 +56,8 @@ func cleanString(s string) string {
 func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 	t.Helper() // marks this as a helper so failures point to the call site
 	for _, arg := range args {
-		got, err := json.Marshal(arg)
+		got, err := serdes.Serialize(arg, serdes.TargetNone)
+
 		if err != nil {
 			t.Fatalf("failed to marshal argument: %v", err)
 		}
@@ -73,14 +76,14 @@ func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 //	tests := []testutils.JSONTestCase{{
 //		Name:     "ascending",
 //		Expected: `{"rating":1}`,
-//		Args: []any{
+//		SerArgs: []any{
 //			sort.Asc("rating"),  // fluent
 //			sort.S{"rating": 1}, // raw map
 //		},
 //	}, {
 //		Name:     "descending",
 //		Expected: `{"title":-1}`,
-//		Args: []any{
+//		SerArgs: []any{
 //			sort.Desc("title"),  // fluent
 //			sort.S{"title": -1}, // raw map
 //		},
@@ -95,9 +98,37 @@ type JSONTestCase struct {
 
 // RunJSONTestCases runs a series of JSON equality test cases defined by JSONTestCase.
 func RunJSONTestCases(t *testing.T, cases []JSONTestCase) {
+	t.Helper()
 	for _, tc := range cases {
 		t.Run(tc.Name, func(t *testing.T) {
 			AssertJSONEqual(t, tc.Expected, tc.Args...)
 		})
 	}
+}
+
+type HasFatal interface {
+	Helper()
+	Fatalf(format string, args ...any)
+}
+
+func FailIf(t HasFatal, pred bool, msg string, args ...any) {
+	t.Helper()
+	if pred {
+		t.Fatalf(msg, args...)
+	}
+}
+
+func FailIfErr(t HasFatal, err error, msg string, args ...any) {
+	t.Helper()
+	if err != nil {
+		t.Fatalf("%s: %v", fmt.Sprintf(msg, args...), err)
+	}
+}
+
+// CleanString removes all whitespace characters from a string.
+func CleanString(s string) string {
+	// Use a regular expression to replace all whitespace characters (including spaces, tabs, newlines)
+	// with an empty string.
+	re := regexp.MustCompile(`\s+`)
+	return re.ReplaceAllString(s, "")
 }

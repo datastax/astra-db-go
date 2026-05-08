@@ -433,7 +433,7 @@ func (c *abstractCursorImpl[Raw]) decodeBuffered(sliceValue *reflect.Value, star
 	sliceValue.SetLen(end)
 
 	for i, raw := range toTake {
-		targetAddr := sliceValue.Index(i + start).Addr().Interface()
+		targetAddr := sliceValue.Index(i + start).Addr().Interface() // TODO optimize
 		if err := c.acs.decode(raw, targetAddr); err != nil {
 			end = start + i
 			sliceValue.SetLen(end)

@@ -3,6 +3,7 @@ package cursors
 import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // CollectionFindCursor is a cursor for iterating over documents returned by a collection find operation.
@@ -44,7 +45,7 @@ func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fe
 		filter:  filter,
 		options: opts,
 	}
-	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, opts.InitialPageState, err)
+	cursor.findCursorImpl = newFindCursorImpl(cursor, fetcher, serdes.TargetCollection, opts.InitialPageState, err)
 	return cursor
 }
 
