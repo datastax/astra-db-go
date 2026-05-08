@@ -102,7 +102,7 @@ func TestCache_HeavyContention_Correctness(t *testing.T) {
 
 				// 3. Round-trip: Encode
 				// Using empty context/target as per your signatures
-				buf, err := c.encode(encodeCtx{}, nil, ptrIn)
+				buf, err := c.encode(EncodeCtx{}, nil, ptrIn)
 				if err != nil {
 					t.Errorf("worker %d: encode failed: %v", workerID, err)
 					continue
@@ -111,7 +111,7 @@ func TestCache_HeavyContention_Correctness(t *testing.T) {
 				// 4. Round-trip: Decode
 				valOut := reflect.New(typ).Elem()
 				ptrOut := unsafe.Pointer(valOut.UnsafeAddr())
-				_, err = c.decode(decodeCtx{}, buf, ptrOut)
+				_, err = c.decode(DecodeCtx{}, buf, ptrOut)
 				if err != nil {
 					t.Errorf("worker %d: decode failed: %v", workerID, err)
 					continue

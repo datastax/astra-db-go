@@ -71,7 +71,7 @@ func (c Columns) Get(name string) (Column, bool) {
 	return Column{}, false
 }
 
-func (c Columns) MarshalAstra(_ serdes.Target) (any, error) {
+func (c Columns) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	rep := datatypes.NewOrderedMapWithCapacity[string, Column](len(c))
 	for _, nc := range c {
 		rep.Set(nc.Name, nc.Column)
@@ -79,9 +79,9 @@ func (c Columns) MarshalAstra(_ serdes.Target) (any, error) {
 	return rep, nil
 }
 
-func (c *Columns) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
+func (c *Columns) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	var rep datatypes.OrderedMap[string, Column]
-	if err := serdes.Deserialize(value, &rep, nil, target); err != nil {
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
 		return err
 	}
 
@@ -184,7 +184,7 @@ func (s PartitionSort) Get(name string) (int, bool) {
 	return 0, false
 }
 
-func (s PartitionSort) MarshalAstra(_ serdes.Target) (any, error) {
+func (s PartitionSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	rep := datatypes.NewOrderedMapWithCapacity[string, int](len(s))
 	for _, ns := range s {
 		rep.Set(ns.Name, ns.Order)
@@ -192,9 +192,9 @@ func (s PartitionSort) MarshalAstra(_ serdes.Target) (any, error) {
 	return rep, nil
 }
 
-func (s *PartitionSort) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
+func (s *PartitionSort) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	var rep datatypes.OrderedMap[string, int]
-	if err := serdes.Deserialize(value, &rep, nil, target); err != nil {
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
 		return err
 	}
 
@@ -205,21 +205,21 @@ func (s *PartitionSort) UnmarshalAstraRaw(target serdes.Target, value []byte) er
 	return nil
 }
 
-func (p PrimaryKey) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error) {
+func (p PrimaryKey) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	// If single partition key with no clustering columns, marshal as string
 	if len(p.PartitionBy) == 1 && len(p.PartitionSort) == 0 {
-		return serdes.SerializeInto(p.PartitionBy[0], target, dst) // TODO is there really a point in special-casing this here
+		return serdes.SerializeInto(p.PartitionBy[0], ctx.Target, dst) // TODO is there really a point in special-casing this here
 	}
 
 	// Otherwise marshal as object
 	type pkAlias PrimaryKey
-	return serdes.SerializeInto(pkAlias(p), target, dst)
+	return serdes.SerializeInto(pkAlias(p), ctx.Target, dst)
 }
 
-func (p *PrimaryKey) UnmarshalAstraRaw(target serdes.Target, data []byte) error {
+func (p *PrimaryKey) UnmarshalAstraRaw(ctx serdes.DecodeCtx, data []byte) error {
 	// Try to unmarshal as string first
 	var singleColumn string
-	if err := serdes.Deserialize(data, &singleColumn, nil, target); err == nil {
+	if err := serdes.Deserialize(data, &singleColumn, nil, ctx.Target); err == nil {
 		p.PartitionBy = []string{singleColumn}
 		p.PartitionSort = nil
 		return nil
@@ -228,17 +228,17 @@ func (p *PrimaryKey) UnmarshalAstraRaw(target serdes.Target, data []byte) error 
 	// Otherwise unmarshal as object
 	type pkAlias PrimaryKey
 	var pk pkAlias
-	if err := serdes.Deserialize(data, &pk, nil, target); err != nil {
+	if err := serdes.Deserialize(data, &pk, nil, ctx.Target); err != nil {
 		return err
 	}
 	*p = PrimaryKey(pk)
 	return nil
 }
 
-func (c *Column) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
+func (c *Column) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	// Try to unmarshal as a string first (e.g. "text")
 	var typ string
-	if err := serdes.Deserialize(value, &typ, nil, target); err == nil {
+	if err := serdes.Deserialize(value, &typ, nil, ctx.Target); err == nil {
 		*c = Column{Type: typ}
 		return nil
 	}
@@ -246,7 +246,7 @@ func (c *Column) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	// Otherwise unmarshal as a full Column object (e.g. {"type":"text"})
 	type colAlias Column
 	var col colAlias
-	if err := serdes.Deserialize(value, &col, nil, target); err != nil {
+	if err := serdes.Deserialize(value, &col, nil, ctx.Target); err != nil {
 		return err
 	}
 	*c = Column(col)

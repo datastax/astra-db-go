@@ -43,11 +43,11 @@ func init() {
 {{end}}
 }
 {{range .}}
-func {{.Type}}Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func {{.Type}}Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.SerArgs}}), nil
 }
 
-func {{.Type}}Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func {{.Type}}Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}

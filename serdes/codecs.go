@@ -14,35 +14,36 @@ type codec struct {
 	decode decoder
 }
 
-type encoder func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error)
-type decoder func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
+type encoder func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error)
+type decoder func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 
-type encodeCtx struct {
+type EncodeCtx struct {
 	codecCtx
-	target   Target
+	Target   Target
 	ptrDepth int
 	ptrSeen  map[unsafe.Pointer]struct{}
 }
 
-type decodeCtx struct {
+type DecodeCtx struct {
 	codecCtx
-	target Target
-}
-
-type AstraUnmarshaler interface {
-	UnmarshalAstra(target Target, value any) error
-}
-
-type AstraRawUnmarshaler interface {
-	UnmarshalAstraRaw(target Target, value []byte) error
+	Target Target
+	Schema any
 }
 
 type AstraMarshaler interface {
-	MarshalAstra(target Target) (any, error)
+	MarshalAstra(ctx EncodeCtx) (any, error)
 }
 
 type AstraRawMarshaler interface {
-	MarshalAstraRaw(target Target, dst []byte) ([]byte, error)
+	MarshalAstraRaw(ctx EncodeCtx, dst []byte) ([]byte, error)
+}
+
+type AstraUnmarshaler interface {
+	UnmarshalAstra(ctx DecodeCtx, value any) error
+}
+
+type AstraRawUnmarshaler interface {
+	UnmarshalAstraRaw(ctx DecodeCtx, value []byte) error
 }
 
 var (

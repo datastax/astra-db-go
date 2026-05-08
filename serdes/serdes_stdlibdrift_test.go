@@ -24,9 +24,6 @@ import (
 	"time"
 )
 
-// Hey Kavin, check this out. Did some poking around. I don't know if we NEED to address
-// all of these, but we should add documentation where we diverge from stdlib potentially.
-
 func TestTimeMarshaler_StdlibDivergence(t *testing.T) {
 	t.Skip("time.Time serdes not implemented yet")
 

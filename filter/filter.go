@@ -128,13 +128,13 @@ func sliceOp(op FilterOperator, field string, vals []any) Filter {
 	return Filter{op: op, field: field, value: vals}
 }
 
-func (f Filter) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error) {
+func (f Filter) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(f.children) > 0 {
 		// We have child commands. Create a map and marshal them like this:
 		// "$or": [...]
 		filters := make(map[FilterOperator][]Filter)
 		filters[f.op] = f.children
-		return serdes.SerializeInto(filters, target, dst)
+		return serdes.SerializeInto(filters, ctx.Target, dst)
 	}
 	if len(f.field) > 0 {
 		if len(f.op) == 0 || f.op == OpEqual {
@@ -142,13 +142,13 @@ func (f Filter) MarshalAstraRaw(target serdes.Target, dst []byte) ([]byte, error
 			// "_id": 1
 			filters := make(map[string]any)
 			filters[f.field] = f.value
-			return serdes.SerializeInto(filters, target, dst)
+			return serdes.SerializeInto(filters, ctx.Target, dst)
 		}
 		// We have another op. Marshal it into something like:
 		// "number_of_pages": { "$lt": 300 }
 		filters := make(map[string]map[FilterOperator]any)
 		filters[f.field] = map[FilterOperator]any{f.op: f.value}
-		return serdes.SerializeInto(filters, target, dst)
+		return serdes.SerializeInto(filters, ctx.Target, dst)
 	}
 	return append(dst, "null"...), nil
 }

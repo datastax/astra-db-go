@@ -31,7 +31,7 @@ func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, allowed bool,
 }
 
 func mkStructEncoder(info *structInfo) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		start := len(dst)
 		dst = append(dst, '{')
 		firstField := true
@@ -71,7 +71,7 @@ func mkStructEncoder(info *structInfo) encoder {
 }
 
 func mkEmbeddedStructPointerEncoder(encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		p = *(*unsafe.Pointer)(p)
 		if p == nil {
 			return dst, rollback{}
@@ -81,7 +81,7 @@ func mkEmbeddedStructPointerEncoder(encode encoder) encoder {
 }
 
 func mkStructDecoder(info *structInfo) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
 		if src, ok := consumeNull(src); ok {
@@ -143,7 +143,7 @@ func mkStructDecoder(info *structInfo) decoder {
 }
 
 func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, allowed bool, offset uintptr, decode decoder) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		v := *(*unsafe.Pointer)(p)
 
 		if v == nil {

@@ -12,7 +12,7 @@ import (
 // Misc
 
 func mkInlineEncoder(encode encoder) encoder {
-	return func(e encodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(e EncodeCtx, b []byte, p unsafe.Pointer) ([]byte, error) {
 		return encode(e, b, noescape(unsafe.Pointer(&p)))
 	}
 }
@@ -27,13 +27,13 @@ func mkErroredCodec(err error) codec {
 }
 
 func mkErrorEncoder(err error) encoder {
-	return func(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
+	return func(_ EncodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
 		return dst, err
 	}
 }
 
 func mkErrorDecoder(err error) decoder {
-	return func(_ decodeCtx, src []byte, _ unsafe.Pointer) ([]byte, error) {
+	return func(_ DecodeCtx, src []byte, _ unsafe.Pointer) ([]byte, error) {
 		return src, err
 	}
 }
@@ -45,11 +45,11 @@ var nilCodec = codec{
 	nullDecoder,
 }
 
-func nullEncoder(_ encodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
+func nullEncoder(_ EncodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
 	return append(dst, "null"...), nil
 }
 
-func nullDecoder(_ decodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
+func nullDecoder(_ DecodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(b); ok {
 		return b, nil
 	}
@@ -58,14 +58,14 @@ func nullDecoder(_ decodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
 
 // Booleans
 
-func boolEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func boolEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if *(*bool)(p) {
 		return append(dst, "true"...), nil
 	}
 	return append(dst, "false"...), nil
 }
 
-func boolDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func boolDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -85,11 +85,11 @@ func boolDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 // Strings
 
-func stringEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func stringEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return appendString(dst, *(*string)(p)), nil
 }
 
-func stringDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func stringDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src, str, isNew, err := parseStringUnquote(src)
 	if err != nil {
 		return src, err
@@ -119,7 +119,7 @@ func mkPointerCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 }
 
 func mkPointerEncoder(encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		p = *(*unsafe.Pointer)(p)
 
 		if p == nil {
@@ -142,7 +142,7 @@ func mkPointerEncoder(encode encoder) encoder {
 }
 
 func mkPointerDecoder(decode decoder, t reflect.Type) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		if b, ok := consumeNull(src); ok {
 			pp := *(*unsafe.Pointer)(p)
 			if pp != nil {
@@ -165,7 +165,7 @@ func mkPointerDecoder(decode decoder, t reflect.Type) decoder {
 // Custom
 
 func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		v := reflect.NewAt(t, p)
 		if !isPtr {
 			v = v.Elem()
@@ -176,7 +176,7 @@ func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 			return append(dst, "null"...), nil
 		}
 
-		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx.target)
+		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx)
 		if err != nil {
 			return dst, fmt.Errorf("error calling MarshalAstra on type %v: %w", t, err)
 		}
@@ -186,7 +186,7 @@ func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 }
 
 func mkAstraRawMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		v := reflect.NewAt(t, p)
 		if !isPtr {
 			v = v.Elem()
@@ -197,12 +197,12 @@ func mkAstraRawMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 			return append(dst, "null"...), nil
 		}
 
-		return v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx.target, dst)
+		return v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx, dst)
 	}
 }
 
 func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		var intermediate any
 		src, err := emptyInterfaceDecoder(ctx, src, unsafe.Pointer(&intermediate))
 		if err != nil {
@@ -214,12 +214,12 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 			u.Set(reflect.New(t))
 		}
 
-		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx.target, intermediate)
+		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx, intermediate)
 	}
 }
 
 func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		u := reflect.NewAt(t, p)
 		if u.IsNil() {
 			u.Set(reflect.New(t))
@@ -232,7 +232,7 @@ func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 
 		splitPoint := len(src) - len(srcAfter)
 
-		return srcAfter, u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx.target, src[:splitPoint])
+		return srcAfter, u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx, src[:splitPoint])
 	}
 }
 
@@ -245,17 +245,17 @@ func mkSomeInterfaceCodec(t reflect.Type) codec {
 	}
 }
 
-func emptyInterfaceEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return SerializeInto(*(*any)(p), ctx.target, dst)
+func emptyInterfaceEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return SerializeInto(*(*any)(p), ctx.Target, dst)
 }
 
 func mkSomeInterfaceEncoder(t reflect.Type) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		return SerializeInto(reflect.NewAt(t, p).Elem().Interface(), ctx.target, dst)
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		return SerializeInto(reflect.NewAt(t, p).Elem().Interface(), ctx.Target, dst)
 	}
 }
 
-func emptyInterfaceDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func emptyInterfaceDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 {
@@ -349,7 +349,7 @@ func mkSomeInterfaceDecoder(t reflect.Type) decoder {
 
 // Raw messages
 
-func rawMessageEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func rawMessageEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	v := *(*[]byte)(p)
 
 	if v == nil {
@@ -357,7 +357,7 @@ func rawMessageEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	}
 
 	var throwaway any
-	_, err := emptyInterfaceDecoder(decodeCtx{}, v, unsafe.Pointer(&throwaway))
+	_, err := emptyInterfaceDecoder(DecodeCtx{}, v, unsafe.Pointer(&throwaway))
 	if err != nil {
 		return dst, fmt.Errorf("invalid raw message: %w", err)
 	}
@@ -365,7 +365,7 @@ func rawMessageEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	return append(dst, v...), nil
 }
 
-func rawMessageDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func rawMessageDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	start := src

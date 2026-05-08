@@ -6,6 +6,7 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 	"pgregory.net/rapid"
 )
 
@@ -22,13 +23,13 @@ var uuidGen = rapid.Map(rapid.StringMatching(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{
 func TestSerdesUUIDS_Typed(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		uuid := uuidGen.Draw(t, "uuid")
-		target := targetsGen.Draw(t, "target")
+		target := targetsGen.Draw(t, "Target")
 
 		encoded, err := serdes.Serialize(uuid, target)
 		testutils.FailIfErr(t, err, "failed to serialize UUID")
 
 		expected := `"` + uuid.String() + `"`
-		if target.Is(serdes.TargetCollection) {
+		if target == serdes.TargetCollection {
 			expected = `{"$uuid":` + expected + `}`
 		}
 		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
@@ -61,6 +62,29 @@ func TestSerdesUUIDS_Untyped_Collection(t *testing.T) {
 	})
 }
 
+func TestSerdesUUIDS_Untyped_Table(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		uuid := uuidGen.Draw(t, "uuid")
+
+		row := table.Row{"id": uuid}
+		schema := &table.LazySchema{AsCols: table.NewDefinition().AddUUIDColumn("id").Build().Columns}
+
+		encoded, err := serdes.Serialize(row, serdes.TargetTable)
+		testutils.FailIfErr(t, err, "failed to serialize Row with UUID")
+
+		expected := `{"id":"` + uuid.String() + `"}`
+		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
+
+		var decoded table.Row
+		err = serdes.Deserialize(encoded, &decoded, schema, serdes.TargetTable)
+		testutils.FailIfErr(t, err, "failed to deserialize Row with UUID")
+
+		decodedVal, ok := decoded["id"]
+		testutils.FailIf(t, !ok, "missing 'id' field after deserialization")
+		testutils.FailIf(t, decodedVal != uuid, "mismatch after serdes: original %s, decoded %v", uuid, decodedVal)
+	})
+}
+
 // ================================
 // | ObjectIDs
 // ================================
@@ -90,10 +114,10 @@ func TestObjectIds_Typed_Collection(t *testing.T) {
 func TestObjectIds_Typed_NonCollection(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		oid := oidGen.Draw(t, "oid")
-		target := targetsGen.Filter(func(t serdes.Target) bool { return !t.Is(serdes.TargetCollection) }).Draw(t, "target")
+		target := targetsGen.Filter(func(t serdes.Target) bool { return t != serdes.TargetCollection }).Draw(t, "Target")
 
 		_, err := serdes.Serialize(oid, target)
-		testutils.FailIf(t, err == nil, "expected error encoding ObjectId for non-collection target")
+		testutils.FailIf(t, err == nil, "expected error encoding ObjectId for non-collection Target")
 
 		expectedErr := "cannot encode ObjectId in a non-collection"
 		testutils.FailIf(t, err.Error() != expectedErr, "unexpected error message: %v", err)

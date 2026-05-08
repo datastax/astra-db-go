@@ -59,8 +59,8 @@ func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{Schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
+			row := &Row{}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -175,8 +175,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{Schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
+			row := &Row{}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -210,8 +210,8 @@ func TestRow_UnmarshalAstraRaw_NullHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{Schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
+			row := &Row{}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -313,8 +313,8 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{Schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
+			row := &Row{}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -342,8 +342,8 @@ func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
 
 	jsonData := `{"address": {"street": "123 Main St", "city": "Springfield", "zip": 12345}}`
 
-	row := &Row{Schema: schema}
-	err := serdes.Deserialize([]byte(jsonData), row, nil, serdes.TargetTable)
+	row := &Row{}
+	err := serdes.Deserialize([]byte(jsonData), row, &LazySchema{AsCols: schema}, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
@@ -436,8 +436,8 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{Schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
+			row := &Row{}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -451,8 +451,8 @@ func TestRow_UnmarshalAstraRaw_InvalidJSON(t *testing.T) {
 		{Name: "id", Column: Column{Type: TypeInt}},
 	}
 
-	row := &Row{Schema: schema}
-	err := serdes.Deserialize([]byte(`{invalid json}`), row, nil, serdes.TargetTable)
+	row := &Row{}
+	err := serdes.Deserialize([]byte(`{invalid json}`), row, &LazySchema{AsCols: schema}, serdes.TargetTable)
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
 	}
@@ -489,8 +489,8 @@ func TestRow_UnmarshalAstraRaw_MissingCollectionType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{Schema: tt.schema}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, nil, serdes.TargetTable)
+			row := &Row{}
+			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
 			if err == nil {
 				t.Error("expected error for missing collection type, got nil")
 			}
@@ -502,7 +502,8 @@ func TestDeserializeWithTypeHint_Varint(t *testing.T) {
 	raw := json.RawMessage(`12345678901234567890`)
 	col := Column{Type: TypeVarint}
 
-	val, err := deserializeColumn(raw, col)
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
+	val, err := deserializeColumn(ctx, raw, col)
 	if err != nil {
 		t.Fatalf("deserializeColumn() error = %v", err)
 	}
@@ -524,7 +525,8 @@ func TestDeserializeWithTypeHint_Decimal(t *testing.T) {
 	raw := json.RawMessage(`123.456`)
 	col := Column{Type: TypeDecimal}
 
-	val, err := deserializeColumn(raw, col)
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
+	val, err := deserializeColumn(ctx, raw, col)
 	if err != nil {
 		t.Fatalf("deserializeColumn() error = %v", err)
 	}
@@ -539,7 +541,8 @@ func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
 	raw := json.RawMessage(`"test"`)
 	col := Column{Type: "unknown_type"}
 
-	val, err := deserializeColumn(raw, col)
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
+	val, err := deserializeColumn(ctx, raw, col)
 	if err != nil {
 		t.Fatalf("deserializeColumn() error = %v", err)
 	}

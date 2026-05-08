@@ -67,7 +67,7 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 	// we encode as a normal map, but we leave in some extra spaces to hot swap the `{}:`s for `[],`s:
 	// '{ "foo": 1 , "bar": 2 , 3'   <- non string key detected, hot swap time:
 	// '[["foo", 1],["bar", 2],[3'   <- we only need to keep track of the comma indexes to swap the correct characters
-	stringKeyEncoder := func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	stringKeyEncoder := func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		dst, err := encodeKey(ctx, dst, p)
 		if err != nil {
 			return dst, err
@@ -85,13 +85,13 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue, mkIter)
 	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '[', ']', ',', mkIter)
 
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		dst, err := encodeObjectMap(ctx, dst, p)
 		if _, ok := err.(rollback); !ok {
 			return dst, err
 		}
 
-		if ctx.target.kind == tableTarget {
+		if ctx.Target == TargetTable {
 			return encodeArrayMap(ctx, dst, p)
 		}
 
@@ -103,14 +103,14 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 	decodeObjectMap := mkNormalMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, maker)
 	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',', maker)
 
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		// we'll just delegate the `null` case to the normal decoder
 		// since it can handle it, and we don't want to duplicate that logic
 		if len(src) > 0 && (src[0] == '{' || src[0] == 'n') {
 			return decodeObjectMap(ctx, src, p)
 		}
 
-		if ctx.target.kind == tableTarget {
+		if ctx.Target == TargetTable {
 			return decodeArrayMap(ctx, src, p)
 		}
 
@@ -119,7 +119,7 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 }
 
 func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, sep byte, mkIter mkMapIter) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		m := reflect.NewAt(t, p).Elem()
 
 		if mapIsNil(m) {
@@ -174,7 +174,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 }
 
 func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, open, close, sep byte, maker mapMaker) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		if b, ok := consumeNull(src); ok {
 			*(*unsafe.Pointer)(p) = nil
 			return b, nil

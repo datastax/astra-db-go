@@ -19,7 +19,7 @@ func NewTestCmd(name string, payload any) command {
 }
 
 // Check out rationale for this in main astradb package.
-func (c command) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
 		data[c.name] = c.payload

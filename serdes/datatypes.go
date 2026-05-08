@@ -19,8 +19,8 @@ import (
 
 var uuidTag = []byte("uuid")
 
-func uuidEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind == collectionTarget {
+func uuidEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
 		return encodeDollarDatatype(dst, uuidTag, func(dst []byte) ([]byte, error) {
 			return encodeUUID(dst, p)
 		})
@@ -28,11 +28,11 @@ func uuidEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeUUID(dst, p)
 }
 
-func uuidDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uuidDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	var uuid datatypes.UUID
 	var err error
 
-	if ctx.target.kind == collectionTarget {
+	if ctx.Target == TargetCollection {
 		src, uuid, err = parseDollarDatatype(src, uuidTag, decodeUUID)
 	} else {
 		src, uuid, err = decodeUUID(src)
@@ -74,8 +74,8 @@ func decodeUUID(src []byte) ([]byte, datatypes.UUID, error) {
 
 var oidTag = []byte("objectId")
 
-func objectIdEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind != collectionTarget {
+func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target != TargetCollection {
 		return dst, fmt.Errorf("cannot encode ObjectId in a non-collection")
 	}
 
@@ -87,8 +87,8 @@ func objectIdEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	})
 }
 
-func objectIdDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind != collectionTarget {
+func objectIdDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target != TargetCollection {
 		return src, fmt.Errorf("cannot decode ObjectId from a non-collection")
 	}
 
@@ -119,10 +119,10 @@ func objectIdDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 var dateTag = []byte("date")
 
-func timestampEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func timestampEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	ts := (*datatypes.DataAPITimestamp)(p)
 
-	if ctx.target.kind == collectionTarget {
+	if ctx.Target == TargetCollection {
 		return encodeDollarDatatype(dst, dateTag, func(dst []byte) ([]byte, error) {
 			return strconv.AppendInt(dst, ts.UnixMillis(), 10), nil
 		})
@@ -134,8 +134,8 @@ func timestampEncoder(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, erro
 	return dst, nil
 }
 
-func timestampDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	if ctx.target.kind == collectionTarget {
+func timestampDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
 		src, ms, err := parseDollarDatatype(src, dateTag, func(b []byte) ([]byte, int64, error) {
 			return parseInt(b)
 		})
@@ -163,12 +163,12 @@ func timestampDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 // | big.Int - encoded as a raw number in all contexts
 // ================================
 
-func bigIntEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func bigIntEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	bi := *(*big.Int)(p)
 	return bi.Append(dst, 10), nil
 }
 
-func bigIntDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func bigIntDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -193,12 +193,12 @@ func bigIntDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 // | big.Float - encoded as a raw number in all contexts
 // ================================
 
-func bigFloatEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func bigFloatEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	bf := *(*big.Float)(p)
 	return bf.Append(dst, 'g', -1), nil
 }
 
-func bigFloatDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func bigFloatDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -226,7 +226,7 @@ func bigFloatDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 // | TODO potentially add flags for encoding vectors as a plain []float32
 // ================================
 
-func vectorEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func vectorEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
 		dst = append(dst, '"')
 		dst = (*datatypes.DataAPIVector)(p).AppendBase64(dst)
@@ -235,7 +235,7 @@ func vectorEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	})
 }
 
-func vectorDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 || src[0] == '[' {
@@ -275,13 +275,13 @@ func vectorDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 // | but can be decoded from either that format or from a base64 string
 // ================================
 
-func binaryEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func binaryEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
 		return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
 	})
 }
 
-func binaryDecoder(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if len(src) == 0 || src[0] == '"' {
@@ -412,7 +412,7 @@ func parseDollarDatatype[T any](src []byte, datatype []byte, decode func([]byte)
 	return src[1:], res, nil
 }
 
-func decodeDollarDatatype(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error, bool) {
+func decodeDollarDatatype(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error, bool) {
 	initSrc := src
 
 	src = skipWS(src)
@@ -430,7 +430,7 @@ func decodeDollarDatatype(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, 
 		return src, err, true
 	}
 
-	if codec, ok := ctx.target.dollarDatatypes[unsafeString(datatype)]; ok {
+	if codec, ok := ctx.Target.dollarDatatypes()[unsafeString(datatype)]; ok {
 		valPtr := reflect.New(codec.typ)
 
 		src, err = codec.decode(ctx, initSrc, valuePtr(valPtr.Elem()))

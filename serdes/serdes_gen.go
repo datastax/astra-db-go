@@ -55,11 +55,11 @@ func init() {
 
 }
 
-func intEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func intEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int)(p)), 10), nil
 }
 
-func intDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func intDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -77,11 +77,11 @@ func intDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func int8Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int8)(p)), 10), nil
 }
 
-func int8Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int8Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -99,11 +99,11 @@ func int8Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func int16Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int16)(p)), 10), nil
 }
 
-func int16Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int16Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -121,11 +121,11 @@ func int16Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func int32Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int32)(p)), 10), nil
 }
 
-func int32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int32Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -143,11 +143,11 @@ func int32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func int64Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int64)(p)), 10), nil
 }
 
-func int64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func int64Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -165,11 +165,11 @@ func int64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func uintEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uintEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint)(p)), 10), nil
 }
 
-func uintDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uintDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -187,11 +187,11 @@ func uintDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func uint8Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint8)(p)), 10), nil
 }
 
-func uint8Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint8Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -209,11 +209,11 @@ func uint8Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func uint16Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint16)(p)), 10), nil
 }
 
-func uint16Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint16Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -231,11 +231,11 @@ func uint16Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func uint32Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint32)(p)), 10), nil
 }
 
-func uint32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint32Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -253,11 +253,11 @@ func uint32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func uint64Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint64)(p)), 10), nil
 }
 
-func uint64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uint64Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -275,11 +275,11 @@ func uint64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func uintptrEncoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uintptrEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uintptr)(p)), 10), nil
 }
 
-func uintptrDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func uintptrDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -297,11 +297,11 @@ func uintptrDecoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func float32Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func float32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendFloat(dst, float64(*(*float32)(p)), 'g', -1, 32), nil
 }
 
-func float32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func float32Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
@@ -319,11 +319,11 @@ func float32Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return src, nil
 }
 
-func float64Encoder(_ encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func float64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendFloat(dst, float64(*(*float64)(p)), 'g', -1, 64), nil
 }
 
-func float64Decoder(_ decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func float64Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}

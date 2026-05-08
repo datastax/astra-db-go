@@ -70,7 +70,7 @@ type CollectionUpdateBuilder struct {
 // dummy implementation to satisfy interface.
 func (*CollectionUpdateBuilder) isCollectionUpdate() {}
 
-func (u *CollectionUpdateBuilder) MarshalAstra(_ serdes.Target) (any, error) {
+func (u *CollectionUpdateBuilder) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	return u.ops, nil
 }
 
@@ -268,7 +268,7 @@ type TableUpdateBuilder struct {
 
 func (*TableUpdateBuilder) isTableUpdate() {}
 
-func (u *TableUpdateBuilder) MarshalAstra(_ serdes.Target) (any, error) {
+func (u *TableUpdateBuilder) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	return u.ops, nil
 }
 

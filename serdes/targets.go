@@ -9,49 +9,43 @@ type typedCodec struct {
 	typ reflect.Type
 }
 
-type targetKind int
+type Target int
 
 const (
-	noTarget targetKind = iota
-	collectionTarget
-	tableTarget
+	TargetNone Target = iota
+	TargetCollection
+	TargetTable
 )
 
-type Target struct {
-	kind            targetKind
-	dollarDatatypes map[string]typedCodec
+var collectionDollarDatatypes = map[string]typedCodec{
+	"$uuid":     {codec{uuidEncoder, uuidDecoder}, uuidType},
+	"$objectId": {codec{objectIdEncoder, objectIdDecoder}, oidType},
+	"$date":     {codec{timestampEncoder, timestampDecoder}, dApiTimeType},
+	"$binary":   {codec{binaryEncoder, binaryDecoder}, byteSliceType},
 }
 
-var TargetNone = Target{
-	kind: noTarget,
+var tableDollarDatatypes = map[string]typedCodec{
+	"$binary": {codec{binaryEncoder, binaryDecoder}, byteSliceType},
 }
 
-var TargetCollection = Target{
-	kind: collectionTarget,
-	dollarDatatypes: map[string]typedCodec{
-		"$uuid":     {codec{uuidEncoder, uuidDecoder}, uuidType},
-		"$objectId": {codec{objectIdEncoder, objectIdDecoder}, oidType},
-		"$date":     {codec{timestampEncoder, timestampDecoder}, dApiTimeType},
-		"$binary":   {codec{binaryEncoder, binaryDecoder}, byteSliceType},
-	},
-}
+var noneDollarDatatypes = map[string]typedCodec{}
 
-var TargetTable = Target{
-	kind: tableTarget,
-	dollarDatatypes: map[string]typedCodec{
-		"$binary": {codec{binaryEncoder, binaryDecoder}, byteSliceType},
-	},
-}
-
-func (t Target) Is(other Target) bool {
-	return t.kind == other.kind
+func (t Target) dollarDatatypes() map[string]typedCodec {
+	switch t {
+	case TargetCollection:
+		return collectionDollarDatatypes
+	case TargetTable:
+		return tableDollarDatatypes
+	default:
+		return noneDollarDatatypes
+	}
 }
 
 func (t Target) String() string {
-	switch t.kind {
-	case collectionTarget:
+	switch t {
+	case TargetCollection:
 		return "collection"
-	case tableTarget:
+	case TargetTable:
 		return "table"
 	default:
 		return "none"

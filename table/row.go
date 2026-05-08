@@ -25,13 +25,10 @@ import (
 //
 // Should collections also be forced to go entirely through a `Document` type or can they use `any`s since they have no Schema?
 
-type Row struct {
-	data   map[string]any
-	Schema Columns
-}
+type Row map[string]any
 
-func (r *Row) Get(path ...string) (any, bool) {
-	current := r.data
+func (r Row) Get(path ...string) (any, bool) {
+	current := r
 	for i, p := range path {
 		val, ok := current[p]
 		if !ok {
@@ -51,27 +48,19 @@ func (r *Row) Get(path ...string) (any, bool) {
 	return nil, false
 }
 
-func (r *Row) ToMap() map[string]any {
-	return r.data
-}
-
-func (r *Row) UnsafeSetRowSchema(schema any) {
-	if cols, ok := schema.(LazySchema); ok {
-		r.Schema = cols.Get()
-	} else {
-		panic(fmt.Sprintf("expected schema of type Columns, got %T", schema)) // should never happen if the client is well behaved
-	}
+func (r Row) ToMap() map[string]any {
+	return r
 }
 
 // LazySchema TODO eventually make this internal
 type LazySchema struct {
 	AsRaw  json.RawMessage
-	asCols Columns
+	AsCols Columns
 }
 
 func (ds *LazySchema) Get() Columns {
-	if ds.asCols != nil {
-		return ds.asCols
+	if ds.AsCols != nil {
+		return ds.AsCols
 	}
 
 	if ds.AsRaw == nil {
@@ -83,15 +72,29 @@ func (ds *LazySchema) Get() Columns {
 		panic(fmt.Sprintf("failed to deserialize schema: %v", err)) // should never happen unless the server sent something truly bizarre or the user messed with it
 	}
 
-	ds.asCols = cols
+	ds.AsCols = cols
 	ds.AsRaw = nil
 	return cols
 }
 
-func (r *Row) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
-	if !target.Is(serdes.TargetTable) {
+func (r Row) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	if ctx.Target != serdes.TargetTable {
+		return nil, fmt.Errorf("`Row` can only be serialized for tables, got %s", serdes.TargetTable)
+	}
+	return serdes.SerializeInto(map[string]any(r), ctx.Target, dst)
+}
+
+func (rp *Row) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	if ctx.Target != serdes.TargetTable {
 		return fmt.Errorf("`Row` can only be deserialized for tables, got %s", serdes.TargetTable)
 	}
+
+	schema := ctx.Schema.(*LazySchema).Get()
+
+	if *rp == nil {
+		*rp = make(Row)
+	}
+	r := *rp
 
 	// parse top level struct w/ values as RawMessage so we can control the exact deserialization of each field w/ type hints
 	rawMap := make(map[string]json.RawMessage)
@@ -102,27 +105,26 @@ func (r *Row) UnmarshalAstraRaw(target serdes.Target, value []byte) error {
 	// fill out the map with exact types now
 	// we could have written yet another map parser™ here but this helps deduplicate things a bit
 	// yes it's a little less performant, but I don't have much performance sympathy for users using an untyped row
-	r.data = make(map[string]any, len(r.Schema))
-	for _, nc := range r.Schema {
+	for _, nc := range schema {
 		rawValue, ok := rawMap[nc.Name]
 
 		// technically `null` shouldn't be possible but just in case /shrug
 		if !ok || *(*string)(unsafe.Pointer(&rawValue)) == "null" {
-			r.data[nc.Name] = nil // TODO decide if nil handling needs to be fancier
+			r[nc.Name] = nil // TODO decide if nil handling needs to be fancier
 			continue
 		}
 
-		val, err := deserializeColumn(rawValue, nc.Column)
+		val, err := deserializeColumn(ctx, rawValue, nc.Column)
 		if err != nil {
 			return fmt.Errorf("field %s: %w", nc.Name, err)
 		}
-		r.data[nc.Name] = val
+		r[nc.Name] = val
 	}
 
 	return nil
 }
 
-func deserializeColumn(raw json.RawMessage, col Column) (any, error) {
+func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col Column) (any, error) {
 	switch col.Type {
 	case TypeInt:
 		var v int
@@ -208,16 +210,16 @@ func deserializeColumn(raw json.RawMessage, col Column) (any, error) {
 
 	case TypeSet:
 		// TODO should we return a `Set` instead for sets?
-		return deserializeListLike(raw, col)
+		return deserializeListLike(ctx, raw, col)
 
 	case TypeList:
-		return deserializeListLike(raw, col)
+		return deserializeListLike(ctx, raw, col)
 
 	case TypeMap:
-		return deserializeMap(raw, col)
+		return deserializeMap(ctx, raw, col)
 
 	case TypeUDT:
-		return deserializeUDT(raw, col)
+		return deserializeUDT(ctx, raw, col)
 
 	default:
 		var v any
@@ -226,7 +228,7 @@ func deserializeColumn(raw json.RawMessage, col Column) (any, error) {
 	}
 }
 
-func deserializeListLike(raw json.RawMessage, col Column) (any, error) {
+func deserializeListLike(ctx serdes.DecodeCtx, raw json.RawMessage, col Column) (any, error) {
 	if col.ValueType == nil {
 		return nil, fmt.Errorf("%s column missing valueType", col.Type)
 	}
@@ -239,7 +241,7 @@ func deserializeListLike(raw json.RawMessage, col Column) (any, error) {
 
 	result := make([]any, len(rawArray))
 	for i, rawElem := range rawArray {
-		val, err := deserializeColumn(rawElem, *col.ValueType)
+		val, err := deserializeColumn(ctx, rawElem, *col.ValueType)
 		if err != nil {
 			return nil, fmt.Errorf("%s element %d: %w", col.Type, i, err)
 		}
@@ -249,7 +251,7 @@ func deserializeListLike(raw json.RawMessage, col Column) (any, error) {
 	return result, nil
 }
 
-func deserializeMap(raw json.RawMessage, col Column) (any, error) {
+func deserializeMap(ctx serdes.DecodeCtx, raw json.RawMessage, col Column) (any, error) {
 	if col.KeyType == nil || col.ValueType == nil {
 		return nil, fmt.Errorf("map column missing keyType or valueType")
 	}
@@ -263,7 +265,7 @@ func deserializeMap(raw json.RawMessage, col Column) (any, error) {
 	result := make(map[string]any, len(rawMap))
 
 	for key, rawValue := range rawMap {
-		val, err := deserializeColumn(rawValue, *col.ValueType)
+		val, err := deserializeColumn(ctx, rawValue, *col.ValueType)
 		if err != nil {
 			return nil, fmt.Errorf("map value for key %s: %w", key, err)
 		}
@@ -274,12 +276,11 @@ func deserializeMap(raw json.RawMessage, col Column) (any, error) {
 	return result, nil
 }
 
-func deserializeUDT(raw json.RawMessage, col Column) (any, error) {
-	asRow := &Row{Schema: col.UDTDefinition().Fields}
-
-	if err := asRow.UnmarshalAstraRaw(serdes.TargetTable, raw); err != nil {
+func deserializeUDT(ctx serdes.DecodeCtx, raw json.RawMessage, col Column) (any, error) {
+	ctx.Schema = &LazySchema{AsCols: col.UDTDefinition().Fields}
+	var r Row
+	if err := r.UnmarshalAstraRaw(ctx, raw); err != nil {
 		return nil, err
 	}
-
-	return asRow.ToMap(), nil
+	return r.ToMap(), nil
 }

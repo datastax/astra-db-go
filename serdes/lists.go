@@ -45,7 +45,7 @@ func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 }
 
 func mkSetEncoder(mapT reflect.Type, encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		m := reflect.NewAt(mapT, p).Elem()
 
 		if m.IsNil() {
@@ -74,7 +74,7 @@ func mkSetEncoder(mapT reflect.Type, encode encoder) encoder {
 }
 
 func mkSliceEncoder(size uintptr, encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		s := (*slice)(p)
 
 		if s.data == nil && s.len == 0 && s.cap == 0 {
@@ -86,7 +86,7 @@ func mkSliceEncoder(size uintptr, encode encoder) encoder {
 }
 
 func mkArrayEncoder(n int, size uintptr, encode encoder) encoder {
-	return func(ctx encodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		start := len(dst)
 		var err error
 		dst = append(dst, '[')
@@ -106,7 +106,7 @@ func mkArrayEncoder(n int, size uintptr, encode encoder) encoder {
 }
 
 func mkSetDecoder(kt, mapT reflect.Type, decode decoder) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
 		if src, ok := consumeNull(src); ok {
@@ -155,7 +155,7 @@ func mkSetDecoder(kt, mapT reflect.Type, decode decoder) decoder {
 }
 
 func mkSliceDecoder(size uintptr, t reflect.Type, decode decoder) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
 		if src, ok := consumeNull(src); ok {
@@ -223,7 +223,7 @@ func extendSlice(t reflect.Type, s *slice, newCap int) slice {
 }
 
 func mkArrayDecoder(n int, size uintptr, decode decoder) decoder {
-	return func(ctx decodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
 		if src, ok := consumeNull(src); ok {

@@ -133,11 +133,11 @@ type CustomWithPointer struct {
 	Value string
 }
 
-func (c CustomWithValue) MarshalAstra(_ serdes.Target) (any, error) {
+func (c CustomWithValue) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	return map[string]any{"value": c.Value}, nil
 }
 
-func (c *CustomWithValue) UnmarshalAstra(_ serdes.Target, v any) error {
+func (c *CustomWithValue) UnmarshalAstra(_ serdes.DecodeCtx, v any) error {
 	m, ok := v.(map[string]any)
 	if !ok {
 		return nil
@@ -148,12 +148,12 @@ func (c *CustomWithValue) UnmarshalAstra(_ serdes.Target, v any) error {
 	return nil
 }
 
-func (c *CustomWithPointer) MarshalAstraRaw(_ serdes.Target, dst []byte) ([]byte, error) {
+func (c *CustomWithPointer) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	m := map[string]any{"value": c.Value}
 	return serdes.SerializeInto(m, serdes.TargetCollection, dst)
 }
 
-func (c *CustomWithPointer) UnmarshalAstraRaw(_ serdes.Target, val []byte) error {
+func (c *CustomWithPointer) UnmarshalAstraRaw(_ serdes.DecodeCtx, val []byte) error {
 	var m map[string]any
 	if err := serdes.Deserialize(val, &m, nil, serdes.TargetCollection); err != nil {
 		return err
