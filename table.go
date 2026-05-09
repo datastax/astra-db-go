@@ -275,6 +275,8 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 
 // endregion
 
+// region Deletions
+
 // tableDeleteOnePayload is the payload for the deleteOne command on tables.
 type tableDeleteOnePayload struct {
 	Filter TableFilter `json:"filter"`
@@ -342,6 +344,10 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
+
+// endregion
+
+// region Indexe Creation
 
 // createIndexPayload is the payload for the createIndex command
 type createIndexPayload struct {
@@ -630,6 +636,10 @@ type IndexDefinitionOptions struct {
 	CaseSensitive *bool `json:"caseSensitive,omitempty"`
 }
 
+// endregion
+
+// region Index Listing
+
 // listIndexesPayload is the payload for the listIndexes command
 type listIndexesPayload struct {
 	Options *listIndexesOpts `json:"options,omitempty"`
@@ -702,6 +712,37 @@ func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, e
 
 	return t.newCmd("listIndexes", payload), nil
 }
+
+// endregion
+
+// region Index Deletion
+
+// dropIndexPayload is the payload for the dropIndex command
+type dropIndexPayload struct {
+	Name string `json:"name"`
+}
+
+// DropTableIndex drops (deletes) an index from the database.
+//
+// Example usage:
+//
+//	err := db.DropTableIndex(ctx, "rating_idx")
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (d *Db) DropTableIndex(ctx context.Context, name string) error {
+	cmd := dropTableIndexCommand(d, name)
+	_, _, _, err := cmd.Execute(ctx)
+	return err
+}
+
+// dropTableIndexCommand builds the dropIndex command for the database
+func dropTableIndexCommand(d *Db, name string) command {
+	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
+}
+
+// endregion
+
+// region Altering
 
 // alterTablePayload is the payload for the alterTable command.
 type alterTablePayload struct {
@@ -802,25 +843,4 @@ func validateAlterOperation(op table.AlterOperation) error {
 	return nil
 }
 
-// dropIndexPayload is the payload for the dropIndex command
-type dropIndexPayload struct {
-	Name string `json:"name"`
-}
-
-// DropTableIndex drops (deletes) an index from the database.
-//
-// Example usage:
-//
-//	err := db.DropTableIndex(ctx, "rating_idx")
-//
-// Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTableIndex(ctx context.Context, name string) error {
-	cmd := dropTableIndexCommand(d, name)
-	_, _, _, err := cmd.Execute(ctx)
-	return err
-}
-
-// dropTableIndexCommand builds the dropIndex command for the database
-func dropTableIndexCommand(d *Db, name string) command {
-	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
-}
+// endregion

@@ -319,17 +319,6 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 	return result, nil
 }
 
-// endregion
-
-// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
-type collectionFindOneAndUpdatePayload struct {
-	Filter     CollectionFilter `json:"filter,omitempty"`
-	Update     CollectionUpdate `json:"update"`
-	Sort       sort.Sortable    `json:"sort,omitempty"`
-	Projection map[string]any   `json:"projection,omitempty"`
-	Options    map[string]any   `json:"options,omitempty"`
-}
-
 // FindOneAndUpdate finds a single document matching the filter, applies the update,
 // and returns the document. By default, the document is returned as it was before the
 // update. Use [options.ReturnDocumentAfter] to return the document after the update.
@@ -343,28 +332,24 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
-	payload := collectionFindOneAndUpdatePayload{
-		Filter:     f,
-		Update:     u,
-		Sort:       merged.Sort,
-		Projection: merged.Projection,
-	}
+	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", map[string]any{
+		"filter":     f,
+		"update":     u,
+		"sort":       merged.Sort,
+		"projection": merged.Projection,
+		"options": map[string]any{
+			"upsert":         merged.Upsert,
+			"returnDocument": merged.ReturnDocument,
+		},
+	}, merged.APIOptions)
 
-	payloadOpts := map[string]any{}
-	if ptr.From(merged.Upsert) {
-		payloadOpts["upsert"] = true
-	}
-	if merged.ReturnDocument != nil {
-		payloadOpts["returnDocument"] = string(*merged.ReturnDocument)
-	}
-	if len(payloadOpts) > 0 {
-		payload.Options = payloadOpts
-	}
-
-	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", payload, merged.APIOptions)
 	b, warnings, _, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
+
+// endregion
+
+// region Replacements
 
 // ReplaceOne replaces a single document matching the filter.
 //
@@ -377,22 +362,12 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 		return nil, err
 	}
 
-	payload := collectionFindOneAndReplacePayload{
-		Filter:      f,
-		Replacement: replacement,
-		Sort:        merged.Sort,
-		Projection:  map[string]any{"*": 0},
-	}
-
-	if ptr.From(merged.Upsert) {
-		payload.Options = map[string]any{"upsert": true}
-	}
-
-	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
-	}
+	b, _, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
+		Sort:       merged.Sort,
+		Projection: map[string]any{"*": 0},
+		Upsert:     merged.Upsert,
+		APIOptions: merged.APIOptions,
+	})
 
 	var resp collectionUpdateResponse
 	if err := json.Unmarshal(b, &resp); err != nil {
@@ -412,15 +387,6 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 	}, nil
 }
 
-// collectionFindOneAndReplacePayload is the payload for the findOneAndReplace command.
-type collectionFindOneAndReplacePayload struct {
-	Filter      CollectionFilter `json:"filter,omitempty"`
-	Replacement any              `json:"replacement"`
-	Sort        sort.Sortable    `json:"sort,omitempty"`
-	Projection  map[string]any   `json:"projection,omitempty"`
-	Options     map[string]any   `json:"options,omitempty"`
-}
-
 // FindOneAndReplace finds a single document matching the filter, replaces it,
 // and returns the document. By default, the document is returned as it was before the
 // replacement. Use [options.ReturnDocumentAfter] to return the document after the replacement.
@@ -434,28 +400,36 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
-	payload := collectionFindOneAndReplacePayload{
-		Filter:      f,
-		Replacement: replacement,
-		Sort:        merged.Sort,
-		Projection:  merged.Projection,
-	}
+	b, warnings, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
+		Sort:           merged.Sort,
+		Projection:     merged.Projection,
+		Upsert:         merged.Upsert,
+		ReturnDocument: merged.ReturnDocument,
+		APIOptions:     merged.APIOptions,
+	})
 
-	payloadOpts := map[string]any{}
-	if ptr.From(merged.Upsert) {
-		payloadOpts["upsert"] = true
-	}
-	if merged.ReturnDocument != nil {
-		payloadOpts["returnDocument"] = string(*merged.ReturnDocument)
-	}
-	if len(payloadOpts) > 0 {
-		payload.Options = payloadOpts
-	}
-
-	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
-	b, warnings, _, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
+
+func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts *options.CollectionFindOneAndReplaceOptions) ([]byte, results.Warnings, error) {
+	cmd := c.newCmdWithMergedOptions("findOneAndReplace", map[string]any{
+		"filter":      f,
+		"replacement": replacement,
+		"sort":        opts.Sort,
+		"projection":  opts.Projection,
+		"options": map[string]any{
+			"upsert":         opts.Upsert,
+			"returnDocument": opts.ReturnDocument,
+		},
+	}, opts.APIOptions)
+
+	b, warnings, _, err := cmd.Execute(ctx)
+	return b, warnings, err
+}
+
+// endregion
+
+// region Deletions
 
 // collectionDeleteOnePayload is the payload for the deleteOne command on collections.
 type collectionDeleteOnePayload struct {
@@ -600,6 +574,10 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
+// endregion
+
+// region Counts
+
 // Payload for collection countDocuments.
 type collectionCountPayload struct {
 	Filter CollectionFilter `json:"filter,omitempty"`
@@ -669,7 +647,13 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 	return resp.Status.Count, nil
 }
 
+// endregion
+
+// region Misc
+
 // Drop deletes the collection and all its documents. Use with caution.
 func (c *Collection) Drop(ctx context.Context) error {
 	return c.db.DropCollection(ctx, c.name)
 }
+
+// endregion

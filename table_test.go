@@ -801,11 +801,6 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	})
 }
 
-// Helper functions for creating pointers
-func intPtr(i int) *int {
-	return &i
-}
-
 func boolPtr(b bool) *bool {
 	return &b
 }

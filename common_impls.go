@@ -38,7 +38,6 @@ type insertOneOptions struct {
 	APIOptions *options.APIOptions
 }
 
-// insertOneResponse is the response from insertOne command
 type insertOneResponse struct {
 	Status struct {
 		InsertedIds []json.RawMessage `json:"insertedIds"`
@@ -71,7 +70,6 @@ func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptio
 
 // region InsertMany
 
-// insertManyOptions are the common options for the collection and table insertMany operations
 type insertManyOptions struct {
 	Ordered     *bool
 	ChunkSize   *int
@@ -79,7 +77,6 @@ type insertManyOptions struct {
 	APIOptions  *options.APIOptions
 }
 
-// insertManyResponse is the response from insertMany command
 type insertManyResponse struct {
 	Status struct {
 		InsertedIds []json.RawMessage `json:"insertedIds"`
@@ -109,7 +106,6 @@ func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOp
 	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target)
 }
 
-// insertManyOrdered processes documents sequentially in chunks
 func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
@@ -143,7 +139,6 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
-// insertManyUnordered processes documents concurrently using goroutines
 func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
@@ -212,7 +207,6 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
-// runInsertMany executes a single insertMany command for a slice of documents
 func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, DataAPIErrors, error) {
 	cmd := mkCmd("insertMany", map[string]any{
 		"documents": records,
@@ -246,7 +240,6 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertMa
 
 // region FindOne
 
-// CollectionFindOneOptions represents options for a findOne operation.
 type findOneOptions struct {
 	Sort              sort.Sortable
 	Projection        map[string]any
@@ -254,9 +247,6 @@ type findOneOptions struct {
 	APIOptions        *options.APIOptions
 }
 
-// FindOne finds a single document matching the filter.
-//
-// Options passed here override those set on the collection.
 func findOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts findOneOptions, target serdes.Target) *results.SingleResult {
 	cmd := mkCmd("findOne", map[string]any{
 		"filter":     f,
@@ -281,11 +271,6 @@ type updateOneOptions struct {
 	APIOptions *options.APIOptions `json:"-"`
 }
 
-// UpdateOne updates a single document matching the filter.
-//
-// The update parameter should be an [update.U] expression, e.g. update.Coll().Set("name", "new").
-//
-// Options passed here override those set on the collection.
 func updateOne(ctx context.Context, f filter.Filterable, u any, mkCmd mkCmd, opts updateOneOptions, target serdes.Target) ([]byte, error) {
 	cmd := mkCmd("updateOne", map[string]any{
 		"filter": f,
