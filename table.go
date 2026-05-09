@@ -21,7 +21,6 @@ import (
 	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
-	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
@@ -335,51 +334,7 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 
 // endregion
 
-// region Indexe Creation
-
-// createIndexPayload is the payload for the createIndex command
-type createIndexPayload struct {
-	Name       string                `json:"name"`
-	Definition createIndexDefinition `json:"definition"`
-	Options    *createIndexOpts      `json:"options,omitempty"`
-}
-
-// createIndexDefinition defines which column to index and any index options
-type createIndexDefinition struct {
-	Column  any           `json:"column"` // string or map[string]string for $keys/$values
-	Options *indexDefOpts `json:"options,omitempty"`
-}
-
-// indexDefOpts contains options for text index behavior
-type indexDefOpts struct {
-	Ascii         *bool `json:"ascii,omitempty"`
-	Normalize     *bool `json:"normalize,omitempty"`
-	CaseSensitive *bool `json:"caseSensitive,omitempty"`
-}
-
-// createIndexOpts contains command-level options for index creation
-type createIndexOpts struct {
-	IfNotExists bool `json:"ifNotExists,omitempty"`
-}
-
-// createVectorIndexPayload is the payload for the createVectorIndex command
-type createVectorIndexPayload struct {
-	Name       string                      `json:"name"`
-	Definition createVectorIndexDefinition `json:"definition"`
-	Options    *createIndexOpts            `json:"options,omitempty"`
-}
-
-// createVectorIndexDefinition defines which column to index and vector options
-type createVectorIndexDefinition struct {
-	Column  string              `json:"column"`
-	Options *vectorIndexDefOpts `json:"options,omitempty"`
-}
-
-// vectorIndexDefOpts contains options for vector index behavior
-type vectorIndexDefOpts struct {
-	Metric      string `json:"metric,omitempty"`
-	SourceModel string `json:"sourceModel,omitempty"`
-}
+// region Index Creation
 
 // CreateIndex creates an index on a column in the table.
 //
@@ -388,7 +343,7 @@ type vectorIndexDefOpts struct {
 //   - A map for indexing map column keys or values: map[string]string{"map_col": "$keys"}
 //
 // For text columns, you can configure index behavior using SetAscii, SetNormalize,
-// and SetCaseSensitive on the options builder.
+// and SetCaseSensitive on the option builder.
 //
 // Example - basic column index:
 //
@@ -418,7 +373,6 @@ func (t *Table) CreateIndex(ctx context.Context, name string, column any, opts .
 	if err != nil {
 		return err
 	}
-	// Note: warnings are accessible via the WarningHandler option callback only.
 	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
@@ -452,7 +406,7 @@ func validateIndexColumn(column any) error {
 			return fmt.Errorf("index column map cannot be empty")
 		}
 	default:
-		return fmt.Errorf("invalid index column type: %Raw", column)
+		return fmt.Errorf("invalid index column type: %t", column)
 	}
 	// All good.
 	return nil
@@ -466,35 +420,26 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 	if err := validateIndexColumn(column); err != nil {
 		return command{}, err
 	}
-	payload := createIndexPayload{
-		Name: name,
-		Definition: createIndexDefinition{
-			Column: column,
-		},
-	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
 
-	// Add definition options if any text index options are set
-	if merged.Ascii != nil || merged.Normalize != nil || merged.CaseSensitive != nil {
-		payload.Definition.Options = &indexDefOpts{
-			Ascii:         merged.Ascii,
-			Normalize:     merged.Normalize,
-			CaseSensitive: merged.CaseSensitive,
-		}
-	}
-
-	// Add command options if ifNotExists is set
-	if ptr.From(merged.IfNotExists) {
-		payload.Options = &createIndexOpts{
-			IfNotExists: true,
-		}
-	}
-
-	return t.newCmd("createIndex", payload), nil
+	return t.newCmd("createIndex", map[string]any{
+		"name": name,
+		"definition": map[string]any{
+			"column": column,
+			"options": map[string]any{
+				"caseSensitive": merged.CaseSensitive,
+				"normalize":     merged.Normalize,
+				"ascii":         merged.Ascii,
+			},
+		},
+		"options": map[string]any{
+			"ifNotExists": merged.IfNotExists,
+		},
+	}), nil
 }
 
 // CreateVectorIndex creates a vector index on a vector column in the table.
@@ -520,7 +465,6 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 	if err != nil {
 		return err
 	}
-	// Note: warnings are accessible via the WarningHandler option callback only.
 	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
@@ -533,115 +477,35 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 	if err := validateIndexColumn(column); err != nil {
 		return command{}, err
 	}
-	payload := createVectorIndexPayload{
-		Name: name,
-		Definition: createVectorIndexDefinition{
-			Column: column,
-		},
-	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
 
-	// Add definition options if metric or sourceModel are set
-	if merged.Metric != nil || merged.SourceModel != nil {
-		defOpts := &vectorIndexDefOpts{}
-		if merged.Metric != nil {
-			defOpts.Metric = string(*merged.Metric)
-		}
-		if merged.SourceModel != nil {
-			defOpts.SourceModel = *merged.SourceModel
-		}
-		payload.Definition.Options = defOpts
-	}
-
-	// Add command options if ifNotExists is set
-	if ptr.From(merged.IfNotExists) {
-		payload.Options = &createIndexOpts{
-			IfNotExists: true,
-		}
-	}
-
-	return t.newCmd("createVectorIndex", payload), nil
-}
-
-// IndexDescriptor describes an index on a table.
-// When listing indexes with explain=true, all fields are populated.
-// When explain=false, only Name is populated.
-type IndexDescriptor struct {
-	// Name is the index identifier.
-	Name string `json:"name"`
-	// Definition contains the column and options for the index.
-	// Only populated when explain=true.
-	Definition *IndexDefinition `json:"definition,omitempty"`
-	// IndexType is either "regular" or "vector".
-	// Only populated when explain=true.
-	IndexType string `json:"indexType,omitempty"`
-}
-
-// UnmarshalAstraRaw implements custom unmarshaling for IndexDescriptor.
-// The API returns either a string (name only) or an object (full metadata)
-// depending on the explain option.
-func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
-	// Try to unmarshal as a string first (names only response)
-	var name string
-	if err := serdes.Deserialize(value, &name, nil, ctx.Target); err == nil {
-		d.Name = name
-		return nil
-	}
-
-	// Otherwise unmarshal as an object (explain=true response)
-	type indexDescriptorAlias IndexDescriptor
-	var alias indexDescriptorAlias
-	if err := serdes.Deserialize(value, &alias, nil, ctx.Target); err != nil {
-		return err
-	}
-	*d = IndexDescriptor(alias)
-	return nil
-}
-
-// IndexDefinition describes which column is indexed and its options.
-type IndexDefinition struct {
-	// Column is the name of the indexed column.
-	Column string `json:"column"`
-	// Options contains index-specific configuration.
-	Options *IndexDefinitionOptions `json:"options,omitempty"`
-}
-
-// IndexDefinitionOptions contains configuration for an index.
-type IndexDefinitionOptions struct {
-	// Metric is the similarity metric for vector indexes (cosine, dot_product, euclidean).
-	Metric string `json:"metric,omitempty"`
-	// SourceModel is the embedding model identifier for vector indexes.
-	SourceModel string `json:"sourceModel,omitempty"`
-	// Ascii if true, converts non-ASCII characters to US-ASCII before indexing.
-	Ascii *bool `json:"ascii,omitempty"`
-	// Normalize if true, applies Unicode character normalization before indexing.
-	Normalize *bool `json:"normalize,omitempty"`
-	// CaseSensitive if true, enforces case-sensitive matching.
-	CaseSensitive *bool `json:"caseSensitive,omitempty"`
+	return t.newCmd("createVectorIndex", map[string]any{
+		"name": name,
+		"definition": map[string]any{
+			"column": column,
+			"options": map[string]any{
+				"metric":      merged.Metric,
+				"sourceModel": merged.SourceModel,
+			},
+		},
+		"options": map[string]any{
+			"ifNotExists": merged.IfNotExists,
+		},
+	}), nil
 }
 
 // endregion
 
 // region Index Listing
 
-// listIndexesPayload is the payload for the listIndexes command
-type listIndexesPayload struct {
-	Options *listIndexesOpts `json:"options,omitempty"`
-}
-
-// listIndexesOpts contains options for the listIndexes command
-type listIndexesOpts struct {
-	Explain bool `json:"explain,omitempty"`
-}
-
 // listIndexesResponse is the response from the listIndexes command
 type listIndexesResponse struct {
 	Status struct {
-		Indexes []IndexDescriptor `json:"indexes"`
+		Indexes []results.IndexDescriptor `json:"indexes"`
 	} `json:"status"`
 }
 
@@ -664,7 +528,7 @@ type listIndexesResponse struct {
 //	    fmt.Printf("Index %s on column %s (type: %s)\n",
 //	        idx.Name, idx.Definition.Column, idx.IndexType)
 //	}
-func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]IndexDescriptor, error) {
+func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]results.IndexDescriptor, error) {
 	cmd, err := listIndexesCommand(t, opts...)
 	if err != nil {
 		return nil, err
@@ -684,21 +548,16 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 
 // listIndexesCommand builds the listIndexes command for the table
 func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, error) {
-	payload := listIndexesPayload{}
-
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
 
-	// Add options if explain is set
-	if ptr.From(merged.Explain) {
-		payload.Options = &listIndexesOpts{
-			Explain: true,
-		}
-	}
-
-	return t.newCmd("listIndexes", payload), nil
+	return t.newCmd("listIndexes", map[string]any{
+		"options": map[string]any{
+			"explain": merged.Explain,
+		},
+	}), nil
 }
 
 // endregion

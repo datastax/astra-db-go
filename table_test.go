@@ -16,11 +16,13 @@ package astradb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -401,10 +403,15 @@ func getTestTable(t *testing.T) *Table {
 // "API_ENDPOINT/api/json/v1/KEYSPACE_NAME/TABLE_NAME"
 var exampleIndexPayloadJSON = testutils.CleanString(`{
   "createIndex": {
-    "name": "example_index_name",
     "definition": {
-      "column": "example_column"
+      "column": "example_column",
+      "options": {
+        "ascii": null,
+        "caseSensitive": null,
+        "normalize": null
+      }
     },
+    "name": "example_index_name",
     "options": {
       "ifNotExists": true
     }
@@ -422,7 +429,15 @@ func TestCreateIndexCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleIndexPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleIndexPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleIndexPayloadJSON, string(cmdBytes))
 	}
 }
@@ -447,12 +462,17 @@ func TestCreateIndexCommandURL(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-index.html#example-ascii
 var exampleIndexASCIIPayloadJSON = testutils.CleanString(`{
   "createIndex": {
-    "name": "example_index_name",
     "definition": {
       "column": "example_column",
       "options": {
-        "ascii": true
+        "ascii": true,
+        "caseSensitive": null,
+        "normalize": null
       }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -468,7 +488,15 @@ func TestCreateIndexASCIICommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleIndexASCIIPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleIndexASCIIPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleIndexASCIIPayloadJSON, string(cmdBytes))
 	}
 }
@@ -477,11 +505,19 @@ func TestCreateIndexASCIICommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-index.html#example-index-map
 var exampleIndexMapKeysPayloadJSON = testutils.CleanString(`{
   "createIndex": {
-    "name": "example_index_name",
     "definition": {
       "column": {
         "example_map_column": "$keys"
+      },
+      "options": {
+        "ascii": null,
+        "caseSensitive": null,
+        "normalize": null
       }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -497,7 +533,15 @@ func TestCreateIndexMapKeysCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleIndexMapKeysPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleIndexMapKeysPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleIndexMapKeysPayloadJSON, string(cmdBytes))
 	}
 }
@@ -506,9 +550,16 @@ func TestCreateIndexMapKeysCommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-default
 var exampleVectorIndexDefaultPayloadJSON = testutils.CleanString(`{
   "createVectorIndex": {
-    "name": "example_index_name",
     "definition": {
-      "column": "example_vector_column"
+      "column": "example_vector_column",
+      "options": {
+        "metric": null,
+        "sourceModel": null
+      }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -524,7 +575,15 @@ func TestCreateVectorIndexDefaultCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleVectorIndexDefaultPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleVectorIndexDefaultPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexDefaultPayloadJSON, string(cmdBytes))
 	}
 }
@@ -533,13 +592,16 @@ func TestCreateVectorIndexDefaultCommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-model-metric
 var exampleVectorIndexModelMetricPayloadJSON = testutils.CleanString(`{
   "createVectorIndex": {
-    "name": "example_index_name",
     "definition": {
       "column": "example_vector_column",
       "options": {
         "metric": "dot_product",
         "sourceModel": "ada002"
       }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -556,7 +618,15 @@ func TestCreateVectorIndexModelMetricCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleVectorIndexModelMetricPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleVectorIndexModelMetricPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexModelMetricPayloadJSON, string(cmdBytes))
 	}
 }
@@ -565,10 +635,14 @@ func TestCreateVectorIndexModelMetricCommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-exists
 var exampleVectorIndexIfNotExistsPayloadJSON = testutils.CleanString(`{
   "createVectorIndex": {
-    "name": "example_index_name",
     "definition": {
-      "column": "summary_genres_vector"
+      "column": "summary_genres_vector",
+      "options": {
+        "metric": null,
+        "sourceModel": null
+      }
     },
+    "name": "example_index_name",
     "options": {
       "ifNotExists": true
     }
@@ -587,7 +661,15 @@ func TestCreateVectorIndexIfNotExistsCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleVectorIndexIfNotExistsPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleVectorIndexIfNotExistsPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexIfNotExistsPayloadJSON, string(cmdBytes))
 	}
 }
@@ -641,7 +723,11 @@ func TestDropTableIndexCommandURL(t *testing.T) {
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/list-index-metadata.html#example-names
 var exampleListIndexesNamesOnlyPayloadJSON = testutils.CleanString(`{
-  "listIndexes": {}
+  "listIndexes": {
+    "options": {
+      "explain": null
+    }
+  }
 }`)
 
 // TestListIndexesNamesOnlyCommandMarshal verifies that the resulting command from listIndexesCommand
@@ -655,7 +741,15 @@ func TestListIndexesNamesOnlyCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleListIndexesNamesOnlyPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleListIndexesNamesOnlyPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleListIndexesNamesOnlyPayloadJSON, string(cmdBytes))
 	}
 }
@@ -814,7 +908,10 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		}
 		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
 		// Should not have "options" key when no options provided
-		if string(cmdBytes) != `{"createIndex":{"name":"test_idx","definition":{"column":"test_col"}}}` {
+		var got, expected map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":null,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`), &expected)
+		if !reflect.DeepEqual(got, expected) {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
 	})
@@ -827,7 +924,10 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
 		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
-		if string(cmdBytes) != `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"caseSensitive":true}},"options":{"ifNotExists":true}}}` {
+		var got, expected map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":null,"caseSensitive":true,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`), &expected)
+		if !reflect.DeepEqual(got, expected) {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
 	})
@@ -847,9 +947,11 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false}},"options":{"ifNotExists":true}}}`
-		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+		var got, exp map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`), &exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`, string(cmdBytes))
 		}
 	})
 
@@ -865,9 +967,11 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":false}}}}`
-		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+		var got, exp map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`), &exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`, string(cmdBytes))
 		}
 	})
 
@@ -887,9 +991,11 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`
-		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+		var got, exp map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`), &exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`, string(cmdBytes))
 		}
 	})
 }
