@@ -106,7 +106,6 @@ func TableInsertOne(e *harness.TestEnv) error {
 		return err
 	}
 
-	// Get the inserted ID using the new API
 	insertedID, err := resp.RawID()
 	if err != nil {
 		return fmt.Errorf("failed to get inserted ID: %w", err)
@@ -695,12 +694,10 @@ func TableAlter(e *harness.TestEnv) error {
 	}()
 
 	// Add some columns!
-	err = tbl.Alter(ctx, table.AlterOperation{
-		Add: &table.AddColumns{
-			Columns: table.Columns{
-				{"is_summer_reading", table.Boolean()},
-				{"library_branch", table.Text()},
-			},
+	err = tbl.Alter(ctx, table.AddColumns{
+		Columns: table.Columns{
+			{"is_summer_reading", table.Boolean()},
+			{"library_branch", table.Text()},
 		},
 	})
 	if err != nil {
@@ -741,9 +738,7 @@ func TableAlter(e *harness.TestEnv) error {
 
 	// Drop one of the new columns and verify the remaining row no longer
 	// exposes it (the other added column must survive untouched).
-	err = tbl.Alter(ctx, table.AlterOperation{
-		Drop: &table.DropColumns{Columns: []string{"library_branch"}},
-	})
+	err = tbl.Alter(ctx, table.DropColumns{Columns: []string{"library_branch"}})
 	if err != nil {
 		return fmt.Errorf("Alter Drop failed: %w", err)
 	}

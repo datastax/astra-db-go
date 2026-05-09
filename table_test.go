@@ -1401,12 +1401,10 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableAddPayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					Add: &table.AddColumns{
-						Columns: table.Columns{
-							{"is_summer_reading", table.Boolean()},
-							{"library_branch", table.Text()},
-						},
+				Operation: &table.AddColumns{
+					Columns: table.Columns{
+						{"is_summer_reading", table.Boolean()},
+						{"library_branch", table.Text()},
 					},
 				},
 			}),
@@ -1416,11 +1414,9 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableAddVectorColumnPayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					Add: &table.AddColumns{
-						Columns: table.Columns{
-							{"example_vector", table.Vector(1024)},
-						},
+				Operation: &table.AddColumns{
+					Columns: table.Columns{
+						{"example_vector", table.Vector(1024)},
 					},
 				},
 			}),
@@ -1430,10 +1426,8 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableDropPayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					Drop: &table.DropColumns{
-						Columns: []string{"is_summer_reading", "library_branch"},
-					},
+				Operation: &table.DropColumns{
+					Columns: []string{"is_summer_reading", "library_branch"},
 				},
 			}),
 		},
@@ -1442,19 +1436,17 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableAddVectorizePayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					AddVectorize: &table.AddVectorize{
-						Columns: map[string]table.VectorService{
-							"summary_vec": {
-								Provider:  "openai",
-								ModelName: "text-embedding-3-small",
-								Authentication: map[string]string{
-									"providerKey": "OPENAI_API_KEY",
-								},
-								Parameters: map[string]string{
-									"organizationId": "ORGANIZATION_ID",
-									"projectId":      "PROJECT_ID",
-								},
+				Operation: &table.AddVectorize{
+					Columns: map[string]table.VectorService{
+						"summary_vec": {
+							Provider:  "openai",
+							ModelName: "text-embedding-3-small",
+							Authentication: map[string]string{
+								"providerKey": "OPENAI_API_KEY",
+							},
+							Parameters: map[string]string{
+								"organizationId": "ORGANIZATION_ID",
+								"projectId":      "PROJECT_ID",
 							},
 						},
 					},
@@ -1466,10 +1458,8 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableDropVectorizePayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					DropVectorize: &table.DropVectorize{
-						Columns: []string{"plot_synopsis"},
-					},
+				Operation: &table.DropVectorize{
+					Columns: []string{"plot_synopsis"},
 				},
 			}),
 		},
@@ -1498,11 +1488,9 @@ func TestTableAlter_HappyPath(t *testing.T) {
 	defer ts.Close()
 
 	tbl := httpTestTable(ts)
-	err := tbl.Alter(context.Background(), table.AlterOperation{
-		Add: &table.AddColumns{
-			Columns: table.Columns{
-				{"is_summer_reading", table.Boolean()},
-			},
+	err := tbl.Alter(context.Background(), table.AddColumns{
+		Columns: table.Columns{
+			{"is_summer_reading", table.Boolean()},
 		},
 	}, options.AlterTable())
 	if err != nil {
@@ -1532,19 +1520,10 @@ func TestTableAlter_HappyPath(t *testing.T) {
 // Add/Drop/AddVectorize/DropVectorize, matching the Data API constraint.
 func TestTableAlter_RejectsZeroOrMultipleOperations(t *testing.T) {
 	tbl := getTestTable(t)
-	t.Run("empty operation", func(t *testing.T) {
-		err := tbl.Alter(context.Background(), table.AlterOperation{})
+	t.Run("nil operation", func(t *testing.T) {
+		err := tbl.Alter(context.Background(), nil)
 		if err == nil {
-			t.Fatal("expected error for empty operation, got nil")
-		}
-	})
-	t.Run("two operations set", func(t *testing.T) {
-		err := tbl.Alter(context.Background(), table.AlterOperation{
-			Add:  &table.AddColumns{Columns: table.Columns{{"x", table.Text()}}},
-			Drop: &table.DropColumns{Columns: []string{"y"}},
-		})
-		if err == nil {
-			t.Fatal("expected error for multiple operations, got nil")
+			t.Fatal("expected error for nil operation, got nil")
 		}
 	})
 }

@@ -23,7 +23,7 @@ import (
 	"unsafe"
 )
 
-const MaxUintptr = ^uintptr(0)
+const maxUintptr = ^uintptr(0)
 
 func init() {
 
@@ -289,7 +289,7 @@ func uintptrDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return src, err
 	}
 
-	if num < 0 || num > uint64(MaxUintptr) {
+	if num < 0 || num > uint64(maxUintptr) {
 		return src, fmt.Errorf("value %v out of range for uintptr", num)
 	}
 

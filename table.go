@@ -596,9 +596,8 @@ type alterTablePayload struct {
 	Operation table.AlterOperation `json:"operation"`
 }
 
-// Alter modifies the table's schema. Exactly one operation must be set on
-// op — Add, Drop, AddVectorize, or DropVectorize. The four operations are
-// mutually exclusive per call.
+// Alter modifies the table's schema. The operation provided (AddColumns,
+// DropColumns, AddVectorize, or DropVectorize) determines the action taken.
 //
 // Note that the Data API does not allow column type changes (drop and re-add
 // instead) and does not support renaming a table. Dropping a vectorize
@@ -609,32 +608,28 @@ type alterTablePayload struct {
 //
 // Example — add columns:
 //
-//	err := tbl.Alter(ctx, table.AlterOperation{
-//	    Add: &table.AddColumns{
-//	        Columns: table.Columns{
-//	            "is_summer_reading": table.Boolean(),
-//	            "library_branch":    table.Text(),
-//	        },
+//	err := tbl.Alter(ctx, table.AddColumns{
+//	    Columns: table.Columns{
+//	        "is_summer_reading": table.Boolean(),
+//	        "library_branch":    table.Text(),
 //	    },
 //	})
 //
 // Example — drop columns:
 //
-//	err := tbl.Alter(ctx, table.AlterOperation{
-//	    Drop: &table.DropColumns{Columns: []string{"borrower"}},
+//	err := tbl.Alter(ctx, table.DropColumns{
+//	    Columns: []string{"borrower"},
 //	})
 //
 // Example — add vectorize on a vector column:
 //
-//	err := tbl.Alter(ctx, table.AlterOperation{
-//	    AddVectorize: &table.AddVectorize{
-//	        Columns: map[string]table.VectorService{
-//	            "summary_vec": {
-//	                Provider:  "openai",
-//	                ModelName: "text-embedding-3-small",
-//	                Authentication: map[string]string{
-//	                    "providerKey": "OPENAI_API_KEY",
-//	                },
+//	err := tbl.Alter(ctx, table.AddVectorize{
+//	    Columns: map[string]table.VectorService{
+//	        "summary_vec": {
+//	            Provider:  "openai",
+//	            ModelName: "text-embedding-3-small",
+//	            Authentication: map[string]string{
+//	                "providerKey": "OPENAI_API_KEY",
 //	            },
 //	        },
 //	    },
@@ -642,16 +637,12 @@ type alterTablePayload struct {
 //
 // Example — drop vectorize:
 //
-//	err := tbl.Alter(ctx, table.AlterOperation{
-//	    DropVectorize: &table.DropVectorize{Columns: []string{"summary_vec"}},
+//	err := tbl.Alter(ctx, table.DropVectorize{
+//	    Columns: []string{"summary_vec"},
 //	})
 //
 // Note: warnings are accessible via the WarningHandler option callback only.
 func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...options.AlterTableOption) error {
-	if err := validateAlterOperation(op); err != nil {
-		return err
-	}
-
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
@@ -662,32 +653,6 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err
-}
-
-// validateAlterOperation enforces that exactly one operation field is set on
-// the alterTable operation. The Data API rejects payloads with zero or more
-// than one operation; we surface that locally to give callers a clear error.
-func validateAlterOperation(op table.AlterOperation) error {
-	count := 0
-	if op.Add != nil {
-		count++
-	}
-	if op.Drop != nil {
-		count++
-	}
-	if op.AddVectorize != nil {
-		count++
-	}
-	if op.DropVectorize != nil {
-		count++
-	}
-	if count == 0 {
-		return fmt.Errorf("alterTable: operation must set one of Add, Drop, AddVectorize, DropVectorize")
-	}
-	if count > 1 {
-		return fmt.Errorf("alterTable: only one operation may be set per call (Add, Drop, AddVectorize, DropVectorize are mutually exclusive)")
-	}
-	return nil
 }
 
 // endregion
