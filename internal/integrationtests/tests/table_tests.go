@@ -106,15 +106,17 @@ func TableInsertOne(e *harness.TestEnv) error {
 		return err
 	}
 
-	if len(resp.Status.InsertedIds) != 1 {
-		return fmt.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
+	// Get the inserted ID using the new API
+	insertedID, err := resp.RawID()
+	if err != nil {
+		return fmt.Errorf("failed to get inserted ID: %w", err)
 	}
 
-	// The API returns insertedIds as an array of arrays - each ID is an array of primary key values
-	// For a single-column primary key like "title", it returns [["The Great Gatsby"]]
-	pkValues, ok := resp.Status.InsertedIds[0].([]any)
+	// The API returns insertedIds as an array of primary key values
+	// For a single-column primary key like "title", it returns ["The Great Gatsby"]
+	pkValues, ok := insertedID.([]any)
 	if !ok {
-		return fmt.Errorf("expected inserted ID to be []any, got %T", resp.Status.InsertedIds[0])
+		return fmt.Errorf("expected inserted ID to be []any, got %T", insertedID)
 	}
 	if len(pkValues) != 1 {
 		return fmt.Errorf("expected 1 primary key value, got %d", len(pkValues))
@@ -183,8 +185,9 @@ func TableInsertMany(e *harness.TestEnv) error {
 		return err
 	}
 
-	if len(resp.Status.InsertedIds) != len(books) {
-		return fmt.Errorf("expected %d inserted IDs, got %d", len(books), len(resp.Status.InsertedIds))
+	// Use the new InsertedCount() method
+	if resp.InsertedCount() != len(books) {
+		return fmt.Errorf("expected %d inserted IDs, got %d", len(books), resp.InsertedCount())
 	}
 
 	return nil
@@ -692,7 +695,7 @@ func TableAlter(e *harness.TestEnv) error {
 	}()
 
 	// Add some columns!
-	err = tbl.AlterTable(ctx, table.AlterOperation{
+	err = tbl.Alter(ctx, table.AlterOperation{
 		Add: &table.AddColumns{
 			Columns: table.Columns{
 				{"is_summer_reading", table.Boolean()},
@@ -701,7 +704,7 @@ func TableAlter(e *harness.TestEnv) error {
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("AlterTable Add failed: %w", err)
+		return fmt.Errorf("Alter Add failed: %w", err)
 	}
 
 	// AlteredBook sounds a tad sinister. But I swear it's just a book with some
@@ -738,11 +741,11 @@ func TableAlter(e *harness.TestEnv) error {
 
 	// Drop one of the new columns and verify the remaining row no longer
 	// exposes it (the other added column must survive untouched).
-	err = tbl.AlterTable(ctx, table.AlterOperation{
+	err = tbl.Alter(ctx, table.AlterOperation{
 		Drop: &table.DropColumns{Columns: []string{"library_branch"}},
 	})
 	if err != nil {
-		return fmt.Errorf("AlterTable Drop failed: %w", err)
+		return fmt.Errorf("Alter Drop failed: %w", err)
 	}
 
 	// Using a map here because we want to just inspect the raw fields to verify

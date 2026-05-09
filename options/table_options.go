@@ -79,6 +79,10 @@ type TableInsertOneOptions struct {
 // TableInsertManyOptions represents options for inserting multiple rows in a table.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type TableInsertManyOptions struct {
+	Ordered     *bool `json:"ordered,omitempty"`
+	ChunkSize   *int  `json:"-"`
+	Concurrency *int  `json:"-"`
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
@@ -106,6 +110,14 @@ type TableDeleteOneOptions struct {
 type TableDeleteManyOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// TableDefinitionOptions represents options for fetching a table's descriptor.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type TableDefinitionOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
 

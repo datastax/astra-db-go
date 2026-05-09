@@ -28,7 +28,42 @@ import (
 	"github.com/datastax/astra-db-go/serdes"
 )
 
-// #region InsertMany helpers
+// region Insertions
+
+type mkInsertOneCmd = func(name string, payload any, opts *options.APIOptions) command
+
+type insertOneOptions struct {
+	APIOptions *options.APIOptions
+}
+
+// insertOneResponse is the response from insertOne command
+type insertOneResponse struct {
+	Status struct {
+		InsertedIds []json.RawMessage `json:"insertedIds"`
+	} `json:"status"`
+}
+
+func insertOne(ctx context.Context, record any, mkCmd mkInsertOneCmd, opts *insertOneOptions, target serdes.Target) (*results.InsertOneResult, error) {
+	cmd := mkCmd("insertOne", map[string]any{
+		"document": record,
+	}, opts.APIOptions)
+
+	b, warnings, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp insertOneResponse
+	if err := serdes.Deserialize(b, &resp, nil, target); err != nil {
+		return nil, err
+	}
+
+	if len(resp.Status.InsertedIds) == 0 {
+		return nil, errors.New("no inserted ID returned from server")
+	}
+
+	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, target), nil
+}
 
 type mkInsertManyCmd = func(name string, payload any, opts *options.APIOptions) command
 
@@ -48,7 +83,7 @@ type insertManyResponse struct {
 	Errors []DataAPIError `json:"errors,omitempty"`
 }
 
-func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	recordsVal := reflect.ValueOf(records)
 	if recordsVal.Kind() != reflect.Slice {
 		return nil, errors.New("records must be a slice")
@@ -65,9 +100,9 @@ func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts in
 	}
 
 	if *opts.Ordered {
-		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target)
+		return insertManyOrdered(ctx, recordsVal, mkCmd, opts, target)
 	}
-	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target)
+	return insertManyUnordered(ctx, recordsVal, mkCmd, opts, target)
 }
 
 // insertManyOrdered processes documents sequentially in chunks
@@ -203,4 +238,4 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts
 	return batch, warnings, resp.Errors, nil
 }
 
-// #endregion
+// endregion

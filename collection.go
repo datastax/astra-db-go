@@ -55,6 +55,8 @@ type Collection struct {
 	options *options.APIOptions
 }
 
+// region Meta
+
 // Name returns the collection name.
 func (c *Collection) Name() string {
 	return c.name
@@ -66,31 +68,6 @@ func (c *Collection) ClientOptions() *options.APIOptions {
 		return &options.APIOptions{}
 	}
 	return c.options
-}
-
-// Options retrieves the collection's descriptor including its definition.
-// This method calls the database's ListCollections and returns the descriptor
-// for this specific collection.
-//
-// Options passed here override those set on the collection.
-func (c *Collection) Options(ctx context.Context, opts ...options.CollectionOptionsOption) (*results.CollectionDescriptor, error) {
-	// Merge and turn into ListCollectionOptions.
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
-	}
-	collections, err := c.db.ListCollections(ctx, &options.ListCollectionsOptions{APIOptions: merged.APIOptions})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, coll := range collections {
-		if coll.Name == c.name {
-			return &coll, nil
-		}
-	}
-
-	return nil, ErrNotFound
 }
 
 // Database returns the parent database.
@@ -115,17 +92,36 @@ func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, o
 	return opts.GetGeneralMethodTimeout()
 }
 
-// insertOnePayload is the payload for insertOne commands.
-type insertOnePayload struct {
-	Document any `json:"document"`
+// endregion
+
+// region Definition
+
+// Options retrieves the collection's descriptor including its definition.
+// This method calls the database's ListCollections and returns the descriptor
+// for this specific collection.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) Options(ctx context.Context, opts ...options.CollectionOptionsOption) (*results.CollectionDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+
+	collections, err := c.db.ListCollections(ctx, &options.ListCollectionsOptions{APIOptions: merged.APIOptions})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, coll := range collections {
+		if coll.Name == c.name {
+			return &coll, nil
+		}
+	}
+
+	return nil, ErrNotFound
 }
 
-// insertOneResponse is the response from insertOne command
-type insertOneResponse struct {
-	Status struct {
-		InsertedIds []json.RawMessage `json:"insertedIds"`
-	} `json:"status"`
-}
+// endregion
 
 // InsertOne inserts a single document into the collection.
 //
@@ -135,26 +131,7 @@ func (c *Collection) InsertOne(ctx context.Context, document any, opts ...option
 	if err != nil {
 		return nil, fmt.Errorf("invalid options: %w", err)
 	}
-
-	cmd := c.newCmdWithMergedOptions("insertOne", insertOnePayload{
-		Document: document,
-	}, merged.APIOptions)
-
-	b, warnings, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	var resp insertOneResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
-		return nil, err
-	}
-
-	if len(resp.Status.InsertedIds) == 0 {
-		return nil, errors.New("no inserted ID returned from server")
-	}
-
-	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, serdes.TargetCollection), nil
+	return insertOne(ctx, document, c.newCmdWithMergedOptions, (*insertOneOptions)(merged), serdes.TargetCollection)
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
@@ -165,7 +142,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmdWithMergedOptions, insertManyOptions(*merged), serdes.TargetCollection)
+	return insertMany(ctx, documents, c.newCmdWithMergedOptions, (*insertManyOptions)(merged), serdes.TargetCollection)
 }
 
 // Payload for collection find one.

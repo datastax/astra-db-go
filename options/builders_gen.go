@@ -2094,6 +2094,52 @@ func (b *serdesOptionsBuilder) Setters() []func(*SerdesOptions) {
 	return b.setters
 }
 
+// TableDefinitionOption configures a TableDefinition operation.
+// You can use the fluent-style builder or a pointer to [TableDefinitionOptions] interchangeably.
+//
+// Example using the fluent builder ([TableDefinition]):
+//
+//	opts := options.TableDefinition().SetAPIOptions(...)
+//
+// Example using a pointer to [TableDefinitionOptions] without the fluent builder:
+//
+//	opts := &options.TableDefinitionOptions{...}
+type TableDefinitionOption = Builder[TableDefinitionOptions]
+
+// Setters implements Builder[TableDefinitionOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableDefinitionOptions].
+func (o *TableDefinitionOptions) Setters() []func(*TableDefinitionOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for TableDefinitionOptions.
+func (o *TableDefinitionOptions) Validate() error { return nil }
+
+// tableDefinitionOptionsBuilder is a builder for TableDefinitionOptions.
+type tableDefinitionOptionsBuilder struct {
+	setters []func(*TableDefinitionOptions)
+}
+
+// TableDefinition creates a new builder for [TableDefinitionOptions].
+func TableDefinition() *tableDefinitionOptionsBuilder {
+	return &tableDefinitionOptionsBuilder{}
+}
+
+// Setters implements Builder[TableDefinitionOptions].
+func (b *tableDefinitionOptionsBuilder) Setters() []func(*TableDefinitionOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *tableDefinitionOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableDefinitionOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableDefinitionOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // TableDeleteManyOption configures a TableDeleteMany operation.
 // You can use the fluent-style builder or a pointer to [TableDeleteManyOptions] interchangeably.
 //
@@ -2294,11 +2340,12 @@ func (b *tableFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *table
 //
 // Example using the fluent builder ([TableInsertMany]):
 //
-//	opts := options.TableInsertMany().SetAPIOptions(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.TableInsertMany().SetOrdered(false)
 //
 // Example using a pointer to [TableInsertManyOptions] without the fluent builder:
 //
-//	opts := &options.TableInsertManyOptions{...}
+//	opts := &options.TableInsertManyOptions{Ordered: ptr.To(false)}
 type TableInsertManyOption = Builder[TableInsertManyOptions]
 
 // Setters implements Builder[TableInsertManyOptions] allowing the raw struct to be
@@ -2323,6 +2370,24 @@ func TableInsertMany() *tableInsertManyOptionsBuilder {
 // Setters implements Builder[TableInsertManyOptions].
 func (b *tableInsertManyOptionsBuilder) Setters() []func(*TableInsertManyOptions) {
 	return b.setters
+}
+
+// SetOrdered sets the Ordered option.
+func (b *tableInsertManyOptionsBuilder) SetOrdered(v bool) *tableInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) { o.Ordered = &v })
+	return b
+}
+
+// SetChunkSize sets the ChunkSize option.
+func (b *tableInsertManyOptionsBuilder) SetChunkSize(v int) *tableInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) { o.ChunkSize = &v })
+	return b
+}
+
+// SetConcurrency sets the Concurrency option.
+func (b *tableInsertManyOptionsBuilder) SetConcurrency(v int) *tableInsertManyOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) { o.Concurrency = &v })
+	return b
 }
 
 // SetAPIOptions sets the APIOptions option.

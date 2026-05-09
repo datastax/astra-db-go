@@ -53,13 +53,15 @@ type Table struct {
 	options *options.APIOptions
 }
 
+// region Meta
+
 // Name returns the table name.
 func (t *Table) Name() string {
 	return t.name
 }
 
-// Options returns the table's options (or empty options if nil).
-func (t *Table) Options() *options.APIOptions {
+// ClientOptions returns the table's options (or empty options if nil).
+func (t *Table) ClientOptions() *options.APIOptions {
 	if t.options == nil {
 		return &options.APIOptions{}
 	}
@@ -83,241 +85,88 @@ func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *optio
 	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts)
 }
 
-// createTablePayload is the payload for the createTable command
-type createTablePayload struct {
-	Name       string           `json:"name"`
-	Definition table.Definition `json:"definition"`
-	Options    *createTableOpts `json:"options,omitempty"`
-}
+// endregion
 
-// createTableOpts represents the options sub-object in createTable payload
-type createTableOpts struct {
-	IfNotExists bool `json:"ifNotExists,omitempty"`
-}
+// region Definition
 
-// createTableResponse represents the response from createTable
-type createTableResponse struct {
-	Status struct {
-		OK int `json:"ok"`
-	} `json:"status"`
-}
-
-// Table returns a Table object for the specified table name.
-// This does not create the table or verify its existence.
+// Definition retrieves the table's descriptor including its definition.
+// This method calls the database's ListTables and returns the descriptor
+// for this specific table.
 //
-// Options set here override those set on the database.
-//
-// Example:
-//
-//	tbl := db.Table("my_table",
-//	    options.WithTimeout(60 * time.Second),
-//	)
-func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{
-		db:      d,
-		name:    name,
-		options: options.NewAPIOptions(opts...),
+// Options passed here override those set on the table.
+func (t *Table) Definition(ctx context.Context, opts ...options.TableDefinitionOption) (*results.TableDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
-}
 
-// CreateTable creates a new table in the database with the specified definition.
-//
-// The definition includes column names, data types, and the primary key configuration.
-// After creating a table, you should index columns that you want to sort or filter
-// to optimize queries.
-//
-// Example usage:
-//
-//	definition := table.Definition{
-//		Columns: table.Columns{
-//			{Name: "title", Column: table.Text()},
-//			{Name: "number_of_pages", Column: table.Int()},
-//			{Name: "rating", Column: table.Float()},
-//			{Name: "is_checked_out", Column: table.Boolean()},
-//		},
-//		PrimaryKey: table.PrimaryKey{
-//			PartitionBy: []string{"title"},
-//		},
-//	}
-//	tbl, err := db.CreateTable(ctx, "my_table", definition)
-func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.CreateTableOption) (*Table, error) {
-	// Apply options
-	tableOpts, err := options.MergeAndValidate(opts...)
+	tables, err := t.db.ListTables(ctx, &options.ListTablesOptions{APIOptions: merged.APIOptions})
 	if err != nil {
 		return nil, err
 	}
 
-	payload := createTablePayload{
-		Name:       name,
-		Definition: definition,
-	}
-
-	// Add options if ifNotExists is set
-	if ptr.From(tableOpts.IfNotExists) {
-		payload.Options = &createTableOpts{
-			IfNotExists: true,
+	for _, tbl := range tables {
+		if tbl.Name == t.name {
+			return &tbl, nil
 		}
 	}
 
-	cmd := d.newCmd("createTable", payload)
+	return nil, ErrNotFound
+}
 
-	// Override keyspace if specified in options
-	if tableOpts.Keyspace != nil {
-		cmd.keyspace = *tableOpts.Keyspace
+// endregion
+
+// InsertOne inserts a single row into the table.
+//
+// The row parameter should be a struct or map representing the row data.
+// The primary key columns must be included in the row data.
+//
+// Returns the inserted primary key value(s) in the response.
+//
+// Example usage:
+//
+//	type Book struct {
+//		Title         string  `json:"title"`
+//		Author        string  `json:"author"`
+//		NumberOfPages int     `json:"number_of_pages"`
+//		Rating        float32 `json:"rating"`
+//	}
+//
+//	book := Book{
+//		Title:         "The Great Gatsby",
+//		Author:        "F. Scott Fitzgerald",
+//		NumberOfPages: 180,
+//		Rating:        4.5,
+//	}
+//	resp, err := table.InsertOne(ctx, book)
+func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableInsertOneOption) (*results.InsertOneResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
 	}
+	return insertOne(ctx, row, t.newCmdWithMergedOptions, (*insertOneOptions)(merged), serdes.TargetTable)
+}
 
-	// Execute the command
-	// Response is in format: {"status":{"ok":1}}
-	// Note: warnings are accessible via the WarningHandler option callback only.
-	_, _, _, err = cmd.Execute(ctx)
+// InsertMany inserts multiple rows into the table.
+//
+// The rows parameter must be a non-empty slice of structs or maps representing the row data.
+// The primary key columns must be included in each row.
+//
+// Returns the inserted primary key values in the response.
+//
+// Example usage:
+//
+//	books := []Book{
+//		{Title: "Book 1", Author: "Author 1", NumberOfPages: 100, Rating: 4.0},
+//		{Title: "Book 2", Author: "Author 2", NumberOfPages: 200, Rating: 4.5},
+//	}
+//	resp, err := table.InsertMany(ctx, books)
+func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableInsertManyOption) (*results.InsertManyResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Table{
-		db:   d,
-		name: name,
-	}, nil
-}
-
-// alterTablePayload is the payload for the alterTable command.
-type alterTablePayload struct {
-	Operation table.AlterOperation `json:"operation"`
-}
-
-// AlterTable modifies the table's schema. Exactly one operation must be set on
-// op — Add, Drop, AddVectorize, or DropVectorize. The four operations are
-// mutually exclusive per call.
-//
-// Note that the Data API does not allow column type changes (drop and re-add
-// instead) and does not support renaming a table. Dropping a vectorize
-// integration preserves any embeddings already stored in the column; only
-// the auto-embedding integration is removed.
-//
-// After adding columns, index any new columns you intend to filter or sort on.
-//
-// Example — add columns:
-//
-//	err := tbl.AlterTable(ctx, table.AlterOperation{
-//	    Add: &table.AddColumns{
-//	        Columns: table.Columns{
-//	            "is_summer_reading": table.Boolean(),
-//	            "library_branch":    table.Text(),
-//	        },
-//	    },
-//	})
-//
-// Example — drop columns:
-//
-//	err := tbl.AlterTable(ctx, table.AlterOperation{
-//	    Drop: &table.DropColumns{Columns: []string{"borrower"}},
-//	})
-//
-// Example — add vectorize on a vector column:
-//
-//	err := tbl.AlterTable(ctx, table.AlterOperation{
-//	    AddVectorize: &table.AddVectorize{
-//	        Columns: map[string]table.VectorService{
-//	            "summary_vec": {
-//	                Provider:  "openai",
-//	                ModelName: "text-embedding-3-small",
-//	                Authentication: map[string]string{
-//	                    "providerKey": "OPENAI_API_KEY",
-//	                },
-//	            },
-//	        },
-//	    },
-//	})
-//
-// Example — drop vectorize:
-//
-//	err := tbl.AlterTable(ctx, table.AlterOperation{
-//	    DropVectorize: &table.DropVectorize{Columns: []string{"summary_vec"}},
-//	})
-//
-// Note: warnings are accessible via the WarningHandler option callback only.
-func (t *Table) AlterTable(ctx context.Context, op table.AlterOperation, opts ...options.AlterTableOption) error {
-	if err := validateAlterOperation(op); err != nil {
-		return err
-	}
-
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
-	}
-
-	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
-		Operation: op,
-	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
-	return err
-}
-
-// validateAlterOperation enforces that exactly one operation field is set on
-// the alterTable operation. The Data API rejects payloads with zero or more
-// than one operation; we surface that locally to give callers a clear error.
-func validateAlterOperation(op table.AlterOperation) error {
-	count := 0
-	if op.Add != nil {
-		count++
-	}
-	if op.Drop != nil {
-		count++
-	}
-	if op.AddVectorize != nil {
-		count++
-	}
-	if op.DropVectorize != nil {
-		count++
-	}
-	if count == 0 {
-		return fmt.Errorf("alterTable: operation must set one of Add, Drop, AddVectorize, DropVectorize")
-	}
-	if count > 1 {
-		return fmt.Errorf("alterTable: only one operation may be set per call (Add, Drop, AddVectorize, DropVectorize are mutually exclusive)")
-	}
-	return nil
-}
-
-// dropTablePayload is the payload for the dropTable command
-type dropTablePayload struct {
-	Name string `json:"name"`
-}
-
-// DropTable drops (deletes) a table from the database.
-//
-// Example usage:
-//
-//	err := db.DropTable(ctx, "my_table")
-//
-// Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTable(ctx context.Context, name string) error {
-	cmd := d.newCmd("dropTable", dropTablePayload{Name: name})
-	_, _, _, err := cmd.Execute(ctx)
-	return err
-}
-
-// dropIndexPayload is the payload for the dropIndex command
-type dropIndexPayload struct {
-	Name string `json:"name"`
-}
-
-// DropTableIndex drops (deletes) an index from the database.
-//
-// Example usage:
-//
-//	err := db.DropTableIndex(ctx, "rating_idx")
-//
-// Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTableIndex(ctx context.Context, name string) error {
-	cmd := dropTableIndexCommand(d, name)
-	_, _, _, err := cmd.Execute(ctx)
-	return err
-}
-
-// dropTableIndexCommand builds the dropIndex command for the database
-func dropTableIndexCommand(d *Db, name string) command {
-	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
+	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (*insertManyOptions)(merged), serdes.TargetCollection)
 }
 
 // tableFindPayload is the payload for the find command on tables
@@ -449,21 +298,6 @@ type tableInsertManyPayload struct {
 	Documents any `json:"documents"`
 }
 
-// TableInsertResponse represents the response from insert operations on tables.
-// The InsertedIds contains the primary key values of inserted rows.
-type TableInsertResponse struct {
-	Status struct {
-		// InsertedIds contains the primary key values of inserted rows.
-		// For single-column primary keys, this will be an array of scalar values.
-		// For composite/compound primary keys, this will be an array of objects
-		// with the primary key column names as keys.
-		InsertedIds []any `json:"insertedIds"`
-		// PrimaryKeySchema describes the structure of the primary key.
-		// Contains information about partition keys and clustering keys.
-		PrimaryKeySchema *PrimaryKeySchema `json:"primaryKeySchema,omitempty"`
-	} `json:"status"`
-}
-
 // PrimaryKeySchema describes the primary key structure returned in insert responses.
 // It maps column names to their type information.
 type PrimaryKeySchema map[string]ColumnTypeInfo
@@ -471,86 +305,6 @@ type PrimaryKeySchema map[string]ColumnTypeInfo
 // ColumnTypeInfo describes the type of a column in the primary key schema
 type ColumnTypeInfo struct {
 	Type string `json:"type"`
-}
-
-// InsertOne inserts a single row into the table.
-//
-// The row parameter should be a struct or map representing the row data.
-// The primary key columns must be included in the row data.
-//
-// Returns the inserted primary key value(s) in the response.
-//
-// Example usage:
-//
-//	type Book struct {
-//		Title         string  `json:"title"`
-//		Author        string  `json:"author"`
-//		NumberOfPages int     `json:"number_of_pages"`
-//		Rating        float32 `json:"rating"`
-//	}
-//
-//	book := Book{
-//		Title:         "The Great Gatsby",
-//		Author:        "F. Scott Fitzgerald",
-//		NumberOfPages: 180,
-//		Rating:        4.5,
-//	}
-//	resp, err := table.InsertOne(ctx, book)
-func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableInsertOneOption) (TableInsertResponse, error) {
-	var resp TableInsertResponse
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return resp, fmt.Errorf("invalid options: %w", err)
-	}
-	cmd := t.newCmdWithMergedOptions("insertOne", tableInsertOnePayload{
-		Document: row,
-	}, merged.APIOptions)
-	// Note: warnings are accessible via the WarningHandler option callback only.
-	b, _, schema, err := cmd.Execute(ctx)
-	if err != nil {
-		return resp, err
-	}
-	err = serdes.Deserialize(b, &resp, schema, serdes.TargetTable)
-	return resp, err
-}
-
-// InsertMany inserts multiple rows into the table.
-//
-// The rows parameter must be a non-empty slice of structs or maps representing the row data.
-// The primary key columns must be included in each row.
-//
-// Returns the inserted primary key values in the response.
-//
-// Example usage:
-//
-//	books := []Book{
-//		{Title: "Book 1", Author: "Author 1", NumberOfPages: 100, Rating: 4.0},
-//		{Title: "Book 2", Author: "Author 2", NumberOfPages: 200, Rating: 4.5},
-//	}
-//	resp, err := table.InsertMany(ctx, books)
-func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableInsertManyOption) (TableInsertResponse, error) {
-	var resp TableInsertResponse
-
-	// Ensure we have a slice with rows
-	err := ensureNonEmptySlice(rows)
-	if err != nil {
-		return resp, fmt.Errorf("rows: %w", err)
-	}
-
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return resp, fmt.Errorf("invalid options: %w", err)
-	}
-	cmd := t.newCmdWithMergedOptions("insertMany", tableInsertManyPayload{
-		Documents: rows,
-	}, merged.APIOptions)
-	// Note: warnings are accessible via the WarningHandler option callback only.
-	b, _, schema, err := cmd.Execute(ctx)
-	if err != nil {
-		return resp, err
-	}
-	err = serdes.Deserialize(b, &resp, schema, serdes.TargetTable)
-	return resp, err
 }
 
 // tableUpdateOnePayload is the payload for the updateOne command on tables.
@@ -1018,4 +772,126 @@ func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, e
 	}
 
 	return t.newCmd("listIndexes", payload), nil
+}
+
+// alterTablePayload is the payload for the alterTable command.
+type alterTablePayload struct {
+	Operation table.AlterOperation `json:"operation"`
+}
+
+// Alter modifies the table's schema. Exactly one operation must be set on
+// op — Add, Drop, AddVectorize, or DropVectorize. The four operations are
+// mutually exclusive per call.
+//
+// Note that the Data API does not allow column type changes (drop and re-add
+// instead) and does not support renaming a table. Dropping a vectorize
+// integration preserves any embeddings already stored in the column; only
+// the auto-embedding integration is removed.
+//
+// After adding columns, index any new columns you intend to filter or sort on.
+//
+// Example — add columns:
+//
+//	err := tbl.Alter(ctx, table.AlterOperation{
+//	    Add: &table.AddColumns{
+//	        Columns: table.Columns{
+//	            "is_summer_reading": table.Boolean(),
+//	            "library_branch":    table.Text(),
+//	        },
+//	    },
+//	})
+//
+// Example — drop columns:
+//
+//	err := tbl.Alter(ctx, table.AlterOperation{
+//	    Drop: &table.DropColumns{Columns: []string{"borrower"}},
+//	})
+//
+// Example — add vectorize on a vector column:
+//
+//	err := tbl.Alter(ctx, table.AlterOperation{
+//	    AddVectorize: &table.AddVectorize{
+//	        Columns: map[string]table.VectorService{
+//	            "summary_vec": {
+//	                Provider:  "openai",
+//	                ModelName: "text-embedding-3-small",
+//	                Authentication: map[string]string{
+//	                    "providerKey": "OPENAI_API_KEY",
+//	                },
+//	            },
+//	        },
+//	    },
+//	})
+//
+// Example — drop vectorize:
+//
+//	err := tbl.Alter(ctx, table.AlterOperation{
+//	    DropVectorize: &table.DropVectorize{Columns: []string{"summary_vec"}},
+//	})
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...options.AlterTableOption) error {
+	if err := validateAlterOperation(op); err != nil {
+		return err
+	}
+
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return fmt.Errorf("invalid options: %w", err)
+	}
+
+	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
+		Operation: op,
+	}, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
+	return err
+}
+
+// validateAlterOperation enforces that exactly one operation field is set on
+// the alterTable operation. The Data API rejects payloads with zero or more
+// than one operation; we surface that locally to give callers a clear error.
+func validateAlterOperation(op table.AlterOperation) error {
+	count := 0
+	if op.Add != nil {
+		count++
+	}
+	if op.Drop != nil {
+		count++
+	}
+	if op.AddVectorize != nil {
+		count++
+	}
+	if op.DropVectorize != nil {
+		count++
+	}
+	if count == 0 {
+		return fmt.Errorf("alterTable: operation must set one of Add, Drop, AddVectorize, DropVectorize")
+	}
+	if count > 1 {
+		return fmt.Errorf("alterTable: only one operation may be set per call (Add, Drop, AddVectorize, DropVectorize are mutually exclusive)")
+	}
+	return nil
+}
+
+// dropIndexPayload is the payload for the dropIndex command
+type dropIndexPayload struct {
+	Name string `json:"name"`
+}
+
+// DropTableIndex drops (deletes) an index from the database.
+//
+// Example usage:
+//
+//	err := db.DropTableIndex(ctx, "rating_idx")
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (d *Db) DropTableIndex(ctx context.Context, name string) error {
+	cmd := dropTableIndexCommand(d, name)
+	_, _, _, err := cmd.Execute(ctx)
+	return err
+}
+
+// dropTableIndexCommand builds the dropIndex command for the database
+func dropTableIndexCommand(d *Db, name string) command {
+	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
 }

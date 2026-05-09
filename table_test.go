@@ -35,92 +35,71 @@ import (
 	"github.com/datastax/astra-db-go/update"
 )
 
-func TestCreateTablePayloadMarshal(t *testing.T) {
+func TestTableDefinitionMarshal(t *testing.T) {
 	tests := []struct {
-		name     string
-		payload  createTablePayload
-		expected string
+		name       string
+		definition table.Definition
+		expected   string
 	}{
 		{
 			name: "single column primary key",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "title", Column: table.Text()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"title"},
-					},
+			definition: table.Definition{
+				Columns: table.Columns{
+					{Name: "title", Column: table.Text()},
+				},
+				PrimaryKey: table.PrimaryKey{
+					PartitionBy: []string{"title"},
 				},
 			},
-			expected: `{"name":"test_table","definition":{"columns":{"title":{"type":"text"}},"primaryKey":"title"}}`,
+			expected: `{"columns":{"title":{"type":"text"}},"primaryKey":"title"}`,
 		},
 		{
 			name: "composite primary key",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "title", Column: table.Text()},
-						{Name: "rating", Column: table.Float()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"title", "rating"},
-					},
+			definition: table.Definition{
+				Columns: table.Columns{
+					{Name: "title", Column: table.Text()},
+					{Name: "rating", Column: table.Float()},
+				},
+				PrimaryKey: table.PrimaryKey{
+					PartitionBy: []string{"title", "rating"},
 				},
 			},
-			expected: `{"name":"test_table","definition":{"columns":{"title":{"type":"text"},"rating":{"type":"float"}},"primaryKey":{"partitionBy":["title","rating"]}}}`,
+			expected: `{"columns":{"title":{"type":"text"},"rating":{"type":"float"}},"primaryKey":{"partitionBy":["title","rating"]}}`,
 		},
 		{
 			name: "compound primary key with clustering",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "title", Column: table.Text()},
-						{Name: "rating", Column: table.Float()},
-						{Name: "number_of_pages", Column: table.Int()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"title"},
-						PartitionSort: table.PartitionSort{
-							{Name: "rating", Order: table.SortAscending},
-							{Name: "number_of_pages", Order: table.SortDescending},
-						},
+			definition: table.Definition{
+				Columns: table.Columns{
+					{Name: "title", Column: table.Text()},
+					{Name: "rating", Column: table.Float()},
+					{Name: "number_of_pages", Column: table.Int()},
+				},
+				PrimaryKey: table.PrimaryKey{
+					PartitionBy: []string{"title"},
+					PartitionSort: table.PartitionSort{
+						{Name: "rating", Order: table.SortAscending},
+						{Name: "number_of_pages", Order: table.SortDescending},
 					},
 				},
 			},
-		},
-		{
-			name: "with ifNotExists",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "id", Column: table.UUID()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"id"},
-					},
-				},
-				Options: &createTableOpts{IfNotExists: true},
-			},
-			expected: `{"name":"test_table","definition":{"columns":{"id":{"type":"uuid"}},"primaryKey":"id"},"options":{"ifNotExists":true}}`,
+			expected: `{"columns":{"title":{"type":"text"},"rating":{"type":"float"},"number_of_pages":{"type":"int"}},"primaryKey":{"partitionBy":["title"],"partitionSort":{"rating":1,"number_of_pages":-1}}}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := serdes.Serialize(tt.payload, serdes.TargetTable)
+			// Marshalling only the table.Definition
+			b, err := serdes.Serialize(tt.definition, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("failed to marshal: %v", err)
 			}
+
 			if tt.expected != "" && string(b) != tt.expected {
-				t.Errorf("expected %s, got %s", tt.expected, string(b))
+				t.Errorf("\nexpected: %s\ngot:      %s", tt.expected, string(b))
 			}
-			// Verify it can be unmarshaled back
-			var result createTablePayload
+
+			// Verify it can be unmarshaled back into a table.Definition
+			var result table.Definition
 			if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
@@ -640,72 +619,6 @@ func TestTableInsertManyPayloadMarshal(t *testing.T) {
 	if len(docs) != 3 {
 		t.Errorf("expected 3 documents, got %d", len(docs))
 	}
-}
-
-func TestTableInsertResponseUnmarshal(t *testing.T) {
-	// Test single-column primary key response
-	// The API returns insertedIds as an array of arrays: [["value1"], ["value2"]]
-	t.Run("single column primary key", func(t *testing.T) {
-		jsonResp := `{"status":{"insertedIds":[["The Great Gatsby"]],"primaryKeySchema":{"title":{"type":"text"}}}}`
-		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
-		}
-
-		if len(resp.Status.InsertedIds) != 1 {
-			t.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
-		}
-
-		// Each inserted ID is an array of primary key values
-		pkValues, ok := resp.Status.InsertedIds[0].([]any)
-		if !ok {
-			t.Fatalf("expected inserted ID to be []any, got %T", resp.Status.InsertedIds[0])
-		}
-		if len(pkValues) != 1 {
-			t.Errorf("expected 1 pk value, got %d", len(pkValues))
-		}
-		if pkValues[0] != "The Great Gatsby" {
-			t.Errorf("expected 'The Great Gatsby', got %v", pkValues[0])
-		}
-	})
-
-	// Test composite primary key response
-	t.Run("composite primary key", func(t *testing.T) {
-		// For composite keys, each inserted ID is still an array with multiple values
-		jsonResp := `{"status":{"insertedIds":[["Book 1","Author 1"]],"primaryKeySchema":{"title":{"type":"text"},"author":{"type":"text"}}}}`
-		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
-		}
-
-		if len(resp.Status.InsertedIds) != 1 {
-			t.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
-		}
-
-		pkValues, ok := resp.Status.InsertedIds[0].([]any)
-		if !ok {
-			t.Fatalf("expected inserted ID to be []any, got %T", resp.Status.InsertedIds[0])
-		}
-		if len(pkValues) != 2 {
-			t.Errorf("expected 2 pk values, got %d", len(pkValues))
-		}
-		if pkValues[0] != "Book 1" {
-			t.Errorf("expected 'Book 1', got %v", pkValues[0])
-		}
-	})
-
-	// Test multiple inserts
-	t.Run("multiple inserts", func(t *testing.T) {
-		jsonResp := `{"status":{"insertedIds":[["Book 1"],["Book 2"],["Book 3"]]}}`
-		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
-		}
-
-		if len(resp.Status.InsertedIds) != 3 {
-			t.Errorf("expected 3 inserted IDs, got %d", len(resp.Status.InsertedIds))
-		}
-	})
 }
 
 // getTestTable acts as a test fixture to provide a *Table.
@@ -1604,7 +1517,7 @@ func TestTableDeleteMany_EnforceNonNilFilter(t *testing.T) {
 
 // #endregion
 
-// #region Table.AlterTable tests
+// #region Table.Alter tests
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add
 var exampleAlterTableAddPayloadJSON = testutils.CleanString(`{
@@ -1759,7 +1672,7 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 	testutils.RunJSONTestCases(t, tests)
 }
 
-// TestTableAlter_HappyPath verifies that AlterTable posts the expected request
+// TestTableAlter_HappyPath verifies that Alter posts the expected request
 // body for an "add columns" call, reads the documented success response, and
 // returns nil.
 func TestTableAlter_HappyPath(t *testing.T) {
@@ -1780,7 +1693,7 @@ func TestTableAlter_HappyPath(t *testing.T) {
 	defer ts.Close()
 
 	tbl := httpTestTable(ts)
-	err := tbl.AlterTable(context.Background(), table.AlterOperation{
+	err := tbl.Alter(context.Background(), table.AlterOperation{
 		Add: &table.AddColumns{
 			Columns: table.Columns{
 				{"is_summer_reading", table.Boolean()},
@@ -1815,13 +1728,13 @@ func TestTableAlter_HappyPath(t *testing.T) {
 func TestTableAlter_RejectsZeroOrMultipleOperations(t *testing.T) {
 	tbl := getTestTable(t)
 	t.Run("empty operation", func(t *testing.T) {
-		err := tbl.AlterTable(context.Background(), table.AlterOperation{})
+		err := tbl.Alter(context.Background(), table.AlterOperation{})
 		if err == nil {
 			t.Fatal("expected error for empty operation, got nil")
 		}
 	})
 	t.Run("two operations set", func(t *testing.T) {
-		err := tbl.AlterTable(context.Background(), table.AlterOperation{
+		err := tbl.Alter(context.Background(), table.AlterOperation{
 			Add:  &table.AddColumns{Columns: table.Columns{{"x", table.Text()}}},
 			Drop: &table.DropColumns{Columns: []string{"y"}},
 		})
