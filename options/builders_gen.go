@@ -2232,6 +2232,75 @@ func (b *tableDeleteOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *
 	return b
 }
 
+// TableFindOneOption configures a TableFindOne operation.
+// You can use the fluent-style builder or a pointer to [TableFindOneOptions] interchangeably.
+//
+// Example using the fluent builder ([TableFindOne]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.TableFindOne().SetIncludeSimilarity(false)
+//
+// Example using a pointer to [TableFindOneOptions] without the fluent builder:
+//
+//	opts := &options.TableFindOneOptions{IncludeSimilarity: ptr.To(false)}
+type TableFindOneOption = Builder[TableFindOneOptions]
+
+// Setters implements Builder[TableFindOneOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[TableFindOneOptions].
+func (o *TableFindOneOptions) Setters() []func(*TableFindOneOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for TableFindOneOptions.
+func (o *TableFindOneOptions) Validate() error { return nil }
+
+// tableFindOneOptionsBuilder is a builder for TableFindOneOptions.
+type tableFindOneOptionsBuilder struct {
+	setters []func(*TableFindOneOptions)
+}
+
+// TableFindOne creates a new builder for [TableFindOneOptions].
+func TableFindOne() *tableFindOneOptionsBuilder {
+	return &tableFindOneOptionsBuilder{}
+}
+
+// Setters implements Builder[TableFindOneOptions].
+func (b *tableFindOneOptionsBuilder) Setters() []func(*TableFindOneOptions) {
+	return b.setters
+}
+
+// SetSort sets the Sort option.
+// Sort specifies the sort order to apply before selecting the document to update.
+func (b *tableFindOneOptionsBuilder) SetSort(v sort.Sortable) *tableFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOneOptions) { o.Sort = v })
+	return b
+}
+
+// SetProjection sets the Projection option.
+// Projection controls which fields are included or excluded in the returned document.
+func (b *tableFindOneOptionsBuilder) SetProjection(v map[string]any) *tableFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOneOptions) { o.Projection = v })
+	return b
+}
+
+// SetIncludeSimilarity sets the IncludeSimilarity option.
+// IncludeSimilarity if true, include the similarity score in the result via the
+// $similarity field.
+func (b *tableFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOneOptions) { o.IncludeSimilarity = &v })
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *tableFindOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableFindOneOptionsBuilder {
+	b.setters = append(b.setters, func(o *TableFindOneOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // TableFindOption configures a TableFind operation.
 // You can use the fluent-style builder or a pointer to [TableFindOptions] interchangeably.
 //

@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/datastax/astra-db-go/internal/guards"
+	"github.com/datastax/astra-db-go/internal/utils"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
 )
@@ -108,7 +108,7 @@ func (r *InsertManyResult) RawIDs() ([]any, error) {
 // DecodeIDs unmarshalls the inserted IDs into v.
 // v should be a pointer to a slice of the appropriate ID type.
 func (r *InsertManyResult) DecodeIDs(v any) error {
-	resultsPtr, sliceVal, err := guards.RequireSlicePtr(v) // TODO optimize
+	resultsPtr, sliceVal, err := utils.RequireSlicePtr(v) // TODO optimize
 	if err != nil {
 		return err
 	}

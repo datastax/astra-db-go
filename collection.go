@@ -123,15 +123,17 @@ func (c *Collection) Options(ctx context.Context, opts ...options.CollectionOpti
 
 // endregion
 
+// region Insertions
+
 // InsertOne inserts a single document into the collection.
 //
 // Options passed here override those set on the collection.
 func (c *Collection) InsertOne(ctx context.Context, document any, opts ...options.CollectionInsertOneOption) (*results.InsertOneResult, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
-	return insertOne(ctx, document, c.newCmdWithMergedOptions, (*insertOneOptions)(merged), serdes.TargetCollection)
+	return insertOne(ctx, document, c.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetCollection)
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
@@ -142,21 +144,12 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmdWithMergedOptions, (*insertManyOptions)(merged), serdes.TargetCollection)
+	return insertMany(ctx, documents, c.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetCollection)
 }
 
-// Payload for collection find one.
-type collectionFindOnePayload struct {
-	Filter     CollectionFilter          `json:"filter,omitempty"`
-	Sort       sort.Sortable             `json:"sort,omitempty"`
-	Projection map[string]any            `json:"projection,omitempty"`
-	Options    *collectionFindOneOptions `json:"options,omitempty"`
-}
+// endregion
 
-// collectionFindOneOptions contains options for collection find one operations
-type collectionFindOneOptions struct {
-	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
-}
+// region Finds
 
 // FindOne finds a single document matching the filter.
 //
@@ -164,15 +157,9 @@ type collectionFindOneOptions struct {
 func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult([]byte{}, nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
-	payload := collectionFindOnePayload{Filter: f, Sort: merged.Sort, Projection: merged.Projection}
-	if merged.IncludeSimilarity != nil {
-		payload.Options = &collectionFindOneOptions{IncludeSimilarity: merged.IncludeSimilarity}
-	}
-	cmd := c.newCmdWithMergedOptions("findOne", payload, merged.APIOptions)
-	b, warnings, _, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
+	return findOne(ctx, f, c.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetCollection)
 }
 
 // Find returns a cursor for iterating over documents matching the filter.
@@ -229,13 +216,9 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 	return cursors.NewCollectionFindCursor(f, merged, fetcher, err)
 }
 
-// collectionUpdateOnePayload is the payload for the updateOne command on collections.
-type collectionUpdateOnePayload struct {
-	Filter  CollectionFilter `json:"filter,omitempty"`
-	Update  CollectionUpdate `json:"update"`
-	Sort    sort.Sortable    `json:"sort,omitempty"`
-	Options map[string]any   `json:"options,omitempty"`
-}
+// endregion
+
+// region Updates
 
 // collectionUpdateResponse is the response from various update commands, where `MoreData` may or may not be present.
 type collectionUpdateResponse struct {
@@ -257,22 +240,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	if err != nil {
 		return nil, err
 	}
-
-	payload := collectionUpdateOnePayload{
-		Filter: f,
-		Update: u,
-		Sort:   merged.Sort,
-	}
-
-	if ptr.From(merged.Upsert) {
-		payload.Options = map[string]any{"upsert": true}
-	}
-
-	cmd := c.newCmdWithMergedOptions("updateOne", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
-	}
+	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged), serdes.TargetCollection)
 
 	var resp collectionUpdateResponse
 	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
@@ -290,13 +258,6 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 		UpsertedCount: upsertedCount,
 		UpsertedId:    resp.Status.UpsertedId,
 	}, nil
-}
-
-// collectionUpdateManyPayload is the payload for the updateMany command on collections.
-type collectionUpdateManyPayload struct {
-	Filter  CollectionFilter `json:"filter,omitempty"`
-	Update  CollectionUpdate `json:"update"`
-	Options map[string]any   `json:"options,omitempty"`
 }
 
 // UpdateMany updates all documents matching the filter.
@@ -320,13 +281,12 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 		defer cancel()
 	}
 
-	payload := collectionUpdateManyPayload{
-		Filter: f,
-		Update: u,
-	}
-
-	if ptr.From(merged.Upsert) {
-		payload.Options = map[string]any{"upsert": true}
+	payload := map[string]any{
+		"filter": f,
+		"update": u,
+		"options": map[string]any{
+			"upsert": ptr.From(merged.Upsert),
+		},
 	}
 
 	result := &results.UpdateResult{}
@@ -358,6 +318,8 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 
 	return result, nil
 }
+
+// endregion
 
 // collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
 type collectionFindOneAndUpdatePayload struct {

@@ -16,7 +16,6 @@ package astradb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/datastax/astra-db-go/cursors"
@@ -25,7 +24,6 @@ import (
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -116,6 +114,8 @@ func (t *Table) Definition(ctx context.Context, opts ...options.TableDefinitionO
 
 // endregion
 
+// region Insertions
+
 // InsertOne inserts a single row into the table.
 //
 // The row parameter should be a struct or map representing the row data.
@@ -142,9 +142,9 @@ func (t *Table) Definition(ctx context.Context, opts ...options.TableDefinitionO
 func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableInsertOneOption) (*results.InsertOneResult, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
-	return insertOne(ctx, row, t.newCmdWithMergedOptions, (*insertOneOptions)(merged), serdes.TargetTable)
+	return insertOne(ctx, row, t.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetTable)
 }
 
 // InsertMany inserts multiple rows into the table.
@@ -166,31 +166,26 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (*insertManyOptions)(merged), serdes.TargetCollection)
+	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetCollection)
 }
 
-// tableFindPayload is the payload for the find command on tables
-type tableFindPayload struct {
-	Filter     any            `json:"filter,omitempty"`
-	Sort       sort.Sortable  `json:"sort,omitempty"`
-	Projection map[string]any `json:"projection,omitempty"`
-	Options    *tableFindOpts `json:"options,omitempty"`
-}
+// endregion
 
-// tableFindOpts represents the options sub-object in find payload
-type tableFindOpts struct {
-	Limit             *int    `json:"limit,omitempty"`
-	Skip              *int    `json:"skip,omitempty"`
-	IncludeSimilarity *bool   `json:"includeSimilarity,omitempty"`
-	PageState         *string `json:"pageState,omitempty"`
-}
+// region Finds
 
-// tableFindResponse is the response from the find command on tables
-type tableFindResponse struct {
-	Data struct {
-		Documents     []json.RawMessage `json:"documents"`
-		NextPageState *string           `json:"nextPageState"`
-	} `json:"data"`
+// FindOne finds a single row in a table matching the filter criteria.
+//
+// Example usage:
+//
+//	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
+//	var row MyRow
+//	err := result.Decode(&row)
+func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.TableFindOneOption) *results.SingleResult {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err)
+	}
+	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
 }
 
 // Find returns a cursor for iterating over rows matching the filter criteria.
@@ -247,71 +242,9 @@ func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.Ta
 	return cursors.NewTableFindCursor(f, merged, fetcher, err)
 }
 
-// FindOne finds a single row in a table matching the filter criteria.
-//
-// Example usage:
-//
-//	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
-//	var row MyRow
-//	err := result.Decode(&row)
-func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOption) *results.SingleResult {
-	// Validate filter type
-	switch f.(type) {
-	case filter.F, filter.Filter, map[string]any, nil:
-		// Allowed filter types
-	default:
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, fmt.Errorf("invalid filter type: %Raw", f))
-	}
+// endregion
 
-	// Build the find options
-	findOpts, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, fmt.Errorf("invalid options: %w", err))
-	}
-
-	// Build the payload
-	payload := tableFindPayload{
-		Filter:     f,
-		Sort:       findOpts.Sort,
-		Projection: findOpts.Projection,
-	}
-
-	// Add options if any are set (limit is not applicable for findOne)
-	if findOpts.IncludeSimilarity != nil {
-		payload.Options = &tableFindOpts{
-			IncludeSimilarity: findOpts.IncludeSimilarity,
-		}
-	}
-
-	cmd := t.newCmdWithMergedOptions("findOne", payload, findOpts.APIOptions)
-	b, warnings, schema, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, schema, serdes.TargetTable, err)
-}
-
-// tableInsertOnePayload is the payload for insertOne on tables
-type tableInsertOnePayload struct {
-	Document any `json:"document"`
-}
-
-// tableInsertManyPayload is the payload for insertMany on tables
-type tableInsertManyPayload struct {
-	Documents any `json:"documents"`
-}
-
-// PrimaryKeySchema describes the primary key structure returned in insert responses.
-// It maps column names to their type information.
-type PrimaryKeySchema map[string]ColumnTypeInfo
-
-// ColumnTypeInfo describes the type of a column in the primary key schema
-type ColumnTypeInfo struct {
-	Type string `json:"type"`
-}
-
-// tableUpdateOnePayload is the payload for the updateOne command on tables.
-type tableUpdateOnePayload struct {
-	Filter TableFilter `json:"filter"`
-	Update TableUpdate `json:"update"`
-}
+// region Updates
 
 // UpdateOne updates a single row matching the filter.
 //
@@ -332,19 +265,15 @@ type tableUpdateOnePayload struct {
 //	    update.Table().Set("rating", 4.5).Unset("borrower"),
 //	)
 func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opts ...options.TableUpdateOneOption) error {
-	// Build the find options
-	updateOpts, err := options.MergeAndValidate(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
-	cmd := t.newCmdWithMergedOptions("updateOne", tableUpdateOnePayload{
-		Filter: f,
-		Update: u,
-	}, updateOpts.APIOptions)
-	// Note: warnings are accessible via the WarningHandler option callback only.
-	_, _, _, err = cmd.Execute(ctx)
+	_, err = updateOne(ctx, f, u, t.newCmdWithMergedOptions, updateOneOptions{nil, nil, merged.APIOptions}, serdes.TargetTable)
 	return err
 }
+
+// endregion
 
 // tableDeleteOnePayload is the payload for the deleteOne command on tables.
 type tableDeleteOnePayload struct {
