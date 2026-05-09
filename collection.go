@@ -27,7 +27,6 @@ import (
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -431,12 +430,6 @@ func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, 
 
 // region Deletions
 
-// collectionDeleteOnePayload is the payload for the deleteOne command on collections.
-type collectionDeleteOnePayload struct {
-	Filter CollectionFilter `json:"filter,omitempty"`
-	Sort   sort.Sortable    `json:"sort,omitempty"`
-}
-
 // collectionDeleteOneResponse is the response from the deleteOne command.
 type collectionDeleteOneResponse struct {
 	Status struct {
@@ -456,13 +449,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 		return nil, err
 	}
 
-	payload := collectionDeleteOnePayload{
-		Filter: f,
-		Sort:   merged.Sort,
-	}
-
-	cmd := c.newCmdWithMergedOptions("deleteOne", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
+	b, err := deleteOne(ctx, f, c.newCmdWithMergedOptions, (deleteOneOptions)(*merged), serdes.TargetCollection)
 	if err != nil {
 		return nil, err
 	}
@@ -475,11 +462,6 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 	return &results.DeleteResult{
 		DeletedCount: resp.Status.DeletedCount,
 	}, nil
-}
-
-// collectionDeleteManyPayload is the payload for the deleteMany command on collections.
-type collectionDeleteManyPayload struct {
-	Filter CollectionFilter `json:"filter,omitempty"`
 }
 
 // collectionDeleteManyResponse is the response from the deleteMany command.
@@ -518,8 +500,8 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 		defer cancel()
 	}
 
-	payload := collectionDeleteManyPayload{
-		Filter: f,
+	payload := map[string]any{
+		"filter": f,
 	}
 
 	result := &results.DeleteResult{}
@@ -546,13 +528,6 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	return result, nil
 }
 
-// collectionFindOneAndDeletePayload is the payload for the findOneAndDelete command.
-type collectionFindOneAndDeletePayload struct {
-	Filter     CollectionFilter `json:"filter,omitempty"`
-	Sort       sort.Sortable    `json:"sort,omitempty"`
-	Projection map[string]any   `json:"projection,omitempty"`
-}
-
 // FindOneAndDelete finds a single document matching the filter, deletes it,
 // and returns the deleted document.
 //
@@ -563,13 +538,12 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
-	payload := collectionFindOneAndDeletePayload{
-		Filter:     f,
-		Sort:       merged.Sort,
-		Projection: merged.Projection,
-	}
+	cmd := c.newCmdWithMergedOptions("findOneAndDelete", map[string]any{
+		"filter":     f,
+		"sort":       merged.Sort,
+		"projection": merged.Projection,
+	}, merged.APIOptions)
 
-	cmd := c.newCmdWithMergedOptions("findOneAndDelete", payload, merged.APIOptions)
 	b, warnings, _, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }

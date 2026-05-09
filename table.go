@@ -277,11 +277,6 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 
 // region Deletions
 
-// tableDeleteOnePayload is the payload for the deleteOne command on tables.
-type tableDeleteOnePayload struct {
-	Filter TableFilter `json:"filter"`
-}
-
 // DeleteOne deletes a single row matching the filter.
 //
 // The filter must describe the complete primary key using equality on
@@ -300,17 +295,9 @@ func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.Ta
 	if err != nil {
 		return fmt.Errorf("invalid options: %w", err)
 	}
-	cmd := t.newCmdWithMergedOptions("deleteOne", tableDeleteOnePayload{
-		Filter: f,
-	}, deleteOpts.APIOptions)
 	// Note: warnings are accessible via the WarningHandler option callback only.
-	_, _, _, err = cmd.Execute(ctx)
+	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions}, serdes.TargetTable)
 	return err
-}
-
-// tableDeleteManyPayload is the payload for the deleteMany command on tables.
-type tableDeleteManyPayload struct {
-	Filter TableFilter `json:"filter,omitempty"`
 }
 
 // DeleteMany deletes all rows in the table matching the filter.
@@ -338,8 +325,9 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 		// Force the user to pass empty filter to avoid accidental delete all.
 		return ErrNilFilter
 	}
-	cmd := t.newCmdWithMergedOptions("deleteMany", tableDeleteManyPayload{
-		Filter: f,
+
+	cmd := t.newCmdWithMergedOptions("deleteMany", map[string]any{
+		"filter": f,
 	}, deleteOpts.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err
@@ -841,6 +829,15 @@ func validateAlterOperation(op table.AlterOperation) error {
 		return fmt.Errorf("alterTable: only one operation may be set per call (Add, Drop, AddVectorize, DropVectorize are mutually exclusive)")
 	}
 	return nil
+}
+
+// endregion
+
+// region Misc
+
+// Drop deletes the table and all its rows. Use with caution.
+func (t *Table) Drop(ctx context.Context) error {
+	return t.db.DropTable(ctx, t.name)
 }
 
 // endregion

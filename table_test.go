@@ -1121,22 +1121,6 @@ var exampleDeleteOnePayloadJSON = testutils.CleanString(`{
   }
 }`)
 
-// TestTableDeleteOne_CommandMarshal verifies the deleteOne command payload
-// for a full-primary-key filter.
-func TestTableDeleteOne_CommandMarshal(t *testing.T) {
-	tbl := getTestTable(t)
-	tests := []testutils.JSONTestCase{{
-		Name:     "Delete by compound primary key",
-		Expected: exampleDeleteOnePayloadJSON,
-		Args: []any{
-			tbl.newCmd("deleteOne", tableDeleteOnePayload{
-				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
-			}),
-		},
-	}}
-	testutils.RunJSONTestCases(t, tests)
-}
-
 // TestTableDeleteOne_HappyPath verifies that DeleteOne posts the expected
 // request body, reads a successful status response, and returns nil.
 // NOTE: thought about also repeating the override token etc. but that is REALLY
@@ -1185,22 +1169,6 @@ var exampleDeleteManyPayloadJSON = testutils.CleanString(`{
     }
   }
 }`)
-
-// TestTableDeleteMany_CommandMarshal verifies the deleteMany command payload
-// matches docs example.
-func TestTableDeleteMany_CommandMarshal(t *testing.T) {
-	tbl := getTestTable(t)
-	tests := []testutils.JSONTestCase{{
-		Name:     "Composite primary key: title + author",
-		Expected: exampleDeleteManyPayloadJSON,
-		Args: []any{
-			tbl.newCmd("deleteMany", tableDeleteManyPayload{
-				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
-			}),
-		},
-	}}
-	testutils.RunJSONTestCases(t, tests)
-}
 
 // TestTableDeleteMany_HappyPath verifies DeleteMany posts the expected request
 // body, handles the documented deletedCount=-1 response, and returns nil.

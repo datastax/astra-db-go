@@ -290,3 +290,27 @@ func updateOne(ctx context.Context, f filter.Filterable, u any, mkCmd mkCmd, opt
 }
 
 // endregion
+
+// region DeleteOne
+
+type deleteOneOptions struct {
+	Sort       sort.Sortable
+	APIOptions *options.APIOptions
+}
+
+func deleteOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts deleteOneOptions, target serdes.Target) ([]byte, error) {
+	payload := map[string]any{
+		"filter": f,
+		"sort":   opts.Sort,
+	}
+
+	cmd := mkCmd("deleteOne", payload, opts.APIOptions)
+	b, _, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+// endregion
