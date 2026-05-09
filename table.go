@@ -95,7 +95,7 @@ func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *optio
 func (t *Table) Definition(ctx context.Context, opts ...options.TableDefinitionOption) (*results.TableDescriptor, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
 
 	tables, err := t.db.ListTables(ctx, &options.ListTablesOptions{APIOptions: merged.APIOptions})
@@ -293,7 +293,7 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.TableDeleteOneOption) error {
 	deleteOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
 	// Note: warnings are accessible via the WarningHandler option callback only.
 	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions}, serdes.TargetTable)
@@ -319,7 +319,7 @@ func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.Ta
 func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.TableDeleteManyOption) error {
 	deleteOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
 	if f == nil {
 		// Force the user to pass empty filter to avoid accidental delete all.
@@ -795,7 +795,7 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
 
 	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{

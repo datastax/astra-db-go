@@ -249,7 +249,7 @@ func (d *Db) DropTable(ctx context.Context, name string) error {
 func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollectionsOption) ([]results.CollectionDescriptor, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
 	return listCollections[[]results.CollectionDescriptor](d, ctx, true, merged.APIOptions)
 }
@@ -273,7 +273,7 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollection
 func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionNamesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
 	return listCollections[[]string](d, ctx, false, merged.APIOptions)
 }
@@ -320,7 +320,7 @@ func listCollections[T any](d *Db, ctx context.Context, explain bool, opts *opti
 func (d *Db) ListTables(ctx context.Context, opts ...options.ListTablesOption) ([]results.TableDescriptor, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
 	return listTables[[]results.TableDescriptor](d, ctx, true, merged.APIOptions)
 }
@@ -341,7 +341,7 @@ func (d *Db) ListTables(ctx context.Context, opts ...options.ListTablesOption) (
 func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTableNamesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
 	return listTables[[]string](d, ctx, false, merged.APIOptions)
 }
