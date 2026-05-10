@@ -251,6 +251,16 @@ func (o *ListTablesOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for TableDefinitionOptions.
+// Returns all non-nil Validator fields.
+func (o *TableDefinitionOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for TableDeleteManyOptions.
 // Returns all non-nil Validator fields.
 func (o *TableDeleteManyOptions) Children() []Validator {
@@ -264,6 +274,16 @@ func (o *TableDeleteManyOptions) Children() []Validator {
 // Children implements ChildValidator for TableDeleteOneOptions.
 // Returns all non-nil Validator fields.
 func (o *TableDeleteOneOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for TableFindOneOptions.
+// Returns all non-nil Validator fields.
+func (o *TableFindOneOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)

@@ -35,7 +35,7 @@ import (
 	"unsafe"
 )
 
-const MaxUintptr = ^uintptr(0)
+const maxUintptr = ^uintptr(0)
 
 func init() {
 {{range .}}
@@ -97,7 +97,7 @@ func main() {
 		Cast:        "uint64",
 		SerFunc:     "AppendUint",
 		DesFunc:     "parseUint",
-		BoundsCheck: "num < 0 || num > uint64(MaxUintptr)",
+		BoundsCheck: "num < 0 || num > uint64(maxUintptr)",
 		SerArgs:     ", 10",
 	})
 

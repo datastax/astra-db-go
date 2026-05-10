@@ -435,63 +435,77 @@ func UDT(udtName string) Column {
 	}
 }
 
-// AlterOperation represents the operation to perform on a table via alterTable.
-// Exactly one of the operation fields must be set per call — they are
-// mutually exclusive.
+// AlterOperation represents a single operation to perform on a table via table.Alter.
 //
-// Example — add columns:
+// Implementations include:
+//   - AddColumns: Adds new columns to the schema.
+//   - DropColumns: Removes existing columns.
+//   - AddVectorize: Configures AI embedding generation for specific columns.
+//   - DropVectorize: Removes AI embedding configurations.
 //
-//	op := table.AlterOperation{
-//		Add: &table.AddColumns{
-//			Columns: table.Columns{
-//				"is_summer_reading": table.Boolean(),
-//				"library_branch":    table.Text(),
-//			},
-//		},
-//	}
+// Example — Add columns:
 //
-// Example — drop columns:
+//	tbl.Alter(ctx, table.AddColumns{
+//	   Columns: table.Columns{
+//	      "is_summer_reading": table.Boolean(),
+//	      "library_branch":    table.Text(),
+//	   },
+//	})
 //
-//	op := table.AlterOperation{
-//		Drop: &table.DropColumns{Columns: []string{"borrower"}},
-//	}
-type AlterOperation struct {
-	// Add adds new columns to the table.
-	Add *AddColumns `json:"add,omitempty"`
-
-	// Drop removes existing columns from the table.
-	Drop *DropColumns `json:"drop,omitempty"`
-
-	// AddVectorize attaches an embedding-generation integration to existing
-	// vector columns.
-	AddVectorize *AddVectorize `json:"addVectorize,omitempty"`
-
-	// DropVectorize removes the embedding-generation integration from existing
-	// vector columns. Stored embeddings are preserved.
-	DropVectorize *DropVectorize `json:"dropVectorize,omitempty"`
+// Example — Drop columns:
+//
+//	tbl.Alter(ctx, table.DropColumns{
+//	   Columns: []string{"is_summer_reading", "library_branch"},
+//	})
+type AlterOperation interface {
+	isAlterOp()
+	serdes.AstraRawMarshaler
 }
 
 // AddColumns is the payload for the alterTable "add" operation.
 type AddColumns struct {
-	// Columns maps new column names to their type definitions.
 	Columns Columns `json:"columns"`
+}
+
+func (a AddColumns) isAlterOp() {}
+
+func (a AddColumns) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias AddColumns
+	return serdes.SerializeInto(map[string]any{"add": alias(a)}, ctx.Target, dst)
 }
 
 // DropColumns is the payload for the alterTable "drop" operation.
 type DropColumns struct {
-	// Columns is the list of column names to remove from the table.
 	Columns []string `json:"columns"`
+}
+
+func (d DropColumns) isAlterOp() {}
+
+func (d DropColumns) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias DropColumns
+	return serdes.SerializeInto(map[string]any{"drop": alias(d)}, ctx.Target, dst)
 }
 
 // AddVectorize is the payload for the alterTable "addVectorize" operation.
 type AddVectorize struct {
-	// Columns maps existing vector column names to their vectorize service
-	// configuration.
 	Columns map[string]VectorService `json:"columns"`
+}
+
+func (v AddVectorize) isAlterOp() {}
+
+func (v AddVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias AddVectorize
+	return serdes.SerializeInto(map[string]any{"addVectorize": alias(v)}, ctx.Target, dst)
 }
 
 // DropVectorize is the payload for the alterTable "dropVectorize" operation.
 type DropVectorize struct {
-	// Columns is the list of vector column names to disable vectorize on.
 	Columns []string `json:"columns"`
+}
+
+func (v DropVectorize) isAlterOp() {}
+
+func (v DropVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias DropVectorize
+	return serdes.SerializeInto(map[string]any{"dropVectorize": alias(v)}, ctx.Target, dst)
 }

@@ -1,23 +1,11 @@
-package guards
+package utils
 
 import (
 	"fmt"
 	"reflect"
 )
 
-func RequireSlice(v any) (reflect.Value, error) {
-	rv := reflect.ValueOf(v)
-
-	if rv.Kind() == reflect.Interface {
-		rv = rv.Elem()
-	}
-
-	if rv.Kind() != reflect.Slice {
-		return reflect.Value{}, fmt.Errorf("expected slice, got %s", rv.Kind())
-	}
-
-	return rv, nil
-}
+// I know 'utils' isn't a very idiomatic or descriptive name, but sometimes a thing is just what it says on the tin
 
 func RequireSlicePtr(v any) (reflect.Value, reflect.Value, error) {
 	ptr := reflect.ValueOf(v)

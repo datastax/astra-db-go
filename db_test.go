@@ -17,72 +17,61 @@ package astradb
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
 )
 
-func TestCreateCollectionCommand(t *testing.T) {
+func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("no options", func(t *testing.T) {
-		cmd, err := createCollectionCommand(getTestDb(t), "my_collection")
-		if err != nil {
-			t.Fatalf("createCollectionCommand: %v", err)
-		}
-		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
+		var opts *options.CreateCollectionOptions
+		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		// Should not have "options" key when no options provided
-		expected := `{"createCollection":{"name":"my_collection"}}`
+
+		expected := `{}`
 		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+			t.Errorf("expected %s, got %s", expected, string(cmdBytes))
 		}
 	})
 
 	t.Run("with vector", func(t *testing.T) {
-		cmd, err := createCollectionCommand(getTestDb(t), "my_collection",
-			options.CreateCollection().SetVector(&options.VectorOptions{
-				Dimension: ptr.To(1024),
-				Metric:    ptr.To("cosine"),
-			}))
-		if err != nil {
-			t.Fatalf("createCollectionCommand: %v", err)
-		}
-		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
+		opts := options.CreateCollection().SetVector(&options.VectorOptions{
+			Dimension: ptr.To(1024),
+			Metric:    ptr.To("cosine"),
+		})
+
+		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createCollection":{"name":"my_collection","options":{"vector":{"dimension":1024,"metric":"cosine"}}}}`
+
+		expected := `{"vector":{"dimension":1024,"metric":"cosine"}}`
 		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+			t.Errorf("expected %s, got %s", expected, string(cmdBytes))
 		}
 	})
 
 	t.Run("multiple builders merged", func(t *testing.T) {
-		// Later option should override earlier
-		cmd, err := createCollectionCommand(getTestDb(t), "my_collection",
-			options.CreateCollection().SetVector(&options.VectorOptions{
-				Dimension: ptr.To(512),
-				Metric:    ptr.To("euclidean"),
-			}),
-			options.CreateCollection().SetVector(&options.VectorOptions{
-				Dimension: ptr.To(1024),
-				Metric:    ptr.To("cosine"),
-			}),
-		)
-		if err != nil {
-			t.Fatalf("createCollectionCommand: %v", err)
-		}
-		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
+		opts := options.CreateCollection().SetVector(&options.VectorOptions{
+			Dimension: ptr.To(512),
+			Metric:    ptr.To("euclidean"),
+		})
+		opts.SetVector(&options.VectorOptions{
+			Dimension: ptr.To(1024),
+			Metric:    ptr.To("cosine"),
+		})
+
+		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		// Last-write-wins: dimension=1024, metric=cosine
-		expected := `{"createCollection":{"name":"my_collection","options":{"vector":{"dimension":1024,"metric":"cosine"}}}}`
+
+		expected := `{"vector":{"dimension":1024,"metric":"cosine"}}`
 		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+			t.Errorf("expected %s, got %s", expected, string(cmdBytes))
 		}
 	})
 
@@ -92,17 +81,15 @@ func TestCreateCollectionCommand(t *testing.T) {
 				Type: ptr.To(options.DefaultIdTypeUUIDv7),
 			},
 		}
-		cmd, err := createCollectionCommand(getTestDb(t), "my_collection", rawOpts)
-		if err != nil {
-			t.Fatalf("createCollectionCommand: %v", err)
-		}
-		cmdBytes, err := serdes.Serialize(cmd, serdes.TargetNone)
+
+		cmdBytes, err := serdes.Serialize(rawOpts, serdes.TargetNone)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createCollection":{"name":"my_collection","options":{"defaultId":{"type":"uuidv7"}}}}`
+
+		expected := `{"defaultId":{"type":"uuidv7"}}`
 		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+			t.Errorf("expected %s, got %s", expected, string(cmdBytes))
 		}
 	})
 }
@@ -149,29 +136,6 @@ func TestListCollectionsUnmarshal_ExplainFalse(t *testing.T) {
 	}
 	if resp.Status.Collections[1] != "quickstart_collection" {
 		t.Errorf("expected second collection name 'quickstart_collection', got '%s'", resp.Status.Collections[1])
-	}
-}
-
-// Example json from docs:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/list-table-metadata.html#list-table-metadata
-var exampleListTablesExplainPayloadJSON = testutils.CleanString(`{
-  "listTables": {
-    "options": {
-      "explain": true
-    }
-  }
-}`)
-
-// TestListTablesCommandMarshal verifies that the listTables command with explain=true
-// marshals to the JSON shown in the docs.
-func TestListTablesCommandMarshal(t *testing.T) {
-	cmd := listTablesCommand(getTestDb(t), true, nil)
-	cmdBytes, err := serdes.Serialize(cmd, serdes.TargetCollection)
-	if err != nil {
-		t.Fatalf("json.MarshalIndent: %v", err)
-	}
-	if string(cmdBytes) != exampleListTablesExplainPayloadJSON {
-		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleListTablesExplainPayloadJSON, string(cmdBytes))
 	}
 }
 

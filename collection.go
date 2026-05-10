@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/datastax/astra-db-go/cursors"
@@ -27,7 +26,6 @@ import (
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/sort"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -55,6 +53,8 @@ type Collection struct {
 	options *options.APIOptions
 }
 
+// region Meta
+
 // Name returns the collection name.
 func (c *Collection) Name() string {
 	return c.name
@@ -66,31 +66,6 @@ func (c *Collection) ClientOptions() *options.APIOptions {
 		return &options.APIOptions{}
 	}
 	return c.options
-}
-
-// Options retrieves the collection's descriptor including its definition.
-// This method calls the database's ListCollections and returns the descriptor
-// for this specific collection.
-//
-// Options passed here override those set on the collection.
-func (c *Collection) Options(ctx context.Context, opts ...options.CollectionOptionsOption) (*results.CollectionDescriptor, error) {
-	// Merge and turn into ListCollectionOptions.
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
-	}
-	collections, err := c.db.ListCollections(ctx, &options.ListCollectionsOptions{APIOptions: merged.APIOptions})
-	if err != nil {
-		return nil, err
-	}
-
-	for _, coll := range collections {
-		if coll.Name == c.name {
-			return &coll, nil
-		}
-	}
-
-	return nil, ErrNotFound
 }
 
 // Database returns the parent database.
@@ -115,17 +90,38 @@ func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, o
 	return opts.GetGeneralMethodTimeout()
 }
 
-// insertOnePayload is the payload for insertOne commands.
-type insertOnePayload struct {
-	Document any `json:"document"`
+// endregion
+
+// region Definition
+
+// Options retrieves the collection's descriptor including its definition.
+// This method calls the database's ListCollections and returns the descriptor
+// for this specific collection.
+//
+// Options passed here override those set on the collection.
+func (c *Collection) Options(ctx context.Context, opts ...options.CollectionOptionsOption) (*results.CollectionDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	collections, err := c.db.ListCollections(ctx, &options.ListCollectionsOptions{APIOptions: merged.APIOptions})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, coll := range collections {
+		if coll.Name == c.name {
+			return &coll, nil
+		}
+	}
+
+	return nil, ErrNotFound
 }
 
-// insertOneResponse is the response from insertOne command
-type insertOneResponse struct {
-	Status struct {
-		InsertedIds []json.RawMessage `json:"insertedIds"`
-	} `json:"status"`
-}
+// endregion
+
+// region Insertions
 
 // InsertOne inserts a single document into the collection.
 //
@@ -133,28 +129,9 @@ type insertOneResponse struct {
 func (c *Collection) InsertOne(ctx context.Context, document any, opts ...options.CollectionInsertOneOption) (*results.InsertOneResult, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
-	}
-
-	cmd := c.newCmdWithMergedOptions("insertOne", insertOnePayload{
-		Document: document,
-	}, merged.APIOptions)
-
-	b, warnings, _, err := cmd.Execute(ctx)
-	if err != nil {
 		return nil, err
 	}
-
-	var resp insertOneResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
-		return nil, err
-	}
-
-	if len(resp.Status.InsertedIds) == 0 {
-		return nil, errors.New("no inserted ID returned from server")
-	}
-
-	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, serdes.TargetCollection), nil
+	return insertOne(ctx, document, c.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetCollection)
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
@@ -165,21 +142,12 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmdWithMergedOptions, insertManyOptions(*merged), serdes.TargetCollection)
+	return insertMany(ctx, documents, c.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetCollection)
 }
 
-// Payload for collection find one.
-type collectionFindOnePayload struct {
-	Filter     CollectionFilter          `json:"filter,omitempty"`
-	Sort       sort.Sortable             `json:"sort,omitempty"`
-	Projection map[string]any            `json:"projection,omitempty"`
-	Options    *collectionFindOneOptions `json:"options,omitempty"`
-}
+// endregion
 
-// collectionFindOneOptions contains options for collection find one operations
-type collectionFindOneOptions struct {
-	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
-}
+// region Finds
 
 // FindOne finds a single document matching the filter.
 //
@@ -187,15 +155,9 @@ type collectionFindOneOptions struct {
 func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult([]byte{}, nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
-	payload := collectionFindOnePayload{Filter: f, Sort: merged.Sort, Projection: merged.Projection}
-	if merged.IncludeSimilarity != nil {
-		payload.Options = &collectionFindOneOptions{IncludeSimilarity: merged.IncludeSimilarity}
-	}
-	cmd := c.newCmdWithMergedOptions("findOne", payload, merged.APIOptions)
-	b, warnings, _, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
+	return findOne(ctx, f, c.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetCollection)
 }
 
 // Find returns a cursor for iterating over documents matching the filter.
@@ -252,13 +214,9 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 	return cursors.NewCollectionFindCursor(f, merged, fetcher, err)
 }
 
-// collectionUpdateOnePayload is the payload for the updateOne command on collections.
-type collectionUpdateOnePayload struct {
-	Filter  CollectionFilter `json:"filter,omitempty"`
-	Update  CollectionUpdate `json:"update"`
-	Sort    sort.Sortable    `json:"sort,omitempty"`
-	Options map[string]any   `json:"options,omitempty"`
-}
+// endregion
+
+// region Updates
 
 // collectionUpdateResponse is the response from various update commands, where `MoreData` may or may not be present.
 type collectionUpdateResponse struct {
@@ -280,22 +238,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	if err != nil {
 		return nil, err
 	}
-
-	payload := collectionUpdateOnePayload{
-		Filter: f,
-		Update: u,
-		Sort:   merged.Sort,
-	}
-
-	if ptr.From(merged.Upsert) {
-		payload.Options = map[string]any{"upsert": true}
-	}
-
-	cmd := c.newCmdWithMergedOptions("updateOne", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
-	}
+	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged), serdes.TargetCollection)
 
 	var resp collectionUpdateResponse
 	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
@@ -313,13 +256,6 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 		UpsertedCount: upsertedCount,
 		UpsertedId:    resp.Status.UpsertedId,
 	}, nil
-}
-
-// collectionUpdateManyPayload is the payload for the updateMany command on collections.
-type collectionUpdateManyPayload struct {
-	Filter  CollectionFilter `json:"filter,omitempty"`
-	Update  CollectionUpdate `json:"update"`
-	Options map[string]any   `json:"options,omitempty"`
 }
 
 // UpdateMany updates all documents matching the filter.
@@ -343,13 +279,12 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 		defer cancel()
 	}
 
-	payload := collectionUpdateManyPayload{
-		Filter: f,
-		Update: u,
-	}
-
-	if ptr.From(merged.Upsert) {
-		payload.Options = map[string]any{"upsert": true}
+	payload := map[string]any{
+		"filter": f,
+		"update": u,
+		"options": map[string]any{
+			"upsert": ptr.From(merged.Upsert),
+		},
 	}
 
 	result := &results.UpdateResult{}
@@ -382,15 +317,6 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 	return result, nil
 }
 
-// collectionFindOneAndUpdatePayload is the payload for the findOneAndUpdate command.
-type collectionFindOneAndUpdatePayload struct {
-	Filter     CollectionFilter `json:"filter,omitempty"`
-	Update     CollectionUpdate `json:"update"`
-	Sort       sort.Sortable    `json:"sort,omitempty"`
-	Projection map[string]any   `json:"projection,omitempty"`
-	Options    map[string]any   `json:"options,omitempty"`
-}
-
 // FindOneAndUpdate finds a single document matching the filter, applies the update,
 // and returns the document. By default, the document is returned as it was before the
 // update. Use [options.ReturnDocumentAfter] to return the document after the update.
@@ -404,28 +330,24 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
-	payload := collectionFindOneAndUpdatePayload{
-		Filter:     f,
-		Update:     u,
-		Sort:       merged.Sort,
-		Projection: merged.Projection,
-	}
+	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", map[string]any{
+		"filter":     f,
+		"update":     u,
+		"sort":       merged.Sort,
+		"projection": merged.Projection,
+		"options": map[string]any{
+			"upsert":         merged.Upsert,
+			"returnDocument": merged.ReturnDocument,
+		},
+	}, merged.APIOptions)
 
-	payloadOpts := map[string]any{}
-	if ptr.From(merged.Upsert) {
-		payloadOpts["upsert"] = true
-	}
-	if merged.ReturnDocument != nil {
-		payloadOpts["returnDocument"] = string(*merged.ReturnDocument)
-	}
-	if len(payloadOpts) > 0 {
-		payload.Options = payloadOpts
-	}
-
-	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", payload, merged.APIOptions)
 	b, warnings, _, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
+
+// endregion
+
+// region Replacements
 
 // ReplaceOne replaces a single document matching the filter.
 //
@@ -438,22 +360,12 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 		return nil, err
 	}
 
-	payload := collectionFindOneAndReplacePayload{
-		Filter:      f,
-		Replacement: replacement,
-		Sort:        merged.Sort,
-		Projection:  map[string]any{"*": 0},
-	}
-
-	if ptr.From(merged.Upsert) {
-		payload.Options = map[string]any{"upsert": true}
-	}
-
-	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
-	}
+	b, _, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
+		Sort:       merged.Sort,
+		Projection: map[string]any{"*": 0},
+		Upsert:     merged.Upsert,
+		APIOptions: merged.APIOptions,
+	})
 
 	var resp collectionUpdateResponse
 	if err := json.Unmarshal(b, &resp); err != nil {
@@ -473,15 +385,6 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 	}, nil
 }
 
-// collectionFindOneAndReplacePayload is the payload for the findOneAndReplace command.
-type collectionFindOneAndReplacePayload struct {
-	Filter      CollectionFilter `json:"filter,omitempty"`
-	Replacement any              `json:"replacement"`
-	Sort        sort.Sortable    `json:"sort,omitempty"`
-	Projection  map[string]any   `json:"projection,omitempty"`
-	Options     map[string]any   `json:"options,omitempty"`
-}
-
 // FindOneAndReplace finds a single document matching the filter, replaces it,
 // and returns the document. By default, the document is returned as it was before the
 // replacement. Use [options.ReturnDocumentAfter] to return the document after the replacement.
@@ -495,34 +398,36 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
-	payload := collectionFindOneAndReplacePayload{
-		Filter:      f,
-		Replacement: replacement,
-		Sort:        merged.Sort,
-		Projection:  merged.Projection,
-	}
+	b, warnings, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
+		Sort:           merged.Sort,
+		Projection:     merged.Projection,
+		Upsert:         merged.Upsert,
+		ReturnDocument: merged.ReturnDocument,
+		APIOptions:     merged.APIOptions,
+	})
 
-	payloadOpts := map[string]any{}
-	if ptr.From(merged.Upsert) {
-		payloadOpts["upsert"] = true
-	}
-	if merged.ReturnDocument != nil {
-		payloadOpts["returnDocument"] = string(*merged.ReturnDocument)
-	}
-	if len(payloadOpts) > 0 {
-		payload.Options = payloadOpts
-	}
-
-	cmd := c.newCmdWithMergedOptions("findOneAndReplace", payload, merged.APIOptions)
-	b, warnings, _, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
-// collectionDeleteOnePayload is the payload for the deleteOne command on collections.
-type collectionDeleteOnePayload struct {
-	Filter CollectionFilter `json:"filter,omitempty"`
-	Sort   sort.Sortable    `json:"sort,omitempty"`
+func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts *options.CollectionFindOneAndReplaceOptions) ([]byte, results.Warnings, error) {
+	cmd := c.newCmdWithMergedOptions("findOneAndReplace", map[string]any{
+		"filter":      f,
+		"replacement": replacement,
+		"sort":        opts.Sort,
+		"projection":  opts.Projection,
+		"options": map[string]any{
+			"upsert":         opts.Upsert,
+			"returnDocument": opts.ReturnDocument,
+		},
+	}, opts.APIOptions)
+
+	b, warnings, _, err := cmd.Execute(ctx)
+	return b, warnings, err
 }
+
+// endregion
+
+// region Deletions
 
 // collectionDeleteOneResponse is the response from the deleteOne command.
 type collectionDeleteOneResponse struct {
@@ -543,13 +448,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 		return nil, err
 	}
 
-	payload := collectionDeleteOnePayload{
-		Filter: f,
-		Sort:   merged.Sort,
-	}
-
-	cmd := c.newCmdWithMergedOptions("deleteOne", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
+	b, err := deleteOne(ctx, f, c.newCmdWithMergedOptions, (deleteOneOptions)(*merged), serdes.TargetCollection)
 	if err != nil {
 		return nil, err
 	}
@@ -562,11 +461,6 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 	return &results.DeleteResult{
 		DeletedCount: resp.Status.DeletedCount,
 	}, nil
-}
-
-// collectionDeleteManyPayload is the payload for the deleteMany command on collections.
-type collectionDeleteManyPayload struct {
-	Filter CollectionFilter `json:"filter,omitempty"`
 }
 
 // collectionDeleteManyResponse is the response from the deleteMany command.
@@ -605,8 +499,8 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 		defer cancel()
 	}
 
-	payload := collectionDeleteManyPayload{
-		Filter: f,
+	payload := map[string]any{
+		"filter": f,
 	}
 
 	result := &results.DeleteResult{}
@@ -633,13 +527,6 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	return result, nil
 }
 
-// collectionFindOneAndDeletePayload is the payload for the findOneAndDelete command.
-type collectionFindOneAndDeletePayload struct {
-	Filter     CollectionFilter `json:"filter,omitempty"`
-	Sort       sort.Sortable    `json:"sort,omitempty"`
-	Projection map[string]any   `json:"projection,omitempty"`
-}
-
 // FindOneAndDelete finds a single document matching the filter, deletes it,
 // and returns the deleted document.
 //
@@ -650,21 +537,19 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
 	}
 
-	payload := collectionFindOneAndDeletePayload{
-		Filter:     f,
-		Sort:       merged.Sort,
-		Projection: merged.Projection,
-	}
+	cmd := c.newCmdWithMergedOptions("findOneAndDelete", map[string]any{
+		"filter":     f,
+		"sort":       merged.Sort,
+		"projection": merged.Projection,
+	}, merged.APIOptions)
 
-	cmd := c.newCmdWithMergedOptions("findOneAndDelete", payload, merged.APIOptions)
 	b, warnings, _, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
 }
 
-// Payload for collection countDocuments.
-type collectionCountPayload struct {
-	Filter CollectionFilter `json:"filter,omitempty"`
-}
+// endregion
+
+// region Counts
 
 type collectionCountResponse struct {
 	Status struct {
@@ -680,9 +565,10 @@ type collectionCountResponse struct {
 func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upperBound int, opts ...options.CollectionCountDocumentsOption) (int, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return 0, fmt.Errorf("invalid options: %w", err)
+		return 0, err
 	}
-	cmd := c.newCmdWithMergedOptions("countDocuments", collectionCountPayload{Filter: f}, merged.APIOptions)
+
+	cmd := c.newCmdWithMergedOptions("countDocuments", map[string]any{"filter": f}, merged.APIOptions)
 	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err
@@ -714,8 +600,9 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options.CollectionEstimatedDocumentCountOption) (int, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return 0, fmt.Errorf("invalid options: %w", err)
+		return 0, err
 	}
+
 	cmd := c.newCmdWithMergedOptions("estimatedDocumentCount", struct{}{}, merged.APIOptions)
 	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
@@ -730,7 +617,13 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 	return resp.Status.Count, nil
 }
 
+// endregion
+
+// region Misc
+
 // Drop deletes the collection and all its documents. Use with caution.
 func (c *Collection) Drop(ctx context.Context) error {
 	return c.db.DropCollection(ctx, c.name)
 }
+
+// endregion

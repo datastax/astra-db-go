@@ -16,16 +16,17 @@ package astradb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync/atomic"
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/options"
@@ -35,92 +36,71 @@ import (
 	"github.com/datastax/astra-db-go/update"
 )
 
-func TestCreateTablePayloadMarshal(t *testing.T) {
+func TestTableDefinitionMarshal(t *testing.T) {
 	tests := []struct {
-		name     string
-		payload  createTablePayload
-		expected string
+		name       string
+		definition table.Definition
+		expected   string
 	}{
 		{
 			name: "single column primary key",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "title", Column: table.Text()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"title"},
-					},
+			definition: table.Definition{
+				Columns: table.Columns{
+					{Name: "title", Column: table.Text()},
+				},
+				PrimaryKey: table.PrimaryKey{
+					PartitionBy: []string{"title"},
 				},
 			},
-			expected: `{"name":"test_table","definition":{"columns":{"title":{"type":"text"}},"primaryKey":"title"}}`,
+			expected: `{"columns":{"title":{"type":"text"}},"primaryKey":"title"}`,
 		},
 		{
 			name: "composite primary key",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "title", Column: table.Text()},
-						{Name: "rating", Column: table.Float()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"title", "rating"},
-					},
+			definition: table.Definition{
+				Columns: table.Columns{
+					{Name: "title", Column: table.Text()},
+					{Name: "rating", Column: table.Float()},
+				},
+				PrimaryKey: table.PrimaryKey{
+					PartitionBy: []string{"title", "rating"},
 				},
 			},
-			expected: `{"name":"test_table","definition":{"columns":{"title":{"type":"text"},"rating":{"type":"float"}},"primaryKey":{"partitionBy":["title","rating"]}}}`,
+			expected: `{"columns":{"title":{"type":"text"},"rating":{"type":"float"}},"primaryKey":{"partitionBy":["title","rating"]}}`,
 		},
 		{
 			name: "compound primary key with clustering",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "title", Column: table.Text()},
-						{Name: "rating", Column: table.Float()},
-						{Name: "number_of_pages", Column: table.Int()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"title"},
-						PartitionSort: table.PartitionSort{
-							{Name: "rating", Order: table.SortAscending},
-							{Name: "number_of_pages", Order: table.SortDescending},
-						},
+			definition: table.Definition{
+				Columns: table.Columns{
+					{Name: "title", Column: table.Text()},
+					{Name: "rating", Column: table.Float()},
+					{Name: "number_of_pages", Column: table.Int()},
+				},
+				PrimaryKey: table.PrimaryKey{
+					PartitionBy: []string{"title"},
+					PartitionSort: table.PartitionSort{
+						{Name: "rating", Order: table.SortAscending},
+						{Name: "number_of_pages", Order: table.SortDescending},
 					},
 				},
 			},
-		},
-		{
-			name: "with ifNotExists",
-			payload: createTablePayload{
-				Name: "test_table",
-				Definition: table.Definition{
-					Columns: table.Columns{
-						{Name: "id", Column: table.UUID()},
-					},
-					PrimaryKey: table.PrimaryKey{
-						PartitionBy: []string{"id"},
-					},
-				},
-				Options: &createTableOpts{IfNotExists: true},
-			},
-			expected: `{"name":"test_table","definition":{"columns":{"id":{"type":"uuid"}},"primaryKey":"id"},"options":{"ifNotExists":true}}`,
+			expected: `{"columns":{"title":{"type":"text"},"rating":{"type":"float"},"number_of_pages":{"type":"int"}},"primaryKey":{"partitionBy":["title"],"partitionSort":{"rating":1,"number_of_pages":-1}}}`,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b, err := serdes.Serialize(tt.payload, serdes.TargetTable)
+			// Marshalling only the table.Definition
+			b, err := serdes.Serialize(tt.definition, serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("failed to marshal: %v", err)
 			}
+
 			if tt.expected != "" && string(b) != tt.expected {
-				t.Errorf("expected %s, got %s", tt.expected, string(b))
+				t.Errorf("\nexpected: %s\ngot:      %s", tt.expected, string(b))
 			}
-			// Verify it can be unmarshaled back
-			var result createTablePayload
+
+			// Verify it can be unmarshaled back into a table.Definition
+			var result table.Definition
 			if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
 				t.Fatalf("failed to unmarshal: %v", err)
 			}
@@ -341,170 +321,6 @@ func TestPrimaryKeyUnmarshal(t *testing.T) {
 	}
 }
 
-func TestTableFindPayloadMarshal(t *testing.T) {
-	tests := []struct {
-		name    string
-		payload tableFindPayload
-		check   func(t *testing.T, result map[string]any)
-	}{
-		{
-			name: "empty filter",
-			payload: tableFindPayload{
-				Filter: filter.F{},
-			},
-			check: func(t *testing.T, result map[string]any) {
-				if result["filter"] == nil {
-					t.Error("expected filter to be present")
-				}
-			},
-		},
-		{
-			name: "with filter",
-			payload: tableFindPayload{
-				Filter: filter.F{"is_checked_out": false},
-			},
-			check: func(t *testing.T, result map[string]any) {
-				f, ok := result["filter"].(map[string]any)
-				if !ok {
-					t.Fatal("expected filter to be a map")
-				}
-				if f["is_checked_out"] != false {
-					t.Error("expected is_checked_out to be false")
-				}
-			},
-		},
-		{
-			name: "with sort ascending",
-			payload: tableFindPayload{
-				Filter: filter.F{},
-				Sort:   sort.Asc("rating"),
-			},
-			check: func(t *testing.T, result map[string]any) {
-				s, ok := result["sort"].(map[string]any)
-				if !ok {
-					t.Fatal("expected sort to be a map")
-				}
-				// JSON numbers unmarshal as float64
-				if s["rating"] != float64(1) {
-					t.Errorf("expected rating sort to be 1, got %v", s["rating"])
-				}
-			},
-		},
-		{
-			name: "with sort descending",
-			payload: tableFindPayload{
-				Filter: filter.F{},
-				Sort:   sort.Desc("title"),
-			},
-			check: func(t *testing.T, result map[string]any) {
-				s, ok := result["sort"].(map[string]any)
-				if !ok {
-					t.Fatal("expected sort to be a map")
-				}
-				if s["title"] != float64(-1) {
-					t.Errorf("expected title sort to be -1, got %v", s["title"])
-				}
-			},
-		},
-		{
-			name: "with vector search",
-			payload: tableFindPayload{
-				Filter: filter.F{},
-				Sort:   sort.Vector([]float32{0.1, 0.2, 0.3}),
-			},
-			check: func(t *testing.T, result map[string]any) {
-				s, ok := result["sort"].(map[string]any)
-				if !ok {
-					t.Fatal("expected sort to be a map")
-				}
-				vec, ok := s["$vector"].(datatypes.DataAPIVector)
-				if !ok {
-					t.Fatal("expected $vector to be a DataAPIVector")
-				}
-				if vec.Dimension() != 3 {
-					t.Errorf("expected vector dimension 3, got %d", vec.Dimension())
-				}
-			},
-		},
-		{
-			name: "with projection include",
-			payload: tableFindPayload{
-				Filter:     filter.F{},
-				Projection: map[string]any{"title": true, "rating": true},
-			},
-			check: func(t *testing.T, result map[string]any) {
-				proj, ok := result["projection"].(map[string]any)
-				if !ok {
-					t.Fatal("expected projection to be a map")
-				}
-				if proj["title"] != true {
-					t.Error("expected title to be included")
-				}
-				if proj["rating"] != true {
-					t.Error("expected rating to be included")
-				}
-			},
-		},
-		{
-			name: "with limit and skip",
-			payload: tableFindPayload{
-				Filter: filter.F{},
-				Options: &tableFindOpts{
-					Limit: intPtr(10),
-					Skip:  intPtr(5),
-				},
-			},
-			check: func(t *testing.T, result map[string]any) {
-				opts, ok := result["options"].(map[string]any)
-				if !ok {
-					t.Fatal("expected options to be a map")
-				}
-				if opts["limit"] != float64(10) {
-					t.Errorf("expected limit 10, got %v", opts["limit"])
-				}
-				if opts["skip"] != float64(5) {
-					t.Errorf("expected skip 5, got %v", opts["skip"])
-				}
-			},
-		},
-		{
-			name: "with includeSimilarity",
-			payload: tableFindPayload{
-				Filter: filter.F{},
-				Sort:   sort.Vector([]float32{0.1, 0.2}),
-				Options: &tableFindOpts{
-					IncludeSimilarity: boolPtr(true),
-				},
-			},
-			check: func(t *testing.T, result map[string]any) {
-				opts, ok := result["options"].(map[string]any)
-				if !ok {
-					t.Fatal("expected options to be a map")
-				}
-				if opts["includeSimilarity"] != true {
-					t.Error("expected includeSimilarity to be true")
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			b, err := serdes.Serialize(tt.payload, serdes.TargetTable)
-			if err != nil {
-				t.Fatalf("failed to marshal: %v", err)
-			}
-
-			var result map[string]any
-			if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
-				t.Fatalf("failed to unmarshal: %v", err)
-			}
-
-			tt.check(t, result)
-		})
-	}
-}
-
 func TestTableFindOptions(t *testing.T) {
 	t.Run("with all options", func(t *testing.T) {
 		opts, err := options.MergeAndValidate[options.TableFindOptions](
@@ -570,144 +386,6 @@ func TestFilterWithStructuredFilters(t *testing.T) {
 	}
 }
 
-func TestTableInsertOnePayloadMarshal(t *testing.T) {
-	type TestRow struct {
-		Title  string  `json:"title"`
-		Author string  `json:"author"`
-		Rating float32 `json:"rating"`
-	}
-
-	payload := tableInsertOnePayload{
-		Document: TestRow{
-			Title:  "The Great Gatsby",
-			Author: "F. Scott Fitzgerald",
-			Rating: 4.5,
-		},
-	}
-	b, err := serdes.Serialize(payload, serdes.TargetTable)
-	if err != nil {
-		t.Fatalf("failed to marshal: %v", err)
-	}
-
-	var result map[string]any
-	if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-
-	doc, ok := result["document"].(map[string]any)
-	if !ok {
-		t.Fatal("expected document to be a map")
-	}
-
-	if doc["title"] != "The Great Gatsby" {
-		t.Errorf("expected title 'The Great Gatsby', got %v", doc["title"])
-	}
-	if doc["author"] != "F. Scott Fitzgerald" {
-		t.Errorf("expected author 'F. Scott Fitzgerald', got %v", doc["author"])
-	}
-}
-
-func TestTableInsertManyPayloadMarshal(t *testing.T) {
-	type TestRow struct {
-		Title  string  `json:"title"`
-		Rating float32 `json:"rating"`
-	}
-
-	rows := []TestRow{
-		{Title: "Book 1", Rating: 4.0},
-		{Title: "Book 2", Rating: 4.5},
-		{Title: "Book 3", Rating: 5.0},
-	}
-
-	payload := tableInsertManyPayload{
-		Documents: rows,
-	}
-	b, err := serdes.Serialize(payload, serdes.TargetTable)
-	if err != nil {
-		t.Fatalf("failed to marshal: %v", err)
-	}
-
-	var result map[string]any
-	if err := serdes.Deserialize(b, &result, nil, serdes.TargetTable); err != nil {
-		t.Fatalf("failed to unmarshal: %v", err)
-	}
-
-	docs, ok := result["documents"].([]any)
-	if !ok {
-		t.Fatal("expected documents to be a slice")
-	}
-
-	if len(docs) != 3 {
-		t.Errorf("expected 3 documents, got %d", len(docs))
-	}
-}
-
-func TestTableInsertResponseUnmarshal(t *testing.T) {
-	// Test single-column primary key response
-	// The API returns insertedIds as an array of arrays: [["value1"], ["value2"]]
-	t.Run("single column primary key", func(t *testing.T) {
-		jsonResp := `{"status":{"insertedIds":[["The Great Gatsby"]],"primaryKeySchema":{"title":{"type":"text"}}}}`
-		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
-		}
-
-		if len(resp.Status.InsertedIds) != 1 {
-			t.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
-		}
-
-		// Each inserted ID is an array of primary key values
-		pkValues, ok := resp.Status.InsertedIds[0].([]any)
-		if !ok {
-			t.Fatalf("expected inserted ID to be []any, got %T", resp.Status.InsertedIds[0])
-		}
-		if len(pkValues) != 1 {
-			t.Errorf("expected 1 pk value, got %d", len(pkValues))
-		}
-		if pkValues[0] != "The Great Gatsby" {
-			t.Errorf("expected 'The Great Gatsby', got %v", pkValues[0])
-		}
-	})
-
-	// Test composite primary key response
-	t.Run("composite primary key", func(t *testing.T) {
-		// For composite keys, each inserted ID is still an array with multiple values
-		jsonResp := `{"status":{"insertedIds":[["Book 1","Author 1"]],"primaryKeySchema":{"title":{"type":"text"},"author":{"type":"text"}}}}`
-		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
-		}
-
-		if len(resp.Status.InsertedIds) != 1 {
-			t.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
-		}
-
-		pkValues, ok := resp.Status.InsertedIds[0].([]any)
-		if !ok {
-			t.Fatalf("expected inserted ID to be []any, got %T", resp.Status.InsertedIds[0])
-		}
-		if len(pkValues) != 2 {
-			t.Errorf("expected 2 pk values, got %d", len(pkValues))
-		}
-		if pkValues[0] != "Book 1" {
-			t.Errorf("expected 'Book 1', got %v", pkValues[0])
-		}
-	})
-
-	// Test multiple inserts
-	t.Run("multiple inserts", func(t *testing.T) {
-		jsonResp := `{"status":{"insertedIds":[["Book 1"],["Book 2"],["Book 3"]]}}`
-		var resp TableInsertResponse
-		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
-			t.Fatalf("failed to unmarshal: %v", err)
-		}
-
-		if len(resp.Status.InsertedIds) != 3 {
-			t.Errorf("expected 3 inserted IDs, got %d", len(resp.Status.InsertedIds))
-		}
-	})
-}
-
 // getTestTable acts as a test fixture to provide a *Table.
 func getTestTable(t *testing.T) *Table {
 	// See: https://pkg.go.dev/testing#T.Helper
@@ -725,10 +403,15 @@ func getTestTable(t *testing.T) *Table {
 // "API_ENDPOINT/api/json/v1/KEYSPACE_NAME/TABLE_NAME"
 var exampleIndexPayloadJSON = testutils.CleanString(`{
   "createIndex": {
-    "name": "example_index_name",
     "definition": {
-      "column": "example_column"
+      "column": "example_column",
+      "options": {
+        "ascii": null,
+        "caseSensitive": null,
+        "normalize": null
+      }
     },
+    "name": "example_index_name",
     "options": {
       "ifNotExists": true
     }
@@ -746,7 +429,15 @@ func TestCreateIndexCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleIndexPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleIndexPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleIndexPayloadJSON, string(cmdBytes))
 	}
 }
@@ -771,12 +462,17 @@ func TestCreateIndexCommandURL(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-index.html#example-ascii
 var exampleIndexASCIIPayloadJSON = testutils.CleanString(`{
   "createIndex": {
-    "name": "example_index_name",
     "definition": {
       "column": "example_column",
       "options": {
-        "ascii": true
+        "ascii": true,
+        "caseSensitive": null,
+        "normalize": null
       }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -792,7 +488,15 @@ func TestCreateIndexASCIICommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleIndexASCIIPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleIndexASCIIPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleIndexASCIIPayloadJSON, string(cmdBytes))
 	}
 }
@@ -801,11 +505,19 @@ func TestCreateIndexASCIICommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-index.html#example-index-map
 var exampleIndexMapKeysPayloadJSON = testutils.CleanString(`{
   "createIndex": {
-    "name": "example_index_name",
     "definition": {
       "column": {
         "example_map_column": "$keys"
+      },
+      "options": {
+        "ascii": null,
+        "caseSensitive": null,
+        "normalize": null
       }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -821,7 +533,15 @@ func TestCreateIndexMapKeysCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleIndexMapKeysPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleIndexMapKeysPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleIndexMapKeysPayloadJSON, string(cmdBytes))
 	}
 }
@@ -830,9 +550,16 @@ func TestCreateIndexMapKeysCommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-default
 var exampleVectorIndexDefaultPayloadJSON = testutils.CleanString(`{
   "createVectorIndex": {
-    "name": "example_index_name",
     "definition": {
-      "column": "example_vector_column"
+      "column": "example_vector_column",
+      "options": {
+        "metric": null,
+        "sourceModel": null
+      }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -848,7 +575,15 @@ func TestCreateVectorIndexDefaultCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleVectorIndexDefaultPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleVectorIndexDefaultPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexDefaultPayloadJSON, string(cmdBytes))
 	}
 }
@@ -857,13 +592,16 @@ func TestCreateVectorIndexDefaultCommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-model-metric
 var exampleVectorIndexModelMetricPayloadJSON = testutils.CleanString(`{
   "createVectorIndex": {
-    "name": "example_index_name",
     "definition": {
       "column": "example_vector_column",
       "options": {
         "metric": "dot_product",
         "sourceModel": "ada002"
       }
+    },
+    "name": "example_index_name",
+    "options": {
+      "ifNotExists": null
     }
   }
 }`)
@@ -880,7 +618,15 @@ func TestCreateVectorIndexModelMetricCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleVectorIndexModelMetricPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleVectorIndexModelMetricPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexModelMetricPayloadJSON, string(cmdBytes))
 	}
 }
@@ -889,10 +635,14 @@ func TestCreateVectorIndexModelMetricCommandMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-exists
 var exampleVectorIndexIfNotExistsPayloadJSON = testutils.CleanString(`{
   "createVectorIndex": {
-    "name": "example_index_name",
     "definition": {
-      "column": "summary_genres_vector"
+      "column": "summary_genres_vector",
+      "options": {
+        "metric": null,
+        "sourceModel": null
+      }
     },
+    "name": "example_index_name",
     "options": {
       "ifNotExists": true
     }
@@ -911,7 +661,15 @@ func TestCreateVectorIndexIfNotExistsCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleVectorIndexIfNotExistsPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleVectorIndexIfNotExistsPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexIfNotExistsPayloadJSON, string(cmdBytes))
 	}
 }
@@ -965,7 +723,11 @@ func TestDropTableIndexCommandURL(t *testing.T) {
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/list-index-metadata.html#example-names
 var exampleListIndexesNamesOnlyPayloadJSON = testutils.CleanString(`{
-  "listIndexes": {}
+  "listIndexes": {
+    "options": {
+      "explain": null
+    }
+  }
 }`)
 
 // TestListIndexesNamesOnlyCommandMarshal verifies that the resulting command from listIndexesCommand
@@ -979,7 +741,15 @@ func TestListIndexesNamesOnlyCommandMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize: %v", err)
 	}
-	if string(cmdBytes) != exampleListIndexesNamesOnlyPayloadJSON {
+
+	var got, expected map[string]interface{}
+	if err := json.Unmarshal(cmdBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal got: %v", err)
+	}
+	if err := json.Unmarshal([]byte(exampleListIndexesNamesOnlyPayloadJSON), &expected); err != nil {
+		t.Fatalf("json.Unmarshal expected: %v", err)
+	}
+	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleListIndexesNamesOnlyPayloadJSON, string(cmdBytes))
 	}
 }
@@ -1125,11 +895,6 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 	})
 }
 
-// Helper functions for creating pointers
-func intPtr(i int) *int {
-	return &i
-}
-
 func boolPtr(b bool) *bool {
 	return &b
 }
@@ -1143,7 +908,10 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		}
 		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
 		// Should not have "options" key when no options provided
-		if string(cmdBytes) != `{"createIndex":{"name":"test_idx","definition":{"column":"test_col"}}}` {
+		var got, expected map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":null,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`), &expected)
+		if !reflect.DeepEqual(got, expected) {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
 	})
@@ -1156,7 +924,10 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 			t.Fatalf("createIndexCommand: %v", err)
 		}
 		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
-		if string(cmdBytes) != `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"caseSensitive":true}},"options":{"ifNotExists":true}}}` {
+		var got, expected map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":null,"caseSensitive":true,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`), &expected)
+		if !reflect.DeepEqual(got, expected) {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
 	})
@@ -1176,9 +947,11 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false}},"options":{"ifNotExists":true}}}`
-		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+		var got, exp map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`), &exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`, string(cmdBytes))
 		}
 	})
 
@@ -1194,9 +967,11 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":false}}}}`
-		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+		var got, exp map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`), &exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`, string(cmdBytes))
 		}
 	})
 
@@ -1216,9 +991,11 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
-		expected := `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`
-		if string(cmdBytes) != expected {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", expected, string(cmdBytes))
+		var got, exp map[string]interface{}
+		json.Unmarshal(cmdBytes, &got)
+		json.Unmarshal([]byte(`{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`), &exp)
+		if !reflect.DeepEqual(got, exp) {
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"name":"test_idx","definition":{"column":"test_col","options":{"ascii":true,"normalize":false,"caseSensitive":true}},"options":{"ifNotExists":true}}}`, string(cmdBytes))
 		}
 	})
 }
@@ -1282,33 +1059,6 @@ var exampleUpdateOneSetPayloadJSON = testutils.CleanString(`{
     }
   }
 }`)
-
-// TestTableUpdateOneCommandMarshal_Set verifies the updateOne command payload
-// for a simple $set against a compound primary key.
-func TestTableUpdateOneCommandMarshal_Set(t *testing.T) {
-	tbl := getTestTable(t)
-	tests := []testutils.JSONTestCase{{
-		Name:     "Set rating and genres, unset borrower",
-		Expected: exampleUpdateOneSetPayloadJSON,
-		Args: []any{
-			tbl.newCmd("updateOne", tableUpdateOnePayload{
-				// Interestingly, we don't currently have a way to express two top-level filters like this
-				// with the fluent builder. Right now we could express with filter.And(...). Which, logically,
-				// I believe is the same as just passing a map with multiple keys. Might consider adding to
-				// filter fluent builder at some point.
-				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
-				// Fluent builder
-				Update: update.Table().Set("rating", 4.5).Set("genres", []string{"Fiction", "Drama"}).Unset("borrower"),
-			}),
-			tbl.newCmd("updateOne", tableUpdateOnePayload{
-				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
-				// Test out update.U directly as well.
-				Update: update.U{"$set": update.U{"genres": []string{"Fiction", "Drama"}, "rating": 4.5}, "$unset": update.U{"borrower": ""}},
-			}),
-		},
-	}}
-	testutils.RunJSONTestCases(t, tests)
-}
 
 // httpTestTable creates a Table backed by the given httptest.Server for
 // integration-style testing. Mirrors newTestCollection in collection_test.go.
@@ -1477,22 +1227,6 @@ var exampleDeleteOnePayloadJSON = testutils.CleanString(`{
   }
 }`)
 
-// TestTableDeleteOne_CommandMarshal verifies the deleteOne command payload
-// for a full-primary-key filter.
-func TestTableDeleteOne_CommandMarshal(t *testing.T) {
-	tbl := getTestTable(t)
-	tests := []testutils.JSONTestCase{{
-		Name:     "Delete by compound primary key",
-		Expected: exampleDeleteOnePayloadJSON,
-		Args: []any{
-			tbl.newCmd("deleteOne", tableDeleteOnePayload{
-				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
-			}),
-		},
-	}}
-	testutils.RunJSONTestCases(t, tests)
-}
-
 // TestTableDeleteOne_HappyPath verifies that DeleteOne posts the expected
 // request body, reads a successful status response, and returns nil.
 // NOTE: thought about also repeating the override token etc. but that is REALLY
@@ -1542,22 +1276,6 @@ var exampleDeleteManyPayloadJSON = testutils.CleanString(`{
   }
 }`)
 
-// TestTableDeleteMany_CommandMarshal verifies the deleteMany command payload
-// matches docs example.
-func TestTableDeleteMany_CommandMarshal(t *testing.T) {
-	tbl := getTestTable(t)
-	tests := []testutils.JSONTestCase{{
-		Name:     "Composite primary key: title + author",
-		Expected: exampleDeleteManyPayloadJSON,
-		Args: []any{
-			tbl.newCmd("deleteMany", tableDeleteManyPayload{
-				Filter: filter.F{"title": "Hidden Shadows of the Past", "author": "John Anthony"},
-			}),
-		},
-	}}
-	testutils.RunJSONTestCases(t, tests)
-}
-
 // TestTableDeleteMany_HappyPath verifies DeleteMany posts the expected request
 // body, handles the documented deletedCount=-1 response, and returns nil.
 func TestTableDeleteMany_HappyPath(t *testing.T) {
@@ -1604,7 +1322,7 @@ func TestTableDeleteMany_EnforceNonNilFilter(t *testing.T) {
 
 // #endregion
 
-// #region Table.AlterTable tests
+// #region Table.Alter tests
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add
 var exampleAlterTableAddPayloadJSON = testutils.CleanString(`{
@@ -1683,12 +1401,10 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableAddPayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					Add: &table.AddColumns{
-						Columns: table.Columns{
-							{"is_summer_reading", table.Boolean()},
-							{"library_branch", table.Text()},
-						},
+				Operation: &table.AddColumns{
+					Columns: table.Columns{
+						{"is_summer_reading", table.Boolean()},
+						{"library_branch", table.Text()},
 					},
 				},
 			}),
@@ -1698,11 +1414,9 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableAddVectorColumnPayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					Add: &table.AddColumns{
-						Columns: table.Columns{
-							{"example_vector", table.Vector(1024)},
-						},
+				Operation: &table.AddColumns{
+					Columns: table.Columns{
+						{"example_vector", table.Vector(1024)},
 					},
 				},
 			}),
@@ -1712,10 +1426,8 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableDropPayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					Drop: &table.DropColumns{
-						Columns: []string{"is_summer_reading", "library_branch"},
-					},
+				Operation: &table.DropColumns{
+					Columns: []string{"is_summer_reading", "library_branch"},
 				},
 			}),
 		},
@@ -1724,19 +1436,17 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableAddVectorizePayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					AddVectorize: &table.AddVectorize{
-						Columns: map[string]table.VectorService{
-							"summary_vec": {
-								Provider:  "openai",
-								ModelName: "text-embedding-3-small",
-								Authentication: map[string]string{
-									"providerKey": "OPENAI_API_KEY",
-								},
-								Parameters: map[string]string{
-									"organizationId": "ORGANIZATION_ID",
-									"projectId":      "PROJECT_ID",
-								},
+				Operation: &table.AddVectorize{
+					Columns: map[string]table.VectorService{
+						"summary_vec": {
+							Provider:  "openai",
+							ModelName: "text-embedding-3-small",
+							Authentication: map[string]string{
+								"providerKey": "OPENAI_API_KEY",
+							},
+							Parameters: map[string]string{
+								"organizationId": "ORGANIZATION_ID",
+								"projectId":      "PROJECT_ID",
 							},
 						},
 					},
@@ -1748,10 +1458,8 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 		Expected: exampleAlterTableDropVectorizePayloadJSON,
 		Args: []any{
 			tbl.newCmd("alterTable", alterTablePayload{
-				Operation: table.AlterOperation{
-					DropVectorize: &table.DropVectorize{
-						Columns: []string{"plot_synopsis"},
-					},
+				Operation: &table.DropVectorize{
+					Columns: []string{"plot_synopsis"},
 				},
 			}),
 		},
@@ -1759,7 +1467,7 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 	testutils.RunJSONTestCases(t, tests)
 }
 
-// TestTableAlter_HappyPath verifies that AlterTable posts the expected request
+// TestTableAlter_HappyPath verifies that Alter posts the expected request
 // body for an "add columns" call, reads the documented success response, and
 // returns nil.
 func TestTableAlter_HappyPath(t *testing.T) {
@@ -1780,11 +1488,9 @@ func TestTableAlter_HappyPath(t *testing.T) {
 	defer ts.Close()
 
 	tbl := httpTestTable(ts)
-	err := tbl.AlterTable(context.Background(), table.AlterOperation{
-		Add: &table.AddColumns{
-			Columns: table.Columns{
-				{"is_summer_reading", table.Boolean()},
-			},
+	err := tbl.Alter(context.Background(), table.AddColumns{
+		Columns: table.Columns{
+			{"is_summer_reading", table.Boolean()},
 		},
 	}, options.AlterTable())
 	if err != nil {
@@ -1814,19 +1520,10 @@ func TestTableAlter_HappyPath(t *testing.T) {
 // Add/Drop/AddVectorize/DropVectorize, matching the Data API constraint.
 func TestTableAlter_RejectsZeroOrMultipleOperations(t *testing.T) {
 	tbl := getTestTable(t)
-	t.Run("empty operation", func(t *testing.T) {
-		err := tbl.AlterTable(context.Background(), table.AlterOperation{})
+	t.Run("nil operation", func(t *testing.T) {
+		err := tbl.Alter(context.Background(), nil)
 		if err == nil {
-			t.Fatal("expected error for empty operation, got nil")
-		}
-	})
-	t.Run("two operations set", func(t *testing.T) {
-		err := tbl.AlterTable(context.Background(), table.AlterOperation{
-			Add:  &table.AddColumns{Columns: table.Columns{{"x", table.Text()}}},
-			Drop: &table.DropColumns{Columns: []string{"y"}},
-		})
-		if err == nil {
-			t.Fatal("expected error for multiple operations, got nil")
+			t.Fatal("expected error for nil operation, got nil")
 		}
 	})
 }

@@ -22,17 +22,54 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/sort"
 )
 
-// #region InsertMany helpers
+type mkCmd = func(name string, payload any, opts *options.APIOptions) command
 
-type mkInsertManyCmd = func(name string, payload any, opts *options.APIOptions) command
+// region InsertOne
 
-// insertManyOptions are the common options for the collection and table insertMany operations
+type insertOneOptions struct {
+	APIOptions *options.APIOptions
+}
+
+type insertOneResponse struct {
+	Status struct {
+		InsertedIds []json.RawMessage `json:"insertedIds"`
+	} `json:"status"`
+}
+
+func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptions, target serdes.Target) (*results.InsertOneResult, error) {
+	cmd := mkCmd("insertOne", map[string]any{
+		"document": record,
+	}, opts.APIOptions)
+
+	b, warnings, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp insertOneResponse
+	if err := serdes.Deserialize(b, &resp, nil, target); err != nil {
+		return nil, err
+	}
+
+	if len(resp.Status.InsertedIds) == 0 {
+		return nil, errors.New("no inserted ID returned from server")
+	}
+
+	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, target), nil
+}
+
+// endregion
+
+// region InsertMany
+
 type insertManyOptions struct {
 	Ordered     *bool
 	ChunkSize   *int
@@ -40,7 +77,6 @@ type insertManyOptions struct {
 	APIOptions  *options.APIOptions
 }
 
-// insertManyResponse is the response from insertMany command
 type insertManyResponse struct {
 	Status struct {
 		InsertedIds []json.RawMessage `json:"insertedIds"`
@@ -48,7 +84,7 @@ type insertManyResponse struct {
 	Errors []DataAPIError `json:"errors,omitempty"`
 }
 
-func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	recordsVal := reflect.ValueOf(records)
 	if recordsVal.Kind() != reflect.Slice {
 		return nil, errors.New("records must be a slice")
@@ -70,8 +106,7 @@ func insertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts in
 	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target)
 }
 
-// insertManyOrdered processes documents sequentially in chunks
-func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
 	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
@@ -104,8 +139,7 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkInser
 	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
-// insertManyUnordered processes documents concurrently using goroutines
-func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkInsertManyCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -173,8 +207,7 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkIns
 	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
-// runInsertMany executes a single insertMany command for a slice of documents
-func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, DataAPIErrors, error) {
+func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, DataAPIErrors, error) {
 	cmd := mkCmd("insertMany", map[string]any{
 		"documents": records,
 		"options": map[string]any{
@@ -203,4 +236,81 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkInsertManyCmd, opts
 	return batch, warnings, resp.Errors, nil
 }
 
-// #endregion
+// endregion
+
+// region FindOne
+
+type findOneOptions struct {
+	Sort              sort.Sortable
+	Projection        map[string]any
+	IncludeSimilarity *bool
+	APIOptions        *options.APIOptions
+}
+
+func findOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts findOneOptions, target serdes.Target) *results.SingleResult {
+	cmd := mkCmd("findOne", map[string]any{
+		"filter":     f,
+		"sort":       opts.Sort,
+		"projection": opts.Projection,
+		"options": map[string]any{
+			"includeSimilarity": opts.IncludeSimilarity,
+		},
+	}, opts.APIOptions)
+
+	b, warnings, schema, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, schema, target, err)
+}
+
+// endregion
+
+// region UpdateOne
+
+type updateOneOptions struct {
+	Sort       sort.Sortable       `json:"sort,omitempty"`
+	Upsert     *bool               `json:"upsert,omitempty"`
+	APIOptions *options.APIOptions `json:"-"`
+}
+
+func updateOne(ctx context.Context, f filter.Filterable, u any, mkCmd mkCmd, opts updateOneOptions, target serdes.Target) ([]byte, error) {
+	cmd := mkCmd("updateOne", map[string]any{
+		"filter": f,
+		"update": u,
+		"sort":   opts.Sort,
+		"options": map[string]any{
+			"upsert": ptr.From(opts.Upsert),
+		},
+	}, opts.APIOptions)
+
+	b, _, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+// endregion
+
+// region DeleteOne
+
+type deleteOneOptions struct {
+	Sort       sort.Sortable
+	APIOptions *options.APIOptions
+}
+
+func deleteOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts deleteOneOptions, target serdes.Target) ([]byte, error) {
+	payload := map[string]any{
+		"filter": f,
+		"sort":   opts.Sort,
+	}
+
+	cmd := mkCmd("deleteOne", payload, opts.APIOptions)
+	b, _, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
+}
+
+// endregion
