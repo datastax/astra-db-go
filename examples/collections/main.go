@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
+	"log/slog"
+	"os"
 
 	"github.com/DeanPDX/dotconfig"
 	astradb "github.com/datastax/astra-db-go"
@@ -32,6 +35,19 @@ type Book struct {
 }
 
 func main() {
+	// Parse command-line flags
+	readonly := flag.Bool("readonly", false, "Use existing collection in read-only mode instead of creating/populating/dropping a new one")
+	debug := flag.Bool("debug", false, "Verbose debug logs")
+	flag.Parse()
+
+	if *debug {
+		// Set log level to DEBUG
+		logger := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		}))
+		slog.SetDefault(logger)
+	}
+
 	// Load our configuration and create a client and DB handle.
 	config, err := dotconfig.FromFileName[Config](".env")
 	if err != nil {
@@ -45,13 +61,21 @@ func main() {
 	fmt.Printf("Using database endpoint: %s\n", config.DBEndpoint)
 	ctx := context.Background()
 
-	coll := createCollection(ctx, db)
-	insertDocuments(ctx, coll)
+	var coll *astradb.Collection
+	if *readonly {
+		coll = getCollection(ctx, db)
+	} else {
+		coll = createCollection(ctx, db)
+		insertDocuments(ctx, coll)
+	}
+
 	findOneDocument(ctx, coll)
 	findAllDocuments(ctx, coll)
 	filterDocumentsByYear(ctx, coll)
 	countDocuments(ctx, coll)
-	dropCollection(ctx, db)
+	if !(*readonly) {
+		dropCollection(ctx, db)
+	}
 }
 
 func createCollection(ctx context.Context, db *astradb.Db) *astradb.Collection {
@@ -61,6 +85,13 @@ func createCollection(ctx context.Context, db *astradb.Db) *astradb.Collection {
 		log.Fatal(err)
 	}
 	fmt.Println("Created collection: my_collection")
+	return coll
+}
+
+func getCollection(ctx context.Context, db *astradb.Db) *astradb.Collection {
+	logHeader("Getting Collection")
+	coll := db.Collection("my_collection")
+	logHeader("Gotten collection")
 	return coll
 }
 

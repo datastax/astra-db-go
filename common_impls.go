@@ -248,14 +248,22 @@ type findOneOptions struct {
 }
 
 func findOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts findOneOptions, target serdes.Target) *results.SingleResult {
-	cmd := mkCmd("findOne", map[string]any{
-		"filter":     f,
-		"sort":       opts.Sort,
-		"projection": opts.Projection,
+	payload := map[string]any{
+		"filter": f,
 		"options": map[string]any{
 			"includeSimilarity": opts.IncludeSimilarity,
 		},
-	}, opts.APIOptions)
+	}
+
+	if opts.Sort != nil {
+		payload["sort"] = opts.Sort
+	}
+
+	if opts.Projection != nil {
+		payload["projection"] = opts.Projection
+	}
+
+	cmd := mkCmd("findOne", payload, opts.APIOptions)
 
 	b, warnings, schema, err := cmd.Execute(ctx)
 	return results.NewSingleResult(b, warnings, schema, target, err)
