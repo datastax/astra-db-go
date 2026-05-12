@@ -139,6 +139,8 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return codec{objectIdEncoder, objectIdDecoder}
 	case dApiTimeType:
 		return codec{timestampEncoder, timestampDecoder}
+	case timeType:
+		return codec{timeEncoder, timeDecoder}
 	}
 
 	if c.encode != nil {
