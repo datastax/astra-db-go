@@ -19,13 +19,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"time"
 
 	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/internal/integrationtests/harness"
 	"github.com/datastax/astra-db-go/options"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func init() {
@@ -168,10 +169,8 @@ func CollectionNestedFindOne(e *harness.TestEnv) error {
 		return fmt.Errorf("findOne failed: %w", err)
 	}
 
-	if !reflect.DeepEqual(original, found) {
-		slog.Debug("Original", "struct", original)
-		slog.Debug("Found", "struct", found)
-		return errors.New("round-tripped Restaurant does not match original")
+	if !cmp.Equal(original, found) {
+		return fmt.Errorf("round-trip mismatch: %s", cmp.Diff(original, found))
 	}
 
 	slog.Info("Nested findOne round-trip verified", "name", found.Name, "address", found.Address.Street)

@@ -19,9 +19,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"reflect"
 	"slices"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 
 	astradb "github.com/datastax/astra-db-go"
 	"github.com/datastax/astra-db-go/filter"
@@ -157,8 +158,8 @@ func getSimpleObjects(rows int) []SimpleObject {
 				IntProperty:         i,
 				StringArrayProperty: []string{"Test1", "test2"},
 				BoolProperty:        true,
-				TimeProperty:        time.Now().AddDate(i, i, i),
-				UTCTime:             time.Now().UTC(),
+				TimeProperty:        time.Now().AddDate(i, i, i).Truncate(time.Millisecond),
+				UTCTime:             time.Now().UTC().Truncate(time.Millisecond),
 			},
 		}
 	}
@@ -267,10 +268,8 @@ func CollectionFindOne(e *harness.TestEnv) error {
 	}
 	// Before deep equal, set ID on original doc so deep equal succeeds
 	original.ID = insertedID
-	if !reflect.DeepEqual(original, document) {
-		slog.Debug("Original", "struct", original)
-		slog.Debug("Returned document", "struct", document)
-		return errors.New("original != what was selected from DB")
+	if !cmp.Equal(original, document) {
+		return fmt.Errorf("original != what was selected from DB:\n%s", cmp.Diff(original, document))
 	}
 	return nil
 }
