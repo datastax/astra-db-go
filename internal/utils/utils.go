@@ -24,3 +24,10 @@ func RequireSlicePtr(v any) (reflect.Value, reflect.Value, error) {
 
 	return ptr, slice, nil
 }
+
+func NonNilMap[M ~map[K]V, K comparable, V any](m M) M {
+	if m == nil {
+		return make(M)
+	}
+	return m
+}

@@ -22,6 +22,7 @@ import (
 
 	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
+	"github.com/datastax/astra-db-go/internal/utils"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
@@ -238,7 +239,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	if err != nil {
 		return nil, err
 	}
-	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged), serdes.TargetCollection)
+	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged))
 
 	var resp collectionUpdateResponse
 	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
@@ -334,7 +335,7 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		"filter":     f,
 		"update":     u,
 		"sort":       merged.Sort,
-		"projection": merged.Projection,
+		"projection": utils.NonNilMap(merged.Projection),
 		"options": map[string]any{
 			"upsert":         merged.Upsert,
 			"returnDocument": merged.ReturnDocument,
@@ -414,7 +415,7 @@ func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, 
 		"filter":      f,
 		"replacement": replacement,
 		"sort":        opts.Sort,
-		"projection":  opts.Projection,
+		"projection":  utils.NonNilMap(opts.Projection),
 		"options": map[string]any{
 			"upsert":         opts.Upsert,
 			"returnDocument": opts.ReturnDocument,
@@ -448,7 +449,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 		return nil, err
 	}
 
-	b, err := deleteOne(ctx, f, c.newCmdWithMergedOptions, (deleteOneOptions)(*merged), serdes.TargetCollection)
+	b, err := deleteOne(ctx, f, c.newCmdWithMergedOptions, (deleteOneOptions)(*merged))
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +541,7 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 	cmd := c.newCmdWithMergedOptions("findOneAndDelete", map[string]any{
 		"filter":     f,
 		"sort":       merged.Sort,
-		"projection": merged.Projection,
+		"projection": utils.NonNilMap(merged.Projection),
 	}, merged.APIOptions)
 
 	b, warnings, _, err := cmd.Execute(ctx)
