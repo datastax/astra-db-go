@@ -131,7 +131,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		return nil, err
 	}
 
-	cmd := d.newCmd("createTable", map[string]any{
+	cmd := d.newCmd("createCollection", map[string]any{
 		"name":    name,
 		"options": merged,
 	})
@@ -354,7 +354,7 @@ type listTablesResponse[T any] struct {
 }
 
 func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("findTables", map[string]any{
+	cmd := d.newCmdWithMergedOptions("listTables", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},

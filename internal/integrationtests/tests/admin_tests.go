@@ -28,6 +28,10 @@ import (
 )
 
 func init() {
+	if harness.Environment().Backend != "astra" {
+		return
+	}
+
 	// Register our tests
 	t := []harness.IntegrationTest{
 		{Name: "AdminFindAvailableRegionsNoFilter", Run: AdminFindAvailableRegionsNoFilter},

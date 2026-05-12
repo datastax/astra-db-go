@@ -23,6 +23,7 @@ import (
 	"sync/atomic"
 
 	"github.com/datastax/astra-db-go/filter"
+	"github.com/datastax/astra-db-go/internal/utils"
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
@@ -251,7 +252,7 @@ func findOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts findOne
 	cmd := mkCmd("findOne", map[string]any{
 		"filter":     f,
 		"sort":       opts.Sort,
-		"projection": opts.Projection,
+		"projection": utils.NonNilMap(opts.Projection),
 		"options": map[string]any{
 			"includeSimilarity": opts.IncludeSimilarity,
 		},
@@ -271,7 +272,7 @@ type updateOneOptions struct {
 	APIOptions *options.APIOptions `json:"-"`
 }
 
-func updateOne(ctx context.Context, f filter.Filterable, u any, mkCmd mkCmd, opts updateOneOptions, target serdes.Target) ([]byte, error) {
+func updateOne(ctx context.Context, f filter.Filterable, u any, mkCmd mkCmd, opts updateOneOptions) ([]byte, error) {
 	cmd := mkCmd("updateOne", map[string]any{
 		"filter": f,
 		"update": u,
@@ -298,7 +299,7 @@ type deleteOneOptions struct {
 	APIOptions *options.APIOptions
 }
 
-func deleteOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts deleteOneOptions, target serdes.Target) ([]byte, error) {
+func deleteOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts deleteOneOptions) ([]byte, error) {
 	payload := map[string]any{
 		"filter": f,
 		"sort":   opts.Sort,

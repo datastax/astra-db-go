@@ -160,6 +160,25 @@ func timestampDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 }
 
 // ================================
+// | time.Time - uses the same encoding/decoding as DataAPITimestamp
+// ================================
+
+func timeEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	t := (*time.Time)(p)
+	ts := datatypes.NewDataAPITimestamp(*t)
+	return timestampEncoder(ctx, dst, unsafe.Pointer(&ts))
+}
+
+func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	var ts datatypes.DataAPITimestamp
+	src, err := timestampDecoder(ctx, src, unsafe.Pointer(&ts))
+	if err == nil {
+		*(*time.Time)(p) = ts.Time()
+	}
+	return src, err
+}
+
+// ================================
 // | big.Int - encoded as a raw number in all contexts
 // ================================
 

@@ -268,7 +268,7 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 	if err != nil {
 		return err
 	}
-	_, err = updateOne(ctx, f, u, t.newCmdWithMergedOptions, updateOneOptions{nil, nil, merged.APIOptions}, serdes.TargetTable)
+	_, err = updateOne(ctx, f, u, t.newCmdWithMergedOptions, updateOneOptions{nil, nil, merged.APIOptions})
 	return err
 }
 
@@ -295,7 +295,7 @@ func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.Ta
 		return err
 	}
 	// Note: warnings are accessible via the WarningHandler option callback only.
-	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions}, serdes.TargetTable)
+	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions})
 	return err
 }
 
