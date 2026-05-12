@@ -302,7 +302,7 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 		if err != nil {
 			return nil, fmt.Errorf("cannot parse database ID from endpoint %q: %w", d.endpoint, err)
 		}
-		return admin.DbAdmin(id), nil
+		return admin.DbAdmin(id, d), nil
 	}
 	// Non-Astra backends use the Data API.
 	return &DataAPIDatabaseAdmin{db: d}, nil

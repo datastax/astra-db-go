@@ -16,8 +16,11 @@ package astradb
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/results"
 )
 
 // DatabaseAdmin provides keyspace management operations for a database.
@@ -28,8 +31,42 @@ type DatabaseAdmin interface {
 	ListKeyspaces(ctx context.Context) ([]string, error)
 	CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error
 	DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error
+	FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error)
 }
 
 // Compile-time interface checks
 var _ DatabaseAdmin = (*AstraDbAdmin)(nil)
 var _ DatabaseAdmin = (*DataAPIDatabaseAdmin)(nil)
+
+func findEmbeddingProviders(db *Db, ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+
+	var payload any
+	if merged.FilterModelStatus != nil {
+		payload = map[string]any{
+			"options": map[string]any{
+				"filterModelStatus": string(*merged.FilterModelStatus),
+			},
+		}
+	} else {
+		payload = map[string]any{}
+	}
+
+	cmd := newDatabaseAdminCmd(db, "findEmbeddingProviders", payload)
+	b, _, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp struct {
+		Status results.FindEmbeddingProvidersResult `json:"status"`
+	}
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse findEmbeddingProviders response: %w", err)
+	}
+
+	return &resp.Status, nil
+}

@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/results"
 )
 
 // AstraDbAdmin provides admin operations for a specific Astra database
@@ -44,6 +45,7 @@ import (
 type AstraDbAdmin struct {
 	id    string
 	admin *AstraAdmin
+	db    *Db
 }
 
 // ID returns the database ID.
@@ -151,4 +153,29 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 	}
 	err = d.admin.awaitStatus(ctx, d.id, awaitOpts)
 	return err
+}
+
+// FindEmbeddingProviders returns information about all available embedding providers
+// and their supported models, authentication methods, and parameters.
+//
+// By default only SUPPORTED models are included. Use [options.FindEmbeddingProvidersOptions]
+// to filter by a different lifecycle status, or pass [options.ModelLifecycleStatusAll] to
+// include models of every status.
+//
+// Example:
+//
+//	result, err := dbAdmin.FindEmbeddingProviders(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for name, provider := range result.EmbeddingProviders {
+//	    fmt.Printf("Provider: %s (%s)\n", name, provider.DisplayName)
+//	    for _, model := range provider.Models {
+//	        fmt.Printf("  Model: %s\n", model.Name)
+//	    }
+//	}
+//
+// Note: Warnings are accessible via the WarningHandler option callback only.
+func (d *AstraDbAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
+	return findEmbeddingProviders(d.db, ctx, opts...)
 }

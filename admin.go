@@ -442,10 +442,11 @@ type createDatabaseRequest struct {
 //
 //	dbAdmin := admin.DbAdmin("database-id")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DbAdmin(databaseID string) *AstraDbAdmin {
+func (a *AstraAdmin) DbAdmin(databaseID string, db *Db) *AstraDbAdmin {
 	return &AstraDbAdmin{
 		id:    databaseID,
 		admin: a,
+		db:    db,
 	}
 }
 
@@ -576,7 +577,8 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 		return nil, fmt.Errorf("missing Location header in response")
 	}
 
-	dbAdmin := a.DbAdmin(dbID)
+	dbAdmin := a.DbAdmin(dbID, &Db{endpoint: "https://" + dbID + "-" + params.Region + ".apps.astra.datastax.com",
+		client: a.client, options: a.options})
 
 	if !*merged.Blocking {
 		return dbAdmin, nil

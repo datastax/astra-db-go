@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/results"
 )
 
 // DataAPIDatabaseAdmin provides keyspace operations via the Data API.
@@ -90,4 +91,29 @@ func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 	cmd := newDatabaseAdminCmd(d.db, "dropKeyspace", payload)
 	_, _, err := cmd.Execute(ctx)
 	return err
+}
+
+// FindEmbeddingProviders returns information about all available embedding providers
+// and their supported models, authentication methods, and parameters.
+//
+// By default only SUPPORTED models are included. Use [options.FindEmbeddingProvidersOptions]
+// to filter by a different lifecycle status, or pass [options.ModelLifecycleStatusAll] to
+// include models of every status.
+//
+// Example:
+//
+//	result, err := dbAdmin.FindEmbeddingProviders(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for name, provider := range result.EmbeddingProviders {
+//	    fmt.Printf("Provider: %s (%s)\n", name, provider.DisplayName)
+//	    for _, model := range provider.Models {
+//	        fmt.Printf("  Model: %s\n", model.Name)
+//	    }
+//	}
+//
+// Note: Warnings are accessible via the WarningHandler option callback only.
+func (d *DataAPIDatabaseAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
+	return findEmbeddingProviders(d.db, ctx, opts...)
 }
