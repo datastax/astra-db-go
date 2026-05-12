@@ -131,7 +131,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		return nil, err
 	}
 
-	cmd := d.newCmd("createTable", map[string]any{
+	cmd := d.newCmd("createCollection", map[string]any{
 		"name":    name,
 		"options": merged,
 	})
