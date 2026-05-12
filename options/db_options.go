@@ -14,6 +14,51 @@
 
 package options
 
+import "github.com/datastax/astra-db-go/internal/constants"
+
+// ModelLifecycleStatus is the lifecycle status of an embedding provider model,
+// used to filter models returned by FindEmbeddingProviders.
+//
+// Use ModelLifecycleStatusAll ("") to include models of every status.
+type ModelLifecycleStatus string
+
+const (
+	// ModelLifecycleStatusAll includes models of every lifecycle status.
+	// Equivalent to passing an empty string to the API.
+	ModelLifecycleStatusAll ModelLifecycleStatus = ""
+	// ModelLifecycleStatusSupported includes only actively supported models (the default).
+	ModelLifecycleStatusSupported ModelLifecycleStatus = ModelLifecycleStatus(constants.ModelLifecycleStatusSupported)
+	// ModelLifecycleStatusDeprecated includes only deprecated models.
+	ModelLifecycleStatusDeprecated ModelLifecycleStatus = ModelLifecycleStatus(constants.ModelLifecycleStatusDeprecated)
+	// ModelLifecycleStatusEndOfLife includes only end-of-life models.
+	ModelLifecycleStatusEndOfLife ModelLifecycleStatus = ModelLifecycleStatus(constants.ModelLifecycleStatusEndOfLife)
+)
+
+// FindEmbeddingProvidersOptions represents options for the FindEmbeddingProviders operation.
+type FindEmbeddingProvidersOptions struct {
+	// FilterModelStatus filters models by their lifecycle status.
+	//
+	//   - If not provided: defaults to SUPPORTED models only.
+	//   - If set to ModelLifecycleStatusAll (""): includes all statuses (SUPPORTED, DEPRECATED, END_OF_LIFE).
+	//   - If set to a specific status: includes only models with that status.
+	//
+	// Example:
+	//
+	//	// Only supported models (default behavior)
+	//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusSupported)
+	//
+	//	// All models regardless of status
+	//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusAll)
+	//
+	//	// Only deprecated models
+	//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
+	FilterModelStatus *ModelLifecycleStatus `json:"-"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // ListCollectionsOptions represents options for listing collections in a database.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type ListCollectionsOptions struct {
