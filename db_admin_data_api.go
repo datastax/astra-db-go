@@ -93,12 +93,9 @@ func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 	return err
 }
 
-// FindEmbeddingProviders returns information about all available embedding providers
-// and their supported models, authentication methods, and parameters.
-//
-// By default only SUPPORTED models are included. Use [options.FindEmbeddingProvidersOptions]
-// to filter by a different lifecycle status, or pass [options.ModelLifecycleStatusAll] to
-// include models of every status.
+// FindEmbeddingProviders returns detailed information about the availability and usage of the
+// vectorize embedding providers available on the current database (may vary based on cloud
+// provider & region).
 //
 // Example:
 //
@@ -106,11 +103,9 @@ func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 //	if err != nil {
 //	    return err
 //	}
-//	for name, provider := range result.EmbeddingProviders {
-//	    fmt.Printf("Provider: %s (%s)\n", name, provider.DisplayName)
-//	    for _, model := range provider.Models {
-//	        fmt.Printf("  Model: %s\n", model.Name)
-//	    }
+//	// ["text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"]
+//	for _, model := range result.EmbeddingProviders["openai"].Models {
+//	    fmt.Println(model.Name)
 //	}
 //
 // Note: Warnings are accessible via the WarningHandler option callback only.
