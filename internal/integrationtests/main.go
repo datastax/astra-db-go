@@ -82,7 +82,7 @@ func main() {
 		} else {
 			slog.Error(test.Name, "status", "FAIL", "elapsed", elapsed, "error", err)
 			slog.Error("Tests failed")
-			return
+			os.Exit(1)
 		}
 	}
 	slog.Info("All tests passed", "elapsed", time.Since(totalStart), "ran", ran, "skipped", skipped)
