@@ -56,7 +56,7 @@ func findEmbeddingProviders(db *Db, ctx context.Context, opts ...options.FindEmb
 	}
 
 	cmd := newDatabaseAdminCmd(db, "findEmbeddingProviders", payload)
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
