@@ -433,21 +433,41 @@ type createDatabaseRequest struct {
 	CapacityUnits int    `json:"capacityUnits"`
 }
 
-// DbAdmin returns an AstraDbAdmin handle for the given database ID.
+// DbAdmin returns an AstraDbAdmin handle for the given database ID and region.
 //
 // No API calls are made; this simply creates a handle for performing
-// admin operations on the specified database.
+// admin operations on the specified database. Options provided override the
+// defaults set on the DataAPIClient for the underlying Db instance.
 //
 // Example:
 //
-//	dbAdmin := admin.DbAdmin("database-id")
+//	dbAdmin := admin.DbAdmin("a6a1d8d6-...-377566f345bf", "us-east1")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DbAdmin(databaseID string, db *Db) *AstraDbAdmin {
-	return &AstraDbAdmin{
-		id:    databaseID,
-		admin: a,
-		db:    db,
+func (a *AstraAdmin) DbAdmin(id, region string, opts ...options.APIOption) *AstraDbAdmin {
+	db := &Db{
+		id:      &id,
+		region:  &region,
+		env:     a.astraEnvironment,
+		client:  a.client,
+		options: options.NewAPIOptions(opts...),
 	}
+	return &AstraDbAdmin{admin: a, db: db}
+}
+
+// DbAdminFromEndpoint returns an AstraDbAdmin handle for the given database endpoint.
+//
+// The endpoint should be in the form https://<db_id>-<region>.apps.astra.datastax.com.
+// No API calls are made; this simply creates a handle for performing admin operations
+// on the specified database. Options provided override the defaults set on the
+// DataAPIClient for the underlying Db instance.
+//
+// Example:
+//
+//	dbAdmin := admin.DbAdminFromEndpoint("https://<db_id>-<region>.apps.astra.datastax.com")
+//	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
+func (a *AstraAdmin) DbAdminFromEndpoint(endpoint string, opts ...options.APIOption) *AstraDbAdmin {
+	db := a.client.Database(endpoint, opts...)
+	return &AstraDbAdmin{admin: a, db: db}
 }
 
 type AwaitStatusOptions struct {
@@ -577,8 +597,9 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 		return nil, fmt.Errorf("missing Location header in response")
 	}
 
-	dbAdmin := a.DbAdmin(dbID, &Db{endpoint: "https://" + dbID + "-" + params.Region + ".apps.astra.datastax.com",
-		client: a.client, options: a.options})
+	region := params.Region
+	db := &Db{id: &dbID, region: &region, env: a.astraEnvironment, client: a.client, options: a.options}
+	dbAdmin := &AstraDbAdmin{admin: a, db: db}
 
 	if !*merged.Blocking {
 		return dbAdmin, nil

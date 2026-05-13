@@ -20,9 +20,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
+	"strings"
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+)
+
+// astraEndpointRegex matches Astra Data API endpoints and captures the database UUID and region.
+// Format: https://{uuid}-{region}.apps.astra[-dev|-test].datastax.com
+var astraEndpointRegex = regexp.MustCompile(
+	`(?i)^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-([a-z0-9_-]+)\.apps\.astra(?:-(?:dev|test))?\.datastax\.com`,
 )
 
 // Db represents a connection to a specific Astra DB database.
@@ -30,9 +38,14 @@ import (
 // Options set on the database are inherited by all collections, tables,
 // and commands created from it, unless overridden at a lower level.
 type Db struct {
-	endpoint string
-	client   *DataAPIClient
-	options  *options.APIOptions
+	// rawURL holds the endpoint for non-Astra databases, or for Astra databases
+	// connected via a private endpoint where id/region cannot be parsed.
+	rawURL  string
+	id      *string
+	region  *string
+	env     options.AstraEnvironment
+	client  *DataAPIClient
+	options *options.APIOptions
 }
 
 func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
@@ -46,8 +59,56 @@ func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.
 }
 
 // Endpoint returns the database API endpoint.
+//
+// For Astra databases with a parsed ID and region, the endpoint is computed from those values.
+// For all other databases (non-Astra, or Astra private endpoints), the raw URL is returned.
 func (d *Db) Endpoint() string {
-	return d.endpoint
+	if d.id != nil && d.region != nil {
+		return d.env.AstraDBEndpoint(*d.id, *d.region)
+	}
+	return d.rawURL
+}
+
+// ID returns the database UUID.
+//
+// Only available for Astra databases connected via a standard endpoint (not a private endpoint).
+//
+// Example:
+//
+//	db := client.Database("https://<db_id>-<region>.apps.astra.datastax.com")
+//	id, err := db.ID() // "<db_id>"
+//
+// Returns an error if the database is not an Astra database, or if the ID cannot be parsed
+// from the endpoint URL.
+func (d *Db) ID() (string, error) {
+	if !d.client.dataAPIBackend.IsAstra() {
+		return "", fmt.Errorf("db.ID() is only available for Astra databases (current backend: %s)", d.client.dataAPIBackend)
+	}
+	if d.id == nil {
+		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database ID could not be parsed", d.rawURL)
+	}
+	return *d.id, nil
+}
+
+// Region returns the database region (e.g. "us-east-1").
+//
+// Only available for Astra databases connected via a standard endpoint (not a private endpoint).
+//
+// Example:
+//
+//	db := client.Database("https://<db_id>-<region>.apps.astra.datastax.com")
+//	region, err := db.Region() // "<region>"
+//
+// Returns an error if the database is not an Astra database, or if the region cannot be parsed
+// from the endpoint URL.
+func (d *Db) Region() (string, error) {
+	if !d.client.dataAPIBackend.IsAstra() {
+		return "", fmt.Errorf("db.Region() is only available for Astra databases (current backend: %s)", d.client.dataAPIBackend)
+	}
+	if d.region == nil {
+		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database region could not be parsed", d.rawURL)
+	}
+	return *d.region, nil
 }
 
 // Options returns the database's options (or empty options if nil).
@@ -293,32 +354,30 @@ func listCollections(d *Db, ctx context.Context, explain bool, cmdOpts *options.
 func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 	// Astra backends use the DevOps API.
 	if d.client.dataAPIBackend.IsAstra() {
-		env := options.ParseAstraEnvironmentFromEndpoint(d.endpoint)
-		admin, err := d.client.Admin(options.WithAstraEnvironment(env))
+		if _, err := d.ID(); err != nil {
+			return nil, err
+		}
+		admin, err := d.client.Admin(options.WithAstraEnvironment(d.env))
 		if err != nil {
 			return nil, err
 		}
-		id, err := parseAstraEndpoint(d.endpoint)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse database ID from endpoint %q: %w", d.endpoint, err)
-		}
-		return admin.DbAdmin(id, d), nil
+		return &AstraDbAdmin{admin: admin, db: d}, nil
 	}
 	// Non-Astra backends use the Data API.
 	return &DataAPIDatabaseAdmin{db: d}, nil
 }
 
-// parseAstraEndpoint extracts the database UUID from an Astra Data API endpoint.
-// The expected format is: https://{uuid}-{region}.apps.astra.datastax.com
-// The UUID is always 36 characters (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).
-func parseAstraEndpoint(endpoint string) (string, error) {
+// parseAstraEndpointComponents extracts the database UUID and region from an Astra Data API endpoint.
+// Returns empty strings if the endpoint does not match the expected Astra format.
+// Expected format: https://{uuid}-{region}.apps.astra[-dev|-test].datastax.com
+func parseAstraEndpointComponents(endpoint string) (id, region string) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return "", fmt.Errorf("invalid endpoint URL: %w", err)
+		return "", ""
 	}
-	host := u.Hostname()
-	if len(host) < 36 {
-		return "", fmt.Errorf("hostname too short to contain a UUID: %s", host)
+	m := astraEndpointRegex.FindStringSubmatch(u.Hostname())
+	if m == nil {
+		return "", ""
 	}
-	return host[:36], nil
+	return strings.ToLower(m[1]), strings.ToLower(m[2])
 }

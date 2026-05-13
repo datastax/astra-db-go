@@ -43,14 +43,13 @@ import (
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 type AstraDbAdmin struct {
-	id    string
 	admin *AstraAdmin
 	db    *Db
 }
 
 // ID returns the database ID.
 func (d *AstraDbAdmin) ID() string {
-	return d.id
+	return *d.db.id
 }
 
 // Info retrieves full database information from the DevOps API.
@@ -60,7 +59,7 @@ func (d *AstraDbAdmin) ID() string {
 //	info, err := dbAdmin.Info(ctx)
 //	fmt.Println("Status:", info.Status)
 func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
-	return d.admin.GetDatabase(ctx, d.id)
+	return d.admin.GetDatabase(ctx, *d.db.id)
 }
 
 // Drop terminates the database, permanently deleting all of its data.
@@ -75,7 +74,7 @@ func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
 //
 //	err := dbAdmin.Drop(ctx)
 func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOption) error {
-	return d.admin.DropDatabase(ctx, d.id, opts...)
+	return d.admin.DropDatabase(ctx, *d.db.id, opts...)
 }
 
 // ListKeyspaces returns the keyspace names for this database, with the
@@ -85,7 +84,7 @@ func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOpt
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (d *AstraDbAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
-	db, err := d.admin.GetDatabase(ctx, d.id)
+	db, err := d.admin.GetDatabase(ctx, *d.db.id)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +105,7 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.id+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+*d.db.id+"/keyspaces/"+keyspace, nil)
 	_, err = cmd.execute(ctx)
 	if err != nil {
 		return err
@@ -121,7 +120,7 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
-	err = d.admin.awaitStatus(ctx, d.id, awaitOpts)
+	err = d.admin.awaitStatus(ctx, *d.db.id, awaitOpts)
 	return err
 }
 
@@ -136,7 +135,7 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.id+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+*d.db.id+"/keyspaces/"+keyspace, nil)
 	_, err = cmd.execute(ctx)
 	if err != nil {
 		return err
@@ -151,7 +150,7 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
-	err = d.admin.awaitStatus(ctx, d.id, awaitOpts)
+	err = d.admin.awaitStatus(ctx, *d.db.id, awaitOpts)
 	return err
 }
 

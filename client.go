@@ -70,11 +70,22 @@ func (c *DataAPIClient) Options() *options.APIOptions {
 //	    options.WithKeyspace("my_keyspace"),
 //	)
 func (c *DataAPIClient) Database(endpoint string, opts ...options.APIOption) *Db {
-	return &Db{
-		endpoint: endpoint,
-		client:   c,
-		options:  options.NewAPIOptions(opts...),
+	db := &Db{
+		client:  c,
+		options: options.NewAPIOptions(opts...),
 	}
+	if c.dataAPIBackend.IsAstra() {
+		id, region := parseAstraEndpointComponents(endpoint)
+		if id != "" {
+			db.id = &id
+			db.region = &region
+			db.env = options.ParseAstraEnvironmentFromEndpoint(endpoint)
+			return db
+		}
+	}
+	// Non-Astra, or Astra with a private/unrecognized endpoint.
+	db.rawURL = endpoint
+	return db
 }
 
 // Admin returns an AstraAdmin handle for DevOps API operations.
