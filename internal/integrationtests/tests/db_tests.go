@@ -178,8 +178,8 @@ func validateEmbeddingProvidersResult(result *results.FindEmbeddingProvidersResu
 		if provider.DisplayName == "" {
 			return fmt.Errorf("provider %q: DisplayName is empty", name)
 		}
-		if provider.URL == "" {
-			return fmt.Errorf("provider %q: URL is empty", name)
+		if provider.URL != nil && *provider.URL == "" {
+			return fmt.Errorf("provider %q: URL is empty string", name)
 		}
 		if provider.SupportedAuthentication == nil {
 			return fmt.Errorf("provider %q: SupportedAuthentication is nil", name)

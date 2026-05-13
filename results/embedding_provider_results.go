@@ -57,7 +57,7 @@ type EmbeddingProviderInfo struct {
 	// Example: "OpenAI"
 	DisplayName string `json:"displayName"`
 
-	// URL is the embeddings endpoint used for the provider.
+	// URL is the embeddings endpoint used for the provider. May be nil for some providers.
 	//
 	// May use a Python f-string-style interpolation pattern for certain providers which take
 	// in additional parameters (such as huggingfaceDedicated or azureOpenAI).
@@ -65,11 +65,11 @@ type EmbeddingProviderInfo struct {
 	// Example:
 	//
 	//	// openai.URL:
-	//	"https://api.openai.com/v1/"
+	//	ptr.To("https://api.openai.com/v1/")
 	//
 	//	// huggingfaceDedicated.URL:
-	//	"https://{endpointName}.{regionName}.{cloudName}.endpoints.huggingface.cloud/embeddings"
-	URL string `json:"url"`
+	//	ptr.To("https://{endpointName}.{regionName}.{cloudName}.endpoints.huggingface.cloud/embeddings")
+	URL *string `json:"url"`
 
 	// SupportedAuthentication maps auth method names to info about that auth method for this provider.
 	//
@@ -170,7 +170,7 @@ type EmbeddingProviderInfo struct {
 	//	        Type:         "number",
 	//	        Required:     true,
 	//	        DefaultValue: "",
-	//	        Validation:   []map[string]any{{"numericRange": []int{2, 3072}}},
+	//	        Validation:   map[string]any{"numericRange": []int{2, 3072}},
 	//	        Help:         "Vector dimension to use in the database, should be the same as ...",
 	//	    }},
 	//	}
@@ -263,7 +263,7 @@ type EmbeddingProviderModelParameterInfo struct {
 	// Commonly either nil, or contains a "numericRange" key with [min, max].
 	//
 	// Example: nil (huggingface.Parameters[0].Validation — no validation)
-	Validation []map[string]any `json:"validation"`
+	Validation map[string]any `json:"validation"`
 
 	// Help is any additional help text/information about the parameter.
 	//
@@ -352,7 +352,7 @@ type EmbeddingProviderModelInfo struct {
 	//	    Type:         "number",
 	//	    Required:     true,
 	//	    DefaultValue: "1536",
-	//	    Validation:   []map[string]any{{"numericRange": []int{2, 1536}}},
+	//	    Validation:   map[string]any{"numericRange": []int{2, 1536}},
 	//	    Help:         "Vector dimension to use in the database and when calling OpenAI.",
 	//	}
 	Parameters []EmbeddingProviderModelParameterInfo `json:"parameters"`
