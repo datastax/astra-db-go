@@ -15,12 +15,22 @@
 package table_test
 
 import (
-	"encoding/json"
 	"reflect"
 	"testing"
 
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
 )
+
+// mustGetCol returns the column with the given name, failing the test if missing.
+func mustGetCol(t *testing.T, cols table.Columns, name string) table.Column {
+	t.Helper()
+	col, ok := cols.Get(name)
+	if !ok {
+		t.Fatalf("column %q not found", name)
+	}
+	return col
+}
 
 func TestDefinitionBuilder_Basic(t *testing.T) {
 	def := table.NewDefinition().
@@ -32,11 +42,11 @@ func TestDefinitionBuilder_Basic(t *testing.T) {
 	if len(def.Columns) != 2 {
 		t.Errorf("expected 2 columns, got %d", len(def.Columns))
 	}
-	if def.Columns["title"].Type != table.TypeText {
-		t.Errorf("expected title to be text, got %s", def.Columns["title"].Type)
+	if got := mustGetCol(t, def.Columns, "title").Type; got != table.TypeText {
+		t.Errorf("expected title to be text, got %s", got)
 	}
-	if def.Columns["rating"].Type != table.TypeFloat {
-		t.Errorf("expected rating to be float, got %s", def.Columns["rating"].Type)
+	if got := mustGetCol(t, def.Columns, "rating").Type; got != table.TypeFloat {
+		t.Errorf("expected rating to be float, got %s", got)
 	}
 	if len(def.PrimaryKey.PartitionBy) != 1 || def.PrimaryKey.PartitionBy[0] != "title" {
 		t.Errorf("expected partition by [title], got %v", def.PrimaryKey.PartitionBy)
@@ -72,7 +82,7 @@ func TestDefinitionBuilder_TypedColumns(t *testing.T) {
 	}
 
 	for name, expectedType := range expectedTypes {
-		col, ok := def.Columns[name]
+		col, ok := def.Columns.Get(name)
 		if !ok {
 			t.Errorf("expected column %s to exist", name)
 			continue
@@ -90,7 +100,7 @@ func TestDefinitionBuilder_VectorColumn(t *testing.T) {
 		SetPartitionBy("id").
 		Build()
 
-	col, ok := def.Columns["embeddings"]
+	col, ok := def.Columns.Get("embeddings")
 	if !ok {
 		t.Fatal("expected embeddings column to exist")
 	}
@@ -117,7 +127,7 @@ func TestDefinitionBuilder_VectorColumnWithService(t *testing.T) {
 		SetPartitionBy("id").
 		Build()
 
-	col := def.Columns["embeddings"]
+	col := mustGetCol(t, def.Columns, "embeddings")
 	if col.Service == nil {
 		t.Fatal("expected service to be set")
 	}
@@ -135,8 +145,7 @@ func TestDefinitionBuilder_CollectionColumns(t *testing.T) {
 		SetPartitionBy("id").
 		Build()
 
-	// Check set column
-	setCol := def.Columns["tags"]
+	setCol := mustGetCol(t, def.Columns, "tags")
 	if setCol.Type != table.TypeSet {
 		t.Errorf("expected set type, got %s", setCol.Type)
 	}
@@ -144,8 +153,7 @@ func TestDefinitionBuilder_CollectionColumns(t *testing.T) {
 		t.Error("expected set value type to be text")
 	}
 
-	// Check list column
-	listCol := def.Columns["scores"]
+	listCol := mustGetCol(t, def.Columns, "scores")
 	if listCol.Type != table.TypeList {
 		t.Errorf("expected list type, got %s", listCol.Type)
 	}
@@ -153,8 +161,7 @@ func TestDefinitionBuilder_CollectionColumns(t *testing.T) {
 		t.Error("expected list value type to be int")
 	}
 
-	// Check map column
-	mapCol := def.Columns["metadata"]
+	mapCol := mustGetCol(t, def.Columns, "metadata")
 	if mapCol.Type != table.TypeMap {
 		t.Errorf("expected map type, got %s", mapCol.Type)
 	}
@@ -173,7 +180,7 @@ func TestDefinitionBuilder_UDTColumn(t *testing.T) {
 		SetPartitionBy("id").
 		Build()
 
-	col := def.Columns["address"]
+	col := mustGetCol(t, def.Columns, "address")
 	if col.Type != table.TypeUDT {
 		t.Errorf("expected userDefined type, got %s", col.Type)
 	}
@@ -225,67 +232,57 @@ func TestDefinitionBuilder_ClusteringColumns(t *testing.T) {
 	if len(def.PrimaryKey.PartitionSort) != 2 {
 		t.Errorf("expected 2 clustering columns, got %d", len(def.PrimaryKey.PartitionSort))
 	}
-	if def.PrimaryKey.PartitionSort["created_at"] != table.SortDescending {
+	if ord, _ := def.PrimaryKey.PartitionSort.Get("created_at"); ord != table.SortDescending {
 		t.Errorf("expected created_at to be descending")
 	}
-	if def.PrimaryKey.PartitionSort["priority"] != table.SortAscending {
+	if ord, _ := def.PrimaryKey.PartitionSort.Get("priority"); ord != table.SortAscending {
 		t.Errorf("expected priority to be ascending")
 	}
 }
 
 func TestDefinitionBuilder_JSONMarshal(t *testing.T) {
-	// Build with fluent API
 	defBuilder := table.NewDefinition().
 		AddTextColumn("title").
 		AddFloatColumn("rating").
 		SetPartitionBy("title").
 		Build()
 
-	// Build with struct
 	defStruct := table.Definition{
-		Columns: map[string]table.Column{
-			"title":  table.Text(),
-			"rating": table.Float(),
+		Columns: table.Columns{
+			{Name: "title", Column: table.Text()},
+			{Name: "rating", Column: table.Float()},
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy: []string{"title"},
 		},
 	}
-
-	// Marshal both
-	jsonBuilder, err := json.Marshal(defBuilder)
+	jsonBuilder, err := serdes.Serialize(defBuilder, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal builder definition: %v", err)
 	}
-
-	jsonStruct, err := json.Marshal(defStruct)
+	jsonStruct, err := serdes.Serialize(defStruct, serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("failed to marshal struct definition: %v", err)
 	}
 
-	// They should produce equivalent JSON (unmarshal and compare)
+	if string(jsonBuilder) != string(jsonStruct) {
+		t.Errorf("JSON not equal:\n  builder: %s\n  struct:  %s", jsonBuilder, jsonStruct)
+	}
+
 	var resultBuilder, resultStruct table.Definition
-	if err := json.Unmarshal(jsonBuilder, &resultBuilder); err != nil {
+	if err := serdes.Deserialize(jsonBuilder, &resultBuilder, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal builder JSON: %v", err)
 	}
-	if err := json.Unmarshal(jsonStruct, &resultStruct); err != nil {
+	if err := serdes.Deserialize(jsonStruct, &resultStruct, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to unmarshal struct JSON: %v", err)
 	}
 
-	// Compare key fields
-	if len(resultBuilder.Columns) != len(resultStruct.Columns) {
-		t.Error("column counts don't match")
-	}
-	if resultBuilder.Columns["title"].Type != resultStruct.Columns["title"].Type {
-		t.Error("title column types don't match")
-	}
-	if len(resultBuilder.PrimaryKey.PartitionBy) != len(resultStruct.PrimaryKey.PartitionBy) {
-		t.Error("partition key lengths don't match")
+	if !reflect.DeepEqual(resultBuilder, resultStruct) {
+		t.Errorf("unmarshaled definitions not equal:\n  builder: %+v\n  struct:  %+v", resultBuilder, resultStruct)
 	}
 }
 
 func TestDefinitionBuilder_FullExample(t *testing.T) {
-	// This replicates the AstraPy example from the README
 	def := table.NewDefinition().
 		AddIntColumn("dream_id").
 		AddTextColumn("summary").
@@ -294,18 +291,15 @@ func TestDefinitionBuilder_FullExample(t *testing.T) {
 		SetPartitionBy("dream_id").
 		Build()
 
-	// Verify the structure
 	if len(def.Columns) != 4 {
 		t.Errorf("expected 4 columns, got %d", len(def.Columns))
 	}
 
-	// Check dream_id
-	if def.Columns["dream_id"].Type != table.TypeInt {
+	if mustGetCol(t, def.Columns, "dream_id").Type != table.TypeInt {
 		t.Errorf("expected dream_id to be int")
 	}
 
-	// Check tags is a set of text
-	tagsCol := def.Columns["tags"]
+	tagsCol := mustGetCol(t, def.Columns, "tags")
 	if tagsCol.Type != table.TypeSet {
 		t.Errorf("expected tags to be set")
 	}
@@ -313,13 +307,11 @@ func TestDefinitionBuilder_FullExample(t *testing.T) {
 		t.Error("expected tags value type to be text")
 	}
 
-	// Check vector
-	vecCol := def.Columns["dream_vector"]
+	vecCol := mustGetCol(t, def.Columns, "dream_vector")
 	if vecCol.Type != table.TypeVector || vecCol.Dimension == nil || *vecCol.Dimension != 3 {
 		t.Error("expected dream_vector to be vector with dimension 3")
 	}
 
-	// Check primary key
 	if len(def.PrimaryKey.PartitionBy) != 1 || def.PrimaryKey.PartitionBy[0] != "dream_id" {
 		t.Error("expected primary key to be dream_id")
 	}
@@ -327,9 +319,9 @@ func TestDefinitionBuilder_FullExample(t *testing.T) {
 
 // TestDefinitionBuilder_DeepEqual verifies that building a definition using
 // the fluent builder API produces an identical struct to the struct-based approach.
+// Struct literals must list columns in the same order as the builder calls.
 func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 	t.Run("simple definition", func(t *testing.T) {
-		// Build with fluent API
 		builderDef := table.NewDefinition().
 			AddColumn("title", table.Text()).
 			AddColumn("author", table.Text()).
@@ -337,12 +329,11 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 			SetPartitionBy("title").
 			Build()
 
-		// Build with struct
 		structDef := table.Definition{
-			Columns: map[string]table.Column{
-				"title":  table.Text(),
-				"author": table.Text(),
-				"rating": table.Float(),
+			Columns: table.Columns{
+				{Name: "title", Column: table.Text()},
+				{Name: "author", Column: table.Text()},
+				{Name: "rating", Column: table.Float()},
 			},
 			PrimaryKey: table.PrimaryKey{
 				PartitionBy: []string{"title"},
@@ -355,7 +346,6 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 	})
 
 	t.Run("complex definition with collections and clustering", func(t *testing.T) {
-		// Build with fluent API
 		builderDef := table.NewDefinition().
 			AddUUIDColumn("id").
 			AddTextColumn("tenant").
@@ -368,21 +358,20 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 			AddClusteringColumnDesc("created_at").
 			Build()
 
-		// Build with struct
 		structDef := table.Definition{
-			Columns: map[string]table.Column{
-				"id":         table.UUID(),
-				"tenant":     table.Text(),
-				"created_at": table.Timestamp(),
-				"tags":       table.Set(table.Text()),
-				"scores":     table.List(table.Int()),
-				"metadata":   table.Map("text", table.Text()),
-				"embeddings": table.Vector(1536),
+			Columns: table.Columns{
+				{Name: "id", Column: table.UUID()},
+				{Name: "tenant", Column: table.Text()},
+				{Name: "created_at", Column: table.Timestamp()},
+				{Name: "tags", Column: table.Set(table.Text())},
+				{Name: "scores", Column: table.List(table.Int())},
+				{Name: "metadata", Column: table.Map("text", table.Text())},
+				{Name: "embeddings", Column: table.Vector(1536)},
 			},
 			PrimaryKey: table.PrimaryKey{
 				PartitionBy: []string{"tenant", "id"},
-				PartitionSort: map[string]int{
-					"created_at": table.SortDescending,
+				PartitionSort: table.PartitionSort{
+					{Name: "created_at", Order: table.SortDescending},
 				},
 			},
 		}
@@ -404,7 +393,6 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 			},
 		}
 
-		// Build with fluent API
 		builderDef := table.NewDefinition().
 			AddTextColumn("id").
 			AddTextColumn("content").
@@ -412,12 +400,11 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 			SetPartitionBy("id").
 			Build()
 
-		// Build with struct
 		structDef := table.Definition{
-			Columns: map[string]table.Column{
-				"id":         table.Text(),
-				"content":    table.Text(),
-				"embeddings": table.VectorWithService(1536, service),
+			Columns: table.Columns{
+				{Name: "id", Column: table.Text()},
+				{Name: "content", Column: table.Text()},
+				{Name: "embeddings", Column: table.VectorWithService(1536, service)},
 			},
 			PrimaryKey: table.PrimaryKey{
 				PartitionBy: []string{"id"},
@@ -430,7 +417,6 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 	})
 
 	t.Run("definition with UDT column", func(t *testing.T) {
-		// Build with fluent API
 		builderDef := table.NewDefinition().
 			AddUUIDColumn("user_id").
 			AddTextColumn("name").
@@ -438,12 +424,11 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 			SetPartitionBy("user_id").
 			Build()
 
-		// Build with struct
 		structDef := table.Definition{
-			Columns: map[string]table.Column{
-				"user_id": table.UUID(),
-				"name":    table.Text(),
-				"address": table.UDT("address_type"),
+			Columns: table.Columns{
+				{Name: "user_id", Column: table.UUID()},
+				{Name: "name", Column: table.Text()},
+				{Name: "address", Column: table.UDT("address_type")},
 			},
 			PrimaryKey: table.PrimaryKey{
 				PartitionBy: []string{"user_id"},
@@ -456,7 +441,6 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 	})
 
 	t.Run("definition with multiple clustering columns", func(t *testing.T) {
-		// Build with fluent API
 		builderDef := table.NewDefinition().
 			AddTextColumn("partition_key").
 			AddTimestampColumn("event_time").
@@ -467,19 +451,18 @@ func TestDefinitionBuilder_DeepEqual(t *testing.T) {
 			AddClusteringColumnAsc("priority").
 			Build()
 
-		// Build with struct
 		structDef := table.Definition{
-			Columns: map[string]table.Column{
-				"partition_key": table.Text(),
-				"event_time":    table.Timestamp(),
-				"priority":      table.Int(),
-				"event_id":      table.Text(),
+			Columns: table.Columns{
+				{Name: "partition_key", Column: table.Text()},
+				{Name: "event_time", Column: table.Timestamp()},
+				{Name: "priority", Column: table.Int()},
+				{Name: "event_id", Column: table.Text()},
 			},
 			PrimaryKey: table.PrimaryKey{
 				PartitionBy: []string{"partition_key"},
-				PartitionSort: map[string]int{
-					"event_time": table.SortDescending,
-					"priority":   table.SortAscending,
+				PartitionSort: table.PartitionSort{
+					{Name: "event_time", Order: table.SortDescending},
+					{Name: "priority", Order: table.SortAscending},
 				},
 			},
 		}

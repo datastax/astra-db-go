@@ -16,15 +16,13 @@ package astradb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/datastax/astra-db-go/cursors"
 	"github.com/datastax/astra-db-go/filter"
 	"github.com/datastax/astra-db-go/options"
-	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
-	"github.com/datastax/astra-db-go/sort"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
 )
 
@@ -52,13 +50,15 @@ type Table struct {
 	options *options.APIOptions
 }
 
+// region Meta
+
 // Name returns the table name.
 func (t *Table) Name() string {
 	return t.name
 }
 
-// Options returns the table's options (or empty options if nil).
-func (t *Table) Options() *options.APIOptions {
+// ClientOptions returns the table's options (or empty options if nil).
+func (t *Table) ClientOptions() *options.APIOptions {
 	if t.options == nil {
 		return &options.APIOptions{}
 	}
@@ -73,175 +73,118 @@ func (t *Table) Database() *Db {
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
 func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return newCmdWithOptions(t.db, t.name, name, payload, t.options, cmdOpts...)
+	return newCmdWithOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts...)
 }
 
 // newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
 // used by builder-pattern methods where API options flow through the struct.
 func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, cmdOpts)
+	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts)
 }
 
-// createTablePayload is the payload for the createTable command
-type createTablePayload struct {
-	Name       string           `json:"name"`
-	Definition table.Definition `json:"definition"`
-	Options    *createTableOpts `json:"options,omitempty"`
-}
+// endregion
 
-// createTableOpts represents the options sub-object in createTable payload
-type createTableOpts struct {
-	IfNotExists bool `json:"ifNotExists,omitempty"`
-}
+// region Definition
 
-// createTableResponse represents the response from createTable
-type createTableResponse struct {
-	Status struct {
-		OK int `json:"ok"`
-	} `json:"status"`
-}
-
-// Table returns a Table object for the specified table name.
-// This does not create the table or verify its existence.
+// Definition retrieves the table's descriptor including its definition.
+// This method calls the database's ListTables and returns the descriptor
+// for this specific table.
 //
-// Options set here override those set on the database.
-//
-// Example:
-//
-//	tbl := db.Table("my_table",
-//	    options.WithTimeout(60 * time.Second),
-//	)
-func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{
-		db:      d,
-		name:    name,
-		options: options.NewAPIOptions(opts...),
-	}
-}
-
-// CreateTable creates a new table in the database with the specified definition.
-//
-// The definition includes column names, data types, and the primary key configuration.
-// After creating a table, you should index columns that you want to sort or filter
-// to optimize queries.
-//
-// Example usage:
-//
-//	definition := table.Definition{
-//		Columns: map[string]table.Column{
-//			"title":           table.Text(),
-//			"number_of_pages": table.Int(),
-//			"rating":          table.Float(),
-//			"is_checked_out":  table.Boolean(),
-//		},
-//		PrimaryKey: table.PrimaryKey{
-//			PartitionBy: []string{"title"},
-//		},
-//	}
-//	tbl, err := db.CreateTable(ctx, "my_table", definition)
-func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.CreateTableOption) (*Table, error) {
-	// Apply options
-	tableOpts, err := options.MergeAndValidate(opts...)
+// Options passed here override those set on the table.
+func (t *Table) Definition(ctx context.Context, opts ...options.TableDefinitionOption) (*results.TableDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	payload := createTablePayload{
-		Name:       name,
-		Definition: definition,
+	tables, err := t.db.ListTables(ctx, &options.ListTablesOptions{APIOptions: merged.APIOptions})
+	if err != nil {
+		return nil, err
 	}
 
-	// Add options if ifNotExists is set
-	if ptr.From(tableOpts.IfNotExists) {
-		payload.Options = &createTableOpts{
-			IfNotExists: true,
+	for _, tbl := range tables {
+		if tbl.Name == t.name {
+			return &tbl, nil
 		}
 	}
 
-	cmd := d.newCmd("createTable", payload)
+	return nil, ErrNotFound
+}
 
-	// Override keyspace if specified in options
-	if tableOpts.Keyspace != nil {
-		cmd.keyspace = *tableOpts.Keyspace
-	}
+// endregion
 
-	// Execute the command
-	// Response is in format: {"status":{"ok":1}}
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+// region Insertions
+
+// InsertOne inserts a single row into the table.
+//
+// The row parameter should be a struct or map representing the row data.
+// The primary key columns must be included in the row data.
+//
+// Returns the inserted primary key value(s) in the response.
+//
+// Example usage:
+//
+//	type Book struct {
+//		Title         string  `json:"title"`
+//		Author        string  `json:"author"`
+//		NumberOfPages int     `json:"number_of_pages"`
+//		Rating        float32 `json:"rating"`
+//	}
+//
+//	book := Book{
+//		Title:         "The Great Gatsby",
+//		Author:        "F. Scott Fitzgerald",
+//		NumberOfPages: 180,
+//		Rating:        4.5,
+//	}
+//	resp, err := table.InsertOne(ctx, book)
+func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableInsertOneOption) (*results.InsertOneResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Table{
-		db:   d,
-		name: name,
-	}, nil
+	return insertOne(ctx, row, t.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetTable)
 }
 
-// dropTablePayload is the payload for the dropTable command
-type dropTablePayload struct {
-	Name string `json:"name"`
-}
-
-// DropTable drops (deletes) a table from the database.
+// InsertMany inserts multiple rows into the table.
+//
+// The rows parameter must be a non-empty slice of structs or maps representing the row data.
+// The primary key columns must be included in each row.
+//
+// Returns the inserted primary key values in the response.
 //
 // Example usage:
 //
-//	err := db.DropTable(ctx, "my_table")
-//
-// Note: Warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTable(ctx context.Context, name string) error {
-	cmd := d.newCmd("dropTable", dropTablePayload{Name: name})
-	_, _, err := cmd.Execute(ctx)
-	return err
+//	books := []Book{
+//		{Title: "Book 1", Author: "Author 1", NumberOfPages: 100, Rating: 4.0},
+//		{Title: "Book 2", Author: "Author 2", NumberOfPages: 200, Rating: 4.5},
+//	}
+//	resp, err := table.InsertMany(ctx, books)
+func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableInsertManyOption) (*results.InsertManyResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetCollection)
 }
 
-// dropIndexPayload is the payload for the dropIndex command
-type dropIndexPayload struct {
-	Name string `json:"name"`
-}
+// endregion
 
-// DropTableIndex drops (deletes) an index from the database.
+// region Finds
+
+// FindOne finds a single row in a table matching the filter criteria.
 //
 // Example usage:
 //
-//	err := db.DropTableIndex(ctx, "rating_idx")
-//
-// Note: Warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTableIndex(ctx context.Context, name string) error {
-	cmd := dropTableIndexCommand(d, name)
-	_, _, err := cmd.Execute(ctx)
-	return err
-}
-
-// dropTableIndexCommand builds the dropIndex command for the database
-func dropTableIndexCommand(d *Db, name string) command {
-	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
-}
-
-// tableFindPayload is the payload for the find command on tables
-type tableFindPayload struct {
-	Filter     any            `json:"filter,omitempty"`
-	Sort       sort.Sortable  `json:"sort,omitempty"`
-	Projection map[string]any `json:"projection,omitempty"`
-	Options    *tableFindOpts `json:"options,omitempty"`
-}
-
-// tableFindOpts represents the options sub-object in find payload
-type tableFindOpts struct {
-	Limit             *int    `json:"limit,omitempty"`
-	Skip              *int    `json:"skip,omitempty"`
-	IncludeSimilarity *bool   `json:"includeSimilarity,omitempty"`
-	PageState         *string `json:"pageState,omitempty"`
-}
-
-// tableFindResponse is the response from the find command on tables
-type tableFindResponse struct {
-	Data struct {
-		Documents     []json.RawMessage `json:"documents"`
-		NextPageState *string           `json:"nextPageState"`
-	} `json:"data"`
+//	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
+//	var row MyRow
+//	err := result.Decode(&row)
+func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.TableFindOneOption) *results.SingleResult {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err)
+	}
+	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
 }
 
 // Find returns a cursor for iterating over rows matching the filter criteria.
@@ -290,7 +233,7 @@ type tableFindResponse struct {
 func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.TableFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
 
-	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, error) {
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
 		cmd := t.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
@@ -298,166 +241,9 @@ func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.Ta
 	return cursors.NewTableFindCursor(f, merged, fetcher, err)
 }
 
-// FindOne finds a single row in a table matching the filter criteria.
-//
-// Example usage:
-//
-//	result := table.FindOne(ctx, filter.Eq("id", "some-uuid"))
-//	var row MyRow
-//	err := result.Decode(&row)
-func (t *Table) FindOne(ctx context.Context, f any, opts ...options.TableFindOption) *results.SingleResult {
-	// Validate filter type
-	switch f.(type) {
-	case filter.F, filter.Filter, map[string]any, nil:
-		// Allowed filter types
-	default:
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid filter type: %Raw", f))
-	}
+// endregion
 
-	// Build the find options
-	findOpts, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return results.NewSingleResult(nil, nil, fmt.Errorf("invalid options: %w", err))
-	}
-
-	// Build the payload
-	payload := tableFindPayload{
-		Filter:     f,
-		Sort:       findOpts.Sort,
-		Projection: findOpts.Projection,
-	}
-
-	// Add options if any are set (limit is not applicable for findOne)
-	if findOpts.IncludeSimilarity != nil {
-		payload.Options = &tableFindOpts{
-			IncludeSimilarity: findOpts.IncludeSimilarity,
-		}
-	}
-
-	cmd := t.newCmdWithMergedOptions("findOne", payload, findOpts.APIOptions)
-	b, warnings, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, err)
-}
-
-// tableInsertOnePayload is the payload for insertOne on tables
-type tableInsertOnePayload struct {
-	Document any `json:"document"`
-}
-
-// tableInsertManyPayload is the payload for insertMany on tables
-type tableInsertManyPayload struct {
-	Documents any `json:"documents"`
-}
-
-// TableInsertResponse represents the response from insert operations on tables.
-// The InsertedIds contains the primary key values of inserted rows.
-type TableInsertResponse struct {
-	Status struct {
-		// InsertedIds contains the primary key values of inserted rows.
-		// For single-column primary keys, this will be an array of scalar values.
-		// For composite/compound primary keys, this will be an array of objects
-		// with the primary key column names as keys.
-		InsertedIds []any `json:"insertedIds"`
-		// PrimaryKeySchema describes the structure of the primary key.
-		// Contains information about partition keys and clustering keys.
-		PrimaryKeySchema *PrimaryKeySchema `json:"primaryKeySchema,omitempty"`
-	} `json:"status"`
-}
-
-// PrimaryKeySchema describes the primary key structure returned in insert responses.
-// It maps column names to their type information.
-type PrimaryKeySchema map[string]ColumnTypeInfo
-
-// ColumnTypeInfo describes the type of a column in the primary key schema
-type ColumnTypeInfo struct {
-	Type string `json:"type"`
-}
-
-// InsertOne inserts a single row into the table.
-//
-// The row parameter should be a struct or map representing the row data.
-// The primary key columns must be included in the row data.
-//
-// Returns the inserted primary key value(s) in the response.
-//
-// Example usage:
-//
-//	type Book struct {
-//		Title         string  `json:"title"`
-//		Author        string  `json:"author"`
-//		NumberOfPages int     `json:"number_of_pages"`
-//		Rating        float32 `json:"rating"`
-//	}
-//
-//	book := Book{
-//		Title:         "The Great Gatsby",
-//		Author:        "F. Scott Fitzgerald",
-//		NumberOfPages: 180,
-//		Rating:        4.5,
-//	}
-//	resp, err := table.InsertOne(ctx, book)
-func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableInsertOneOption) (TableInsertResponse, error) {
-	var resp TableInsertResponse
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return resp, fmt.Errorf("invalid options: %w", err)
-	}
-	cmd := t.newCmdWithMergedOptions("insertOne", tableInsertOnePayload{
-		Document: row,
-	}, merged.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	b, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return resp, err
-	}
-	err = json.Unmarshal(b, &resp)
-	return resp, err
-}
-
-// InsertMany inserts multiple rows into the table.
-//
-// The rows parameter must be a non-empty slice of structs or maps representing the row data.
-// The primary key columns must be included in each row.
-//
-// Returns the inserted primary key values in the response.
-//
-// Example usage:
-//
-//	books := []Book{
-//		{Title: "Book 1", Author: "Author 1", NumberOfPages: 100, Rating: 4.0},
-//		{Title: "Book 2", Author: "Author 2", NumberOfPages: 200, Rating: 4.5},
-//	}
-//	resp, err := table.InsertMany(ctx, books)
-func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableInsertManyOption) (TableInsertResponse, error) {
-	var resp TableInsertResponse
-
-	// Ensure we have a slice with rows
-	err := ensureNonEmptySlice(rows)
-	if err != nil {
-		return resp, fmt.Errorf("rows: %w", err)
-	}
-
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return resp, fmt.Errorf("invalid options: %w", err)
-	}
-	cmd := t.newCmdWithMergedOptions("insertMany", tableInsertManyPayload{
-		Documents: rows,
-	}, merged.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	b, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return resp, err
-	}
-	err = json.Unmarshal(b, &resp)
-	return resp, err
-}
-
-// tableUpdateOnePayload is the payload for the updateOne command on tables.
-type tableUpdateOnePayload struct {
-	Filter TableFilter `json:"filter"`
-	Update TableUpdate `json:"update"`
-}
+// region Updates
 
 // UpdateOne updates a single row matching the filter.
 //
@@ -478,24 +264,17 @@ type tableUpdateOnePayload struct {
 //	    update.Table().Set("rating", 4.5).Unset("borrower"),
 //	)
 func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opts ...options.TableUpdateOneOption) error {
-	// Build the find options
-	updateOpts, err := options.MergeAndValidate(opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
-	cmd := t.newCmdWithMergedOptions("updateOne", tableUpdateOnePayload{
-		Filter: f,
-		Update: u,
-	}, updateOpts.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	_, err = updateOne(ctx, f, u, t.newCmdWithMergedOptions, updateOneOptions{nil, nil, merged.APIOptions})
 	return err
 }
 
-// tableDeleteOnePayload is the payload for the deleteOne command on tables.
-type tableDeleteOnePayload struct {
-	Filter TableFilter `json:"filter"`
-}
+// endregion
+
+// region Deletions
 
 // DeleteOne deletes a single row matching the filter.
 //
@@ -513,19 +292,11 @@ type tableDeleteOnePayload struct {
 func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.TableDeleteOneOption) error {
 	deleteOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
-	cmd := t.newCmdWithMergedOptions("deleteOne", tableDeleteOnePayload{
-		Filter: f,
-	}, deleteOpts.APIOptions)
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	// Note: warnings are accessible via the WarningHandler option callback only.
+	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions})
 	return err
-}
-
-// tableDeleteManyPayload is the payload for the deleteMany command on tables.
-type tableDeleteManyPayload struct {
-	Filter TableFilter `json:"filter,omitempty"`
 }
 
 // DeleteMany deletes all rows in the table matching the filter.
@@ -547,62 +318,23 @@ type tableDeleteManyPayload struct {
 func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.TableDeleteManyOption) error {
 	deleteOpts, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return fmt.Errorf("invalid options: %w", err)
+		return err
 	}
 	if f == nil {
 		// Force the user to pass empty filter to avoid accidental delete all.
 		return ErrNilFilter
 	}
-	cmd := t.newCmdWithMergedOptions("deleteMany", tableDeleteManyPayload{
-		Filter: f,
+
+	cmd := t.newCmdWithMergedOptions("deleteMany", map[string]any{
+		"filter": f,
 	}, deleteOpts.APIOptions)
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
-// createIndexPayload is the payload for the createIndex command
-type createIndexPayload struct {
-	Name       string                `json:"name"`
-	Definition createIndexDefinition `json:"definition"`
-	Options    *createIndexOpts      `json:"options,omitempty"`
-}
+// endregion
 
-// createIndexDefinition defines which column to index and any index options
-type createIndexDefinition struct {
-	Column  any           `json:"column"` // string or map[string]string for $keys/$values
-	Options *indexDefOpts `json:"options,omitempty"`
-}
-
-// indexDefOpts contains options for text index behavior
-type indexDefOpts struct {
-	Ascii         *bool `json:"ascii,omitempty"`
-	Normalize     *bool `json:"normalize,omitempty"`
-	CaseSensitive *bool `json:"caseSensitive,omitempty"`
-}
-
-// createIndexOpts contains command-level options for index creation
-type createIndexOpts struct {
-	IfNotExists bool `json:"ifNotExists,omitempty"`
-}
-
-// createVectorIndexPayload is the payload for the createVectorIndex command
-type createVectorIndexPayload struct {
-	Name       string                      `json:"name"`
-	Definition createVectorIndexDefinition `json:"definition"`
-	Options    *createIndexOpts            `json:"options,omitempty"`
-}
-
-// createVectorIndexDefinition defines which column to index and vector options
-type createVectorIndexDefinition struct {
-	Column  string              `json:"column"`
-	Options *vectorIndexDefOpts `json:"options,omitempty"`
-}
-
-// vectorIndexDefOpts contains options for vector index behavior
-type vectorIndexDefOpts struct {
-	Metric      string `json:"metric,omitempty"`
-	SourceModel string `json:"sourceModel,omitempty"`
-}
+// region Index Creation
 
 // CreateIndex creates an index on a column in the table.
 //
@@ -611,7 +343,7 @@ type vectorIndexDefOpts struct {
 //   - A map for indexing map column keys or values: map[string]string{"map_col": "$keys"}
 //
 // For text columns, you can configure index behavior using SetAscii, SetNormalize,
-// and SetCaseSensitive on the options builder.
+// and SetCaseSensitive on the option builder.
 //
 // Example - basic column index:
 //
@@ -641,8 +373,7 @@ func (t *Table) CreateIndex(ctx context.Context, name string, column any, opts .
 	if err != nil {
 		return err
 	}
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -675,7 +406,7 @@ func validateIndexColumn(column any) error {
 			return fmt.Errorf("index column map cannot be empty")
 		}
 	default:
-		return fmt.Errorf("invalid index column type: %Raw", column)
+		return fmt.Errorf("invalid index column type: %t", column)
 	}
 	// All good.
 	return nil
@@ -689,35 +420,26 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 	if err := validateIndexColumn(column); err != nil {
 		return command{}, err
 	}
-	payload := createIndexPayload{
-		Name: name,
-		Definition: createIndexDefinition{
-			Column: column,
-		},
-	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
 
-	// Add definition options if any text index options are set
-	if merged.Ascii != nil || merged.Normalize != nil || merged.CaseSensitive != nil {
-		payload.Definition.Options = &indexDefOpts{
-			Ascii:         merged.Ascii,
-			Normalize:     merged.Normalize,
-			CaseSensitive: merged.CaseSensitive,
-		}
-	}
-
-	// Add command options if ifNotExists is set
-	if ptr.From(merged.IfNotExists) {
-		payload.Options = &createIndexOpts{
-			IfNotExists: true,
-		}
-	}
-
-	return t.newCmd("createIndex", payload), nil
+	return t.newCmd("createIndex", map[string]any{
+		"name": name,
+		"definition": map[string]any{
+			"column": column,
+			"options": map[string]any{
+				"caseSensitive": merged.CaseSensitive,
+				"normalize":     merged.Normalize,
+				"ascii":         merged.Ascii,
+			},
+		},
+		"options": map[string]any{
+			"ifNotExists": merged.IfNotExists,
+		},
+	}), nil
 }
 
 // CreateVectorIndex creates a vector index on a vector column in the table.
@@ -743,8 +465,7 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 	if err != nil {
 		return err
 	}
-	// Note: Warnings are accessible via the WarningHandler option callback only.
-	_, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -756,111 +477,35 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 	if err := validateIndexColumn(column); err != nil {
 		return command{}, err
 	}
-	payload := createVectorIndexPayload{
-		Name: name,
-		Definition: createVectorIndexDefinition{
-			Column: column,
-		},
-	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
 
-	// Add definition options if metric or sourceModel are set
-	if merged.Metric != nil || merged.SourceModel != nil {
-		defOpts := &vectorIndexDefOpts{}
-		if merged.Metric != nil {
-			defOpts.Metric = string(*merged.Metric)
-		}
-		if merged.SourceModel != nil {
-			defOpts.SourceModel = *merged.SourceModel
-		}
-		payload.Definition.Options = defOpts
-	}
-
-	// Add command options if ifNotExists is set
-	if ptr.From(merged.IfNotExists) {
-		payload.Options = &createIndexOpts{
-			IfNotExists: true,
-		}
-	}
-
-	return t.newCmd("createVectorIndex", payload), nil
+	return t.newCmd("createVectorIndex", map[string]any{
+		"name": name,
+		"definition": map[string]any{
+			"column": column,
+			"options": map[string]any{
+				"metric":      merged.Metric,
+				"sourceModel": merged.SourceModel,
+			},
+		},
+		"options": map[string]any{
+			"ifNotExists": merged.IfNotExists,
+		},
+	}), nil
 }
 
-// IndexDescriptor describes an index on a table.
-// When listing indexes with explain=true, all fields are populated.
-// When explain=false, only Name is populated.
-type IndexDescriptor struct {
-	// Name is the index identifier.
-	Name string `json:"name"`
-	// Definition contains the column and options for the index.
-	// Only populated when explain=true.
-	Definition *IndexDefinition `json:"definition,omitempty"`
-	// IndexType is either "regular" or "vector".
-	// Only populated when explain=true.
-	IndexType string `json:"indexType,omitempty"`
-}
+// endregion
 
-// UnmarshalJSON implements custom unmarshaling for IndexDescriptor.
-// The API returns either a string (name only) or an object (full metadata)
-// depending on the explain option.
-func (d *IndexDescriptor) UnmarshalJSON(data []byte) error {
-	// Try to unmarshal as a string first (names only response)
-	var name string
-	if err := json.Unmarshal(data, &name); err == nil {
-		d.Name = name
-		return nil
-	}
-
-	// Otherwise unmarshal as an object (explain=true response)
-	type indexDescriptorAlias IndexDescriptor
-	var alias indexDescriptorAlias
-	if err := json.Unmarshal(data, &alias); err != nil {
-		return err
-	}
-	*d = IndexDescriptor(alias)
-	return nil
-}
-
-// IndexDefinition describes which column is indexed and its options.
-type IndexDefinition struct {
-	// Column is the name of the indexed column.
-	Column string `json:"column"`
-	// Options contains index-specific configuration.
-	Options *IndexDefinitionOptions `json:"options,omitempty"`
-}
-
-// IndexDefinitionOptions contains configuration for an index.
-type IndexDefinitionOptions struct {
-	// Metric is the similarity metric for vector indexes (cosine, dot_product, euclidean).
-	Metric string `json:"metric,omitempty"`
-	// SourceModel is the embedding model identifier for vector indexes.
-	SourceModel string `json:"sourceModel,omitempty"`
-	// Ascii if true, converts non-ASCII characters to US-ASCII before indexing.
-	Ascii *bool `json:"ascii,omitempty"`
-	// Normalize if true, applies Unicode character normalization before indexing.
-	Normalize *bool `json:"normalize,omitempty"`
-	// CaseSensitive if true, enforces case-sensitive matching.
-	CaseSensitive *bool `json:"caseSensitive,omitempty"`
-}
-
-// listIndexesPayload is the payload for the listIndexes command
-type listIndexesPayload struct {
-	Options *listIndexesOpts `json:"options,omitempty"`
-}
-
-// listIndexesOpts contains options for the listIndexes command
-type listIndexesOpts struct {
-	Explain bool `json:"explain,omitempty"`
-}
+// region Index Listing
 
 // listIndexesResponse is the response from the listIndexes command
 type listIndexesResponse struct {
 	Status struct {
-		Indexes []IndexDescriptor `json:"indexes"`
+		Indexes []results.IndexDescriptor `json:"indexes"`
 	} `json:"status"`
 }
 
@@ -883,18 +528,18 @@ type listIndexesResponse struct {
 //	    fmt.Printf("Index %s on column %s (type: %s)\n",
 //	        idx.Name, idx.Definition.Column, idx.IndexType)
 //	}
-func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]IndexDescriptor, error) {
+func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]results.IndexDescriptor, error) {
 	cmd, err := listIndexesCommand(t, opts...)
 	if err != nil {
 		return nil, err
 	}
-	b, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var resp listIndexesResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable); err != nil {
 		return nil, err
 	}
 
@@ -903,19 +548,120 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 
 // listIndexesCommand builds the listIndexes command for the table
 func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, error) {
-	payload := listIndexesPayload{}
-
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command{}, err
 	}
 
-	// Add options if explain is set
-	if ptr.From(merged.Explain) {
-		payload.Options = &listIndexesOpts{
-			Explain: true,
-		}
+	return t.newCmd("listIndexes", map[string]any{
+		"options": map[string]any{
+			"explain": merged.Explain,
+		},
+	}), nil
+}
+
+// endregion
+
+// region Index Deletion
+
+// dropIndexPayload is the payload for the dropIndex command
+type dropIndexPayload struct {
+	Name string `json:"name"`
+}
+
+// DropTableIndex drops (deletes) an index from the database.
+//
+// Example usage:
+//
+//	err := db.DropTableIndex(ctx, "rating_idx")
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (d *Db) DropTableIndex(ctx context.Context, name string) error {
+	cmd := dropTableIndexCommand(d, name)
+	_, _, _, err := cmd.Execute(ctx)
+	return err
+}
+
+// dropTableIndexCommand builds the dropIndex command for the database
+func dropTableIndexCommand(d *Db, name string) command {
+	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
+}
+
+// endregion
+
+// region Altering
+
+// alterTablePayload is the payload for the alterTable command.
+type alterTablePayload struct {
+	Operation table.AlterOperation `json:"operation"`
+}
+
+// Alter modifies the table's schema. The operation provided (AddColumns,
+// DropColumns, AddVectorize, or DropVectorize) determines the action taken.
+//
+// Note that the Data API does not allow column type changes (drop and re-add
+// instead) and does not support renaming a table. Dropping a vectorize
+// integration preserves any embeddings already stored in the column; only
+// the auto-embedding integration is removed.
+//
+// After adding columns, index any new columns you intend to filter or sort on.
+//
+// Example — add columns:
+//
+//	err := tbl.Alter(ctx, table.AddColumns{
+//	    Columns: table.Columns{
+//	        "is_summer_reading": table.Boolean(),
+//	        "library_branch":    table.Text(),
+//	    },
+//	})
+//
+// Example — drop columns:
+//
+//	err := tbl.Alter(ctx, table.DropColumns{
+//	    Columns: []string{"borrower"},
+//	})
+//
+// Example — add vectorize on a vector column:
+//
+//	err := tbl.Alter(ctx, table.AddVectorize{
+//	    Columns: map[string]table.VectorService{
+//	        "summary_vec": {
+//	            Provider:  "openai",
+//	            ModelName: "text-embedding-3-small",
+//	            Authentication: map[string]string{
+//	                "providerKey": "OPENAI_API_KEY",
+//	            },
+//	        },
+//	    },
+//	})
+//
+// Example — drop vectorize:
+//
+//	err := tbl.Alter(ctx, table.DropVectorize{
+//	    Columns: []string{"summary_vec"},
+//	})
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...options.AlterTableOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
 	}
 
-	return t.newCmd("listIndexes", payload), nil
+	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
+		Operation: op,
+	}, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
+	return err
 }
+
+// endregion
+
+// region Misc
+
+// Drop deletes the table and all its rows. Use with caution.
+func (t *Table) Drop(ctx context.Context) error {
+	return t.db.DropTable(ctx, t.name)
+}
+
+// endregion

@@ -78,6 +78,14 @@ func ParseObjectId(s string) (ObjectId, error) {
 	return o, nil
 }
 
+func MustParseObjectId(s string) ObjectId {
+	o, err := ParseObjectId(s)
+	if err != nil {
+		panic(fmt.Sprintf("datatypes: invalid ObjectId string: %q: %v", s, err))
+	}
+	return o
+}
+
 // String returns the 24-character lowercase hex representation of the ObjectId.
 func (o ObjectId) String() string {
 	return hex.EncodeToString(o.value[:])

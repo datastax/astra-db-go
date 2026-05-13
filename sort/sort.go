@@ -30,10 +30,8 @@
 package sort
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"strconv"
+	"github.com/datastax/astra-db-go/datatypes"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // Ascending is the sort order value for ascending (1).
@@ -45,7 +43,6 @@ const Descending = -1
 // Sortable is implemented by types that can be used as sort specifications.
 // It is satisfied by [Sort] (the fluent builder) and [S] (raw map).
 type Sortable interface {
-	json.Marshaler
 	isSort()
 }
 
@@ -68,11 +65,6 @@ type S map[string]any
 
 func (S) isSort() {}
 
-// MarshalJSON marshals the raw sort map to JSON.
-func (s S) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any(s))
-}
-
 // Clauses represents multiple sort specifications. Use this when you need
 // full control over the sort JSON, or when working with sort
 // specifications that don't fit the fluent builder.
@@ -84,34 +76,14 @@ type Clauses []S
 
 func (Clauses) isSort() {}
 
-func (s Clauses) MarshalJSON() ([]byte, error) {
-	if len(s) == 0 {
-		return []byte("null"), nil
-	}
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	first := true
+func (s Clauses) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	rep := datatypes.NewOrderedMapWithCapacity[string, any](len(s))
 	for _, clause := range s {
 		for k, v := range clause {
-			if !first {
-				buf.WriteByte(',')
-			}
-			key, err := json.Marshal(k)
-			if err != nil {
-				return nil, err
-			}
-			val, err := json.Marshal(v)
-			if err != nil {
-				return nil, err
-			}
-			buf.Write(key)
-			buf.WriteByte(':')
-			buf.Write(val)
-			first = false
+			rep.Set(k, v)
 		}
 	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
+	return rep, nil
 }
 
 // clause is a single key-value pair in a sort specification.
@@ -191,39 +163,13 @@ func (s Sort) By(field string, value any) Sort {
 	return s
 }
 
-// MarshalJSON writes the sort as a JSON object, preserving clause order.
-// An empty Sort marshals to null.
-func (s Sort) MarshalJSON() ([]byte, error) {
+func (s Sort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	if len(s.clauses) == 0 {
-		return []byte("null"), nil
+		return nil, nil
 	}
-
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	for i, c := range s.clauses {
-		if i > 0 {
-			buf.WriteByte(',')
-		}
-		// Write key
-		key, err := json.Marshal(c.field)
-		if err != nil {
-			return nil, fmt.Errorf("sort: marshal key %q: %w", c.field, err)
-		}
-		buf.Write(key)
-		buf.WriteByte(':')
-
-		// Write value — use strconv for int to avoid float representation
-		switch v := c.value.(type) {
-		case int:
-			buf.WriteString(strconv.Itoa(v))
-		default:
-			val, err := json.Marshal(v)
-			if err != nil {
-				return nil, fmt.Errorf("sort: marshal value for %q: %w", c.field, err)
-			}
-			buf.Write(val)
-		}
+	rep := datatypes.NewOrderedMapWithCapacity[string, any](len(s.clauses))
+	for _, c := range s.clauses {
+		rep.Set(c.field, c.value)
 	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
+	return rep, nil
 }

@@ -15,10 +15,10 @@
 package sort_test
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/sort"
 )
 
@@ -87,9 +87,9 @@ func TestMultiFieldOrderPreservation(t *testing.T) {
 //	curl ... --data '{ "find": { "sort": {"$vector": [0.1, 0.2, 0.3]} } }'
 func TestVectorSortJSON(t *testing.T) {
 	s := sort.Vector([]float32{0.1, 0.2, 0.3})
-	got, err := json.Marshal(s)
+	got, err := serdes.Serialize(s, serdes.TargetCollection)
 	if err != nil {
-		t.Fatalf("json.Marshal error: %v", err)
+		t.Fatalf("serdes.Serialize error: %v", err)
 	}
 	expected := `{"$vector":[0.1,0.2,0.3]}`
 	if string(got) != expected {
@@ -102,9 +102,9 @@ func TestVectorSortJSON(t *testing.T) {
 //	curl ... --data '{ "find": { "sort": {"$vectorize": "search text"} } }'
 func TestVectorizeSortJSON(t *testing.T) {
 	s := sort.Vectorize("search text")
-	got, err := json.Marshal(s)
+	got, err := serdes.Serialize(s, serdes.TargetCollection)
 	if err != nil {
-		t.Fatalf("json.Marshal error: %v", err)
+		t.Fatalf("serdes.Serialize error: %v", err)
 	}
 	expected := `{"$vectorize":"search text"}`
 	if string(got) != expected {
@@ -115,9 +115,9 @@ func TestVectorizeSortJSON(t *testing.T) {
 // TestLexicalSortJSON verifies lexical sort JSON.
 func TestLexicalSortJSON(t *testing.T) {
 	s := sort.Lexical("find books about space")
-	got, err := json.Marshal(s)
+	got, err := serdes.Serialize(s, serdes.TargetCollection)
 	if err != nil {
-		t.Fatalf("json.Marshal error: %v", err)
+		t.Fatalf("serdes.Serialize error: %v", err)
 	}
 	expected := `{"$lexical":"find books about space"}`
 	if string(got) != expected {
@@ -128,9 +128,9 @@ func TestLexicalSortJSON(t *testing.T) {
 // TestRawMapSortJSON verifies that S (raw map) produces valid JSON.
 func TestRawMapSortJSON(t *testing.T) {
 	s := sort.S{"$vector": []float32{0.1, 0.2, 0.3}}
-	got, err := json.Marshal(s)
+	got, err := serdes.Serialize(s, serdes.TargetCollection)
 	if err != nil {
-		t.Fatalf("json.Marshal error: %v", err)
+		t.Fatalf("serdes.Serialize error: %v", err)
 	}
 	expected := `{"$vector":[0.1,0.2,0.3]}`
 	if string(got) != expected {
@@ -141,9 +141,9 @@ func TestRawMapSortJSON(t *testing.T) {
 // TestEmptySortMarshal verifies that an empty Sort marshals to null.
 func TestEmptySortMarshal(t *testing.T) {
 	s := sort.Sort{}
-	got, err := json.Marshal(s)
+	got, err := serdes.Serialize(s, serdes.TargetCollection)
 	if err != nil {
-		t.Fatalf("json.Marshal error: %v", err)
+		t.Fatalf("serdes.Serialize error: %v", err)
 	}
 	if string(got) != "null" {
 		t.Errorf("got %s, want null", string(got))

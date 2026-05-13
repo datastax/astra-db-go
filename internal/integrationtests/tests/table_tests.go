@@ -42,7 +42,9 @@ func init() {
 		{Name: "TableFindWithSort", Run: TableFindWithSort},
 		{Name: "TableFindWithProjection", Run: TableFindWithProjection},
 		{Name: "TableListIndexes", Run: TableListIndexes},
+		{Name: "TableListTables", Run: TableListTables},
 		{Name: "TableVectorIndex", Run: TableVectorIndex},
+		{Name: "TableAlter", Run: TableAlter},
 		{Name: "TableDrop", Run: TableDrop},
 	}
 	harness.Register(t...)
@@ -64,14 +66,17 @@ func TableCreate(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 
+	// TODO: at some point we could switch this to using newer infer method.
+	// But it might be better to have a separate test so we exercise both infer
+	// and table.Definition.
 	definition := table.Definition{
-		Columns: map[string]table.Column{
-			"title":           table.Text(),
-			"author":          table.Text(),
-			"number_of_pages": table.Int(),
-			"rating":          table.Float(),
-			"is_checked_out":  table.Boolean(),
-			"genres":          table.List(table.Text()),
+		Columns: table.Columns{
+			{Name: "title", Column: table.Text()},
+			{Name: "author", Column: table.Text()},
+			{Name: "number_of_pages", Column: table.Int()},
+			{Name: "rating", Column: table.Float()},
+			{Name: "is_checked_out", Column: table.Boolean()},
+			{Name: "genres", Column: table.List(table.Text())},
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy: []string{"title"},
@@ -101,15 +106,16 @@ func TableInsertOne(e *harness.TestEnv) error {
 		return err
 	}
 
-	if len(resp.Status.InsertedIds) != 1 {
-		return fmt.Errorf("expected 1 inserted ID, got %d", len(resp.Status.InsertedIds))
+	insertedID, err := resp.RawID()
+	if err != nil {
+		return fmt.Errorf("failed to get inserted ID: %w", err)
 	}
 
-	// The API returns insertedIds as an array of arrays - each ID is an array of primary key values
-	// For a single-column primary key like "title", it returns [["The Great Gatsby"]]
-	pkValues, ok := resp.Status.InsertedIds[0].([]any)
+	// The API returns insertedIds as an array of primary key values
+	// For a single-column primary key like "title", it returns ["The Great Gatsby"]
+	pkValues, ok := insertedID.([]any)
 	if !ok {
-		return fmt.Errorf("expected inserted ID to be []any, got %T", resp.Status.InsertedIds[0])
+		return fmt.Errorf("expected inserted ID to be []any, got %T", insertedID)
 	}
 	if len(pkValues) != 1 {
 		return fmt.Errorf("expected 1 primary key value, got %d", len(pkValues))
@@ -178,8 +184,9 @@ func TableInsertMany(e *harness.TestEnv) error {
 		return err
 	}
 
-	if len(resp.Status.InsertedIds) != len(books) {
-		return fmt.Errorf("expected %d inserted IDs, got %d", len(books), len(resp.Status.InsertedIds))
+	// Use the new InsertedCount() method
+	if resp.InsertedCount() != len(books) {
+		return fmt.Errorf("expected %d inserted IDs, got %d", len(books), resp.InsertedCount())
 	}
 
 	return nil
@@ -457,6 +464,68 @@ func TableListIndexes(e *harness.TestEnv) error {
 	return nil
 }
 
+// TableListTables tests listing tables with both names-only and full metadata (explain=true).
+// This should be run after TableCreate and before TableDrop. One of the things I have
+// thought about is improving how `IntegrationTest` registers tests to allow running
+// single tests that have dependencies. Something like:
+//
+//	type IntegrationTest struct {
+//		Name string
+//		Run  func(e *TestEnv) error
+//		DependsOn []string // Ensure these have run before this test
+//		CleanUp   []string // Ensure these tests run after this test
+//	}
+//
+// That would allow us to set `TEST_PREFIX=TableListTables` and just run this test with
+// dependencies. Right now, to test ListTables you need to run all the table tests
+// (`TEST_PREFIX=Table`).
+func TableListTables(e *harness.TestEnv) error {
+	ctx := context.Background()
+	db := e.DefaultDb()
+
+	// Names-only listing
+	names, err := db.ListTableNames(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list table names: %w", err)
+	}
+	found := false
+	for _, n := range names {
+		if n == tableName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("expected to find table %q in ListTableNames result, got %v", tableName, names)
+	}
+
+	// Full descriptors with explain=true
+	tables, err := db.ListTables(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list tables: %w", err)
+	}
+	var desc *results.TableDescriptor
+	for i := range tables {
+		if tables[i].Name == tableName {
+			desc = &tables[i]
+			break
+		}
+	}
+	if desc == nil {
+		return fmt.Errorf("expected to find table %q in ListTables result", tableName)
+	}
+	if len(desc.Definition.Columns) == 0 {
+		return errors.New("expected non-empty Definition.Columns")
+	}
+	// TableCreate uses PartitionBy=["title"]. This also exercises PrimaryKey.UnmarshalAstra
+	// (the API returns the single-column form as a string).
+	if pk := desc.Definition.PrimaryKey.PartitionBy; len(pk) != 1 || pk[0] != "title" {
+		return fmt.Errorf("expected PartitionBy=[\"title\"], got %v", pk)
+	}
+
+	return nil
+}
+
 const vectorTableName = "go_test_vectors"
 
 // TestDocument represents a document with vector embeddings for vector index tests
@@ -472,10 +541,10 @@ func TableVectorIndex(e *harness.TestEnv) error {
 
 	// Create a table with a vector column
 	definition := table.Definition{
-		Columns: map[string]table.Column{
-			"id":        table.Text(),
-			"content":   table.Text(),
-			"embedding": table.Vector(3), // 3-dimensional vectors for testing
+		Columns: table.Columns{
+			{Name: "id", Column: table.Text()},
+			{Name: "content", Column: table.Text()},
+			{Name: "embedding", Column: table.Vector(3)}, // 3-dimensional vectors for testing
 		},
 		PrimaryKey: table.PrimaryKey{
 			PartitionBy: []string{"id"},
@@ -588,6 +657,104 @@ func TableVectorIndex(e *harness.TestEnv) error {
 		return fmt.Errorf("failed to drop vector table: %w", err)
 	}
 
+	return nil
+}
+
+// TableAlter exercises alterTable end-to-end against a freshly-created
+// throwaway table.
+func TableAlter(e *harness.TestEnv) error {
+	// TODO: add vectorize add/drop.
+	ctx := context.Background()
+	db := e.DefaultDb()
+
+	// Use a self-contained table so this test doesn't depend on or mess
+	// up other tests.
+	const alterTableName = "go_test_alter_books"
+
+	tbl, err := db.CreateTable(ctx, alterTableName, table.Definition{
+		Columns: table.Columns{
+			{"title", table.Text()},
+			{"author", table.Text()},
+		},
+		PrimaryKey: table.PrimaryKey{
+			PartitionBy: []string{"title"},
+		},
+	}, options.CreateTable().SetIfNotExists(true))
+	if err != nil {
+		return fmt.Errorf("failed to create table: %w", err)
+	}
+	defer func() {
+		// Clean up after our test. If we don't already have an error, return any
+		// error from cleanup. Otherwise, let the test runner show the original error
+		// because it probably has more useful diagnostic info.
+		cleanupErr := db.DropTable(ctx, alterTableName)
+		if cleanupErr != nil && err == nil {
+			err = fmt.Errorf("failed to drop table: %w", cleanupErr)
+		}
+	}()
+
+	// Add some columns!
+	err = tbl.Alter(ctx, table.AddColumns{
+		Columns: table.Columns{
+			{"is_summer_reading", table.Boolean()},
+			{"library_branch", table.Text()},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("Alter Add failed: %w", err)
+	}
+
+	// AlteredBook sounds a tad sinister. But I swear it's just a book with some
+	// extra columns. Not a book altered to mislead anybody.
+	type AlteredBook struct {
+		Title           string `json:"title"`
+		Author          string `json:"author"`
+		IsSummerReading bool   `json:"is_summer_reading"`
+		LibraryBranch   string `json:"library_branch"`
+	}
+
+	// Insert a row populating the newly-added columns and read it back to
+	// prove they made it onto the schema.
+	row := AlteredBook{
+		Title:           "Summer Adventures",
+		Author:          "Jane Doe",
+		IsSummerReading: true,
+		LibraryBranch:   "Downtown",
+	}
+	if _, err := tbl.InsertOne(ctx, row); err != nil {
+		return fmt.Errorf("insert using added columns failed: %w", err)
+	}
+
+	var got AlteredBook
+	if err := tbl.FindOne(ctx, filter.Eq("title", "Summer Adventures")).Decode(&got); err != nil {
+		return fmt.Errorf("findOne after add failed: %w", err)
+	}
+	if !got.IsSummerReading {
+		return fmt.Errorf("expected is_summer_reading=true, got %v", got.IsSummerReading)
+	}
+	if got.LibraryBranch != "Downtown" {
+		return fmt.Errorf("expected library_branch=%q, got %v", "Downtown", got.LibraryBranch)
+	}
+
+	// Drop one of the new columns and verify the remaining row no longer
+	// exposes it (the other added column must survive untouched).
+	err = tbl.Alter(ctx, table.DropColumns{Columns: []string{"library_branch"}})
+	if err != nil {
+		return fmt.Errorf("Alter Drop failed: %w", err)
+	}
+
+	// Using a map here because we want to just inspect the raw fields to verify
+	// dropped columns are not present.
+	var afterDrop map[string]any
+	if err := tbl.FindOne(ctx, filter.Eq("title", "Summer Adventures")).Decode(&afterDrop); err != nil {
+		return fmt.Errorf("findOne after drop failed: %w", err)
+	}
+	if _, present := afterDrop["library_branch"]; present {
+		return fmt.Errorf("expected library_branch to be missing after drop, but row was %v", afterDrop)
+	}
+	if v, ok := afterDrop["is_summer_reading"].(bool); !ok || !v {
+		return fmt.Errorf("expected is_summer_reading to survive the drop, got %v", afterDrop["is_summer_reading"])
+	}
 	return nil
 }
 

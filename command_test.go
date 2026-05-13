@@ -15,11 +15,11 @@
 package astradb
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
 )
 
 // Example response when your application is resuming
@@ -27,9 +27,19 @@ const resumingResponse = "{\"message\":\"Your database is resuming from hibernat
 
 func TestCommandDBResuming(t *testing.T) {
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(503, []byte(resumingResponse), nil)
+	_, _, _, err := cmd.extractErrors(503, []byte(resumingResponse), nil)
 	if err == nil {
 		t.Error("Expected error but got none")
+	}
+}
+
+const projectionSchemaResponse = "{\"data\":{\"document\":{\"int\":1,\"text\":\"1\"}},\"status\":{\"projectionSchema\":{\"text\":{\"type\":\"text\"},\"int\":{\"type\":\"int\"},\"ascii\":{\"type\":\"ascii\"},\"bigint\":{\"type\":\"bigint\"},\"blob\":{\"type\":\"blob\"},\"boolean\":{\"type\":\"boolean\"},\"date\":{\"type\":\"date\"},\"decimal\":{\"type\":\"decimal\"},\"double\":{\"type\":\"double\"},\"duration\":{\"type\":\"duration\"},\"float\":{\"type\":\"float\"},\"inet\":{\"type\":\"inet\"},\"list\":{\"type\":\"list\",\"valueType\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}}}},\"map\":{\"type\":\"map\",\"keyType\":\"varint\",\"valueType\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}}}},\"set\":{\"type\":\"set\",\"valueType\":\"uuid\"},\"smallint\":{\"type\":\"smallint\"},\"time\":{\"type\":\"time\"},\"timestamp\":{\"type\":\"timestamp\"},\"tinyint\":{\"type\":\"tinyint\"},\"udt\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}},\"apiSupport\":{\"createTable\":true,\"insert\":true,\"read\":true,\"filter\":false,\"cqlDefinition\":\"default_keyspace.example_udt\"}},\"uuid\":{\"type\":\"uuid\"},\"varint\":{\"type\":\"varint\"},\"vector\":{\"type\":\"vector\",\"dimension\":5,\"apiSupport\":{\"createTable\":true,\"insert\":true,\"read\":true,\"filter\":false,\"cqlDefinition\":\"VECTOR<float,5>\"}}}}}"
+
+func TestCommandWithProjectionSchema(t *testing.T) {
+	cmd := command{}
+	_, _, _, err := cmd.extractErrors(200, []byte(projectionSchemaResponse), nil)
+	if err != nil {
+		t.Errorf("Did not expect error but got: %v", err)
 	}
 }
 
@@ -38,7 +48,7 @@ const createAlreadyExistsResponse = "{\"status\":{\"insertedIds\":[]},\"errors\"
 
 func TestCommandAlreadyExistsErr(t *testing.T) {
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(200, []byte(createAlreadyExistsResponse), nil)
+	_, _, _, err := cmd.extractErrors(200, []byte(createAlreadyExistsResponse), nil)
 	t.Logf("err value:\n%s", err)
 	if err == nil {
 		t.Error("Expected error but got none")
@@ -50,7 +60,7 @@ const warningsResponse = "{\"data\":{\"documents\":[{\"number_of_pages\":281,\"a
 
 func TestCommandWarnings(t *testing.T) {
 	cmd := command{}
-	_, warnings, err := cmd.ExtractErrors(200, []byte(warningsResponse), nil)
+	_, warnings, _, err := cmd.extractErrors(200, []byte(warningsResponse), nil)
 	if err != nil {
 		t.Errorf("Did not expect error but got: %v", err)
 	}
@@ -65,7 +75,7 @@ func TestMarshalJSONWithName(t *testing.T) {
 		name:    "createCollection",
 		payload: map[string]any{"name": "my_collection"},
 	}
-	got, err := json.Marshal(cmd)
+	got, err := serdes.Serialize(cmd, serdes.TargetNone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +89,7 @@ func TestMarshalJSONWithoutName(t *testing.T) {
 	cmd := command{
 		payload: map[string]string{"key": "value"},
 	}
-	got, err := json.Marshal(cmd)
+	got, err := serdes.Serialize(cmd, serdes.TargetNone)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -97,7 +107,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 	opts := options.NewAPIOptions(options.WithWarningHandler(handler))
 
 	cmd := command{}
-	_, _, err := cmd.ExtractErrors(200, []byte(warningsResponse), opts)
+	_, _, _, err := cmd.extractErrors(200, []byte(warningsResponse), opts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

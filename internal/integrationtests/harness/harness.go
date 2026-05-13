@@ -2,7 +2,9 @@
 package harness
 
 import (
+	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 
 	"github.com/DeanPDX/dotconfig"
@@ -13,23 +15,26 @@ import (
 
 // TestEnv represents our test environment.
 type TestEnv struct {
-	APIEndpoint      string `env:"API_ENDPOINT"`
-	ApplicationToken string `env:"APPLICATION_TOKEN"`
-	TestPrefix       string `env:"TEST_PREFIX"`
-	Backend          string `env:"BACKEND"`
+	// Our application API endpoint. Can be left blank if using non-astra backend.
+	APIEndpoint string `env:"API_ENDPOINT,optional"`
+	// The token to use for authentication. E.g. "AstraCS:myToken"
+	ApplicationToken string `env:"APPLICATION_TOKEN,optional"`
+	// If set, will only run tests with names that start with prefix.
+	TestPrefix string `env:"TEST_PREFIX,optional"`
+	// The backend we are running this against. "astra", "hcd", etc. Defaults to "astra".
+	// See: https://pkg.go.dev/github.com/datastax/astra-db-go/options#DataAPIBackend
+	Backend string `env:"BACKEND" default:"astra"`
 }
 
 // Environment() retrieves a test environment with config based on environment variables.
 func Environment() TestEnv {
 	c, err := dotconfig.FromFileName[TestEnv](".env")
 	if err != nil {
-		slog.Error("dotconfig.FromFileName failed", "error", err)
+		// Should be impossible; But in the case of catastrophic failure...
+		fmt.Println("Problem with config:", err)
+		os.Exit(1)
 	}
-
-	if c.Backend == "" {
-		c.Backend = "astra"
-	}
-
+	// For non-astra DBs, default to the local HCD/DSE values.
 	if c.Backend != "astra" {
 		if c.APIEndpoint == "" {
 			c.APIEndpoint = "http://127.0.0.1:8181"
@@ -38,7 +43,6 @@ func Environment() TestEnv {
 			c.ApplicationToken = "Cassandra:Y2Fzc2FuZHJh:Y2Fzc2FuZHJh"
 		}
 	}
-
 	return c
 }
 

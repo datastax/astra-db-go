@@ -17,7 +17,6 @@ package astradb
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -25,6 +24,8 @@ import (
 
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
+	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 )
 
 // astraEndpointRegex matches Astra Data API endpoints and captures the database UUID and region.
@@ -46,14 +47,16 @@ type Db struct {
 	options  *options.APIOptions
 }
 
+// region Misc
+
 func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return newCmdWithOptions(d, "", name, payload, d.options, opts...)
+	return newCmdWithOptions(d, "", name, payload, d.options, serdes.TargetNone, opts...)
 }
 
 // newCmdWithMergedOptions creates a database-level command with a pre-merged
 // *APIOptions for the command-level overrides.
 func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(d, "", name, payload, d.options, cmdOpts)
+	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdOpts)
 }
 
 // Endpoint returns the database API endpoint.
@@ -116,6 +119,10 @@ func (d *Db) Client() *DataAPIClient {
 	return d.client
 }
 
+// endregion
+
+// region Table/Collection Getters
+
 // Collection returns a handle for the named collection.
 //
 // Options set here override those set on the database.
@@ -126,12 +133,26 @@ func (d *Db) Client() *DataAPIClient {
 //	    options.WithTimeout(60 * time.Second),
 //	)
 func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
-	return &Collection{
-		db:      d,
-		name:    name,
-		options: options.NewAPIOptions(opts...),
-	}
+	return &Collection{d, name, options.NewAPIOptions(opts...)}
 }
+
+// Table returns a Table object for the specified table name.
+// This does not create the table or verify its existence.
+//
+// Options set here override those set on the database.
+//
+// Example:
+//
+//	tbl := db.Table("my_table",
+//	    options.WithTimeout(60 * time.Second),
+//	)
+func (d *Db) Table(name string, opts ...options.APIOption) *Table {
+	return &Table{d, name, options.NewAPIOptions(opts...)}
+}
+
+// endregion
+
+// region Table/Collection Creation
 
 // CreateCollection creates a collection in the database.
 //
@@ -156,59 +177,108 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 //	}
 //	coll, err := db.CreateCollection(ctx, "my_collection", options.WithCreateCollectionOptions(opts))
 //
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.CreateCollectionOption) (*Collection, error) {
-	cmd, err := createCollectionCommand(d, name, opts...)
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
-	_, _, err = cmd.Execute(ctx)
+
+	cmd := d.newCmd("createCollection", map[string]any{
+		"name":    name,
+		"options": merged,
+	})
+
+	_, _, _, err = cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
+
 	return &Collection{
 		db:   d,
 		name: name,
 	}, nil
 }
 
-// createCollectionPayload is the payload for the createCollection command
-type createCollectionPayload struct {
-	Name    string                           `json:"name"`
-	Options *options.CreateCollectionOptions `json:"options,omitempty"`
-}
-
-// createCollectionCommand builds the createCollection command for the database
-func createCollectionCommand(d *Db, name string, opts ...options.CreateCollectionOption) (command, error) {
-	payload := createCollectionPayload{
-		Name: name,
-	}
-
+// CreateTable creates a new table in the database with the specified definition.
+//
+// The definition includes column names, data types, and the primary key configuration.
+// After creating a table, you should index columns that you want to sort or filter
+// to optimize queries.
+//
+// Example usage:
+//
+//	definition := table.Definition{
+//		Columns: table.Columns{
+//			{Name: "title", Column: table.Text()},
+//			{Name: "number_of_pages", Column: table.Int()},
+//			{Name: "rating", Column: table.Float()},
+//			{Name: "is_checked_out", Column: table.Boolean()},
+//		},
+//		PrimaryKey: table.PrimaryKey{
+//			PartitionBy: []string{"title"},
+//		},
+//	}
+//	tbl, err := db.CreateTable(ctx, "my_table", definition)
+func (d *Db) CreateTable(ctx context.Context, name string, definition table.Definition, opts ...options.CreateTableOption) (*Table, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return nil, err
 	}
 
-	// Only set Options if at least one field is non-nil (prevents "options":{} in JSON)
-	if merged != nil && (merged.DefaultId != nil || merged.Vector != nil || merged.Indexing != nil || merged.Lexical != nil || merged.Rerank != nil) {
-		payload.Options = merged
+	cmd := d.newCmd("createTable", map[string]any{
+		"name":       name,
+		"definition": definition,
+		"options":    merged,
+	})
+
+	if merged.Keyspace != nil {
+		cmd.keyspace = *merged.Keyspace
 	}
 
-	return d.newCmd("createCollection", payload), nil
+	_, _, _, err = cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Table{
+		db:   d,
+		name: name,
+	}, nil
 }
+
+// endregion
+
+// region Table/Collection Deletion
 
 // DropCollection drops a collection from the database.
-// Note: Warnings are accessible via the WarningHandler option callback only.
+// Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) DropCollection(ctx context.Context, name string) error {
-	payload := struct {
-		Name string `json:"name"`
-	}{
-		Name: name,
-	}
-	cmd := newCmd(d, "deleteCollection", payload)
-	_, _, err := cmd.Execute(ctx)
+	cmd := d.newCmd("deleteCollection", map[string]any{
+		"name": name,
+	})
+	_, _, _, err := cmd.Execute(ctx)
 	return err
 }
+
+// DropTable drops (deletes) a table from the database.
+//
+// Example usage:
+//
+//	err := db.DropTable(ctx, "my_table")
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (d *Db) DropTable(ctx context.Context, name string) error {
+	cmd := d.newCmd("dropTable", map[string]any{
+		"name": name,
+	})
+	_, _, _, err := cmd.Execute(ctx)
+	return err
+}
+
+// endregion
+
+// region Table/Collection Listing
 
 // ListCollections lists all collections in the database with their full definitions.
 //
@@ -232,9 +302,9 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollectionsOption) ([]results.CollectionDescriptor, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
+		return nil, err
 	}
-	return listCollections(d, ctx, true, merged.APIOptions)
+	return listCollections[[]results.CollectionDescriptor](d, ctx, true, merged.APIOptions)
 }
 
 // ListCollectionNames lists the names of all collections in the database.
@@ -256,88 +326,105 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollection
 func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionNamesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return nil, fmt.Errorf("invalid options: %w", err)
-	}
-	collections, err := listCollections(d, ctx, false, merged.APIOptions)
-	if err != nil {
 		return nil, err
 	}
-
-	names := make([]string, len(collections))
-	for i, coll := range collections {
-		names[i] = coll.Name
-	}
-
-	return names, nil
+	return listCollections[[]string](d, ctx, false, merged.APIOptions)
 }
 
-// listCollectionsResponse is the response from the findCollections command
-type listCollectionsResponse struct {
+// listTablesResponse is the response from the listTables command
+type listCollectionsResponse[T any] struct {
 	Status struct {
-		Collections []results.CollectionDescriptor `json:"collections"`
+		Collections T `json:"collections"`
 	} `json:"status"`
 }
 
-// UnmarshalJSON implements custom unmarshaling to handle both the "explain=true"
-// response (where collections is an array of objects) and the "explain=false"
-// response (where collections is an array of strings).
-func (r *listCollectionsResponse) UnmarshalJSON(data []byte) error {
-	// Use an alias type to avoid infinite recursion (argh), and capture the inner
-	// collections field as raw JSON so we can decide how to decode it.
-	var raw struct {
-		Status struct {
-			Collections json.RawMessage `json:"collections"`
-		} `json:"status"`
-	}
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-
-	if len(raw.Status.Collections) == 0 {
-		// Nothing to do.
-		return nil
-	}
-
-	// First try the rich object form (explain=true).
-	var descriptors []results.CollectionDescriptor
-	if err := json.Unmarshal(raw.Status.Collections, &descriptors); err == nil {
-		r.Status.Collections = descriptors
-		return nil
-	}
-
-	// Fall back to the string-only form (explain=false).
-	var names []string
-	if err := json.Unmarshal(raw.Status.Collections, &names); err != nil {
-		return err
-	}
-	r.Status.Collections = make([]results.CollectionDescriptor, len(names))
-	for i, n := range names {
-		r.Status.Collections[i] = results.CollectionDescriptor{Name: n}
-	}
-	return nil
-}
-
-// listCollections is the internal helper for listing collections
-func listCollections(d *Db, ctx context.Context, explain bool, cmdOpts *options.APIOptions) ([]results.CollectionDescriptor, error) {
-	payload := map[string]any{
+func listCollections[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
+	cmd := d.newCmdWithMergedOptions("findCollections", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
+	}, opts)
+	b, _, _, err := cmd.Execute(ctx)
+	if err != nil {
+		var zero T
+		return zero, err
 	}
+	var resp listCollectionsResponse[T]
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone)
+	return resp.Status.Collections, err
+}
 
-	cmd := d.newCmdWithMergedOptions("findCollections", payload, cmdOpts)
-	b, _, err := cmd.Execute(ctx)
+// ListTables lists all tables in the database with their full definitions.
+//
+// You can specify API options via the options parameter to override settings
+// for this command.
+//
+// Example:
+//
+//	tables, err := db.ListTables(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, t := range tables {
+//	    fmt.Printf("Table: %s (%d columns)\n", t.Name, len(t.Definition.Columns))
+//	}
+//
+// Options passed here override those set on the database.
+func (d *Db) ListTables(ctx context.Context, opts ...options.ListTablesOption) ([]results.TableDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
+	return listTables[[]results.TableDescriptor](d, ctx, true, merged.APIOptions)
+}
 
-	var resp listCollectionsResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
+// ListTableNames lists the names of all tables in the database.
+//
+// Example:
+//
+//	names, err := db.ListTableNames(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, name := range names {
+//	    fmt.Printf("Table: %s\n", name)
+//	}
+//
+// Options passed here override those set on the database.
+func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTableNamesOption) ([]string, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
 		return nil, err
 	}
-
-	return resp.Status.Collections, nil
+	return listTables[[]string](d, ctx, false, merged.APIOptions)
 }
+
+// listTablesResponse is the response from the listTables command
+type listTablesResponse[T any] struct {
+	Status struct {
+		Tables T `json:"tables"`
+	} `json:"status"`
+}
+
+func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
+	cmd := d.newCmdWithMergedOptions("listTables", map[string]any{
+		"options": map[string]any{
+			"explain": explain,
+		},
+	}, opts)
+	b, _, _, err := cmd.Execute(ctx)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	var resp listTablesResponse[T]
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone)
+	return resp.Status.Tables, err
+}
+
+// endregion
+
+// region Admin
 
 // DatabaseAdmin returns a DatabaseAdmin for managing keyspaces on this database.
 // The concrete implementation depends on the environment:
@@ -373,3 +460,5 @@ func parseAstraEndpointComponents(endpoint string) (id, region string) {
 	}
 	return strings.ToLower(m[1]), strings.ToLower(m[2])
 }
+
+// endregion

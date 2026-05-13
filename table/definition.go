@@ -15,34 +15,89 @@
 // Package table provides types and utilities for working with Astra DB tables.
 package table
 
-import "encoding/json"
+import (
+	"github.com/datastax/astra-db-go/datatypes"
+	"github.com/datastax/astra-db-go/serdes"
+)
 
-// Definition represents the full schema for a table, including column names,
+// Definition represents the full Schema for a table, including column names,
 // column data types, and the primary key.
 //
 // Example:
 //
 //	def := table.Definition{
-//		Columns: map[string]table.Column{
-//			"title":  table.Text(),
-//			"author": table.Text(),
-//			"rating": table.Float(),
+//		Columns: table.Columns{
+//			{"title", table.Text()},
+//			{"author", table.Text()},
+//			{"rating", table.Float()},
 //		},
 //		PrimaryKey: table.PrimaryKey{
 //			PartitionBy: []string{"title"},
 //		},
 //	}
 type Definition struct {
-	// Columns defines all columns in the table with their types
-	Columns map[string]Column `json:"columns"`
+	// Columns defines all columns in the table with their types.
+	// Order is preserved on marshal and captured on unmarshal.
+	Columns Columns `json:"columns"`
 
 	// PrimaryKey defines the primary key for the table
 	PrimaryKey PrimaryKey `json:"primaryKey"`
 }
 
+// Columns is an ordered collection of named columns. It marshals as a JSON
+// object, preserving insertion order on output and input order on parse.
+//
+// Construct with a literal:
+//
+//	table.Columns{
+//	    {"title",  table.Text()},
+//	    {"author", table.Text()},
+//	}
+type Columns []NamedColumn
+
+// NamedColumn pairs a column name with its type definition.
+type NamedColumn struct {
+	Name   string
+	Column Column
+}
+
+// Get returns the column with the given name and whether it was found.
+func (c Columns) Get(name string) (Column, bool) {
+	for _, nc := range c {
+		if nc.Name == name {
+			return nc.Column, true
+		}
+	}
+	return Column{}, false
+}
+
+func (c Columns) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	rep := datatypes.NewOrderedMapWithCapacity[string, Column](len(c))
+	for _, nc := range c {
+		rep.Set(nc.Name, nc.Column)
+	}
+	return rep, nil
+}
+
+func (c *Columns) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	var rep datatypes.OrderedMap[string, Column]
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
+		return err
+	}
+
+	*c = nil
+	for name, col := range rep.All() {
+		*c = append(*c, NamedColumn{name, col})
+	}
+
+	return nil
+}
+
 // Column represents a column's type definition.
 // It can be a simple scalar type, a collection type (set, list, map),
 // a vector type, or a user-defined type.
+//
+//goland:noinspection GoVetStructTag
 type Column struct {
 	// Type is the column type (text, int, float, boolean, uuid, date, vector, set, list, map, userDefined, etc.)
 	Type string `json:"type"`
@@ -53,14 +108,24 @@ type Column struct {
 	// Service is used for vector columns with vectorize embedding provider integration
 	Service *VectorService `json:"service,omitempty"`
 
-	// ValueType is used for set and list columns
-	ValueType *Column `json:"valueType,omitempty"`
-
 	// KeyType is used for map columns
 	KeyType *string `json:"keyType,omitempty"`
 
+	// ValueType is used for set, list, and map columns
+	ValueType *Column `json:"valueType,omitempty"`
+
 	// UDTName is used for userDefined columns to specify the UDT name
 	UDTName *string `json:"udtName,omitempty"`
+
+	definition *UDTDefinition `json:",omitempty,allowunexported"` // TODO should this just be exported
+}
+
+func (c *Column) UDTDefinition() *UDTDefinition {
+	return c.definition
+}
+
+type UDTDefinition struct {
+	Fields Columns `json:"fields"`
 }
 
 // VectorService defines the embedding provider configuration for vectorize
@@ -84,31 +149,77 @@ type PrimaryKey struct {
 	// PartitionBy lists the partition key columns
 	PartitionBy []string `json:"partitionBy"`
 
-	// PartitionSort defines clustering columns and their sort order (1 for ASC, -1 for DESC)
-	// This is optional and used for compound primary keys
-	PartitionSort map[string]int `json:"partitionSort,omitempty"`
+	// PartitionSort defines clustering columns and their sort order (1 for ASC, -1 for DESC).
+	// Order is significant — it defines the physical sort order of rows within a partition —
+	// and is preserved through JSON marshaling.
+	PartitionSort PartitionSort `json:"partitionSort,omitempty"`
 }
 
-// MarshalJSON implements custom JSON marshaling for PrimaryKey.
-// If only PartitionBy has a single column and PartitionSort is empty,
-// it marshals as a simple string for convenience.
-func (p PrimaryKey) MarshalJSON() ([]byte, error) {
+// PartitionSort is an ordered collection of clustering columns with their sort
+// direction. It marshals as a JSON object, preserving declared order on output
+// and input order on parse.
+//
+// Construct with a literal:
+//
+//	table.PartitionSort{
+//	    {"event_time", table.SortDescending},
+//	    {"priority",   table.SortAscending},
+//	}
+type PartitionSort []NamedSort
+
+// NamedSort pairs a clustering-column name with its sort direction
+// (SortAscending or SortDescending).
+type NamedSort struct {
+	Name  string
+	Order int
+}
+
+// Get returns the sort order for the given column and whether it was found.
+func (s PartitionSort) Get(name string) (int, bool) {
+	for _, ns := range s {
+		if ns.Name == name {
+			return ns.Order, true
+		}
+	}
+	return 0, false
+}
+
+func (s PartitionSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	rep := datatypes.NewOrderedMapWithCapacity[string, int](len(s))
+	for _, ns := range s {
+		rep.Set(ns.Name, ns.Order)
+	}
+	return rep, nil
+}
+
+func (s *PartitionSort) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	var rep datatypes.OrderedMap[string, int]
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
+		return err
+	}
+
+	*s = nil
+	for name, order := range rep.All() {
+		*s = append(*s, NamedSort{Name: name, Order: order})
+	}
+	return nil
+}
+
+func (p PrimaryKey) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	// If single partition key with no clustering columns, marshal as string
 	if len(p.PartitionBy) == 1 && len(p.PartitionSort) == 0 {
-		return json.Marshal(p.PartitionBy[0])
+		return serdes.SerializeInto(p.PartitionBy[0], ctx.Target, dst) // TODO is there really a point in special-casing this here
 	}
 
 	// Otherwise marshal as object
 	type pkAlias PrimaryKey
-	return json.Marshal(pkAlias(p))
+	return serdes.SerializeInto(pkAlias(p), ctx.Target, dst)
 }
 
-// UnmarshalJSON implements custom JSON unmarshaling for PrimaryKey.
-// It handles both string format (single column) and object format (compound key).
-func (p *PrimaryKey) UnmarshalJSON(data []byte) error {
+func (p *PrimaryKey) UnmarshalAstraRaw(ctx serdes.DecodeCtx, data []byte) error {
 	// Try to unmarshal as string first
 	var singleColumn string
-	if err := json.Unmarshal(data, &singleColumn); err == nil {
+	if err := serdes.Deserialize(data, &singleColumn, nil, ctx.Target); err == nil {
 		p.PartitionBy = []string{singleColumn}
 		p.PartitionSort = nil
 		return nil
@@ -117,10 +228,28 @@ func (p *PrimaryKey) UnmarshalJSON(data []byte) error {
 	// Otherwise unmarshal as object
 	type pkAlias PrimaryKey
 	var pk pkAlias
-	if err := json.Unmarshal(data, &pk); err != nil {
+	if err := serdes.Deserialize(data, &pk, nil, ctx.Target); err != nil {
 		return err
 	}
 	*p = PrimaryKey(pk)
+	return nil
+}
+
+func (c *Column) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	// Try to unmarshal as a string first (e.g. "text")
+	var typ string
+	if err := serdes.Deserialize(value, &typ, nil, ctx.Target); err == nil {
+		*c = Column{Type: typ}
+		return nil
+	}
+
+	// Otherwise unmarshal as a full Column object (e.g. {"type":"text"})
+	type colAlias Column
+	var col colAlias
+	if err := serdes.Deserialize(value, &col, nil, ctx.Target); err != nil {
+		return err
+	}
+	*c = Column(col)
 	return nil
 }
 
@@ -155,6 +284,7 @@ const (
 	TypeList      = "list"
 	TypeMap       = "map"
 	TypeUDT       = "userDefined"
+	TypeDuration  = "duration"
 )
 
 // Text creates a text column
@@ -247,6 +377,11 @@ func Ascii() Column {
 	return Column{Type: TypeAscii}
 }
 
+// Duration creates a duration column
+func Duration() Column {
+	return Column{Type: TypeDuration}
+}
+
 // Vector creates a vector column with the specified dimension
 func Vector(dimension int) Column {
 	return Column{
@@ -298,4 +433,79 @@ func UDT(udtName string) Column {
 		Type:    TypeUDT,
 		UDTName: &udtName,
 	}
+}
+
+// AlterOperation represents a single operation to perform on a table via table.Alter.
+//
+// Implementations include:
+//   - AddColumns: Adds new columns to the schema.
+//   - DropColumns: Removes existing columns.
+//   - AddVectorize: Configures AI embedding generation for specific columns.
+//   - DropVectorize: Removes AI embedding configurations.
+//
+// Example — Add columns:
+//
+//	tbl.Alter(ctx, table.AddColumns{
+//	   Columns: table.Columns{
+//	      "is_summer_reading": table.Boolean(),
+//	      "library_branch":    table.Text(),
+//	   },
+//	})
+//
+// Example — Drop columns:
+//
+//	tbl.Alter(ctx, table.DropColumns{
+//	   Columns: []string{"is_summer_reading", "library_branch"},
+//	})
+type AlterOperation interface {
+	isAlterOp()
+	serdes.AstraRawMarshaler
+}
+
+// AddColumns is the payload for the alterTable "add" operation.
+type AddColumns struct {
+	Columns Columns `json:"columns"`
+}
+
+func (a AddColumns) isAlterOp() {}
+
+func (a AddColumns) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias AddColumns
+	return serdes.SerializeInto(map[string]any{"add": alias(a)}, ctx.Target, dst)
+}
+
+// DropColumns is the payload for the alterTable "drop" operation.
+type DropColumns struct {
+	Columns []string `json:"columns"`
+}
+
+func (d DropColumns) isAlterOp() {}
+
+func (d DropColumns) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias DropColumns
+	return serdes.SerializeInto(map[string]any{"drop": alias(d)}, ctx.Target, dst)
+}
+
+// AddVectorize is the payload for the alterTable "addVectorize" operation.
+type AddVectorize struct {
+	Columns map[string]VectorService `json:"columns"`
+}
+
+func (v AddVectorize) isAlterOp() {}
+
+func (v AddVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias AddVectorize
+	return serdes.SerializeInto(map[string]any{"addVectorize": alias(v)}, ctx.Target, dst)
+}
+
+// DropVectorize is the payload for the alterTable "dropVectorize" operation.
+type DropVectorize struct {
+	Columns []string `json:"columns"`
+}
+
+func (v DropVectorize) isAlterOp() {}
+
+func (v DropVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias DropVectorize
+	return serdes.SerializeInto(map[string]any{"dropVectorize": alias(v)}, ctx.Target, dst)
 }

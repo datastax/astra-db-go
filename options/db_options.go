@@ -74,3 +74,19 @@ type ListCollectionNamesOptions struct {
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
+
+// ListTablesOptions represents options for listing tables in a database with full metadata.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type ListTablesOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// ListTableNamesOptions represents options for listing table names in a database.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type ListTableNamesOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}

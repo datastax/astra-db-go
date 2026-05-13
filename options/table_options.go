@@ -27,6 +27,20 @@ type CreateTableOptions struct {
 	Keyspace *string `json:"-"`
 }
 
+// TableFindOneOptions represents options for a findOne operation.
+type TableFindOneOptions struct {
+	// Sort specifies the sort order to apply before selecting the document to update.
+	Sort sort.Sortable `json:"sort,omitempty"`
+	// Projection controls which fields are included or excluded in the returned document.
+	Projection map[string]any `json:"projection,omitempty"`
+	// IncludeSimilarity if true, include the similarity score in the result via the
+	// $similarity field.
+	IncludeSimilarity *bool `json:"includeSimilarity,omitempty"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // TableFindOptions represents options for finding rows in a table
 type TableFindOptions struct {
 	// Sort specifies how to sort the results. Can be used for:
@@ -79,6 +93,10 @@ type TableInsertOneOptions struct {
 // TableInsertManyOptions represents options for inserting multiple rows in a table.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type TableInsertManyOptions struct {
+	Ordered     *bool `json:"ordered,omitempty"`
+	ChunkSize   *int  `json:"-"`
+	Concurrency *int  `json:"-"`
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
@@ -104,6 +122,22 @@ type TableDeleteOneOptions struct {
 // Right now this is empty except for APIOptions; table deleteMany has no
 // pagination currently, etc.
 type TableDeleteManyOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// TableDefinitionOptions represents options for fetching a table's descriptor.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type TableDefinitionOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// AlterTableOptions represents options for altering a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type AlterTableOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`

@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/datastax/astra-db-go/internal/guards"
+	"github.com/datastax/astra-db-go/internal/utils"
 )
 
 // ErrCursorClosed is returned when operations are attempted on a closed cursor.
@@ -364,7 +364,7 @@ func (c *abstractCursorImpl[Raw]) Decode(result any) error {
 
 // DecodeAll locks and exhausts the cursor, decoding all remaining items into results, and then closes the cursor.
 func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) error {
-	resultsPtr, sliceVal, err := guards.RequireSlicePtr(results)
+	resultsPtr, sliceVal, err := utils.RequireSlicePtr(results)
 	if err != nil {
 		return err
 	}
@@ -401,7 +401,7 @@ func (c *abstractCursorImpl[Raw]) DecodeAll(ctx context.Context, results any) er
 
 // DecodeBuffered locks and decodes up to max items from the current buffer into results and advances the cursor, without fetching the next page.
 func (c *abstractCursorImpl[Raw]) DecodeBuffered(results any, max int) error {
-	resultsPtr, sliceVal, err := guards.RequireSlicePtr(results)
+	resultsPtr, sliceVal, err := utils.RequireSlicePtr(results)
 	if err != nil {
 		return err
 	}
@@ -433,7 +433,7 @@ func (c *abstractCursorImpl[Raw]) decodeBuffered(sliceValue *reflect.Value, star
 	sliceValue.SetLen(end)
 
 	for i, raw := range toTake {
-		targetAddr := sliceValue.Index(i + start).Addr().Interface()
+		targetAddr := sliceValue.Index(i + start).Addr().Interface() // TODO optimize
 		if err := c.acs.decode(raw, targetAddr); err != nil {
 			end = start + i
 			sliceValue.SetLen(end)

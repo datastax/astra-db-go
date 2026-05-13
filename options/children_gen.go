@@ -29,6 +29,16 @@ func (o *APIOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for AlterTableOptions.
+// Returns all non-nil Validator fields.
+func (o *AlterTableOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CollectionCountDocumentsOptions.
 // Returns all non-nil Validator fields.
 func (o *CollectionCountDocumentsOptions) Children() []Validator {
@@ -231,6 +241,36 @@ func (o *ListCollectionsOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for ListTableNamesOptions.
+// Returns all non-nil Validator fields.
+func (o *ListTableNamesOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for ListTablesOptions.
+// Returns all non-nil Validator fields.
+func (o *ListTablesOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for TableDefinitionOptions.
+// Returns all non-nil Validator fields.
+func (o *TableDefinitionOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for TableDeleteManyOptions.
 // Returns all non-nil Validator fields.
 func (o *TableDeleteManyOptions) Children() []Validator {
@@ -244,6 +284,16 @@ func (o *TableDeleteManyOptions) Children() []Validator {
 // Children implements ChildValidator for TableDeleteOneOptions.
 // Returns all non-nil Validator fields.
 func (o *TableDeleteOneOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for TableFindOneOptions.
+// Returns all non-nil Validator fields.
+func (o *TableFindOneOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)
