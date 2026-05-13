@@ -30,6 +30,9 @@ func init() {
 		{Name: "DbFindEmbeddingProvidersFilterAll", Run: DbFindEmbeddingProvidersFilterAll},
 		{Name: "DbFindEmbeddingProvidersFilterSupported", Run: DbFindEmbeddingProvidersFilterSupported},
 		{Name: "DbFindEmbeddingProvidersFilterDeprecated", Run: DbFindEmbeddingProvidersFilterDeprecated},
+		{Name: "DbFindEmbeddingProvidersOpenAI", Run: DbFindEmbeddingProvidersOpenAI},
+		{Name: "DbFindEmbeddingProvidersNvidia", Run: DbFindEmbeddingProvidersNvidia},
+		{Name: "DbFindEmbeddingProvidersHuggingFaceDedicated", Run: DbFindEmbeddingProvidersHuggingFaceDedicated},
 	}
 	harness.Register(t...)
 }
@@ -201,4 +204,264 @@ func countModels(result *results.FindEmbeddingProvidersResult) int {
 		total += len(provider.Models)
 	}
 	return total
+}
+
+// DbFindEmbeddingProvidersOpenAI verifies the concrete openai examples from the doc comments:
+//   - EmbeddingProviders["openai"] => EmbeddingProviderInfo{DisplayName: "OpenAI", ...}
+//   - openai.URL = "https://api.openai.com/v1/"
+//   - openai models include text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002
+//   - openai.SupportedAuthentication["HEADER"]: Enabled=true, Tokens[0]={Accepted: "x-embedding-api-key", Forwarded: "Authorization"}
+//   - openai.Parameters[0] (projectId): Type=STRING, Required=false, DisplayName="Organization ID", Hint="Add an (optional) organization ID"
+//   - text-embedding-3-small.ApiModelSupport.Status = ModelLifecycleStatusSupported
+//   - text-embedding-3-small.Parameters[vectorDimension]: Type="number", Required=true, DefaultValue="1536", Validation has "numericRange" key
+func DbFindEmbeddingProvidersOpenAI(e *harness.TestEnv) error {
+	ctx := context.Background()
+	dbAdmin, err := e.DefaultDb().DatabaseAdmin()
+
+	if err != nil {
+		return fmt.Errorf("DatabaseAdmin() failed: %w", err)
+	}
+	result, err := dbAdmin.FindEmbeddingProviders(ctx)
+	if err != nil {
+		return fmt.Errorf("FindEmbeddingProviders failed: %w", err)
+	}
+
+	openai, ok := result.EmbeddingProviders["openai"]
+	if !ok {
+		return fmt.Errorf("openai provider not found in EmbeddingProviders map")
+	}
+
+	// DisplayName (EmbeddingProviderInfo.DisplayName example)
+	if openai.DisplayName != "OpenAI" {
+		return fmt.Errorf("openai.DisplayName: got %q, want %q", openai.DisplayName, "OpenAI")
+	}
+
+	// URL (EmbeddingProviderInfo.URL example)
+	const wantURL = "https://api.openai.com/v1/"
+	if openai.URL == nil || *openai.URL != wantURL {
+		got := "<nil>"
+		if openai.URL != nil {
+			got = *openai.URL
+		}
+		return fmt.Errorf("openai.URL: got %q, want %q", got, wantURL)
+	}
+
+	// Model list (FindEmbeddingProvidersResult example)
+	wantModels := []string{"text-embedding-3-small", "text-embedding-3-large", "text-embedding-ada-002"}
+	modelSet := make(map[string]bool, len(openai.Models))
+	for _, m := range openai.Models {
+		modelSet[m.Name] = true
+	}
+	for _, name := range wantModels {
+		if !modelSet[name] {
+			return fmt.Errorf("openai: model %q not found", name)
+		}
+	}
+
+	// HEADER auth (EmbeddingProviderAuthInfo and EmbeddingProviderTokenInfo examples)
+	headerAuth, ok := openai.SupportedAuthentication["HEADER"]
+	if !ok {
+		return fmt.Errorf("openai.SupportedAuthentication[\"HEADER\"] not found")
+	}
+	if !headerAuth.Enabled {
+		return fmt.Errorf("openai HEADER auth.Enabled: got false, want true")
+	}
+	if len(headerAuth.Tokens) == 0 {
+		return fmt.Errorf("openai HEADER auth.Tokens: empty")
+	}
+	if headerAuth.Tokens[0].Accepted != "x-embedding-api-key" {
+		return fmt.Errorf("openai HEADER auth.Tokens[0].Accepted: got %q, want %q", headerAuth.Tokens[0].Accepted, "x-embedding-api-key")
+	}
+	if headerAuth.Tokens[0].Forwarded != "Authorization" {
+		return fmt.Errorf("openai HEADER auth.Tokens[0].Forwarded: got %q, want %q", headerAuth.Tokens[0].Forwarded, "Authorization")
+	}
+
+	// organizationId provider parameter (EmbeddingProviderProviderParameterInfo example)
+	orgID := findProviderParam(openai.Parameters, "organizationId")
+	if orgID == nil {
+		return fmt.Errorf("openai.Parameters: %q not found", "organizationId")
+	}
+	if orgID.Type != "STRING" {
+		return fmt.Errorf("openai.Parameters[organizationId].Type: got %q, want %q", orgID.Type, "STRING")
+	}
+	if orgID.Required {
+		return fmt.Errorf("openai.Parameters[organizationId].Required: got true, want false")
+	}
+	if orgID.DefaultValue != "" {
+		return fmt.Errorf("openai.Parameters[organizationId].DefaultValue: got %q, want %q", orgID.DefaultValue, "")
+	}
+	if orgID.DisplayName != "Organization ID" {
+		return fmt.Errorf("openai.Parameters[organizationId].DisplayName: got %q, want %q", orgID.DisplayName, "Organization ID")
+	}
+	if orgID.Hint != "Add an (optional) organization ID" {
+		return fmt.Errorf("openai.Parameters[organizationId].Hint: got %q, want %q", orgID.Hint, "Add an (optional) organization ID")
+	}
+
+	// text-embedding-3-small model details
+	small := findModel(openai.Models, "text-embedding-3-small")
+	if small == nil {
+		return fmt.Errorf("openai: model %q not found", "text-embedding-3-small")
+	}
+
+	// ApiModelSupport.Status (EmbeddingProviderModelApiSupportInfo example)
+	if small.ApiModelSupport.Status != results.ModelLifecycleStatusSupported {
+		return fmt.Errorf("openai text-embedding-3-small.ApiModelSupport.Status: got %q, want %q",
+			small.ApiModelSupport.Status, results.ModelLifecycleStatusSupported)
+	}
+
+	// vectorDimension model parameter (EmbeddingProviderModelParameterInfo example)
+	dimParam := findModelParam(small.Parameters, "vectorDimension")
+	if dimParam == nil {
+		return fmt.Errorf("openai text-embedding-3-small.Parameters: %q not found", "vectorDimension")
+	}
+	if dimParam.Type != "number" {
+		return fmt.Errorf("openai text-embedding-3-small.Parameters[vectorDimension].Type: got %q, want %q", dimParam.Type, "number")
+	}
+	if !dimParam.Required {
+		return fmt.Errorf("openai text-embedding-3-small.Parameters[vectorDimension].Required: got false, want true")
+	}
+	if dimParam.DefaultValue != "1536" {
+		return fmt.Errorf("openai text-embedding-3-small.Parameters[vectorDimension].DefaultValue: got %q, want %q", dimParam.DefaultValue, "1536")
+	}
+	if _, ok := dimParam.Validation["numericRange"]; !ok {
+		return fmt.Errorf("openai text-embedding-3-small.Parameters[vectorDimension].Validation: missing %q key", "numericRange")
+	}
+
+	slog.Info("DbFindEmbeddingProvidersOpenAI passed", "modelCount", len(openai.Models))
+	return nil
+}
+
+// DbFindEmbeddingProvidersNvidia verifies the concrete nvidia examples from the doc comments:
+//   - nvidia model NV-Embed-QA: VectorDimension=1024, Parameters=nil (EmbeddingProviderModelInfo example)
+//   - nvidia.SupportedAuthentication["NONE"] is enabled (SupportedAuthentication "NONE" description)
+func DbFindEmbeddingProvidersNvidia(e *harness.TestEnv) error {
+	ctx := context.Background()
+	dbAdmin, err := e.DefaultDb().DatabaseAdmin()
+	if err != nil {
+		return fmt.Errorf("DatabaseAdmin() failed: %w", err)
+	}
+	result, err := dbAdmin.FindEmbeddingProviders(ctx)
+	if err != nil {
+		return fmt.Errorf("FindEmbeddingProviders failed: %w", err)
+	}
+
+	nvidia, ok := result.EmbeddingProviders["nvidia"]
+	if !ok {
+		return fmt.Errorf("nvidia provider not found in EmbeddingProviders map")
+	}
+
+	// NV-Embed-QA model (EmbeddingProviderModelInfo example)
+	nvModel := findModel(nvidia.Models, "NV-Embed-QA")
+	if nvModel == nil {
+		return fmt.Errorf("nvidia: model %q not found", "NV-Embed-QA")
+	}
+	if nvModel.VectorDimension == nil {
+		return fmt.Errorf("nvidia NV-Embed-QA.VectorDimension: got nil, want 1024")
+	}
+	if *nvModel.VectorDimension != 1024 {
+		return fmt.Errorf("nvidia NV-Embed-QA.VectorDimension: got %d, want 1024", *nvModel.VectorDimension)
+	}
+	if len(nvModel.Parameters) != 0 {
+		return fmt.Errorf("nvidia NV-Embed-QA.Parameters: got %d params, want none", len(nvModel.Parameters))
+	}
+
+	// NONE auth (SupportedAuthentication "NONE" description)
+	noneAuth, ok := nvidia.SupportedAuthentication["NONE"]
+	if !ok {
+		return fmt.Errorf("nvidia.SupportedAuthentication[\"NONE\"] not found")
+	}
+	if !noneAuth.Enabled {
+		return fmt.Errorf("nvidia NONE auth.Enabled: got false, want true")
+	}
+
+	slog.Info("DbFindEmbeddingProvidersNvidia passed", "vectorDimension", *nvModel.VectorDimension)
+	return nil
+}
+
+// DbFindEmbeddingProvidersHuggingFaceDedicated verifies the huggingfaceDedicated examples from the doc comments:
+//   - huggingfaceDedicated.URL uses the f-string template (EmbeddingProviderInfo.URL example)
+//   - model "endpoint-defined-model": VectorDimension=nil (EmbeddingProviderModelInfo example)
+//   - endpoint-defined-model parameter "vectorDimension": Type="number", Required=true, DefaultValue="" (EmbeddingProviderInfo.Models example)
+func DbFindEmbeddingProvidersHuggingFaceDedicated(e *harness.TestEnv) error {
+	ctx := context.Background()
+	dbAdmin, err := e.DefaultDb().DatabaseAdmin()
+	if err != nil {
+		return fmt.Errorf("DatabaseAdmin() failed: %w", err)
+	}
+	result, err := dbAdmin.FindEmbeddingProviders(ctx)
+	if err != nil {
+		return fmt.Errorf("FindEmbeddingProviders failed: %w", err)
+	}
+
+	hf, ok := result.EmbeddingProviders["huggingfaceDedicated"]
+	if !ok {
+		return fmt.Errorf("huggingfaceDedicated provider not found in EmbeddingProviders map")
+	}
+
+	// URL (EmbeddingProviderInfo.URL example)
+	const wantURL = "https://{endpointName}.{regionName}.{cloudName}.endpoints.huggingface.cloud/embeddings"
+	if hf.URL == nil || *hf.URL != wantURL {
+		got := "<nil>"
+		if hf.URL != nil {
+			got = *hf.URL
+		}
+		return fmt.Errorf("huggingfaceDedicated.URL: got %q, want %q", got, wantURL)
+	}
+
+	// "endpoint-defined-model" model (EmbeddingProviderModelInfo example)
+	edModel := findModel(hf.Models, "endpoint-defined-model")
+	if edModel == nil {
+		return fmt.Errorf("huggingfaceDedicated: model %q not found", "endpoint-defined-model")
+	}
+	if edModel.VectorDimension != nil {
+		return fmt.Errorf("huggingfaceDedicated endpoint-defined-model.VectorDimension: got %d, want nil", *edModel.VectorDimension)
+	}
+
+	// vectorDimension model parameter (EmbeddingProviderInfo.Models example)
+	dimParam := findModelParam(edModel.Parameters, "vectorDimension")
+	if dimParam == nil {
+		return fmt.Errorf("huggingfaceDedicated endpoint-defined-model.Parameters: %q not found", "vectorDimension")
+	}
+	if dimParam.Type != "number" {
+		return fmt.Errorf("huggingfaceDedicated endpoint-defined-model.Parameters[vectorDimension].Type: got %q, want %q", dimParam.Type, "number")
+	}
+	if !dimParam.Required {
+		return fmt.Errorf("huggingfaceDedicated endpoint-defined-model.Parameters[vectorDimension].Required: got false, want true")
+	}
+	if dimParam.DefaultValue != "" {
+		return fmt.Errorf("huggingfaceDedicated endpoint-defined-model.Parameters[vectorDimension].DefaultValue: got %q, want %q", dimParam.DefaultValue, "")
+	}
+
+	slog.Info("DbFindEmbeddingProvidersHuggingFaceDedicated passed")
+	return nil
+}
+
+// findModel returns a pointer to the model with the given name, or nil if not found.
+func findModel(models []results.EmbeddingProviderModelInfo, name string) *results.EmbeddingProviderModelInfo {
+	for i := range models {
+		if models[i].Name == name {
+			return &models[i]
+		}
+	}
+	return nil
+}
+
+// findProviderParam returns a pointer to the provider parameter with the given name, or nil if not found.
+func findProviderParam(params []results.EmbeddingProviderProviderParameterInfo, name string) *results.EmbeddingProviderProviderParameterInfo {
+	for i := range params {
+		if params[i].Name == name {
+			return &params[i]
+		}
+	}
+	return nil
+}
+
+// findModelParam returns a pointer to the model parameter with the given name, or nil if not found.
+func findModelParam(params []results.EmbeddingProviderModelParameterInfo, name string) *results.EmbeddingProviderModelParameterInfo {
+	for i := range params {
+		if params[i].Name == name {
+			return &params[i]
+		}
+	}
+	return nil
 }

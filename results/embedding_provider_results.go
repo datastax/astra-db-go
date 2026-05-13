@@ -135,12 +135,12 @@ type EmbeddingProviderInfo struct {
 	//	// openai.Parameters[0]:
 	//	EmbeddingProviderProviderParameterInfo{
 	//	    EmbeddingProviderModelParameterInfo: EmbeddingProviderModelParameterInfo{
-	//	        Name:         "projectId",
+	//	        Name:         "organizationId",
 	//	        Type:         "STRING",
 	//	        Required:     false,
 	//	        DefaultValue: "",
 	//	        Validation:   nil,
-	//	        Help:         "Optional, OpenAI Project ID. If provided passed as `OpenAI-Project` header.",
+	//	        Help:         "Organization ID will be passed as an OpenAI organization",
 	//	    },
 	//	    DisplayName: "Organization ID",
 	//	    Hint:        "Add an (optional) organization ID",
@@ -281,12 +281,12 @@ type EmbeddingProviderModelParameterInfo struct {
 //	// openai.Parameters[0]:
 //	EmbeddingProviderProviderParameterInfo{
 //	    EmbeddingProviderModelParameterInfo: EmbeddingProviderModelParameterInfo{
-//	        Name:         "projectId",
+//	        Name:         "organizationId",
 //	        Type:         "STRING",
 //	        Required:     false,
 //	        DefaultValue: "",
 //	        Validation:   nil,
-//	        Help:         "Optional, OpenAI Project ID. If provided passed as `OpenAI-Project` header.",
+//	        Help:         "Organization ID will be passed as an OpenAI organization",
 //	    },
 //	    DisplayName: "Organization ID",
 //	    Hint:        "Add an (optional) organization ID",
