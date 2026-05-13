@@ -1623,6 +1623,71 @@ func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailab
 	return b
 }
 
+// FindEmbeddingProvidersOption configures a FindEmbeddingProviders operation.
+// You can use the fluent-style builder or a pointer to [FindEmbeddingProvidersOptions] interchangeably.
+//
+// Example using the fluent builder ([FindEmbeddingProviders]):
+//
+//	opts := options.FindEmbeddingProviders().SetFilterModelStatus(...)
+//
+// Example using a pointer to [FindEmbeddingProvidersOptions] without the fluent builder:
+//
+//	opts := &options.FindEmbeddingProvidersOptions{...}
+type FindEmbeddingProvidersOption = Builder[FindEmbeddingProvidersOptions]
+
+// Setters implements Builder[FindEmbeddingProvidersOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[FindEmbeddingProvidersOptions].
+func (o *FindEmbeddingProvidersOptions) Setters() []func(*FindEmbeddingProvidersOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for FindEmbeddingProvidersOptions.
+func (o *FindEmbeddingProvidersOptions) Validate() error { return nil }
+
+// findEmbeddingProvidersOptionsBuilder is a builder for FindEmbeddingProvidersOptions.
+type findEmbeddingProvidersOptionsBuilder struct {
+	setters []func(*FindEmbeddingProvidersOptions)
+}
+
+// FindEmbeddingProviders creates a new builder for [FindEmbeddingProvidersOptions].
+func FindEmbeddingProviders() *findEmbeddingProvidersOptionsBuilder {
+	return &findEmbeddingProvidersOptionsBuilder{}
+}
+
+// Setters implements Builder[FindEmbeddingProvidersOptions].
+func (b *findEmbeddingProvidersOptionsBuilder) Setters() []func(*FindEmbeddingProvidersOptions) {
+	return b.setters
+}
+
+// SetFilterModelStatus sets the FilterModelStatus option.
+// FilterModelStatus filters the models returned for each provider by their lifecycle status.
+//
+//   - If nil: the API defaults to returning only SUPPORTED models.
+//   - If set to ModelLifecycleStatusAll (""): all models are returned regardless of status.
+//   - If set to a specific status: only models with that status are returned.
+//
+// Example:
+//
+//	// Only deprecated models
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
+//
+//	// All models regardless of status
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusAll)
+func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findEmbeddingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) { o.FilterModelStatus = &v })
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *findEmbeddingProvidersOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *findEmbeddingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // IndexingOption configures a Indexing operation.
 // You can use the fluent-style builder or a pointer to [IndexingOptions] interchangeably.
 //
