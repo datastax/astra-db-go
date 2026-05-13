@@ -1706,19 +1706,22 @@ func (b *findEmbeddingProvidersOptionsBuilder) Setters() []func(*FindEmbeddingPr
 }
 
 // SetFilterModelStatus sets the FilterModelStatus option.
-// FilterModelStatus filters the models returned for each provider by their lifecycle status.
+// FilterModelStatus filters models by their lifecycle status.
 //
-//   - If nil: the API defaults to returning only SUPPORTED models.
-//   - If set to ModelLifecycleStatusAll (""): all models are returned regardless of status.
-//   - If set to a specific status: only models with that status are returned.
+//   - If not provided: defaults to SUPPORTED models only.
+//   - If set to ModelLifecycleStatusAll (""): includes all statuses (SUPPORTED, DEPRECATED, END_OF_LIFE).
+//   - If set to a specific status: includes only models with that status.
 //
 // Example:
 //
-//	// Only deprecated models
-//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
+//	// Only supported models (default behavior)
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusSupported)
 //
 //	// All models regardless of status
 //	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusAll)
+//
+//	// Only deprecated models
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
 func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findEmbeddingProvidersOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) { o.FilterModelStatus = &v })
 	return b
