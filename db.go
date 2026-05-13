@@ -38,14 +38,12 @@ var astraEndpointRegex = regexp.MustCompile(
 // Options set on the database are inherited by all collections, tables,
 // and commands created from it, unless overridden at a lower level.
 type Db struct {
-	// rawURL holds the endpoint for non-Astra databases, or for Astra databases
-	// connected via a private endpoint where id/region cannot be parsed.
-	rawURL  string
-	id      *string
-	region  *string
-	env     options.AstraEnvironment
-	client  *DataAPIClient
-	options *options.APIOptions
+	endpoint string
+	id       *string
+	region   *string
+	env      options.AstraEnvironment
+	client   *DataAPIClient
+	options  *options.APIOptions
 }
 
 func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
@@ -59,14 +57,8 @@ func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.
 }
 
 // Endpoint returns the database API endpoint.
-//
-// For Astra databases with a parsed ID and region, the endpoint is computed from those values.
-// For all other databases (non-Astra, or Astra private endpoints), the raw URL is returned.
 func (d *Db) Endpoint() string {
-	if d.id != nil && d.region != nil {
-		return d.env.AstraDBEndpoint(*d.id, *d.region)
-	}
-	return d.rawURL
+	return d.endpoint
 }
 
 // ID returns the database UUID.
@@ -85,7 +77,7 @@ func (d *Db) ID() (string, error) {
 		return "", fmt.Errorf("db.ID() is only available for Astra databases (current backend: %s)", d.client.dataAPIBackend)
 	}
 	if d.id == nil {
-		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database ID could not be parsed", d.rawURL)
+		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database ID could not be parsed", d.endpoint)
 	}
 	return *d.id, nil
 }
@@ -106,7 +98,7 @@ func (d *Db) Region() (string, error) {
 		return "", fmt.Errorf("db.Region() is only available for Astra databases (current backend: %s)", d.client.dataAPIBackend)
 	}
 	if d.region == nil {
-		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database region could not be parsed", d.rawURL)
+		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database region could not be parsed", d.endpoint)
 	}
 	return *d.region, nil
 }

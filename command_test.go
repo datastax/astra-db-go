@@ -107,8 +107,11 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 }
 
 func TestURLDatabaseAdmin(t *testing.T) {
+	id, region := "db-id", "us-east-1"
 	db := &Db{
 		endpoint: "https://db-id-us-east-1.apps.astra.datastax.com",
+		id:       &id,
+		region:   &region,
 	}
 	cmd := newDatabaseAdminCmd(db, "findKeyspaces", nil)
 	got, err := cmd.url()

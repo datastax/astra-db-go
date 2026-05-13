@@ -71,8 +71,9 @@ func (c *DataAPIClient) Options() *options.APIOptions {
 //	)
 func (c *DataAPIClient) Database(endpoint string, opts ...options.APIOption) *Db {
 	db := &Db{
-		client:  c,
-		options: options.NewAPIOptions(opts...),
+		endpoint: endpoint,
+		client:   c,
+		options:  options.NewAPIOptions(opts...),
 	}
 	if c.dataAPIBackend.IsAstra() {
 		id, region := parseAstraEndpointComponents(endpoint)
@@ -80,11 +81,8 @@ func (c *DataAPIClient) Database(endpoint string, opts ...options.APIOption) *Db
 			db.id = &id
 			db.region = &region
 			db.env = options.ParseAstraEnvironmentFromEndpoint(endpoint)
-			return db
 		}
 	}
-	// Non-Astra, or Astra with a private/unrecognized endpoint.
-	db.rawURL = endpoint
 	return db
 }
 

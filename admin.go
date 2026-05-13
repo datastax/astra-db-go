@@ -445,11 +445,12 @@ type createDatabaseRequest struct {
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (a *AstraAdmin) DbAdmin(id, region string, opts ...options.APIOption) *AstraDbAdmin {
 	db := &Db{
-		id:      &id,
-		region:  &region,
-		env:     a.astraEnvironment,
-		client:  a.client,
-		options: options.NewAPIOptions(opts...),
+		endpoint: a.astraEnvironment.AstraDBEndpoint(id, region),
+		id:       &id,
+		region:   &region,
+		env:      a.astraEnvironment,
+		client:   a.client,
+		options:  options.NewAPIOptions(opts...),
 	}
 	return &AstraDbAdmin{admin: a, db: db}
 }
@@ -598,7 +599,14 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 	}
 
 	region := params.Region
-	db := &Db{id: &dbID, region: &region, env: a.astraEnvironment, client: a.client, options: a.options}
+	db := &Db{
+		endpoint: a.astraEnvironment.AstraDBEndpoint(dbID, region),
+		id:       &dbID,
+		region:   &region,
+		env:      a.astraEnvironment,
+		client:   a.client,
+		options:  a.options,
+	}
 	dbAdmin := &AstraDbAdmin{admin: a, db: db}
 
 	if !*merged.Blocking {

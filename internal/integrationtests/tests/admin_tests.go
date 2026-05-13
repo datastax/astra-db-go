@@ -183,7 +183,7 @@ func AdminKeyspaceCreateListDrop(e *harness.TestEnv) error {
 	db := databases[0]
 
 	// Get an AstraDbAdmin for this database
-	dbAdmin := admin.DbAdmin(db.ID)
+	dbAdmin := admin.DbAdminFromEndpoint(db.Regions[0].APIEndpoint)
 
 	// Create a test keyspace with a unique name
 	ksName := fmt.Sprintf("go_sdk_test_ks_%d", time.Now().UnixMilli())
