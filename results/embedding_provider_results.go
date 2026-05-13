@@ -78,14 +78,13 @@ type EmbeddingProviderInfo struct {
 	//   - "HEADER": Authentication using direct API keys passed through headers on every Data API call.
 	//
 	//	    coll := db.Collection("my_coll",
-	//	        options.API().SetHeaders(map[string]string{
+	//	        options.WithHeaders(map[string]string{
 	//	            // Not tied to the collection; can be different every time.
 	//	            "x-embedding-api-key": "sk-...",
 	//	        }),
 	//	    )
 	//
-	//   - "SHARED_SECRET": Authentication tied to a collection at collections creation time using the Astra KMS.
-	//TODO: confirm this example and comment
+	//   - "SHARED_SECRET": Authentication tied to a collection at collection creation time using the Astra KMS.
 	//
 	//	    _, err = db.CreateCollection(ctx, "my_coll",
 	//	        options.CreateCollection().SetVector(
@@ -94,7 +93,7 @@ type EmbeddingProviderInfo struct {
 	//	                    SetProvider("openai").
 	//	                    SetModelName("text-embedding-3-small").
 	//	                    // Name of the key in Astra portal's OpenAI integration (KMS):
-	//	                    SetProviderKey("*KEY_NAME*"),
+	//	                    SetAuthentication(map[string]any{"providerKey": "*KEY_NAME*"}),
 	//	            ),
 	//	        ),
 	//	    )

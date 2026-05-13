@@ -2805,3 +2805,17 @@ func (b *vectorServiceOptionsBuilder) SetModelName(v string) *vectorServiceOptio
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.ModelName = &v })
 	return b
 }
+
+// SetAuthentication sets the Authentication option.
+// Use this to pass collection-bound credentials, e.g. map[string]any{"providerKey": "*KEY_NAME*"}.
+func (b *vectorServiceOptionsBuilder) SetAuthentication(v map[string]any) *vectorServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Authentication = v })
+	return b
+}
+
+// SetParameters sets the Parameters option.
+// Use this to pass arbitrary per-model or per-provider parameters.
+func (b *vectorServiceOptionsBuilder) SetParameters(v map[string]any) *vectorServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Parameters = v })
+	return b
+}
