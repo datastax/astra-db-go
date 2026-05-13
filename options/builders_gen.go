@@ -2793,7 +2793,8 @@ func (b *vectorServiceOptionsBuilder) Setters() []func(*VectorServiceOptions) {
 }
 
 // SetProvider sets the Provider option.
-// Provider is the embedding provider name (e.g., "openai", "huggingface").
+// Provider is the name of the embedding provider which provides the model to use
+// (e.g., "openai", "nvidia").
 func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Provider = &v })
 	return b
@@ -2801,20 +2802,32 @@ func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOption
 
 // SetModelName sets the ModelName option.
 // ModelName is the name of the embedding model to use.
+// Use "endpoint-defined-model" for providers like huggingfaceDedicated where the
+// model is defined by the endpoint rather than selected by name.
 func (b *vectorServiceOptionsBuilder) SetModelName(v string) *vectorServiceOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.ModelName = &v })
 	return b
 }
 
 // SetAuthentication sets the Authentication option.
-// Use this to pass collection-bound credentials, e.g. map[string]any{"providerKey": "*KEY_NAME*"}.
+// Authentication holds any necessary collection-bound authentication credentials.
+//
+// Most commonly, set providerKey to the name of a key stored in the Astra KMS
+// (Astra portal integration) to use for SHARED_SECRET authentication:
+//
+//	Authentication: map[string]any{"providerKey": "*KEY_NAME*"}
 func (b *vectorServiceOptionsBuilder) SetAuthentication(v map[string]any) *vectorServiceOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Authentication = v })
 	return b
 }
 
 // SetParameters sets the Parameters option.
-// Use this to pass arbitrary per-model or per-provider parameters.
+// Parameters holds arbitrary parameters that may be required on a per-model or
+// per-provider basis. Not all providers require parameters.
+//
+// Example (openai, optional projectId):
+//
+//	Parameters: map[string]any{"projectId": "my-project"}
 func (b *vectorServiceOptionsBuilder) SetParameters(v map[string]any) *vectorServiceOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Parameters = v })
 	return b
