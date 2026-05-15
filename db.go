@@ -18,20 +18,12 @@ package astradb
 import (
 	"context"
 	"fmt"
-	"net/url"
-	"regexp"
-	"strings"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
-)
-
-// astraEndpointRegex matches Astra Data API endpoints and captures the database UUID and region.
-// Format: https://{uuid}-{region}.apps.astra[-dev|-test].datastax.com
-var astraEndpointRegex = regexp.MustCompile(
-	`(?i)^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-([a-z0-9_-]+)\.apps\.astra(?:-(?:dev|test))?\.datastax\.com`,
 )
 
 // Db represents a connection to a specific Astra DB database.
@@ -45,6 +37,20 @@ type Db struct {
 	env      options.AstraEnvironment
 	client   *DataAPIClient
 	options  *options.APIOptions
+}
+
+// Constructors
+
+func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, apiOptions *options.APIOptions) *Db {
+	return &Db{env.AstraDBEndpoint(id, region), ptr.To(id), ptr.To(region), env, client, apiOptions}
+}
+
+func newDbFromEndpoint(endpoint string, client *DataAPIClient, apiOptions *options.APIOptions) *Db {
+	id, region, env := options.ParseAstraEndpoint(endpoint)
+	if id != "" {
+		return &Db{endpoint, ptr.To(id), ptr.To(region), env, client, apiOptions}
+	}
+	return &Db{endpoint, nil, nil, env, client, apiOptions}
 }
 
 // region Misc
@@ -444,21 +450,6 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 	}
 	// Non-Astra backends use the Data API.
 	return &DataAPIDatabaseAdmin{db: d}, nil
-}
-
-// parseAstraEndpointComponents extracts the database UUID and region from an Astra Data API endpoint.
-// Returns empty strings if the endpoint does not match the expected Astra format.
-// Expected format: https://{uuid}-{region}.apps.astra[-dev|-test].datastax.com
-func parseAstraEndpointComponents(endpoint string) (id, region string) {
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return "", ""
-	}
-	m := astraEndpointRegex.FindStringSubmatch(u.Hostname())
-	if m == nil {
-		return "", ""
-	}
-	return strings.ToLower(m[1]), strings.ToLower(m[2])
 }
 
 // endregion

@@ -118,11 +118,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 
 func TestURLDatabaseAdmin(t *testing.T) {
 	id, region := "db-id", "us-east-1"
-	db := &Db{
-		endpoint: "https://db-id-us-east-1.apps.astra.datastax.com",
-		id:       &id,
-		region:   &region,
-	}
+	db := newDbFromID(id, region, options.AstraEnvironmentProd, nil, nil)
 	cmd := newDatabaseAdminCmd(db, "findKeyspaces", nil)
 	got, err := cmd.url()
 	if err != nil {
@@ -136,10 +132,7 @@ func TestURLDatabaseAdmin(t *testing.T) {
 
 func TestURLNonAstraBackend(t *testing.T) {
 	hcd := options.DataAPIBackendHCD
-	db := &Db{
-		endpoint: "http://localhost:8181",
-		options:  &options.APIOptions{DataAPIBackend: &hcd},
-	}
+	db := newDbFromEndpoint("http://localhost:8181", nil, &options.APIOptions{DataAPIBackend: &hcd})
 	cmd := command{
 		db:           db,
 		name:         "find",

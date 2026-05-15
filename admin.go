@@ -443,16 +443,9 @@ type createDatabaseRequest struct {
 //
 //	dbAdmin := admin.DbAdmin("a6a1d8d6-...-377566f345bf", "us-east1")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DbAdmin(id, region string, opts ...options.APIOption) *AstraDbAdmin {
-	db := &Db{
-		endpoint: a.astraEnvironment.AstraDBEndpoint(id, region),
-		id:       &id,
-		region:   &region,
-		env:      a.astraEnvironment,
-		client:   a.client,
-		options:  options.NewAPIOptions(opts...),
-	}
-	return &AstraDbAdmin{admin: a, db: db}
+func (a *AstraAdmin) DbAdmin(id, region string, opts *options.APIOptions) *AstraDbAdmin {
+	return &AstraDbAdmin{a, newDbFromID(id, region, a.astraEnvironment,
+		a.client, opts)}
 }
 
 // DbAdminFromEndpoint returns an AstraDbAdmin handle for the given database endpoint.
@@ -466,9 +459,8 @@ func (a *AstraAdmin) DbAdmin(id, region string, opts ...options.APIOption) *Astr
 //
 //	dbAdmin := admin.DbAdminFromEndpoint("https://<db_id>-<region>.apps.astra.datastax.com")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DbAdminFromEndpoint(endpoint string, opts ...options.APIOption) *AstraDbAdmin {
-	db := a.client.Database(endpoint, opts...)
-	return &AstraDbAdmin{admin: a, db: db}
+func (a *AstraAdmin) DbAdminFromEndpoint(endpoint string, opts *options.APIOptions) *AstraDbAdmin {
+	return &AstraDbAdmin{a, newDbFromEndpoint(endpoint, a.client, opts)}
 }
 
 type AwaitStatusOptions struct {
@@ -599,15 +591,8 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 	}
 
 	region := params.Region
-	db := &Db{
-		endpoint: a.astraEnvironment.AstraDBEndpoint(dbID, region),
-		id:       &dbID,
-		region:   &region,
-		env:      a.astraEnvironment,
-		client:   a.client,
-		options:  a.options,
-	}
-	dbAdmin := &AstraDbAdmin{admin: a, db: db}
+
+	dbAdmin := a.DbAdmin(dbID, region, a.options)
 
 	if !*merged.Blocking {
 		return dbAdmin, nil

@@ -52,11 +52,11 @@ type FindEmbeddingProvidersOptions struct {
 	//
 	//	// Only deprecated models
 	//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
-	FilterModelStatus *ModelLifecycleStatus `json:"-"`
+	FilterModelStatus *ModelLifecycleStatus
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions
 }
 
 // ListCollectionsOptions represents options for listing collections in a database.
