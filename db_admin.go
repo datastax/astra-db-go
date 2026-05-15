@@ -59,7 +59,7 @@ func (d *AstraDbAdmin) ID() string {
 //	info, err := dbAdmin.Info(ctx)
 //	fmt.Println("Status:", info.Status)
 func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
-	return d.admin.GetDatabase(ctx, *d.db.id)
+	return d.admin.GetDatabase(ctx, d.ID())
 }
 
 // Drop terminates the database, permanently deleting all of its data.
@@ -74,7 +74,7 @@ func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
 //
 //	err := dbAdmin.Drop(ctx)
 func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOption) error {
-	return d.admin.DropDatabase(ctx, *d.db.id, opts...)
+	return d.admin.DropDatabase(ctx, d.ID(), opts...)
 }
 
 // ListKeyspaces returns the keyspace names for this database, with the
@@ -84,7 +84,7 @@ func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOpt
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (d *AstraDbAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
-	db, err := d.admin.GetDatabase(ctx, *d.db.id)
+	db, err := d.admin.GetDatabase(ctx, d.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+*d.db.id+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
 	_, err = cmd.execute(ctx)
 	if err != nil {
 		return err
@@ -120,7 +120,7 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
-	err = d.admin.awaitStatus(ctx, *d.db.id, awaitOpts)
+	err = d.admin.awaitStatus(ctx, d.ID(), awaitOpts)
 	return err
 }
 
@@ -135,7 +135,7 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+*d.db.id+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
 	_, err = cmd.execute(ctx)
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
-	err = d.admin.awaitStatus(ctx, *d.db.id, awaitOpts)
+	err = d.admin.awaitStatus(ctx, d.ID(), awaitOpts)
 	return err
 }
 
