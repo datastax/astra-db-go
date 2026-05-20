@@ -211,6 +211,16 @@ func (o *CreateCollectionOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for FindEmbeddingProvidersOptions.
+// Returns all non-nil Validator fields.
+func (o *FindEmbeddingProvidersOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for ListCollectionNamesOptions.
 // Returns all non-nil Validator fields.
 func (o *ListCollectionNamesOptions) Children() []Validator {

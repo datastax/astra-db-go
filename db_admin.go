@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/results"
 )
 
 // AstraDbAdmin provides admin operations for a specific Astra database
@@ -42,13 +43,13 @@ import (
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 type AstraDbAdmin struct {
-	id    string
 	admin *AstraAdmin
+	db    *Db
 }
 
 // ID returns the database ID.
 func (d *AstraDbAdmin) ID() string {
-	return d.id
+	return *d.db.id
 }
 
 // Info retrieves full database information from the DevOps API.
@@ -58,7 +59,7 @@ func (d *AstraDbAdmin) ID() string {
 //	info, err := dbAdmin.Info(ctx)
 //	fmt.Println("Status:", info.Status)
 func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
-	return d.admin.GetDatabase(ctx, d.id)
+	return d.admin.GetDatabase(ctx, d.ID())
 }
 
 // Drop terminates the database, permanently deleting all of its data.
@@ -73,7 +74,7 @@ func (d *AstraDbAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
 //
 //	err := dbAdmin.Drop(ctx)
 func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOption) error {
-	return d.admin.DropDatabase(ctx, d.id, opts...)
+	return d.admin.DropDatabase(ctx, d.ID(), opts...)
 }
 
 // ListKeyspaces returns the keyspace names for this database, with the
@@ -83,7 +84,7 @@ func (d *AstraDbAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOpt
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (d *AstraDbAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
-	db, err := d.admin.GetDatabase(ctx, d.id)
+	db, err := d.admin.GetDatabase(ctx, d.ID())
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +105,7 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.id+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
 	_, err = cmd.execute(ctx)
 	if err != nil {
 		return err
@@ -119,7 +120,7 @@ func (d *AstraDbAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
-	err = d.admin.awaitStatus(ctx, d.id, awaitOpts)
+	err = d.admin.awaitStatus(ctx, d.ID(), awaitOpts)
 	return err
 }
 
@@ -134,7 +135,7 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.id+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
 	_, err = cmd.execute(ctx)
 	if err != nil {
 		return err
@@ -149,6 +150,31 @@ func (d *AstraDbAdmin) DropKeyspace(ctx context.Context, keyspace string, opts .
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
-	err = d.admin.awaitStatus(ctx, d.id, awaitOpts)
+	err = d.admin.awaitStatus(ctx, d.ID(), awaitOpts)
 	return err
+}
+
+// FindEmbeddingProviders returns information about all available embedding providers
+// and their supported models, authentication methods, and parameters.
+//
+// By default only SUPPORTED models are included. Use [options.FindEmbeddingProvidersOptions]
+// to filter by a different lifecycle status, or pass [options.ModelLifecycleStatusAll] to
+// include models of every status.
+//
+// Example:
+//
+//	result, err := dbAdmin.FindEmbeddingProviders(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for name, provider := range result.EmbeddingProviders {
+//	    fmt.Printf("Provider: %s (%s)\n", name, provider.DisplayName)
+//	    for _, model := range provider.Models {
+//	        fmt.Printf("  Model: %s\n", model.Name)
+//	    }
+//	}
+//
+// Note: Warnings are accessible via the WarningHandler option callback only.
+func (d *AstraDbAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
+	return findEmbeddingProviders(d.db, ctx, opts...)
 }

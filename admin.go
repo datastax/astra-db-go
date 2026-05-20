@@ -433,20 +433,34 @@ type createDatabaseRequest struct {
 	CapacityUnits int    `json:"capacityUnits"`
 }
 
-// DbAdmin returns an AstraDbAdmin handle for the given database ID.
+// DbAdmin returns an AstraDbAdmin handle for the given database ID and region.
 //
 // No API calls are made; this simply creates a handle for performing
-// admin operations on the specified database.
+// admin operations on the specified database. Options provided override the
+// defaults set on the DataAPIClient for the underlying Db instance.
 //
 // Example:
 //
-//	dbAdmin := admin.DbAdmin("database-id")
+//	dbAdmin := admin.DbAdmin("a6a1d8d6-...-377566f345bf", "us-east1")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DbAdmin(databaseID string) *AstraDbAdmin {
-	return &AstraDbAdmin{
-		id:    databaseID,
-		admin: a,
-	}
+func (a *AstraAdmin) DbAdmin(id, region string, opts *options.APIOptions) *AstraDbAdmin {
+	return &AstraDbAdmin{a, newDbFromID(id, region, a.astraEnvironment,
+		a.client, opts)}
+}
+
+// DbAdminFromEndpoint returns an AstraDbAdmin handle for the given database endpoint.
+//
+// The endpoint should be in the form https://<db_id>-<region>.apps.astra.datastax.com.
+// No API calls are made; this simply creates a handle for performing admin operations
+// on the specified database. Options provided override the defaults set on the
+// DataAPIClient for the underlying Db instance.
+//
+// Example:
+//
+//	dbAdmin := admin.DbAdminFromEndpoint("https://<db_id>-<region>.apps.astra.datastax.com")
+//	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
+func (a *AstraAdmin) DbAdminFromEndpoint(endpoint string, opts *options.APIOptions) *AstraDbAdmin {
+	return &AstraDbAdmin{a, newDbFromEndpoint(endpoint, a.client, opts)}
 }
 
 type AwaitStatusOptions struct {
@@ -576,7 +590,9 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 		return nil, fmt.Errorf("missing Location header in response")
 	}
 
-	dbAdmin := a.DbAdmin(dbID)
+	region := params.Region
+
+	dbAdmin := a.DbAdmin(dbID, region, a.options)
 
 	if !*merged.Blocking {
 		return dbAdmin, nil

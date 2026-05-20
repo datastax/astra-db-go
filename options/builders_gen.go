@@ -1669,6 +1669,74 @@ func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailab
 	return b
 }
 
+// FindEmbeddingProvidersOption configures a FindEmbeddingProviders operation.
+// You can use the fluent-style builder or a pointer to [FindEmbeddingProvidersOptions] interchangeably.
+//
+// Example using the fluent builder ([FindEmbeddingProviders]):
+//
+//	opts := options.FindEmbeddingProviders().SetFilterModelStatus(...)
+//
+// Example using a pointer to [FindEmbeddingProvidersOptions] without the fluent builder:
+//
+//	opts := &options.FindEmbeddingProvidersOptions{...}
+type FindEmbeddingProvidersOption = Builder[FindEmbeddingProvidersOptions]
+
+// Setters implements Builder[FindEmbeddingProvidersOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[FindEmbeddingProvidersOptions].
+func (o *FindEmbeddingProvidersOptions) Setters() []func(*FindEmbeddingProvidersOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for FindEmbeddingProvidersOptions.
+func (o *FindEmbeddingProvidersOptions) Validate() error { return nil }
+
+// findEmbeddingProvidersOptionsBuilder is a builder for FindEmbeddingProvidersOptions.
+type findEmbeddingProvidersOptionsBuilder struct {
+	setters []func(*FindEmbeddingProvidersOptions)
+}
+
+// FindEmbeddingProviders creates a new builder for [FindEmbeddingProvidersOptions].
+func FindEmbeddingProviders() *findEmbeddingProvidersOptionsBuilder {
+	return &findEmbeddingProvidersOptionsBuilder{}
+}
+
+// Setters implements Builder[FindEmbeddingProvidersOptions].
+func (b *findEmbeddingProvidersOptionsBuilder) Setters() []func(*FindEmbeddingProvidersOptions) {
+	return b.setters
+}
+
+// SetFilterModelStatus sets the FilterModelStatus option.
+// FilterModelStatus filters models by their lifecycle status.
+//
+//   - If not provided: defaults to SUPPORTED models only.
+//   - If set to ModelLifecycleStatusAll (""): includes all statuses (SUPPORTED, DEPRECATED, END_OF_LIFE).
+//   - If set to a specific status: includes only models with that status.
+//
+// Example:
+//
+//	// Only supported models (default behavior)
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusSupported)
+//
+//	// All models regardless of status
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusAll)
+//
+//	// Only deprecated models
+//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
+func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findEmbeddingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) { o.FilterModelStatus = &v })
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *findEmbeddingProvidersOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *findEmbeddingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
+		o.APIOptions = Merge(v...)
+	})
+	return b
+}
+
 // IndexingOption configures a Indexing operation.
 // You can use the fluent-style builder or a pointer to [IndexingOptions] interchangeably.
 //
@@ -2725,7 +2793,8 @@ func (b *vectorServiceOptionsBuilder) Setters() []func(*VectorServiceOptions) {
 }
 
 // SetProvider sets the Provider option.
-// Provider is the embedding provider name (e.g., "openai", "huggingface").
+// Provider is the name of the embedding provider which provides the model to use
+// (e.g., "openai", "nvidia").
 func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Provider = &v })
 	return b
@@ -2733,7 +2802,33 @@ func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOption
 
 // SetModelName sets the ModelName option.
 // ModelName is the name of the embedding model to use.
+// Use "endpoint-defined-model" for providers like huggingfaceDedicated where the
+// model is defined by the endpoint rather than selected by name.
 func (b *vectorServiceOptionsBuilder) SetModelName(v string) *vectorServiceOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.ModelName = &v })
+	return b
+}
+
+// SetAuthentication sets the Authentication option.
+// Authentication holds any necessary collection-bound authentication credentials.
+//
+// Most commonly, set providerKey to the name of a key stored in the Astra KMS
+// (Astra portal integration) to use for SHARED_SECRET authentication:
+//
+//	Authentication: map[string]any{"providerKey": "*KEY_NAME*"}
+func (b *vectorServiceOptionsBuilder) SetAuthentication(v map[string]any) *vectorServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Authentication = v })
+	return b
+}
+
+// SetParameters sets the Parameters option.
+// Parameters holds arbitrary parameters that may be required on a per-model or
+// per-provider basis. Not all providers require parameters.
+//
+// Example (openai, optional projectId):
+//
+//	Parameters: map[string]any{"projectId": "my-project"}
+func (b *vectorServiceOptionsBuilder) SetParameters(v map[string]any) *vectorServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Parameters = v })
 	return b
 }

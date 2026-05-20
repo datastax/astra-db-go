@@ -117,13 +117,36 @@ type VectorOptions struct {
 	Service *VectorServiceOptions `json:"service,omitempty"`
 }
 
-// VectorServiceOptions configures the embedding service for vectorize.
+// VectorServiceOptions configures the embedding service for vectorize, to automatically
+// transform text into a vector ready for semantic vector searching.
+//
+// You can find out more information about each provider/model in the DataStax docs, or
+// through [DatabaseAdmin.FindEmbeddingProviders].
 type VectorServiceOptions struct {
-	// Provider is the embedding provider name (e.g., "openai", "huggingface").
+	// Provider is the name of the embedding provider which provides the model to use
+	// (e.g., "openai", "nvidia").
 	Provider *string `json:"provider,omitempty"`
 
 	// ModelName is the name of the embedding model to use.
+	// Use "endpoint-defined-model" for providers like huggingfaceDedicated where the
+	// model is defined by the endpoint rather than selected by name.
 	ModelName *string `json:"modelName,omitempty"`
+
+	// Authentication holds any necessary collection-bound authentication credentials.
+	//
+	// Most commonly, set providerKey to the name of a key stored in the Astra KMS
+	// (Astra portal integration) to use for SHARED_SECRET authentication:
+	//
+	//	Authentication: map[string]any{"providerKey": "*KEY_NAME*"}
+	Authentication map[string]any `json:"authentication,omitempty"`
+
+	// Parameters holds arbitrary parameters that may be required on a per-model or
+	// per-provider basis. Not all providers require parameters.
+	//
+	// Example (openai, optional projectId):
+	//
+	//	Parameters: map[string]any{"projectId": "my-project"}
+	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
 // Validate implements Validator for VectorServiceOptions.

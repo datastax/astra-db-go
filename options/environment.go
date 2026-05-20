@@ -17,6 +17,7 @@ package options
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 )
 
@@ -56,23 +57,34 @@ func (e AstraEnvironment) AstraDBEndpoint(id, region string) string {
 	}
 }
 
-// ParseAstraEnvironmentFromEndpoint detects the AstraEnvironment from an endpoint URL's hostname.
-// Returns AstraEnvironmentDev for *.apps.astra-dev.datastax.com,
-// AstraEnvironmentTest for *.apps.astra-test.datastax.com,
-// and AstraEnvironmentProd for everything else.
-func ParseAstraEnvironmentFromEndpoint(endpoint string) AstraEnvironment {
+// astraEndpointRegex matches Astra Data API endpoints and captures the database UUID and region.
+// Format: https://{uuid}-{region}.apps.astra[-dev|-test].datastax.com
+var astraEndpointRegex = regexp.MustCompile(
+	`(?i)^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})-([a-z0-9_-]+)\.apps\.astra(?:-(?:dev|test))?\.datastax\.com`,
+)
+
+// ParseAstraEndpoint extracts the database UUID, region, and AstraEnvironment from an Astra Data API endpoint.
+// Returns empty strings and prod env if the endpoint does not match the expected Astra format.
+// Expected format: https://{uuid}-{region}.apps.astra[-dev|-test].datastax.com
+func ParseAstraEndpoint(endpoint string) (id, region string, env AstraEnvironment) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
-		return AstraEnvironmentProd
+		return "", "", AstraEnvironmentProd
 	}
+	m := astraEndpointRegex.FindStringSubmatch(u.Hostname())
+	if m == nil {
+		return "", "", AstraEnvironmentProd
+	}
+	id = strings.ToLower(m[1])
+	region = strings.ToLower(m[2])
 	host := strings.ToLower(u.Hostname())
 	switch {
 	case strings.HasSuffix(host, ".apps.astra-dev.datastax.com"):
-		return AstraEnvironmentDev
+		return id, region, AstraEnvironmentDev
 	case strings.HasSuffix(host, ".apps.astra-test.datastax.com"):
-		return AstraEnvironmentTest
+		return id, region, AstraEnvironmentTest
 	default:
-		return AstraEnvironmentProd
+		return id, region, AstraEnvironmentProd
 	}
 }
 
