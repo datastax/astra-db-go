@@ -26,7 +26,7 @@ const (
 var collectionDollarDatatypes = map[string]typedCodec{
 	"$uuid":     {codec{uuidEncoder, uuidDecoder}, uuidType},
 	"$objectId": {codec{objectIdEncoder, objectIdDecoder}, oidType},
-	"$date":     {codec{timestampEncoder, timestampDecoder}, dApiTimeType},
+	"$date":     {codec{timeEncoder, timeDecoder}, timeType},
 	"$binary":   {codec{binaryEncoder, binaryDecoder}, byteSliceType},
 }
 

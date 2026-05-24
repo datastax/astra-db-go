@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sort"
 	"unsafe"
+
+	"github.com/datastax/astra-db-go/datatypes"
 )
 
 // Map serdes is complex enough to warrant its own file, as we're allowing for a Cartesian product of features:
@@ -35,6 +37,13 @@ func mkLinkedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	vt, _ := t.FieldByName("vType")
 
 	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, mkIter, mkLinkedMapMaker(t))
+}
+
+func mkSortedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	kt, _ := t.FieldByName("kType")
+	vt, _ := t.FieldByName("vType")
+
+	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, newMapIterFromSortedMap, mkSortedMapMaker(t))
 }
 
 func mkGenericMapCodec(ctx codecCtx, t, kt, vt reflect.Type, seen seenStructs, mkIter mkMapIter, maker mapMaker) codec {
@@ -278,6 +287,7 @@ const (
 	mapUnsortedIter mapIterType = iota
 	mapSortedIter
 	linkedMapIter
+	sortedMapIter
 )
 
 type mapIter struct {
@@ -327,6 +337,19 @@ func newMapIterFromLinkedMap(m reflect.Value) mapIter {
 	}
 }
 
+func newMapIterFromSortedMap(m reflect.Value) mapIter {
+	// SortedMap.Field(0) is *sortedMap[K,V]
+	// sortedMap fields: 0=kType, 1=vType, 2=cmp, 3=head, 4=len
+	// head is the sentinel; first real node is head.next[0] (node.Field(2).Index(0))
+	firstNode := m.FieldByIndex([]int{0, 3}).Elem().Field(2).Index(0)
+	return mapIter{
+		m:           m,
+		index:       -1,
+		iterType:    sortedMapIter,
+		currentNode: firstNode,
+	}
+}
+
 // mkComparator returns the logic once so the loop doesn't have to switch
 // TODO any more comparators???
 func mkComparator(k reflect.Kind) comparator {
@@ -363,6 +386,19 @@ func (u *mapIter) Next() bool {
 		u.currentNode = u.currentNode.Elem().Field(3)
 
 		return !u.currentNode.IsNil()
+	case sortedMapIter:
+		if u.index == -1 {
+			u.index = 0
+			return !u.currentNode.IsNil()
+		}
+
+		if u.currentNode.IsNil() {
+			return false
+		}
+
+		u.currentNode = u.currentNode.Elem().Field(2).Index(0) // next[0]
+
+		return !u.currentNode.IsNil()
 	default:
 		return u.iter.Next()
 	}
@@ -375,6 +411,8 @@ func (u *mapIter) Key() reflect.Value {
 	case linkedMapIter:
 		//return u.currentNode.Elem().FieldByName("key")
 		return u.currentNode.Elem().Field(0)
+	case sortedMapIter:
+		return u.currentNode.Elem().Field(0) // key
 	default:
 		return u.iter.Key()
 	}
@@ -387,6 +425,8 @@ func (u *mapIter) Value() reflect.Value {
 	case linkedMapIter:
 		//return u.currentNode.Elem().FieldByName("value")
 		return u.currentNode.Elem().Field(1)
+	case sortedMapIter:
+		return u.currentNode.Elem().Field(1) // value
 	default:
 		return u.iter.Value()
 	}
@@ -397,6 +437,8 @@ func (u *mapIter) IsEmpty() bool {
 	case mapSortedIter:
 		return len(u.keys) == 0
 	case linkedMapIter:
+		return u.currentNode.IsNil()
+	case sortedMapIter:
 		return u.currentNode.IsNil()
 	default:
 		return !u.iter.Next()
@@ -445,6 +487,41 @@ func mkLinkedMapMaker(t reflect.Type) mapMaker {
 			*(*unsafe.Pointer)(implPtr.UnsafePointer()) = dataMap.UnsafePointer()
 
 			// sets *linkedMap in LinkedMap
+			*(*unsafe.Pointer)(valuePtr(m)) = implPtr.UnsafePointer()
+
+			return m
+		},
+		setMap: func(m, k, v reflect.Value) {
+			setter := m.Interface().(linkedMapFastSetter)
+			setter.SetAny(k.Interface(), v.Interface())
+		},
+	}
+}
+
+func mkSortedMapMaker(t reflect.Type) mapMaker {
+	implType := t.Field(0).Type.Elem() // sortedMap[K,V]
+	// sortedMap fields: 0=kType, 1=vType, 2=cmp, 3=head, 4=len
+	kt := implType.Field(0).Type // [0]K — actual key type is Elem()
+
+	cmp := datatypes.ComparatorFor(kt.Elem())
+
+	return mapMaker{
+		makeMap: func() reflect.Value {
+			// allocate SortedMap[K,V]
+			m := reflect.New(t).Elem()
+
+			// allocate sortedMap[K,V]
+			implPtr := reflect.New(implType)
+			impl := implPtr.Elem()
+
+			// set cmp (field 2)
+			impl.Field(2).Set(reflect.ValueOf(cmp))
+
+			// allocate sentinel head node (field 3)
+			nodeType := implType.Field(3).Type.Elem() // sortedMapNode[K,V]
+			impl.Field(3).Set(reflect.New(nodeType))
+
+			// wire *sortedMap into SortedMap
 			*(*unsafe.Pointer)(valuePtr(m)) = implPtr.UnsafePointer()
 
 			return m

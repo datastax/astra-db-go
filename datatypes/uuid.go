@@ -16,6 +16,7 @@
 package datatypes
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -28,6 +29,24 @@ import (
 // On the wire, UUIDs are serialized as extended JSON: {"$uuid": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}.
 type UUID struct {
 	value [16]byte
+}
+
+// CompareTo implements the Comparable interface.
+func (u UUID) CompareTo(other any) int {
+	o := other.(UUID)
+	// Cassandra standard: Time-based UUIDs are compared by timestamp.
+	// This applies to v1, v6, and v7.
+	t1, ok1 := u.Timestamp()
+	t2, ok2 := o.Timestamp()
+	if ok1 && ok2 {
+		if !t1.Equal(t2) {
+			if t1.Before(t2) {
+				return -1
+			}
+			return 1
+		}
+	}
+	return bytes.Compare(u.value[:], o.value[:])
 }
 
 // NewUUID generates a new v4 (random) UUID. Implementations SHOULD utilize
@@ -116,6 +135,8 @@ func gregorianToTime(ticks uint64) time.Time {
 	unixHundredNanos := int64(ticks) - gregorianUnixOffset
 	return time.Unix(unixHundredNanos/10_000_000, (unixHundredNanos%10_000_000)*100)
 }
+
+// TODO LinkedMapNode is here for some reason
 
 // NewUUIDv1 generates a new v1 (Gregorian time + random LinkedMapNode) UUID.
 // The timestamp bits are scattered across the first 8 bytes per RFC 4122.

@@ -1,6 +1,11 @@
 package datatypes_test
 
 import (
+	"cmp"
+	"math/big"
+	"reflect"
+	"slices"
+	"strings"
 	"testing"
 	"testing/quick"
 
@@ -8,31 +13,29 @@ import (
 	"github.com/datastax/astra-db-go/internal/testutils"
 )
 
+// Helper to construct a SortedMap for strings using the implementation's comparator factory.
+func newStringSortedMap[V any]() datatypes.SortedMap[string, V] {
+	return datatypes.NewSortedMap[string, V](datatypes.ComparatorFor(reflect.TypeOf("")))
+}
+
+// Helper to construct a SortedMap for ints using the implementation's comparator factory.
+func newIntSortedMap[V any]() datatypes.SortedMap[int, V] {
+	return datatypes.NewSortedMap[int, V](datatypes.ComparatorFor(reflect.TypeOf(0)))
+}
+
 //goland:noinspection GoMaybeNil
-func TestLinkedMapConstructors_NewLinkedMap(t *testing.T) {
-	m := datatypes.NewLinkedMap[string, int]()
+func TestSortedMapConstructors_NewSortedMap(t *testing.T) {
+	m := newStringSortedMap[int]()
 	testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
 }
 
-func TestLinkedMapConstructors_NewLinkedMapWithCapacity(t *testing.T) {
-	f := func(capacity uint8) bool {
-		m := datatypes.NewLinkedMapWithCapacity[string, int](int(capacity))
-		testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapSetAndGet(t *testing.T) {
+func TestSortedMapSetAndGet(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 
 		for i := range keys {
 			val := values[i%len(values)]
@@ -55,9 +58,9 @@ func TestLinkedMapSetAndGet(t *testing.T) {
 	}
 }
 
-func TestLinkedMapSetUpdate(t *testing.T) {
+func TestSortedMapSetUpdate(t *testing.T) {
 	f := func(key string, val1 int, val2 int) bool {
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 
 		oldVal1, existed1 := m.Set(key, val1)
 		testutils.FailIf(t, existed1, "expected first set to be new")
@@ -79,9 +82,9 @@ func TestLinkedMapSetUpdate(t *testing.T) {
 	}
 }
 
-func TestLinkedMapGetOrDefault(t *testing.T) {
+func TestSortedMapGetOrDefault(t *testing.T) {
 	f := func(key string, value int, defaultValue int) bool {
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 
 		gotDefault := m.GetOrDefault(key, defaultValue)
 		testutils.FailIf(t, gotDefault != defaultValue, "expected default value for missing key")
@@ -98,13 +101,13 @@ func TestLinkedMapGetOrDefault(t *testing.T) {
 	}
 }
 
-func TestLinkedMapDelete(t *testing.T) {
+func TestSortedMapDelete(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 		expected := make(map[string]int)
 
 		for i := range keys {
@@ -138,9 +141,9 @@ func TestLinkedMapDelete(t *testing.T) {
 	}
 }
 
-func TestLinkedMapHas(t *testing.T) {
+func TestSortedMapHas(t *testing.T) {
 	f := func(key string, value int) bool {
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 
 		testutils.FailIf(t, m.Has(key), "expected key to not exist in empty map")
 
@@ -158,13 +161,13 @@ func TestLinkedMapHas(t *testing.T) {
 	}
 }
 
-func TestLinkedMapLen(t *testing.T) {
+func TestSortedMapLen(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 		testutils.FailIf(t, m.Len() != 0, "expected empty map to have length 0")
 
 		unique := make(map[string]struct{})
@@ -190,13 +193,13 @@ func TestLinkedMapLen(t *testing.T) {
 	}
 }
 
-func TestLinkedMapClear(t *testing.T) {
+func TestSortedMapClear(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -218,13 +221,13 @@ func TestLinkedMapClear(t *testing.T) {
 	}
 }
 
-func TestLinkedMapFirstLast(t *testing.T) {
+func TestSortedMapFirstLast(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 
 		firstNode := m.First()
 		testutils.FailIf(t, firstNode != nil, "expected First to return nil for empty map")
@@ -232,51 +235,25 @@ func TestLinkedMapFirstLast(t *testing.T) {
 		lastNode := m.Last()
 		testutils.FailIf(t, lastNode != nil, "expected Last to return nil for empty map")
 
-		expected := make(map[string]int)
-		var firstUniqueKey string
-		var lastUniqueKey string
-		firstSet := false
+		uniqueKeys := make(map[string]bool)
+		var sortedKeys []string
 
 		for i := range keys {
-			val := values[i%len(values)]
-			if _, exists := expected[keys[i]]; !exists {
-				if !firstSet {
-					firstUniqueKey = keys[i]
-					firstSet = true
-				}
-				lastUniqueKey = keys[i]
+			m.Set(keys[i], values[i%len(values)])
+			if !uniqueKeys[keys[i]] {
+				uniqueKeys[keys[i]] = true
+				sortedKeys = append(sortedKeys, keys[i])
 			}
-			m.Set(keys[i], val)
-			expected[keys[i]] = val
 		}
+		slices.SortFunc(sortedKeys, strings.Compare)
 
 		firstNode = m.First()
 		testutils.FailIf(t, firstNode == nil, "expected First to return non-nil for non-empty map")
-
-		// Verify first element by iterating
-		i := 0
-		for key, val := range m.All() {
-			if i == 0 {
-				testutils.FailIf(t, key != firstUniqueKey, "expected First to return first inserted key")
-				testutils.FailIf(t, val != expected[key], "expected First to return correct value")
-			}
-			i++
-		}
+		testutils.FailIf(t, firstNode.Key() != sortedKeys[0], "expected First to return the lowest sorted key")
 
 		lastNode = m.Last()
 		testutils.FailIf(t, lastNode == nil, "expected Last to return non-nil for non-empty map")
-
-		// Verify last element by iterating
-		i = 0
-		var lastSeenKey string
-		var lastSeenVal int
-		for key, val := range m.All() {
-			lastSeenKey = key
-			lastSeenVal = val
-			i++
-		}
-		testutils.FailIf(t, lastSeenKey != lastUniqueKey, "expected Last to return last unique inserted key")
-		testutils.FailIf(t, lastSeenVal != expected[lastSeenKey], "expected Last to return correct value")
+		testutils.FailIf(t, lastNode.Key() != sortedKeys[len(sortedKeys)-1], "expected Last to return the highest sorted key")
 
 		return true
 	}
@@ -286,92 +263,21 @@ func TestLinkedMapFirstLast(t *testing.T) {
 	}
 }
 
-func TestLinkedMapClone(t *testing.T) {
+func TestSortedMapAll(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		clone := m.Clone()
-		testutils.FailIf(t, clone.Len() != m.Len(), "expected clone to have same length")
-
-		for key, val := range m.All() {
-			cloneVal, found := clone.Get(key)
-			testutils.FailIf(t, !found, "expected clone to have all keys from original")
-			testutils.FailIf(t, cloneVal != val, "expected clone to have same values")
-		}
-
-		origKeys := make([]string, 0, m.Len())
-		for origKey := range m.All() {
-			origKeys = append(origKeys, origKey)
-		}
-
-		cloneKeys := make([]string, 0, clone.Len())
-		for cloneKey := range clone.All() {
-			cloneKeys = append(cloneKeys, cloneKey)
-		}
-
-		for i := range origKeys {
-			testutils.FailIf(t, origKeys[i] != cloneKeys[i], "expected clone to preserve order")
-		}
-
-		m.Set("new-key", 999)
-		testutils.FailIf(t, clone.Has("new-key"), "expected clone to be independent")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapToMap(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		regularMap := m.ToMap()
-		testutils.FailIf(t, len(regularMap) != m.Len(), "expected map to have same length")
-
-		for key, val := range m.All() {
-			mapVal, found := regularMap[key]
-			testutils.FailIf(t, !found, "expected map to have all keys")
-			testutils.FailIf(t, mapVal != val, "expected map to have same values")
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapAll(t *testing.T) {
-	f := func(keys []byte, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[byte, int]()
+		m := newStringSortedMap[int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
 
 		count := 0
-		seen := make(map[byte]struct{})
+		seen := make(map[string]struct{})
+		var yieldedKeys []string
+
 		for key, val := range m.All() {
 			count++
 			_, alreadySeen := seen[key]
@@ -382,9 +288,11 @@ func TestLinkedMapAll(t *testing.T) {
 			testutils.FailIf(t, gotVal != val, "expected iterator to yield correct values")
 
 			seen[key] = struct{}{}
+			yieldedKeys = append(yieldedKeys, key)
 		}
 
 		testutils.FailIf(t, count != m.Len(), "expected iterator to yield all elements")
+		testutils.FailIf(t, !slices.IsSortedFunc(yieldedKeys, strings.Compare), "expected All iterator to yield elements in sorted order")
 
 		if m.Len() > 0 {
 			iterCount := 0
@@ -405,13 +313,13 @@ func TestLinkedMapAll(t *testing.T) {
 	}
 }
 
-func TestLinkedMapAllRev(t *testing.T) {
+func TestSortedMapAllRev(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[string, int]()
+		m := newStringSortedMap[int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -429,7 +337,7 @@ func TestLinkedMapAllRev(t *testing.T) {
 		testutils.FailIf(t, len(reverseKeys) != len(forwardKeys), "expected same number of keys in reverse")
 
 		for i := range forwardKeys {
-			testutils.FailIf(t, forwardKeys[i] != reverseKeys[len(reverseKeys)-1-i], "expected reverse order")
+			testutils.FailIf(t, forwardKeys[i] != reverseKeys[len(reverseKeys)-1-i], "expected reverse sorted order")
 		}
 
 		return true
@@ -440,27 +348,28 @@ func TestLinkedMapAllRev(t *testing.T) {
 	}
 }
 
-func TestLinkedMapInsertionOrder(t *testing.T) {
+func TestSortedMapNaturalOrder(t *testing.T) {
 	f := func(keys []int, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewLinkedMap[int, int]()
-		var insertionOrder []int
-		seen := make(map[int]struct{})
+		m := newIntSortedMap[int]()
+		uniqueKeys := make(map[int]bool)
+		var sortedExpected []int
 
 		for i := range keys {
-			if _, exists := seen[keys[i]]; !exists {
-				insertionOrder = append(insertionOrder, keys[i])
-				seen[keys[i]] = struct{}{}
-			}
 			m.Set(keys[i], values[i%len(values)])
+			if !uniqueKeys[keys[i]] {
+				uniqueKeys[keys[i]] = true
+				sortedExpected = append(sortedExpected, keys[i])
+			}
 		}
+		slices.SortFunc(sortedExpected, cmp.Compare)
 
 		i := 0
 		for key := range m.All() {
-			testutils.FailIf(t, key != insertionOrder[i], "expected keys to be in insertion order")
+			testutils.FailIf(t, key != sortedExpected[i], "expected keys to be strictly in ascending sorted order")
 			i++
 		}
 
@@ -470,4 +379,45 @@ func TestLinkedMapInsertionOrder(t *testing.T) {
 	if err := quick.Check(f, nil); err != nil {
 		t.Error(err)
 	}
+}
+
+func TestSortedMapBigInt(t *testing.T) {
+	m := datatypes.NewSortedMap[big.Int, int](datatypes.ComparatorFor(reflect.TypeOf(big.Int{})))
+
+	nums := []int64{10, -5, 100, 0, -100}
+	for _, n := range nums {
+		var bi big.Int
+		bi.SetInt64(n)
+		m.Set(bi, int(n))
+	}
+
+	expectedOrder := []int64{-100, -5, 0, 10, 100}
+	i := 0
+	for k, v := range m.All() {
+		testutils.FailIf(t, k.Int64() != expectedOrder[i], "big.Int order mismatch")
+		testutils.FailIf(t, v != int(expectedOrder[i]), "big.Int value mismatch")
+		i++
+	}
+	testutils.FailIf(t, i != len(expectedOrder), "wrong number of elements")
+}
+
+func TestSortedMapBigFloat(t *testing.T) {
+	m := datatypes.NewSortedMap[big.Float, int](datatypes.ComparatorFor(reflect.TypeOf(big.Float{})))
+
+	nums := []float64{10.5, -5.2, 100.1, 0.0, -100.9}
+	for _, n := range nums {
+		var bf big.Float
+		bf.SetFloat64(n)
+		m.Set(bf, int(n))
+	}
+
+	expectedOrder := []float64{-100.9, -5.2, 0.0, 10.5, 100.1}
+	i := 0
+	for k, v := range m.All() {
+		f, _ := k.Float64()
+		testutils.FailIf(t, f != expectedOrder[i], "big.Float order mismatch")
+		testutils.FailIf(t, v != int(expectedOrder[i]), "big.Float value mismatch")
+		i++
+	}
+	testutils.FailIf(t, i != len(expectedOrder), "wrong number of elements")
 }

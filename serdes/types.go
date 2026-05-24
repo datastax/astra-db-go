@@ -42,7 +42,8 @@ var (
 	byteSliceType    = reflect.TypeFor[[]byte]()
 	uuidType         = reflect.TypeFor[datatypes.UUID]()
 	oidType          = reflect.TypeFor[datatypes.ObjectId]()
-	dApiTimeType     = reflect.TypeFor[datatypes.DataAPITimestamp]()
+	dateOnlyType     = reflect.TypeFor[datatypes.DateOnly]()
+	timeOnlyType     = reflect.TypeFor[datatypes.TimeOnly]()
 	vectorType       = reflect.TypeFor[datatypes.DataAPIVector]()
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
@@ -56,6 +57,9 @@ var (
 
 	someLinkedMapType     = reflect.TypeFor[datatypes.LinkedMap[any, any]]()
 	someLinkedMapTypeName = typeNameUntilBracket(someLinkedMapType)
+
+	someSortedMapType     = reflect.TypeFor[datatypes.SortedMap[any, any]]()
+	someSortedMapTypeName = typeNameUntilBracket(someSortedMapType)
 
 	someSetType     = reflect.TypeFor[datatypes.Set[any]]()
 	someSetTypeName = typeNameUntilBracket(someSetType)

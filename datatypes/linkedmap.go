@@ -6,35 +6,32 @@ import (
 	"strings"
 )
 
+// LinkedMap is a hash map that preserves insertion order.
+// Don't use the zero value; initialize it with NewLinkedMap or NewLinkedMapWithCapacity so it doesn't panic.
+// It's a pointer wrapper, so it's safe to copy and pass by value.
 type LinkedMap[K comparable, V any] struct {
 	*linkedMap[K, V]
 }
 
 // IMPORTANT: The field ordering of kType, vType, and data is extremely important:
-// - kType and vType must are at the start of the struct to ensure that no padding is allocated for them
-// - data is the first non-zero-size field, and must be at index 2 – both of these are relied on for reflection and pointer math
+//   - kType and vType must be at the start of the struct to ensure that no padding is allocated for them
+//   - data is the first non-zero-size field, and must be at index 2 — both of these are relied on for reflection and pointer math
 //
-// `serdes/maps.go` must be updated of either of the above two invariants are changed.
+// `serdes/maps.go` must be updated if either of the above two invariants are changed.
 //
 // The idea is to treat linkedMap similar to how hmap is used in Go's built-in map implementation,
 // where the public type is a thin wrapper around an internal struct that contains the actual data and
-// implementation details.
-//
-// This should make the public API a little cleaner and also, importantly, helps enforce the requirement of having the
-// actual implementation fields behind a pointer so people don't try to use it as a value type
+// implementation details. This helps enforce the requirement of having the actual implementation
+// fields behind a pointer so people don't try to use it as a value type.
 type linkedMap[K comparable, V any] struct {
-	// Preserves type information for serdes purposes
 	kType [0]K
 	vType [0]V
-
-	// The actual backing map for all the basic constant time operations
-	data map[K]*LinkedMapNode[K, V]
-
-	// Pointers to the ends of the linked list used when iterating in insertion order
-	head *LinkedMapNode[K, V]
-	tail *LinkedMapNode[K, V]
+	data  map[K]*LinkedMapNode[K, V]
+	head  *LinkedMapNode[K, V]
+	tail  *LinkedMapNode[K, V]
 }
 
+// LinkedMapNode is a node in the map, exposed for direct traversal via First/Last.
 type LinkedMapNode[K comparable, V any] struct {
 	key   K
 	value V
@@ -42,15 +39,22 @@ type LinkedMapNode[K comparable, V any] struct {
 	next  *LinkedMapNode[K, V]
 }
 
+func (n *LinkedMapNode[K, V]) Key() K                     { return n.key }
+func (n *LinkedMapNode[K, V]) Value() V                   { return n.value }
+func (n *LinkedMapNode[K, V]) Next() *LinkedMapNode[K, V] { return n.next }
+func (n *LinkedMapNode[K, V]) Prev() *LinkedMapNode[K, V] { return n.prev }
+
+// NewLinkedMap returns an empty LinkedMap.
 func NewLinkedMap[K comparable, V any]() LinkedMap[K, V] {
 	return LinkedMap[K, V]{&linkedMap[K, V]{data: make(map[K]*LinkedMapNode[K, V])}}
 }
 
+// NewLinkedMapWithCapacity returns an empty LinkedMap with the given capacity.
 func NewLinkedMapWithCapacity[K comparable, V any](capacity int) LinkedMap[K, V] {
 	return LinkedMap[K, V]{&linkedMap[K, V]{data: make(map[K]*LinkedMapNode[K, V], capacity)}}
 }
 
-// Get returns the value for key, or the zero value and false if not present.
+// Get returns the value for key, or false if it's missing.
 func (m LinkedMap[K, V]) Get(key K) (v V, found bool) {
 	if n, ok := m.data[key]; ok {
 		return n.value, true
@@ -58,7 +62,7 @@ func (m LinkedMap[K, V]) Get(key K) (v V, found bool) {
 	return
 }
 
-// GetOrDefault returns the value for key, or defaultValue if not present.
+// GetOrDefault returns the value for key, or defaultValue if it's missing.
 func (m LinkedMap[K, V]) GetOrDefault(key K, defaultValue V) V {
 	if n, ok := m.data[key]; ok {
 		return n.value
@@ -66,9 +70,9 @@ func (m LinkedMap[K, V]) GetOrDefault(key K, defaultValue V) V {
 	return defaultValue
 }
 
-// Set inserts or updates key with value.
-// Returns the previous value and true if the key already existed, or the zero value and false if it was newly inserted.
-// Panics if the LinkedMap is nil (use NewLinkedMap to initialize).
+// Set adds or updates a key-value pair.
+// Returns the old value and true if the key existed, or zero/false if it's a fresh insert.
+// Panics if the map is nil (use NewLinkedMap).
 func (m LinkedMap[K, V]) Set(key K, value V) (V, bool) {
 	if m.linkedMap == nil {
 		panic("assignment to entry in nil LinkedMap")
@@ -88,67 +92,55 @@ func (m LinkedMap[K, V]) Set(key K, value V) (V, bool) {
 	return zero, false
 }
 
+// SetAny is an internal hook for serdes to insert entries via reflection.
 func (m LinkedMap[K, V]) SetAny(key any, value any) bool {
 	_, existed := m.Set(key.(K), value.(V))
 	return existed
 }
 
-// Delete removes key and returns its value and true, or the zero value and false if not present.
+// Delete removes a key and returns its value.
 func (m LinkedMap[K, V]) Delete(key K) (v V, found bool) {
 	n, ok := m.data[key]
 	if !ok {
 		return
 	}
-
 	delete(m.data, key)
 	m.unlink(n)
-
 	return n.value, true
 }
 
-// Has reports whether key is present.
+// Has reports if a key is present.
 func (m LinkedMap[K, V]) Has(key K) bool {
 	_, ok := m.data[key]
 	return ok
 }
 
+// Len is the number of entries in the map.
+func (m LinkedMap[K, V]) Len() int { return len(m.data) }
+
 // First returns the first node in insertion order, or nil if empty.
-func (m LinkedMap[K, V]) First() *LinkedMapNode[K, V] {
-	return m.head
-}
+func (m LinkedMap[K, V]) First() *LinkedMapNode[K, V] { return m.head }
 
 // Last returns the last node in insertion order, or nil if empty.
-func (m LinkedMap[K, V]) Last() *LinkedMapNode[K, V] {
-	return m.tail
-}
+func (m LinkedMap[K, V]) Last() *LinkedMapNode[K, V] { return m.tail }
 
-// Len returns the number of entries.
-func (m LinkedMap[K, V]) Len() int {
-	return len(m.data)
-}
-
+// Clear removes everything from the map.
 func (m LinkedMap[K, V]) Clear() {
 	clear(m.data)
 	m.head = nil
 	m.tail = nil
 }
 
+// Clone returns a shallow copy that preserves insertion order.
 func (m LinkedMap[K, V]) Clone() LinkedMap[K, V] {
 	clone := NewLinkedMapWithCapacity[K, V](m.Len())
-
-	for oldNode := m.head; oldNode != nil; oldNode = oldNode.next {
-		newNode := &LinkedMapNode[K, V]{
-			key:   oldNode.key,
-			value: oldNode.value,
-		}
-
-		clone.data[newNode.key] = newNode
-		clone.linkAtEnd(newNode)
+	for n := m.head; n != nil; n = n.next {
+		clone.Set(n.key, n.value)
 	}
-
 	return clone
 }
 
+// ToMap returns a plain Go map with the same entries.
 func (m LinkedMap[K, V]) ToMap() map[K]V {
 	result := make(map[K]V, m.Len())
 	for n := m.head; n != nil; n = n.next {
@@ -173,28 +165,6 @@ func (m LinkedMap[K, V]) AllRev() iter.Seq2[K, V] {
 	return func(yield func(key K, value V) bool) {
 		for n := m.tail; n != nil; n = n.prev {
 			if !yield(n.key, n.value) {
-				return
-			}
-		}
-	}
-}
-
-// Keys iterates keys in insertion order.
-func (m LinkedMap[K, V]) Keys() iter.Seq[K] {
-	return func(yield func(key K) bool) {
-		for n := m.head; n != nil; n = n.next {
-			if !yield(n.key) {
-				return
-			}
-		}
-	}
-}
-
-// Values iterates values in insertion order.
-func (m LinkedMap[K, V]) Values() iter.Seq[V] {
-	return func(yield func(value V) bool) {
-		for n := m.head; n != nil; n = n.next {
-			if !yield(n.value) {
 				return
 			}
 		}

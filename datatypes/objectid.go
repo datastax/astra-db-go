@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -15,6 +16,12 @@ import (
 type ObjectId struct {
 	// An ObjectId is 12 bytes: 4 bytes timestamp (seconds) + 5 bytes random + 3 bytes counter.
 	value [12]byte
+}
+
+// CompareTo implements the Comparable interface.
+func (o ObjectId) CompareTo(other any) int {
+	otherOid := other.(ObjectId)
+	return bytes.Compare(o.value[:], otherOid.value[:])
 }
 
 var (
