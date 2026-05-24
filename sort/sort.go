@@ -77,7 +77,7 @@ type Clauses []S
 func (Clauses) isSort() {}
 
 func (s Clauses) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
-	rep := datatypes.NewOrderedMapWithCapacity[string, any](len(s))
+	rep := datatypes.NewLinkedMapWithCapacity[string, any](len(s))
 	for _, clause := range s {
 		for k, v := range clause {
 			rep.Set(k, v)
@@ -167,7 +167,7 @@ func (s Sort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 	if len(s.clauses) == 0 {
 		return nil, nil
 	}
-	rep := datatypes.NewOrderedMapWithCapacity[string, any](len(s.clauses))
+	rep := datatypes.NewLinkedMapWithCapacity[string, any](len(s.clauses))
 	for _, c := range s.clauses {
 		rep.Set(c.field, c.value)
 	}

@@ -9,7 +9,7 @@ import (
 
 // Map serdes is complex enough to warrant its own file, as we're allowing for a Cartesian product of features:
 // - Serdes w/ a table vs non-table target
-// - Serdes w/ a native Go map vs an OrderedMap[K, V]
+// - Serdes w/ a native Go map vs an LinkedMap[K, V]
 // - Sorted vs unsorted map encoding (for native Go maps)
 //
 // The below is not the cleanest code, but it aims to be fairly performant while still being maintainable
@@ -28,13 +28,13 @@ func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	return mkGenericMapCodec(ctx, t, kt, vt, seen, mkIter, mkNativeMapMaker(t))
 }
 
-func mkOrderedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	mkIter := newMapIterFromOrderedMap
+func mkLinkedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	mkIter := newMapIterFromLinkedMap
 
 	kt, _ := t.FieldByName("kType")
 	vt, _ := t.FieldByName("vType")
 
-	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, mkIter, mkOrderedMapMaker(t))
+	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, mkIter, mkLinkedMapMaker(t))
 }
 
 func mkGenericMapCodec(ctx codecCtx, t, kt, vt reflect.Type, seen seenStructs, mkIter mkMapIter, maker mapMaker) codec {
@@ -277,7 +277,7 @@ type mapIterType int
 const (
 	mapUnsortedIter mapIterType = iota
 	mapSortedIter
-	orderedMapIter
+	linkedMapIter
 )
 
 type mapIter struct {
@@ -318,11 +318,11 @@ func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) 
 	}
 }
 
-func newMapIterFromOrderedMap(m reflect.Value) mapIter {
+func newMapIterFromLinkedMap(m reflect.Value) mapIter {
 	return mapIter{
 		m:           m,
 		index:       -1,
-		iterType:    orderedMapIter,
+		iterType:    linkedMapIter,
 		currentNode: m.FieldByIndex([]int{0, 3}),
 	}
 }
@@ -349,7 +349,7 @@ func (u *mapIter) Next() bool {
 	case mapSortedIter:
 		u.index++
 		return u.index < len(u.keys)
-	case orderedMapIter:
+	case linkedMapIter:
 		if u.index == -1 {
 			u.index = 0
 			return !u.currentNode.IsNil()
@@ -372,7 +372,7 @@ func (u *mapIter) Key() reflect.Value {
 	switch u.iterType {
 	case mapSortedIter:
 		return u.keys[u.index]
-	case orderedMapIter:
+	case linkedMapIter:
 		//return u.currentNode.Elem().FieldByName("key")
 		return u.currentNode.Elem().Field(0)
 	default:
@@ -384,7 +384,7 @@ func (u *mapIter) Value() reflect.Value {
 	switch u.iterType {
 	case mapSortedIter:
 		return u.m.MapIndex(u.keys[u.index])
-	case orderedMapIter:
+	case linkedMapIter:
 		//return u.currentNode.Elem().FieldByName("value")
 		return u.currentNode.Elem().Field(1)
 	default:
@@ -396,7 +396,7 @@ func (u *mapIter) IsEmpty() bool {
 	switch u.iterType {
 	case mapSortedIter:
 		return len(u.keys) == 0
-	case orderedMapIter:
+	case linkedMapIter:
 		return u.currentNode.IsNil()
 	default:
 		return !u.iter.Next()
@@ -422,35 +422,35 @@ func mkNativeMapMaker(t reflect.Type) mapMaker {
 	}
 }
 
-type orderedMapFastSetter interface {
+type linkedMapFastSetter interface {
 	SetAny(k, v any) bool
 }
 
-func mkOrderedMapMaker(t reflect.Type) mapMaker {
+func mkLinkedMapMaker(t reflect.Type) mapMaker {
 	implType := t.Field(0).Type.Elem()
 	dataType := implType.Field(2).Type
 
 	return mapMaker{
 		makeMap: func() reflect.Value {
-			// allocates OrderedMap
+			// allocates LinkedMap
 			m := reflect.New(t).Elem()
 
-			// allocates orderedMap
+			// allocates linkedMap
 			implPtr := reflect.New(implType)
 
 			// allocates the backing map
 			dataMap := reflect.MakeMap(dataType)
 
-			// sets the data map in orderedMap
+			// sets the data map in linkedMap
 			*(*unsafe.Pointer)(implPtr.UnsafePointer()) = dataMap.UnsafePointer()
 
-			// sets *orderedMap in OrderedMap
+			// sets *linkedMap in LinkedMap
 			*(*unsafe.Pointer)(valuePtr(m)) = implPtr.UnsafePointer()
 
 			return m
 		},
 		setMap: func(m, k, v reflect.Value) {
-			setter := m.Interface().(orderedMapFastSetter)
+			setter := m.Interface().(linkedMapFastSetter)
 			setter.SetAny(k.Interface(), v.Interface())
 		},
 	}

@@ -21,7 +21,7 @@ func TestInlined(t *testing.T) {
 }
 
 func TestInlined2(t *testing.T) {
-	typ := reflect.TypeOf(orderedMap[string, int]{})
+	typ := reflect.TypeOf(linkedMap[string, int]{})
 
 	fmt.Printf("Struct: %s\n", typ)
 	fmt.Printf("Total Size: %d bytes\n\n", typ.Size())

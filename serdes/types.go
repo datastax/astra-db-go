@@ -52,10 +52,10 @@ var (
 )
 
 var (
-	datatypesPkgPath = someOrderedMapType.PkgPath() // this will be the same for all special datatypes for now
+	datatypesPkgPath = someLinkedMapType.PkgPath() // this will be the same for all special datatypes for now
 
-	someOrderedMapType     = reflect.TypeFor[datatypes.OrderedMap[any, any]]()
-	someOrderedMapTypeName = typeNameUntilBracket(someOrderedMapType)
+	someLinkedMapType     = reflect.TypeFor[datatypes.LinkedMap[any, any]]()
+	someLinkedMapTypeName = typeNameUntilBracket(someLinkedMapType)
 
 	someSetType     = reflect.TypeFor[datatypes.Set[any]]()
 	someSetTypeName = typeNameUntilBracket(someSetType)

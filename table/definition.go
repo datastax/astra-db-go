@@ -72,7 +72,7 @@ func (c Columns) Get(name string) (Column, bool) {
 }
 
 func (c Columns) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
-	rep := datatypes.NewOrderedMapWithCapacity[string, Column](len(c))
+	rep := datatypes.NewLinkedMapWithCapacity[string, Column](len(c))
 	for _, nc := range c {
 		rep.Set(nc.Name, nc.Column)
 	}
@@ -80,7 +80,7 @@ func (c Columns) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 }
 
 func (c *Columns) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
-	var rep datatypes.OrderedMap[string, Column]
+	var rep datatypes.LinkedMap[string, Column]
 	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (s PartitionSort) Get(name string) (int, bool) {
 }
 
 func (s PartitionSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
-	rep := datatypes.NewOrderedMapWithCapacity[string, int](len(s))
+	rep := datatypes.NewLinkedMapWithCapacity[string, int](len(s))
 	for _, ns := range s {
 		rep.Set(ns.Name, ns.Order)
 	}
@@ -191,7 +191,7 @@ func (s PartitionSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 }
 
 func (s *PartitionSort) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
-	var rep datatypes.OrderedMap[string, int]
+	var rep datatypes.LinkedMap[string, int]
 	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
 		return err
 	}

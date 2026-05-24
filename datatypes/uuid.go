@@ -57,12 +57,12 @@ var (
 	gregMu       sync.Mutex
 	gregLastTime int64   // last 60-bit Gregorian timestamp
 	gregClockSeq uint16  // 14-bit clock sequence
-	gregNodeID   [6]byte // random OrderedMapNode ID (multicast bit set)
+	gregNodeID   [6]byte // random LinkedMapNode ID (multicast bit set)
 	gregInited   bool
 )
 
 // randomClockSeqAndNode generates a random 14-bit clock sequence and 6-byte
-// OrderedMapNode ID (with multicast bit set). Used by the "At" UUID constructors.
+// LinkedMapNode ID (with multicast bit set). Used by the "At" UUID constructors.
 func randomClockSeqAndNode() (uint16, [6]byte) {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -89,7 +89,7 @@ func initGreg() {
 }
 
 // getGregTime returns a monotonically increasing 60-bit Gregorian timestamp,
-// a 14-bit clock sequence, and the random OrderedMapNode ID.
+// a 14-bit clock sequence, and the random LinkedMapNode ID.
 func getGregTime() (timestamp int64, clockSeq uint16, node [6]byte) {
 	gregMu.Lock()
 	defer gregMu.Unlock()
@@ -117,7 +117,7 @@ func gregorianToTime(ticks uint64) time.Time {
 	return time.Unix(unixHundredNanos/10_000_000, (unixHundredNanos%10_000_000)*100)
 }
 
-// NewUUIDv1 generates a new v1 (Gregorian time + random OrderedMapNode) UUID.
+// NewUUIDv1 generates a new v1 (Gregorian time + random LinkedMapNode) UUID.
 // The timestamp bits are scattered across the first 8 bytes per RFC 4122.
 func NewUUIDv1() UUID {
 	ts, clockSeq, node := getGregTime()
@@ -125,7 +125,7 @@ func NewUUIDv1() UUID {
 }
 
 // NewUUIDv1At generates a v1 UUID encoding the given timestamp.
-// Clock sequence and OrderedMapNode ID are random. This does not participate in
+// Clock sequence and LinkedMapNode ID are random. This does not participate in
 // monotonic ordering with NewUUIDv1 calls.
 func NewUUIDv1At(t time.Time) UUID {
 	ts := t.UnixNano()/100 + gregorianUnixOffset
@@ -150,7 +150,7 @@ func buildV1(ts int64, clockSeq uint16, node [6]byte) UUID {
 	u.value[8] = 0x80 | byte(clockSeq>>8)&0x3F
 	// clock_seq_low: lower 8 bits
 	u.value[9] = byte(clockSeq)
-	// OrderedMapNode: bytes 10–15
+	// LinkedMapNode: bytes 10–15
 	copy(u.value[10:], node[:])
 	return u
 }
@@ -163,7 +163,7 @@ func NewUUIDv6() UUID {
 }
 
 // NewUUIDv6At generates a v6 UUID encoding the given timestamp.
-// Clock sequence and OrderedMapNode ID are random. This does not participate in
+// Clock sequence and LinkedMapNode ID are random. This does not participate in
 // monotonic ordering with NewUUIDv6 calls.
 func NewUUIDv6At(t time.Time) UUID {
 	ts := t.UnixNano()/100 + gregorianUnixOffset
@@ -188,7 +188,7 @@ func buildV6(ts int64, clockSeq uint16, node [6]byte) UUID {
 	u.value[8] = 0x80 | byte(clockSeq>>8)&0x3F
 	// clock_seq_low: lower 8 bits
 	u.value[9] = byte(clockSeq)
-	// OrderedMapNode: bytes 10–15
+	// LinkedMapNode: bytes 10–15
 	copy(u.value[10:], node[:])
 	return u
 }

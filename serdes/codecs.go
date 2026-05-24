@@ -206,8 +206,8 @@ func isSpecialGenericDatatype(t reflect.Type) (func(ctx codecCtx, t reflect.Type
 	tName := t.Name()
 
 	switch {
-	case strings.HasPrefix(tName, someOrderedMapTypeName):
-		return mkOrderedMapCodec, true
+	case strings.HasPrefix(tName, someLinkedMapTypeName):
+		return mkLinkedMapCodec, true
 	case strings.HasPrefix(tName, someSetTypeName):
 		return mkSetCodec, true
 	default:

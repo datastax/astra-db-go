@@ -9,14 +9,14 @@ import (
 )
 
 //goland:noinspection GoMaybeNil
-func TestOrderedMapConstructors_NewOrderedMap(t *testing.T) {
-	m := datatypes.NewOrderedMap[string, int]()
+func TestLinkedMapConstructors_NewLinkedMap(t *testing.T) {
+	m := datatypes.NewLinkedMap[string, int]()
 	testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
 }
 
-func TestOrderedMapConstructors_NewOrderedMapWithCapacity(t *testing.T) {
+func TestLinkedMapConstructors_NewLinkedMapWithCapacity(t *testing.T) {
 	f := func(capacity uint8) bool {
-		m := datatypes.NewOrderedMapWithCapacity[string, int](int(capacity))
+		m := datatypes.NewLinkedMapWithCapacity[string, int](int(capacity))
 		testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
 		return true
 	}
@@ -26,13 +26,13 @@ func TestOrderedMapConstructors_NewOrderedMapWithCapacity(t *testing.T) {
 	}
 }
 
-func TestOrderedMapSetAndGet(t *testing.T) {
+func TestLinkedMapSetAndGet(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 
 		for i := range keys {
 			val := values[i%len(values)]
@@ -55,9 +55,9 @@ func TestOrderedMapSetAndGet(t *testing.T) {
 	}
 }
 
-func TestOrderedMapSetUpdate(t *testing.T) {
+func TestLinkedMapSetUpdate(t *testing.T) {
 	f := func(key string, val1 int, val2 int) bool {
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 
 		oldVal1, isNew1 := m.Set(key, val1)
 		testutils.FailIf(t, !isNew1, "expected first set to be new")
@@ -79,9 +79,9 @@ func TestOrderedMapSetUpdate(t *testing.T) {
 	}
 }
 
-func TestOrderedMapGetOrDefault(t *testing.T) {
+func TestLinkedMapGetOrDefault(t *testing.T) {
 	f := func(key string, value int, defaultValue int) bool {
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 
 		gotDefault := m.GetOrDefault(key, defaultValue)
 		testutils.FailIf(t, gotDefault != defaultValue, "expected default value for missing key")
@@ -98,13 +98,13 @@ func TestOrderedMapGetOrDefault(t *testing.T) {
 	}
 }
 
-func TestOrderedMapDelete(t *testing.T) {
+func TestLinkedMapDelete(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		expected := make(map[string]int)
 
 		for i := range keys {
@@ -138,9 +138,9 @@ func TestOrderedMapDelete(t *testing.T) {
 	}
 }
 
-func TestOrderedMapHas(t *testing.T) {
+func TestLinkedMapHas(t *testing.T) {
 	f := func(key string, value int) bool {
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 
 		testutils.FailIf(t, m.Has(key), "expected key to not exist in empty map")
 
@@ -158,13 +158,13 @@ func TestOrderedMapHas(t *testing.T) {
 	}
 }
 
-func TestOrderedMapLen(t *testing.T) {
+func TestLinkedMapLen(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		testutils.FailIf(t, m.Len() != 0, "expected empty map to have length 0")
 
 		unique := make(map[string]struct{})
@@ -190,13 +190,13 @@ func TestOrderedMapLen(t *testing.T) {
 	}
 }
 
-func TestOrderedMapClear(t *testing.T) {
+func TestLinkedMapClear(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -218,13 +218,13 @@ func TestOrderedMapClear(t *testing.T) {
 	}
 }
 
-func TestOrderedMapFirstLast(t *testing.T) {
+func TestLinkedMapFirstLast(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 
 		firstNode := m.First()
 		testutils.FailIf(t, firstNode != nil, "expected First to return nil for empty map")
@@ -286,13 +286,13 @@ func TestOrderedMapFirstLast(t *testing.T) {
 	}
 }
 
-func TestOrderedMapClone(t *testing.T) {
+func TestLinkedMapClone(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -331,13 +331,13 @@ func TestOrderedMapClone(t *testing.T) {
 	}
 }
 
-func TestOrderedMapToMap(t *testing.T) {
+func TestLinkedMapToMap(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -359,13 +359,13 @@ func TestOrderedMapToMap(t *testing.T) {
 	}
 }
 
-func TestOrderedMapAll(t *testing.T) {
+func TestLinkedMapAll(t *testing.T) {
 	f := func(keys []byte, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[byte, int]()
+		m := datatypes.NewLinkedMap[byte, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -405,13 +405,13 @@ func TestOrderedMapAll(t *testing.T) {
 	}
 }
 
-func TestOrderedMapAllRev(t *testing.T) {
+func TestLinkedMapAllRev(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -440,13 +440,13 @@ func TestOrderedMapAllRev(t *testing.T) {
 	}
 }
 
-func TestOrderedMapKeys(t *testing.T) {
+func TestLinkedMapKeys(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -471,13 +471,13 @@ func TestOrderedMapKeys(t *testing.T) {
 	}
 }
 
-func TestOrderedMapValues(t *testing.T) {
+func TestLinkedMapValues(t *testing.T) {
 	f := func(keys []string, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[string, int]()
+		m := datatypes.NewLinkedMap[string, int]()
 		for i := range keys {
 			m.Set(keys[i], values[i%len(values)])
 		}
@@ -505,13 +505,13 @@ func TestOrderedMapValues(t *testing.T) {
 	}
 }
 
-func TestOrderedMapInsertionOrder(t *testing.T) {
+func TestLinkedMapInsertionOrder(t *testing.T) {
 	f := func(keys []int, values []int) bool {
 		if len(keys) == 0 || len(values) == 0 {
 			return true
 		}
 
-		m := datatypes.NewOrderedMap[int, int]()
+		m := datatypes.NewLinkedMap[int, int]()
 		var insertionOrder []int
 		seen := make(map[int]struct{})
 
