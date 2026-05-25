@@ -118,7 +118,7 @@ func (v *DataAPIVector) UnmarshalJSON(data []byte) error {
 			return fmt.Errorf("unmarshal DataAPIVector float array: %w", err)
 		}
 		v.floats = floats
-		// Probably redundant since these are the zer values, but in case something was
+		// Probably redundant since these are the zero values, but in case something was
 		// previously set, we want to clear it out.
 		v.b64 = ""
 		v.isB64 = false

@@ -17,81 +17,88 @@ package datatypes
 import (
 	"fmt"
 	"iter"
-	"maps"
+	"reflect"
 )
 
-type Set[T comparable] struct {
-	// IMPORTANT: The field ordering of tType and data is extremely important:
-	// - tType is at the start of the struct to ensure that no extra padding is allocated for it
-	// - data is the first non-zero-size field, and must be at index 1 – both of these are relied on for reflection and pointer math
-	//
-	// `serdes/encode.go` must be updated of either of the above two invariants are changed.
-	//
-	// The idea is to treat data similar to how hmap is used in Go's built-in map implementation,
-	// where the public type (Set) is a thin wrapper around an internal struct that contains the actual data and
-	// implementation details, to help make the public API a little bit cleaner.
-	//
-	// tType simply preserves type information for serdes purposes, and does nothing else
-	tType [0]T
+// Set represents a collection of unique elements, kept in sorted order.
+type Set[T any] SortedMap[T, struct{}]
 
-	// data is used similar to how HashSets are implemented in Rust, where it's really just a HashMap<T, ()>
-	data map[T]struct{}
+// NewSet returns a new Set for the given type T.
+func NewSet[T any](elements ...T) Set[T] {
+	return NewSetWithComparator[T](ComparatorFor(reflect.TypeFor[T]()), elements...)
 }
 
-func NewSet[T comparable](elements ...T) Set[T] {
-	s := Set[T]{data: make(map[T]struct{}, len(elements))}
-	for _, e := range elements {
-		s.Add(e)
-	}
+// NewSetWithComparator returns a new Set with a custom Comparator.
+func NewSetWithComparator[T any](cmp Comparator, elements ...T) Set[T] {
+	s := Set[T](NewSortedMapWithComparator[T, struct{}](cmp))
+	s.AddAll(elements...)
 	return s
 }
 
-func NewSetWithCapacity[T comparable](capacity int) Set[T] {
-	if capacity < 0 {
-		panic("NewSetWithCapacity called with negative capacity")
-	}
-	return Set[T]{data: make(map[T]struct{}, capacity)}
+func (s Set[T]) m() SortedMap[T, struct{}] {
+	return SortedMap[T, struct{}](s)
 }
 
 func (s Set[T]) Add(v T) {
-	s.data[v] = struct{}{}
+	s.m().Set(v, struct{}{})
+}
+
+func (s Set[T]) AddAll(elements ...T) {
+	for _, e := range elements {
+		s.Add(e)
+	}
 }
 
 func (s Set[T]) Has(v T) bool {
-	_, ok := s.data[v]
-	return ok
+	return s.m().Has(v)
 }
 
 func (s Set[T]) Delete(v T) {
-	delete(s.data, v)
+	s.m().Delete(v)
+}
+
+// SetAny is an internal hook for serdes to insert entries via reflection.
+func (s Set[T]) SetAny(v any, _ any) bool {
+	existed := s.Has(v.(T))
+	s.Add(v.(T))
+	return existed
 }
 
 func (s Set[T]) Pop() (T, bool) {
-	for v := range s.data {
-		s.Delete(v)
-		return v, true
+	if n := s.m().First(); n != nil {
+		k := n.key
+		s.m().Delete(k)
+		return k, true
 	}
 	var zero T
 	return zero, false
 }
 
 func (s Set[T]) Len() int {
-	return len(s.data)
+	return s.m().Len()
 }
 
 func (s Set[T]) Clear() {
-	clear(s.data)
+	s.m().Clear()
 }
 
 func (s Set[T]) Clone() Set[T] {
-	return Set[T]{data: maps.Clone(s.data)}
+	sm := s.m()
+	if sm.sortedMap == nil {
+		return Set[T]{}
+	}
+	clone := Set[T](NewSortedMapWithComparator[T, struct{}](sm.cmp))
+	for k := range s.All() {
+		clone.Add(k)
+	}
+	return clone
 }
 
 func (s Set[T]) Equals(other Set[T]) bool {
 	if s.Len() != other.Len() {
 		return false
 	}
-	for v := range s.data {
+	for v := range s.All() {
 		if !other.Has(v) {
 			return false
 		}
@@ -101,15 +108,16 @@ func (s Set[T]) Equals(other Set[T]) bool {
 
 func (s Set[T]) Union(other Set[T]) Set[T] {
 	union := s.Clone()
-	for v := range other.data {
+	for v := range other.All() {
 		union.Add(v)
 	}
 	return union
 }
 
 func (s Set[T]) Intersection(other Set[T]) Set[T] {
-	intersection := NewSet[T]()
-	for v := range s.data {
+	sm := s.m()
+	intersection := Set[T](NewSortedMapWithComparator[T, struct{}](sm.cmp))
+	for v := range s.All() {
 		if other.Has(v) {
 			intersection.Add(v)
 		}
@@ -118,8 +126,9 @@ func (s Set[T]) Intersection(other Set[T]) Set[T] {
 }
 
 func (s Set[T]) Difference(other Set[T]) Set[T] {
-	difference := NewSet[T]()
-	for v := range s.data {
+	sm := s.m()
+	difference := Set[T](NewSortedMapWithComparator[T, struct{}](sm.cmp))
+	for v := range s.All() {
 		if !other.Has(v) {
 			difference.Add(v)
 		}
@@ -128,22 +137,23 @@ func (s Set[T]) Difference(other Set[T]) Set[T] {
 }
 
 func (s Set[T]) SymmetricDifference(other Set[T]) Set[T] {
-	symmetricDifference := NewSet[T]()
-	for v := range s.data {
+	sm := s.m()
+	sd := Set[T](NewSortedMapWithComparator[T, struct{}](sm.cmp))
+	for v := range s.All() {
 		if !other.Has(v) {
-			symmetricDifference.Add(v)
+			sd.Add(v)
 		}
 	}
-	for v := range other.data {
+	for v := range other.All() {
 		if !s.Has(v) {
-			symmetricDifference.Add(v)
+			sd.Add(v)
 		}
 	}
-	return symmetricDifference
+	return sd
 }
 
 func (s Set[T]) IsSubsetOf(other Set[T]) bool {
-	for v := range s.data {
+	for v := range s.All() {
 		if !other.Has(v) {
 			return false
 		}
@@ -153,7 +163,7 @@ func (s Set[T]) IsSubsetOf(other Set[T]) bool {
 
 func (s Set[T]) ToSlice() []T {
 	slice := make([]T, 0, s.Len())
-	for v := range s.data {
+	for v := range s.All() {
 		slice = append(slice, v)
 	}
 	return slice
@@ -161,18 +171,45 @@ func (s Set[T]) ToSlice() []T {
 
 func (s Set[T]) All() iter.Seq[T] {
 	return func(yield func(T) bool) {
-		for v := range s.data {
-			if !yield(v) {
+		for k := range s.m().All() {
+			if !yield(k) {
 				return
 			}
 		}
 	}
 }
 
+func (s Set[T]) AllRev() iter.Seq[T] {
+	return func(yield func(T) bool) {
+		for k := range s.m().AllRev() {
+			if !yield(k) {
+				return
+			}
+		}
+	}
+}
+
+func (s Set[T]) First() T {
+	if n := s.m().First(); n != nil {
+		return n.key
+	}
+	var zero T
+	return zero
+}
+
+func (s Set[T]) Last() T {
+	if n := s.m().Last(); n != nil {
+		return n.key
+	}
+	var zero T
+	return zero
+}
+
+
 func (s Set[T]) String() string {
 	str := "#{"
 	first := true
-	for v := range s.data {
+	for v := range s.All() {
 		if !first {
 			str += ", "
 		}

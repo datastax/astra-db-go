@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/datastax/astra-db-go/internal/utils"
 )
 
 // UUID represents a universally unique identifier with Data API JSON serialization.
@@ -76,12 +78,12 @@ var (
 	gregMu       sync.Mutex
 	gregLastTime int64   // last 60-bit Gregorian timestamp
 	gregClockSeq uint16  // 14-bit clock sequence
-	gregNodeID   [6]byte // random LinkedMapNode ID (multicast bit set)
+	gregNodeID   [6]byte // random Node ID (multicast bit set)
 	gregInited   bool
 )
 
 // randomClockSeqAndNode generates a random 14-bit clock sequence and 6-byte
-// LinkedMapNode ID (with multicast bit set). Used by the "At" UUID constructors.
+// Node ID (with multicast bit set). Used by the "At" UUID constructors.
 func randomClockSeqAndNode() (uint16, [6]byte) {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
@@ -108,7 +110,7 @@ func initGreg() {
 }
 
 // getGregTime returns a monotonically increasing 60-bit Gregorian timestamp,
-// a 14-bit clock sequence, and the random LinkedMapNode ID.
+// a 14-bit clock sequence, and the random Node ID.
 func getGregTime() (timestamp int64, clockSeq uint16, node [6]byte) {
 	gregMu.Lock()
 	defer gregMu.Unlock()
@@ -136,9 +138,7 @@ func gregorianToTime(ticks uint64) time.Time {
 	return time.Unix(unixHundredNanos/10_000_000, (unixHundredNanos%10_000_000)*100)
 }
 
-// TODO LinkedMapNode is here for some reason
-
-// NewUUIDv1 generates a new v1 (Gregorian time + random LinkedMapNode) UUID.
+// NewUUIDv1 generates a new v1 (Gregorian time + random Node) UUID.
 // The timestamp bits are scattered across the first 8 bytes per RFC 4122.
 func NewUUIDv1() UUID {
 	ts, clockSeq, node := getGregTime()
@@ -146,7 +146,7 @@ func NewUUIDv1() UUID {
 }
 
 // NewUUIDv1At generates a v1 UUID encoding the given timestamp.
-// Clock sequence and LinkedMapNode ID are random. This does not participate in
+// Clock sequence and Node ID are random. This does not participate in
 // monotonic ordering with NewUUIDv1 calls.
 func NewUUIDv1At(t time.Time) UUID {
 	ts := t.UnixNano()/100 + gregorianUnixOffset
@@ -171,7 +171,7 @@ func buildV1(ts int64, clockSeq uint16, node [6]byte) UUID {
 	u.value[8] = 0x80 | byte(clockSeq>>8)&0x3F
 	// clock_seq_low: lower 8 bits
 	u.value[9] = byte(clockSeq)
-	// LinkedMapNode: bytes 10–15
+	// Node: bytes 10–15
 	copy(u.value[10:], node[:])
 	return u
 }
@@ -184,7 +184,7 @@ func NewUUIDv6() UUID {
 }
 
 // NewUUIDv6At generates a v6 UUID encoding the given timestamp.
-// Clock sequence and LinkedMapNode ID are random. This does not participate in
+// Clock sequence and Node ID are random. This does not participate in
 // monotonic ordering with NewUUIDv6 calls.
 func NewUUIDv6At(t time.Time) UUID {
 	ts := t.UnixNano()/100 + gregorianUnixOffset
@@ -209,7 +209,7 @@ func buildV6(ts int64, clockSeq uint16, node [6]byte) UUID {
 	u.value[8] = 0x80 | byte(clockSeq>>8)&0x3F
 	// clock_seq_low: lower 8 bits
 	u.value[9] = byte(clockSeq)
-	// LinkedMapNode: bytes 10–15
+	// Node: bytes 10–15
 	copy(u.value[10:], node[:])
 	return u
 }
@@ -338,11 +338,7 @@ func ParseUUID(s string) (UUID, error) {
 }
 
 func MustParseUUID(s string) UUID {
-	u, err := ParseUUID(s)
-	if err != nil {
-		panic(fmt.Sprintf("datatypes: invalid UUID string: %q: %v", s, err))
-	}
-	return u
+	return utils.Must(ParseUUID(s))
 }
 
 // String returns the canonical dash-separated UUID string.

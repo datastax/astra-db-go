@@ -9,15 +9,14 @@ import (
 // this file is full of ugly gross code that I plan to revisit later
 
 func mkSetCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	ef := t.Field(0)
-	et := ef.Type.Elem()
+	kt, _ := t.FieldByName("kType")
+	et := kt.Type.Elem()
 
-	mt := reflect.MapOf(et, emptyType)
 	c := resolveCodec(ctx, et, seen, false)
 
 	return codec{
-		mkSetEncoder(mt, c.encode),
-		mkSetDecoder(et, mt, c.decode),
+		mkSetEncoder(t, c.encode),
+		mkSetDecoder(et, t, c.decode),
 	}
 }
 
@@ -44,11 +43,11 @@ func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	}
 }
 
-func mkSetEncoder(mapT reflect.Type, encode encoder) encoder {
+func mkSetEncoder(setT reflect.Type, encode encoder) encoder {
 	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		m := reflect.NewAt(mapT, p).Elem()
+		m := reflect.NewAt(setT, p).Elem()
 
-		if m.IsNil() {
+		if mapIsNil(m) {
 			return append(dst, "null"...), nil
 		}
 
@@ -57,7 +56,8 @@ func mkSetEncoder(mapT reflect.Type, encode encoder) encoder {
 
 		dst = append(dst, '[')
 
-		for it := m.MapRange(); it.Next(); {
+		it := newMapIterFromSortedMap(m)
+		for it.Next() {
 			if !first {
 				dst = append(dst, ',')
 			}
@@ -105,12 +105,14 @@ func mkArrayEncoder(n int, size uintptr, encode encoder) encoder {
 	}
 }
 
-func mkSetDecoder(kt, mapT reflect.Type, decode decoder) decoder {
+func mkSetDecoder(kt, setT reflect.Type, decode decoder) decoder {
+	maker := mkSortedMapMaker(setT)
+
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		src = skipWS(src)
 
 		if src, ok := consumeNull(src); ok {
-			reflect.NewAt(mapT, p).Elem().Set(reflect.Zero(mapT))
+			reflect.NewAt(setT, p).Elem().Set(reflect.Zero(setT))
 			return src, nil
 		}
 
@@ -119,9 +121,10 @@ func mkSetDecoder(kt, mapT reflect.Type, decode decoder) decoder {
 		}
 		src = src[1:]
 
-		m := reflect.NewAt(mapT, p).Elem()
-		if m.IsNil() {
-			m = reflect.MakeMap(mapT)
+		m := reflect.NewAt(setT, p).Elem()
+
+		if mapIsNil(m) {
+			*(*unsafe.Pointer)(p) = *(*unsafe.Pointer)(valuePtr(maker.makeMap()))
 		}
 
 		var err error
@@ -133,7 +136,6 @@ func mkSetDecoder(kt, mapT reflect.Type, decode decoder) decoder {
 			src = skipWS(src)
 
 			if len(src) != 0 && src[0] == ']' {
-				*(*unsafe.Pointer)(p) = m.UnsafePointer()
 				return src[1:], nil
 			}
 
@@ -144,7 +146,7 @@ func mkSetDecoder(kt, mapT reflect.Type, decode decoder) decoder {
 				return src, err
 			}
 
-			m.SetMapIndex(k, emptyEmpty)
+			maker.setMap(m, k, emptyEmpty)
 			src = skipWS(src)
 
 			if len(src) != 0 && src[0] == ',' {

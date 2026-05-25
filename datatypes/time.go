@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/datastax/astra-db-go/internal/utils"
 )
 
 // TimeOnly represents a time (hour, minute, second, nanosecond) without a date component,
@@ -74,19 +76,27 @@ func (t TimeOnly) String() string {
 
 // ParseTimeOnly parses a time string in HH:MM[:SS[.NNNNNNNNN]] format.
 func ParseTimeOnly(s string) (TimeOnly, error) {
+	if len(s) == 0 {
+		return TimeOnly{}, fmt.Errorf("datatypes: empty time string")
+	}
+
 	parts := strings.Split(s, ":")
 	if len(parts) < 2 || len(parts) > 3 {
-		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string: %q", s)
+		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string format (expected HH:MM[:SS]): %q", s)
+	}
+
+	if len(parts[0]) != 2 || len(parts[1]) != 2 {
+		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string format (HH:MM part length mismatch): %q", s)
 	}
 
 	hour, err := strconv.Atoi(parts[0])
-	if err != nil {
-		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string: %q", s)
+	if err != nil || hour < 0 || hour > 23 {
+		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string (hour out of range): %q", s)
 	}
 
 	minute, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string: %q", s)
+	if err != nil || minute < 0 || minute > 59 {
+		return TimeOnly{}, fmt.Errorf("datatypes: invalid time string (minute out of range): %q", s)
 	}
 
 	second := 0
@@ -94,25 +104,35 @@ func ParseTimeOnly(s string) (TimeOnly, error) {
 
 	if len(parts) == 3 {
 		secParts := strings.Split(parts[2], ".")
+		if len(secParts[0]) != 2 {
+			return TimeOnly{}, fmt.Errorf("datatypes: invalid time string (second part length mismatch): %q", s)
+		}
+
 		second, err = strconv.Atoi(secParts[0])
-		if err != nil {
-			return TimeOnly{}, fmt.Errorf("datatypes: invalid time string: %q", s)
+		if err != nil || second < 0 || second > 59 {
+			return TimeOnly{}, fmt.Errorf("datatypes: invalid time string (second out of range): %q", s)
 		}
 
 		if len(secParts) == 2 {
 			nanoStr := secParts[1]
-			if nanoStr != "" {
-				if len(nanoStr) > 9 {
-					nanoStr = nanoStr[:9]
-				}
-				nanosecond, err = strconv.Atoi(nanoStr)
-				if err != nil {
-					return TimeOnly{}, fmt.Errorf("datatypes: invalid time string: %q", s)
-				}
-				nanosecond *= int(math.Pow10(9 - len(nanoStr)))
+			if nanoStr == "" {
+				return TimeOnly{}, fmt.Errorf("datatypes: invalid time string (empty fractional seconds): %q", s)
 			}
+			if len(nanoStr) > 9 {
+				nanoStr = nanoStr[:9]
+			}
+			nanosecond, err = strconv.Atoi(nanoStr)
+			if err != nil || nanosecond < 0 {
+				return TimeOnly{}, fmt.Errorf("datatypes: invalid time string (invalid fractional seconds): %q", s)
+			}
+			nanosecond *= int(math.Pow10(9 - len(nanoStr)))
 		}
 	}
 
 	return TimeOnly{Hour: hour, Minute: minute, Second: second, Nanosecond: nanosecond}, nil
+}
+
+// MustParseTimeOnly is like ParseTimeOnly but panics on error.
+func MustParseTimeOnly(s string) TimeOnly {
+	return utils.Must(ParseTimeOnly(s))
 }

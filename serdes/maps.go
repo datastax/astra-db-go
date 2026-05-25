@@ -469,25 +469,22 @@ type linkedMapFastSetter interface {
 }
 
 func mkLinkedMapMaker(t reflect.Type) mapMaker {
-	implType := t.Field(0).Type.Elem()
-	dataType := implType.Field(2).Type
+	implType := t.Field(0).Type.Elem() // linkedMap[K,V]
+	dataType := implType.Field(2).Type // map[K]*LinkedMapNode[K,V]
+	dataOff := implType.Field(2).Offset
 
 	return mapMaker{
 		makeMap: func() reflect.Value {
-			// allocates LinkedMap
-			m := reflect.New(t).Elem()
+			m := reflect.New(t).Elem()       // LinkedMap[K,V]
+			implPtr := reflect.New(implType) // *linkedMap[K,V]
+			implAddr := implPtr.UnsafePointer()
 
-			// allocates linkedMap
-			implPtr := reflect.New(implType)
+			// set data field (field 2)
+			dataAddr := unsafe.Pointer(uintptr(implAddr) + dataOff)
+			*(*unsafe.Pointer)(dataAddr) = reflect.MakeMap(dataType).UnsafePointer()
 
-			// allocates the backing map
-			dataMap := reflect.MakeMap(dataType)
-
-			// sets the data map in linkedMap
-			*(*unsafe.Pointer)(implPtr.UnsafePointer()) = dataMap.UnsafePointer()
-
-			// sets *linkedMap in LinkedMap
-			*(*unsafe.Pointer)(valuePtr(m)) = implPtr.UnsafePointer()
+			// wire *linkedMap into LinkedMap
+			*(*unsafe.Pointer)(valuePtr(m)) = implAddr
 
 			return m
 		},
@@ -500,29 +497,29 @@ func mkLinkedMapMaker(t reflect.Type) mapMaker {
 
 func mkSortedMapMaker(t reflect.Type) mapMaker {
 	implType := t.Field(0).Type.Elem() // sortedMap[K,V]
-	// sortedMap fields: 0=kType, 1=vType, 2=cmp, 3=head, 4=len
-	kt := implType.Field(0).Type // [0]K — actual key type is Elem()
+	kt := implType.Field(0).Type      // [0]K
+	cmpOff := implType.Field(2).Offset
+	headOff := implType.Field(3).Offset
+	headType := implType.Field(3).Type.Elem()
 
 	cmp := datatypes.ComparatorFor(kt.Elem())
 
 	return mapMaker{
 		makeMap: func() reflect.Value {
-			// allocate SortedMap[K,V]
-			m := reflect.New(t).Elem()
+			m := reflect.New(t).Elem()       // SortedMap[K,V]
+			implPtr := reflect.New(implType) // *sortedMap[K,V]
+			implAddr := implPtr.UnsafePointer()
 
-			// allocate sortedMap[K,V]
-			implPtr := reflect.New(implType)
-			impl := implPtr.Elem()
+			// set comparator (field 2)
+			cmpAddr := unsafe.Pointer(uintptr(implAddr) + cmpOff)
+			*(*datatypes.Comparator)(cmpAddr) = cmp
 
-			// set cmp (field 2)
-			impl.Field(2).Set(reflect.ValueOf(cmp))
-
-			// allocate sentinel head node (field 3)
-			nodeType := implType.Field(3).Type.Elem() // sortedMapNode[K,V]
-			impl.Field(3).Set(reflect.New(nodeType))
+			// set sentinel head (field 3)
+			headAddr := unsafe.Pointer(uintptr(implAddr) + headOff)
+			*(*unsafe.Pointer)(headAddr) = reflect.New(headType).UnsafePointer()
 
 			// wire *sortedMap into SortedMap
-			*(*unsafe.Pointer)(valuePtr(m)) = implPtr.UnsafePointer()
+			*(*unsafe.Pointer)(valuePtr(m)) = implAddr
 
 			return m
 		},

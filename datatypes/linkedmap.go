@@ -56,6 +56,9 @@ func NewLinkedMapWithCapacity[K comparable, V any](capacity int) LinkedMap[K, V]
 
 // Get returns the value for key, or false if it's missing.
 func (m LinkedMap[K, V]) Get(key K) (v V, found bool) {
+	if m.linkedMap == nil {
+		return
+	}
 	if n, ok := m.data[key]; ok {
 		return n.value, true
 	}
@@ -64,8 +67,9 @@ func (m LinkedMap[K, V]) Get(key K) (v V, found bool) {
 
 // GetOrDefault returns the value for key, or defaultValue if it's missing.
 func (m LinkedMap[K, V]) GetOrDefault(key K, defaultValue V) V {
-	if n, ok := m.data[key]; ok {
-		return n.value
+	v, ok := m.Get(key)
+	if ok {
+		return v
 	}
 	return defaultValue
 }
@@ -100,6 +104,9 @@ func (m LinkedMap[K, V]) SetAny(key any, value any) bool {
 
 // Delete removes a key and returns its value.
 func (m LinkedMap[K, V]) Delete(key K) (v V, found bool) {
+	if m.linkedMap == nil {
+		return
+	}
 	n, ok := m.data[key]
 	if !ok {
 		return
@@ -111,21 +118,39 @@ func (m LinkedMap[K, V]) Delete(key K) (v V, found bool) {
 
 // Has reports if a key is present.
 func (m LinkedMap[K, V]) Has(key K) bool {
-	_, ok := m.data[key]
+	_, ok := m.Get(key)
 	return ok
 }
 
 // Len is the number of entries in the map.
-func (m LinkedMap[K, V]) Len() int { return len(m.data) }
+func (m LinkedMap[K, V]) Len() int {
+	if m.linkedMap == nil {
+		return 0
+	}
+	return len(m.data)
+}
 
 // First returns the first node in insertion order, or nil if empty.
-func (m LinkedMap[K, V]) First() *LinkedMapNode[K, V] { return m.head }
+func (m LinkedMap[K, V]) First() *LinkedMapNode[K, V] {
+	if m.linkedMap == nil {
+		return nil
+	}
+	return m.head
+}
 
 // Last returns the last node in insertion order, or nil if empty.
-func (m LinkedMap[K, V]) Last() *LinkedMapNode[K, V] { return m.tail }
+func (m LinkedMap[K, V]) Last() *LinkedMapNode[K, V] {
+	if m.linkedMap == nil {
+		return nil
+	}
+	return m.tail
+}
 
 // Clear removes everything from the map.
 func (m LinkedMap[K, V]) Clear() {
+	if m.linkedMap == nil {
+		return
+	}
 	clear(m.data)
 	m.head = nil
 	m.tail = nil
@@ -133,6 +158,9 @@ func (m LinkedMap[K, V]) Clear() {
 
 // Clone returns a shallow copy that preserves insertion order.
 func (m LinkedMap[K, V]) Clone() LinkedMap[K, V] {
+	if m.linkedMap == nil {
+		return NewLinkedMap[K, V]()
+	}
 	clone := NewLinkedMapWithCapacity[K, V](m.Len())
 	for n := m.head; n != nil; n = n.next {
 		clone.Set(n.key, n.value)
@@ -142,6 +170,9 @@ func (m LinkedMap[K, V]) Clone() LinkedMap[K, V] {
 
 // ToMap returns a plain Go map with the same entries.
 func (m LinkedMap[K, V]) ToMap() map[K]V {
+	if m.linkedMap == nil {
+		return nil
+	}
 	result := make(map[K]V, m.Len())
 	for n := m.head; n != nil; n = n.next {
 		result[n.key] = n.value
@@ -152,10 +183,15 @@ func (m LinkedMap[K, V]) ToMap() map[K]V {
 // All iterates entries in insertion order.
 func (m LinkedMap[K, V]) All() iter.Seq2[K, V] {
 	return func(yield func(key K, value V) bool) {
-		for n := m.head; n != nil; n = n.next {
+		if m.linkedMap == nil {
+			return
+		}
+		for n := m.head; n != nil; {
+			next := n.next
 			if !yield(n.key, n.value) {
 				return
 			}
+			n = next
 		}
 	}
 }
@@ -163,10 +199,15 @@ func (m LinkedMap[K, V]) All() iter.Seq2[K, V] {
 // AllRev iterates entries in reverse insertion order.
 func (m LinkedMap[K, V]) AllRev() iter.Seq2[K, V] {
 	return func(yield func(key K, value V) bool) {
-		for n := m.tail; n != nil; n = n.prev {
+		if m.linkedMap == nil {
+			return
+		}
+		for n := m.tail; n != nil; {
+			prev := n.prev
 			if !yield(n.key, n.value) {
 				return
 			}
+			n = prev
 		}
 	}
 }
@@ -174,10 +215,12 @@ func (m LinkedMap[K, V]) AllRev() iter.Seq2[K, V] {
 func (m LinkedMap[K, V]) String() string {
 	var sb strings.Builder
 	sb.WriteString("{")
-	for n := m.head; n != nil; n = n.next {
-		fmt.Fprintf(&sb, "%v: %v", n.key, n.value)
-		if n.next != nil {
-			sb.WriteString(", ")
+	if m.linkedMap != nil {
+		for n := m.head; n != nil; n = n.next {
+			fmt.Fprintf(&sb, "%v: %v", n.key, n.value)
+			if n.next != nil {
+				sb.WriteString(", ")
+			}
 		}
 	}
 	sb.WriteString("}")

@@ -7,17 +7,16 @@ import (
 )
 
 func TestInlined(t *testing.T) {
-	s := Set[string]{data: make(map[string]struct{})}
+	s := NewSet[string]()
 
 	typ := reflect.TypeOf(s)
-	mapTyp := reflect.TypeOf(s.data)
+	implTyp := reflect.TypeOf(s.m().sortedMap)
 
 	fmt.Printf("Struct: %s\n", typ)
 	fmt.Printf("  Total Size:      %d bytes\n", typ.Size())
-	fmt.Printf("  Field 0 (map):   %d bytes, Offset: %d\n", typ.Field(0).Type.Size(), typ.Field(0).Offset)
-	fmt.Printf("  Field 1 ([0]T):  %d bytes, Offset: %d\n", typ.Field(1).Type.Size(), typ.Field(1).Offset)
+	fmt.Printf("  Field 0 (*impl): %d bytes, Offset: %d\n", typ.Field(0).Type.Size(), typ.Field(0).Offset)
 
-	fmt.Printf("\nIs Struct Size == Map Size? %v\n", typ.Size() == mapTyp.Size())
+	fmt.Printf("\nIs Struct Size == Pointer Size? %v\n", typ.Size() == implTyp.Size())
 }
 
 func TestInlined2(t *testing.T) {

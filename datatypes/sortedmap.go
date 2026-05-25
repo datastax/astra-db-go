@@ -55,14 +55,22 @@ func (n *SortedMapNode[K, V]) Key() K                     { return n.key }
 func (n *SortedMapNode[K, V]) Value() V                   { return n.value }
 func (n *SortedMapNode[K, V]) Next() *SortedMapNode[K, V] { return n.next[0] }
 
-// NewSortedMap returns an empty map ordered by the given Comparator.
-// Use ComparatorFor to get a comparator for common types.
-func NewSortedMap[K any, V any](cmp Comparator) SortedMap[K, V] {
+// NewSortedMap returns an empty map ordered by a default Comparator for K.
+// Use NewSortedMapWithComparator for custom ordering.
+func NewSortedMap[K any, V any]() SortedMap[K, V] {
+	return NewSortedMapWithComparator[K, V](ComparatorFor(reflect.TypeFor[K]()))
+}
+
+// NewSortedMapWithComparator returns an empty map ordered by the given Comparator.
+func NewSortedMapWithComparator[K any, V any](cmp Comparator) SortedMap[K, V] {
 	return SortedMap[K, V]{&sortedMap[K, V]{cmp: cmp, head: &SortedMapNode[K, V]{}}}
 }
 
 // Get returns the value for key, or false if it's missing.
 func (m SortedMap[K, V]) Get(key K) (v V, found bool) {
+	if m.sortedMap == nil {
+		return
+	}
 	cur := m.head
 	for i := skipListMaxLevel - 1; i >= 0; i-- {
 		for cur.next[i] != nil && m.cmp(unsafe.Pointer(&cur.next[i].key), unsafe.Pointer(&key)) < 0 {
@@ -129,6 +137,9 @@ func (m SortedMap[K, V]) SetAny(key any, value any) bool {
 
 // Delete removes a key and returns its value.
 func (m SortedMap[K, V]) Delete(key K) (v V, found bool) {
+	if m.sortedMap == nil {
+		return
+	}
 	var update [skipListMaxLevel]*SortedMapNode[K, V]
 	cur := m.head
 	for i := skipListMaxLevel - 1; i >= 0; i-- {
@@ -158,13 +169,26 @@ func (m SortedMap[K, V]) Has(key K) bool {
 }
 
 // Len is the number of entries in the map.
-func (m SortedMap[K, V]) Len() int { return m.len }
+func (m SortedMap[K, V]) Len() int {
+	if m.sortedMap == nil {
+		return 0
+	}
+	return m.len
+}
 
 // First returns the first (smallest) node, or nil if empty.
-func (m SortedMap[K, V]) First() *SortedMapNode[K, V] { return m.head.next[0] }
+func (m SortedMap[K, V]) First() *SortedMapNode[K, V] {
+	if m.sortedMap == nil {
+		return nil
+	}
+	return m.head.next[0]
+}
 
 // Last returns the last (largest) node, or nil if empty.
 func (m SortedMap[K, V]) Last() *SortedMapNode[K, V] {
+	if m.sortedMap == nil {
+		return nil
+	}
 	cur := m.head
 	for i := skipListMaxLevel - 1; i >= 0; i-- {
 		for cur.next[i] != nil {
@@ -179,6 +203,9 @@ func (m SortedMap[K, V]) Last() *SortedMapNode[K, V] {
 
 // Clear removes everything from the map.
 func (m SortedMap[K, V]) Clear() {
+	if m.sortedMap == nil {
+		return
+	}
 	for i := range m.head.next {
 		m.head.next[i] = nil
 	}
@@ -189,6 +216,9 @@ func (m SortedMap[K, V]) Clear() {
 // Supports bounds: All() is full, All(lo) is lo <= k, All(lo, hi) is lo <= k <= hi.
 func (m SortedMap[K, V]) All(bounds ...K) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
+		if m.sortedMap == nil {
+			return
+		}
 		if len(bounds) > 2 {
 			panic("SortedMap.All: too many bounds")
 		}
@@ -204,13 +234,15 @@ func (m SortedMap[K, V]) All(bounds ...K) iter.Seq2[K, V] {
 			cur = cur.next[0]
 		}
 
-		for ; cur != nil; cur = cur.next[0] {
+		for ; cur != nil; {
+			next := cur.next[0]
 			if len(bounds) == 2 && m.cmp(unsafe.Pointer(&cur.key), unsafe.Pointer(&bounds[1])) > 0 {
 				return
 			}
 			if !yield(cur.key, cur.value) {
 				return
 			}
+			cur = next
 		}
 	}
 }
@@ -222,6 +254,9 @@ func (m SortedMap[K, V]) All(bounds ...K) iter.Seq2[K, V] {
 // collect matching nodes into a slice and yield them in reverse.
 func (m SortedMap[K, V]) AllRev(bounds ...K) iter.Seq2[K, V] {
 	return func(yield func(K, V) bool) {
+		if m.sortedMap == nil {
+			return
+		}
 		if len(bounds) > 2 {
 			panic("SortedMap.AllRev: too many bounds")
 		}
@@ -257,12 +292,14 @@ func (m SortedMap[K, V]) String() string {
 	var sb strings.Builder
 	sb.WriteString("{")
 	first := true
-	for n := m.head.next[0]; n != nil; n = n.next[0] {
-		if !first {
-			sb.WriteString(", ")
+	if m.sortedMap != nil {
+		for n := m.head.next[0]; n != nil; n = n.next[0] {
+			if !first {
+				sb.WriteString(", ")
+			}
+			fmt.Fprintf(&sb, "%v: %v", n.key, n.value)
+			first = false
 		}
-		fmt.Fprintf(&sb, "%v: %v", n.key, n.value)
-		first = false
 	}
 	sb.WriteString("}")
 	return sb.String()

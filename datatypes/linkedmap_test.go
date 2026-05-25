@@ -2,472 +2,227 @@ package datatypes_test
 
 import (
 	"testing"
-	"testing/quick"
 
 	"github.com/datastax/astra-db-go/datatypes"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"pgregory.net/rapid"
 )
 
-//goland:noinspection GoMaybeNil
-func TestLinkedMapConstructors_NewLinkedMap(t *testing.T) {
-	m := datatypes.NewLinkedMap[string, int]()
-	testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
-}
-
-func TestLinkedMapConstructors_NewLinkedMapWithCapacity(t *testing.T) {
-	f := func(capacity uint8) bool {
-		m := datatypes.NewLinkedMapWithCapacity[string, int](int(capacity))
-		testutils.FailIf(t, m.Len() != 0, "expected new map to be empty")
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapSetAndGet(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
+func TestLinkedMap_Operations(t *testing.T) {
+	rapid.Check(t, func(rt *rapid.T) {
 		m := datatypes.NewLinkedMap[string, int]()
+		shadow := make(map[string]int)
+		var order []string
 
-		for i := range keys {
-			val := values[i%len(values)]
-			oldVal, existed := m.Set(keys[i], val)
-
-			if !existed {
-				testutils.FailIf(t, oldVal != 0, "expected zero value for new key")
-			}
-
-			gotVal, found := m.Get(keys[i])
-			testutils.FailIf(t, !found, "expected to find key after setting")
-			testutils.FailIf(t, gotVal != val, "expected retrieved value to match set value")
+		type op struct {
+			kind string
+			key  string
+			val  int
 		}
 
-		return true
-	}
+		ops := rapid.SliceOf(rapid.Custom(func(t *rapid.T) op {
+			kind := rapid.SampledFrom([]string{"set", "delete", "get", "get_default", "clear"}).Draw(t, "kind")
+			key := rapid.String().Draw(t, "key")
+			val := rapid.Int().Draw(t, "val")
+			return op{kind, key, val}
+		})).Draw(rt, "ops")
 
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapSetUpdate(t *testing.T) {
-	f := func(key string, val1 int, val2 int) bool {
-		m := datatypes.NewLinkedMap[string, int]()
-
-		oldVal1, existed1 := m.Set(key, val1)
-		testutils.FailIf(t, existed1, "expected first set to be new")
-		testutils.FailIf(t, oldVal1 != 0, "expected zero value for new key")
-
-		oldVal2, existed2 := m.Set(key, val2)
-		testutils.FailIf(t, !existed2, "expected second set to be update")
-		testutils.FailIf(t, oldVal2 != val1, "expected old value to be returned on update")
-
-		gotVal, found := m.Get(key)
-		testutils.FailIf(t, !found, "expected to find key after update")
-		testutils.FailIf(t, gotVal != val2, "expected updated value")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapGetOrDefault(t *testing.T) {
-	f := func(key string, value int, defaultValue int) bool {
-		m := datatypes.NewLinkedMap[string, int]()
-
-		gotDefault := m.GetOrDefault(key, defaultValue)
-		testutils.FailIf(t, gotDefault != defaultValue, "expected default value for missing key")
-
-		m.Set(key, value)
-		gotValue := m.GetOrDefault(key, defaultValue)
-		testutils.FailIf(t, gotValue != value, "expected actual value for existing key")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapDelete(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		expected := make(map[string]int)
-
-		for i := range keys {
-			val := values[i%len(values)]
-			m.Set(keys[i], val)
-			expected[keys[i]] = val
-		}
-
-		for _, key := range keys {
-			if !m.Has(key) {
-				continue
-			}
-
-			val, found := m.Delete(key)
-			testutils.FailIf(t, !found, "expected to find key on first delete")
-			testutils.FailIf(t, val != expected[key], "expected correct value on delete")
-
-			_, found2 := m.Delete(key)
-			testutils.FailIf(t, found2, "expected not to find key on second delete")
-
-			testutils.FailIf(t, m.Has(key), "expected key to not exist after delete")
-		}
-
-		testutils.FailIf(t, m.Len() != 0, "expected map to be empty after deleting all keys")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapHas(t *testing.T) {
-	f := func(key string, value int) bool {
-		m := datatypes.NewLinkedMap[string, int]()
-
-		testutils.FailIf(t, m.Has(key), "expected key to not exist in empty map")
-
-		m.Set(key, value)
-		testutils.FailIf(t, !m.Has(key), "expected key to exist after setting")
-
-		m.Delete(key)
-		testutils.FailIf(t, m.Has(key), "expected key to not exist after deleting")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapLen(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		testutils.FailIf(t, m.Len() != 0, "expected empty map to have length 0")
-
-		unique := make(map[string]struct{})
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-			unique[keys[i]] = struct{}{}
-			testutils.FailIf(t, m.Len() != len(unique), "expected length to match unique keys")
-		}
-
-		for _, key := range keys {
-			if m.Has(key) {
-				m.Delete(key)
-				delete(unique, key)
-				testutils.FailIf(t, m.Len() != len(unique), "expected length to decrease after delete")
-			}
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapClear(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		if m.Len() > 0 {
-			m.Clear()
-			testutils.FailIf(t, m.Len() != 0, "expected map to be empty after clear")
-
-			for _, key := range keys {
-				testutils.FailIf(t, m.Has(key), "expected no keys to exist after clear")
-			}
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapFirstLast(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-
-		firstNode := m.First()
-		testutils.FailIf(t, firstNode != nil, "expected First to return nil for empty map")
-
-		lastNode := m.Last()
-		testutils.FailIf(t, lastNode != nil, "expected Last to return nil for empty map")
-
-		expected := make(map[string]int)
-		var firstUniqueKey string
-		var lastUniqueKey string
-		firstSet := false
-
-		for i := range keys {
-			val := values[i%len(values)]
-			if _, exists := expected[keys[i]]; !exists {
-				if !firstSet {
-					firstUniqueKey = keys[i]
-					firstSet = true
+		for _, o := range ops {
+			switch o.kind {
+			case "set":
+				oldVal, existed := m.Set(o.key, o.val)
+				shadowOldVal, shadowExisted := shadow[o.key]
+				if existed != shadowExisted {
+					rt.Fatalf("Set(%q) existed mismatch: got %v, want %v", o.key, existed, shadowExisted)
 				}
-				lastUniqueKey = keys[i]
-			}
-			m.Set(keys[i], val)
-			expected[keys[i]] = val
-		}
-
-		firstNode = m.First()
-		testutils.FailIf(t, firstNode == nil, "expected First to return non-nil for non-empty map")
-
-		// Verify first element by iterating
-		i := 0
-		for key, val := range m.All() {
-			if i == 0 {
-				testutils.FailIf(t, key != firstUniqueKey, "expected First to return first inserted key")
-				testutils.FailIf(t, val != expected[key], "expected First to return correct value")
-			}
-			i++
-		}
-
-		lastNode = m.Last()
-		testutils.FailIf(t, lastNode == nil, "expected Last to return non-nil for non-empty map")
-
-		// Verify last element by iterating
-		i = 0
-		var lastSeenKey string
-		var lastSeenVal int
-		for key, val := range m.All() {
-			lastSeenKey = key
-			lastSeenVal = val
-			i++
-		}
-		testutils.FailIf(t, lastSeenKey != lastUniqueKey, "expected Last to return last unique inserted key")
-		testutils.FailIf(t, lastSeenVal != expected[lastSeenKey], "expected Last to return correct value")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapClone(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		clone := m.Clone()
-		testutils.FailIf(t, clone.Len() != m.Len(), "expected clone to have same length")
-
-		for key, val := range m.All() {
-			cloneVal, found := clone.Get(key)
-			testutils.FailIf(t, !found, "expected clone to have all keys from original")
-			testutils.FailIf(t, cloneVal != val, "expected clone to have same values")
-		}
-
-		origKeys := make([]string, 0, m.Len())
-		for origKey := range m.All() {
-			origKeys = append(origKeys, origKey)
-		}
-
-		cloneKeys := make([]string, 0, clone.Len())
-		for cloneKey := range clone.All() {
-			cloneKeys = append(cloneKeys, cloneKey)
-		}
-
-		for i := range origKeys {
-			testutils.FailIf(t, origKeys[i] != cloneKeys[i], "expected clone to preserve order")
-		}
-
-		m.Set("new-key", 999)
-		testutils.FailIf(t, clone.Has("new-key"), "expected clone to be independent")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapToMap(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		regularMap := m.ToMap()
-		testutils.FailIf(t, len(regularMap) != m.Len(), "expected map to have same length")
-
-		for key, val := range m.All() {
-			mapVal, found := regularMap[key]
-			testutils.FailIf(t, !found, "expected map to have all keys")
-			testutils.FailIf(t, mapVal != val, "expected map to have same values")
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapAll(t *testing.T) {
-	f := func(keys []byte, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[byte, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		count := 0
-		seen := make(map[byte]struct{})
-		for key, val := range m.All() {
-			count++
-			_, alreadySeen := seen[key]
-			testutils.FailIf(t, alreadySeen, "expected iterator to not yield duplicate keys")
-
-			gotVal, found := m.Get(key)
-			testutils.FailIf(t, !found, "expected iterator to only yield keys in map")
-			testutils.FailIf(t, gotVal != val, "expected iterator to yield correct values")
-
-			seen[key] = struct{}{}
-		}
-
-		testutils.FailIf(t, count != m.Len(), "expected iterator to yield all elements")
-
-		if m.Len() > 0 {
-			iterCount := 0
-			for range m.All() {
-				iterCount++
-				if iterCount >= 1 {
-					break
+				if existed && oldVal != shadowOldVal {
+					rt.Fatalf("Set(%q) old value mismatch: got %v, want %v", o.key, oldVal, shadowOldVal)
 				}
+				shadow[o.key] = o.val
+				if !shadowExisted {
+					order = append(order, o.key)
+				}
+			case "delete":
+				val, found := m.Delete(o.key)
+				shadowVal, shadowFound := shadow[o.key]
+				if found != shadowFound {
+					rt.Fatalf("Delete(%q) found mismatch: got %v, want %v", o.key, found, shadowFound)
+				}
+				if found && val != shadowVal {
+					rt.Fatalf("Delete(%q) value mismatch: got %v, want %v", o.key, val, shadowVal)
+				}
+				delete(shadow, o.key)
+				for i, k := range order {
+					if k == o.key {
+						order = append(order[:i], order[i+1:]...)
+						break
+					}
+				}
+			case "get":
+				val, found := m.Get(o.key)
+				shadowVal, shadowFound := shadow[o.key]
+				if found != shadowFound {
+					rt.Fatalf("Get(%q) found mismatch", o.key)
+				}
+				if found && val != shadowVal {
+					rt.Fatalf("Get(%q) value mismatch", o.key)
+				}
+			case "get_default":
+				def := rapid.Int().Draw(rt, "def")
+				got := m.GetOrDefault(o.key, def)
+				want := def
+				if v, ok := shadow[o.key]; ok {
+					want = v
+				}
+				if got != want {
+					rt.Fatalf("GetOrDefault(%q) mismatch", o.key)
+				}
+			case "clear":
+				m.Clear()
+				clear(shadow)
+				order = nil
 			}
-			testutils.FailIf(t, iterCount != 1, "expected to be able to break from iterator early")
-		}
 
-		return true
+			if m.Len() != len(shadow) {
+				rt.Fatalf("Len mismatch")
+			}
+
+			// Check order
+			var currentOrder []string
+			for k := range m.All() {
+				currentOrder = append(currentOrder, k)
+			}
+			if diff := cmp.Diff(order, currentOrder, cmpopts.EquateEmpty()); diff != "" {
+				rt.Fatalf("Order mismatch after %s: %s", o.kind, diff)
+			}
+
+			// Check reverse order
+			var currentOrderRev []string
+			for k := range m.AllRev() {
+				currentOrderRev = append(currentOrderRev, k)
+			}
+			expectedRev := make([]string, len(order))
+			for i, k := range order {
+				expectedRev[len(order)-1-i] = k
+			}
+			if diff := cmp.Diff(expectedRev, currentOrderRev, cmpopts.EquateEmpty()); diff != "" {
+				rt.Fatalf("Reverse order mismatch after %s: %s", o.kind, diff)
+			}
+		}
+	})
+}
+
+func TestLinkedMap_DeleteDuringIter(t *testing.T) {
+	m := datatypes.NewLinkedMap[int, int]()
+	m.Set(1, 1)
+	m.Set(2, 2)
+	m.Set(3, 3)
+
+	count := 0
+	for k := range m.All() {
+		count++
+		if k == 2 {
+			m.Delete(k)
+		}
+	}
+	if count != 3 {
+		t.Fatalf("expected 3 iterations, got %d", count)
 	}
 
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
+	// Reverse
+	m = datatypes.NewLinkedMap[int, int]()
+	m.Set(1, 1)
+	m.Set(2, 2)
+	m.Set(3, 3)
+
+	count = 0
+	for k := range m.AllRev() {
+		count++
+		if k == 2 {
+			m.Delete(k)
+		}
+	}
+	if count != 3 {
+		t.Fatalf("expected 3 iterations (rev), got %d", count)
 	}
 }
 
-func TestLinkedMapAllRev(t *testing.T) {
-	f := func(keys []string, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
-		m := datatypes.NewLinkedMap[string, int]()
-		for i := range keys {
-			m.Set(keys[i], values[i%len(values)])
-		}
-
-		var forwardKeys []string
-		for key := range m.All() {
-			forwardKeys = append(forwardKeys, key)
-		}
-
-		var reverseKeys []string
-		for key, _ := range m.AllRev() {
-			reverseKeys = append(reverseKeys, key)
-		}
-
-		testutils.FailIf(t, len(reverseKeys) != len(forwardKeys), "expected same number of keys in reverse")
-
-		for i := range forwardKeys {
-			testutils.FailIf(t, forwardKeys[i] != reverseKeys[len(reverseKeys)-1-i], "expected reverse order")
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestLinkedMapInsertionOrder(t *testing.T) {
-	f := func(keys []int, values []int) bool {
-		if len(keys) == 0 || len(values) == 0 {
-			return true
-		}
-
+func TestLinkedMap_Clone(t *testing.T) {
+	rapid.Check(t, func(rt *rapid.T) {
 		m := datatypes.NewLinkedMap[int, int]()
-		var insertionOrder []int
-		seen := make(map[int]struct{})
-
-		for i := range keys {
-			if _, exists := seen[keys[i]]; !exists {
-				insertionOrder = append(insertionOrder, keys[i])
-				seen[keys[i]] = struct{}{}
-			}
-			m.Set(keys[i], values[i%len(values)])
+		keys := rapid.SliceOf(rapid.Int()).Draw(rt, "keys")
+		for _, k := range keys {
+			m.Set(k, k)
+		}
+		clone := m.Clone()
+		if clone.Len() != m.Len() {
+			rt.Fatal("Clone len mismatch")
 		}
 
-		i := 0
-		for key := range m.All() {
-			testutils.FailIf(t, key != insertionOrder[i], "expected keys to be in insertion order")
-			i++
+		// Find a key not in the map
+		uniqueKey := rapid.Int().Filter(func(k int) bool { return !m.Has(k) }).Draw(rt, "uniqueKey")
+		m.Set(uniqueKey, uniqueKey)
+		if clone.Has(uniqueKey) {
+			rt.Fatal("Clone should be independent")
 		}
+	})
+}
 
-		return true
+func TestLinkedMap_FirstLast(t *testing.T) {
+	m := datatypes.NewLinkedMap[string, string]()
+	if m.First() != nil || m.Last() != nil {
+		t.Fatal("Empty map should have nil First/Last")
+	}
+	m.Set("a", "1")
+	if m.First().Key() != "a" || m.Last().Key() != "a" {
+		t.Fatal("Single element First/Last mismatch")
+	}
+	m.Set("b", "2")
+	if m.First().Key() != "a" || m.Last().Key() != "b" {
+		t.Fatal("Two element First/Last mismatch")
+	}
+}
+
+func TestLinkedMap_Nil(t *testing.T) {
+	var m datatypes.LinkedMap[string, int]
+
+	// Reads should be safe and return zero values
+	if got, found := m.Get("any"); found || got != 0 {
+		t.Errorf("Get on nil map: got (%v, %v), want (0, false)", got, found)
+	}
+	if m.Has("any") {
+		t.Error("Has on nil map: got true, want false")
+	}
+	if got := m.Len(); got != 0 {
+		t.Errorf("Len on nil map: got %d, want 0", got)
+	}
+	if m.First() != nil || m.Last() != nil {
+		t.Error("First/Last on nil map should be nil")
+	}
+	if m.GetOrDefault("any", 42) != 42 {
+		t.Error("GetOrDefault on nil map failed")
 	}
 
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
+	// Iteration should be safe and empty
+	for range m.All() {
+		t.Fatal("All() on nil map should not yield anything")
 	}
+	for range m.AllRev() {
+		t.Fatal("AllRev() on nil map should not yield anything")
+	}
+
+	// Delete and Clear should be safe no-ops
+	m.Delete("any")
+	m.Clear()
+
+	// Writes should panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Set on nil map should panic")
+		} else if r != "assignment to entry in nil LinkedMap" {
+			t.Errorf("unexpected panic message: %v", r)
+		}
+	}()
+	m.Set("any", 1)
 }

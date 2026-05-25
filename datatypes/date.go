@@ -20,6 +20,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/datastax/astra-db-go/internal/utils"
 )
 
 // DateOnly represents a date (year, month, day) without a time component,
@@ -83,8 +85,8 @@ func (d DateOnly) String() string {
 
 // ParseDateOnly parses a date string in [+-]?YYYY-MM-DD format.
 func ParseDateOnly(s string) (DateOnly, error) {
-	if len(s) < 10 {
-		return DateOnly{}, fmt.Errorf("datatypes: invalid date string: %q", s)
+	if len(s) == 0 {
+		return DateOnly{}, fmt.Errorf("datatypes: empty date string")
 	}
 
 	var sign = 1
@@ -101,30 +103,63 @@ func ParseDateOnly(s string) (DateOnly, error) {
 	}
 
 	idx1 := strings.IndexByte(remaining, '-')
+	if idx1 == -1 {
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (missing year separator): %q", s)
+	}
 	if idx1 < 4 { // At least 4 digits for year
-		return DateOnly{}, fmt.Errorf("datatypes: invalid date string: %q", s)
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (year part too short): %q", s)
 	}
 	yearStr = remaining[:idx1]
 	remaining = remaining[idx1+1:]
 
 	if len(remaining) != 5 || remaining[2] != '-' {
-		return DateOnly{}, fmt.Errorf("datatypes: invalid date string: %q", s)
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (invalid month/day format): %q", s)
+	}
+
+	if len(s) < 10 {
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (too short): %q", s)
 	}
 
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {
-		return DateOnly{}, fmt.Errorf("datatypes: invalid date string: %q", s)
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (invalid year): %q", s)
 	}
 
 	month, err := strconv.Atoi(remaining[:2])
 	if err != nil {
-		return DateOnly{}, fmt.Errorf("datatypes: invalid date string: %q", s)
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (invalid month): %q", s)
 	}
 
 	day, err := strconv.Atoi(remaining[3:])
 	if err != nil {
-		return DateOnly{}, fmt.Errorf("datatypes: invalid date string: %q", s)
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (invalid day): %q", s)
 	}
 
-	return DateOnly{Year: sign * year, Month: month, Day: day}, nil
+	y := sign * year
+	if month < 1 || month > 12 {
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (month out of range): %q", s)
+	}
+
+	daysInMonth := 31
+	switch month {
+	case 4, 6, 9, 11:
+		daysInMonth = 30
+	case 2:
+		if (y%4 == 0 && y%100 != 0) || (y%400 == 0) {
+			daysInMonth = 29
+		} else {
+			daysInMonth = 28
+		}
+	}
+
+	if day < 1 || day > daysInMonth {
+		return DateOnly{}, fmt.Errorf("datatypes: invalid date string (day out of range): %q", s)
+	}
+
+	return DateOnly{Year: y, Month: month, Day: day}, nil
+}
+
+// MustParseDateOnly is like ParseDateOnly but panics on error.
+func MustParseDateOnly(s string) DateOnly {
+	return utils.Must(ParseDateOnly(s))
 }
