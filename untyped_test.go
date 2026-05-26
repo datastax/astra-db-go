@@ -16,7 +16,7 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 	jsonData := `{"id": "123", "name": "Alice", "meta": {"score": 0.95}}`
 
 	var doc Document
-	err := serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+	err := serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
@@ -93,7 +93,7 @@ func TestDocument_NullHandling(t *testing.T) {
 	jsonData := `{"id": "123", "optional": null}`
 
 	var doc Document
-	serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+	serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
 
 	val, ok := doc.Get("optional")
 	if !ok || val != nil {
@@ -110,7 +110,7 @@ func TestDocument_DeepPathNotFound(t *testing.T) {
 	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
 
 	var doc Document
-	serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+	serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
 
 	_, ok := doc.Get("meta", "missing")
 	if ok {
@@ -683,7 +683,7 @@ func TestDocument_MustGet(t *testing.T) {
 	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
 
 	var doc Document
-	err := serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+	err := serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}

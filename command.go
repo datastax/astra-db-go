@@ -266,7 +266,7 @@ func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOp
 
 	var schema serdes.TargetDecodeCtx
 	if c.target == serdes.TargetCollection {
-		schema = collectionCtx
+		schema = documentCtx
 	} else if status.schema != nil {
 		schema = &lazySchema{AsRaw: status.schema}
 	}

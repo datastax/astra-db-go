@@ -13,6 +13,8 @@ import (
 	"github.com/datastax/astra-db-go/table"
 )
 
+// region Interfaces
+
 // Document represents an untyped document used for a collection operation (as opposed to using a specific struct).
 //
 // To use a Document as an input for collection operations (Insert, Update, etc.),
@@ -141,6 +143,10 @@ type Row interface {
 	ToMap() map[string]any
 }
 
+// endregion
+
+// region NewDocument
+
 // NewDocument is a map-based implementation of [Document], primarily used for insertion.
 // While standard maps can still be used for insertion, NewDocument provides a
 // convenient way to implement the [Document] interface if needed.
@@ -229,6 +235,10 @@ func (d NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewDocument; use the astradb.Document interface for results")
 }
 
+// endregion
+
+// region NewRow
+
 // NewRow is a map-based implementation of [Row], primarily used for insertion.
 // While standard maps can still be used for insertion, NewRow provides a
 // convenient way to implement the [Row] interface if needed.
@@ -306,26 +316,9 @@ func (r NewRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewRow; use the astradb.Row interface for results")
 }
 
-func getDeepFromMap(m map[string]any, path ...string) (any, bool) {
-	current := m
-	for i, p := range path {
-		val, ok := current[p]
-		if !ok {
-			return nil, false
-		}
+// endregion
 
-		if i == len(path)-1 {
-			return val, true
-		}
-
-		nextMap, ok := val.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current = nextMap
-	}
-	return nil, false
-}
+// region serverDocument
 
 type serverDocument struct {
 	data map[string]json.RawMessage
@@ -416,6 +409,34 @@ func (d *serverDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]by
 	}
 	return serdes.SerializeInto(d.data, ctx.Target, dst)
 }
+
+// endregion
+
+// region Document TargetCtx
+
+var documentInterfaceType = reflect.TypeFor[Document]()
+
+type documentTargetCtx struct{}
+
+func (documentTargetCtx) UntypedTargetInterface() reflect.Type {
+	return documentInterfaceType
+}
+
+func (documentTargetCtx) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawUnmarshaler {
+	doc := &serverDocument{}
+	*(*Document)(p) = doc
+	return doc
+}
+
+var documentCtx = documentTargetCtx{}
+
+func NewDocumentTargetCtx() serdes.TargetDecodeCtx {
+	return documentCtx
+}
+
+// endregion
+
+// region serverRow
 
 type serverRow struct {
 	data   map[string]json.RawMessage
@@ -549,6 +570,10 @@ func (r *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, e
 	return serdes.SerializeInto(r.data, ctx.Target, dst)
 }
 
+// endregion
+
+// region Row TargetCtx
+
 type lazySchema struct {
 	AsRaw  json.RawMessage
 	AsCols table.Columns
@@ -589,26 +614,6 @@ func NewRowTargetCtx(cols table.Columns) serdes.TargetDecodeCtx {
 	return &lazySchema{AsCols: cols}
 }
 
-var documentInterfaceType = reflect.TypeFor[Document]()
-
-type collectionTargetCtx struct{}
-
-func (c collectionTargetCtx) UntypedTargetInterface() reflect.Type {
-	return documentInterfaceType
-}
-
-func (c collectionTargetCtx) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawUnmarshaler {
-	doc := &serverDocument{}
-	*(*Document)(p) = doc
-	return doc
-}
-
-var collectionCtx = collectionTargetCtx{}
-
-func NewDocumentTargetCtx() serdes.TargetDecodeCtx {
-	return collectionCtx
-}
-
 func getSubColumn(col table.Column, key string) (table.Column, bool) {
 	switch col.Type {
 	case table.TypeMap:
@@ -619,6 +624,10 @@ func getSubColumn(col table.Column, key string) (table.Column, bool) {
 		return table.Column{}, false
 	}
 }
+
+// endregion
+
+// region Column Deserialization
 
 func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
 	switch col.Type {
@@ -766,6 +775,31 @@ func deserializeUDT(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column)
 	return r.ToMap(), nil
 }
 
+// endregion
+
+// region Helpers
+
+func getDeepFromMap(m map[string]any, path ...string) (any, bool) {
+	current := m
+	for i, p := range path {
+		val, ok := current[p]
+		if !ok {
+			return nil, false
+		}
+
+		if i == len(path)-1 {
+			return val, true
+		}
+
+		nextMap, ok := val.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = nextMap
+	}
+	return nil, false
+}
+
 func mustGet(get func(path ...string) (any, bool), path []string, target string) any {
 	val, ok := get(path...)
 	if !ok {
@@ -807,3 +841,5 @@ func decodeFromMap(m map[string]any, path []string, dest any, target serdes.Targ
 
 	return serdes.Deserialize(b, dest, nil, target)
 }
+
+// endregion
