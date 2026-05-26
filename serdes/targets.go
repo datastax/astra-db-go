@@ -2,7 +2,13 @@ package serdes
 
 import (
 	"reflect"
+	"unsafe"
 )
+
+type TargetDecodeCtx interface {
+	UntypedTargetInterface() reflect.Type
+	NewUntypedTarget(p unsafe.Pointer) AstraRawUnmarshaler
+}
 
 type typedCodec struct {
 	codec

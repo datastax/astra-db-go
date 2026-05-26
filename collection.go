@@ -27,7 +27,6 @@ import (
 	"github.com/datastax/astra-db-go/ptr"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/table"
 )
 
 // CollectionFilter is implemented by [filter.F] and [filter.Filter].
@@ -207,7 +206,7 @@ func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...op
 func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOption) *cursors.CollectionFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
 
-	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 		cmd := c.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}

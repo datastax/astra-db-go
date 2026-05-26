@@ -220,7 +220,7 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertMa
 
 	batch := results.InsertManyBatch{
 		InsertedIds: nil,
-		Schema:      schema,
+		TargetCtx:   schema,
 	}
 
 	var apiErr *DataAPIError

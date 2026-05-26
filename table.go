@@ -233,7 +233,7 @@ func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.Tabl
 func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.TableFindCursor {
 	merged, err := options.MergeAndValidate(opts...)
 
-	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 		cmd := t.newCmdWithMergedOptions("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}

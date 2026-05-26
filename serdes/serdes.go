@@ -79,7 +79,7 @@ func SerializeInto(data any, target Target, dst []byte) ([]byte, error) {
 	return dst, err
 }
 
-func Deserialize(data []byte, res any, schema any, target Target) error {
+func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target Target) error {
 	t := reflect.TypeOf(res)
 	p := (*iface)(unsafe.Pointer(&res)).ptr
 
@@ -87,7 +87,7 @@ func Deserialize(data []byte, res any, schema any, target Target) error {
 		return fmt.Errorf("deserialize requires a pointer, got %v", t)
 	}
 
-	ctx := DecodeCtx{Target: target, Schema: schema}
+	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx}
 	c := resolveCodecCaching(ctx.codecCtx, t.Elem())
 
 	_, err := c.decode(ctx, data, p)

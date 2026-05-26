@@ -343,8 +343,26 @@ func mkSomeInterfaceDecoder(t reflect.Type) decoder {
 	if t.NumMethod() == 0 {
 		return emptyInterfaceDecoder
 	}
-	// TODO potentially try being able to decode if there's already an implementing struct in the pointer?
-	return mkErrorDecoder(fmt.Errorf("cannot decode into non-empty interface type %s", t))
+
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		if ctx.TargetCtx != nil && ctx.TargetCtx.UntypedTargetInterface() == t {
+			srcAfter, err := skipValue(src)
+			if err != nil {
+				return src, err
+			}
+
+			splitPoint := len(src) - len(srcAfter)
+			valueBytes := src[:splitPoint]
+
+			targetInstance := ctx.TargetCtx.NewUntypedTarget(p)
+			if err := targetInstance.UnmarshalAstraRaw(ctx, valueBytes); err != nil {
+				return src, err
+			}
+
+			return srcAfter, nil
+		}
+		return src, fmt.Errorf("cannot decode into non-empty interface type %s", t)
+	}
 }
 
 // Raw messages

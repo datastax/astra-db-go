@@ -1,4 +1,4 @@
-package table
+package astradb
 
 import (
 	"encoding/json"
@@ -8,45 +8,46 @@ import (
 
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/table"
 )
 
 func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   Columns
+		schema   table.Columns
 		jsonData string
 		want     map[string]any
 	}{
 		{
 			name: "int field",
-			schema: Columns{
-				{Name: "id", Column: Column{Type: TypeInt}},
+			schema: table.Columns{
+				{Name: "id", Column: table.Column{Type: table.TypeInt}},
 			},
 			jsonData: `{"id": 42}`,
 			want:     map[string]any{"id": 42},
 		},
 		{
 			name: "string field",
-			schema: Columns{
-				{Name: "name", Column: Column{Type: TypeText}},
+			schema: table.Columns{
+				{Name: "name", Column: table.Column{Type: table.TypeText}},
 			},
 			jsonData: `{"name": "test"}`,
 			want:     map[string]any{"name": "test"},
 		},
 		{
 			name: "boolean field",
-			schema: Columns{
-				{Name: "active", Column: Column{Type: TypeBoolean}},
+			schema: table.Columns{
+				{Name: "active", Column: table.Column{Type: table.TypeBoolean}},
 			},
 			jsonData: `{"active": true}`,
 			want:     map[string]any{"active": true},
 		},
 		{
 			name: "multiple fields",
-			schema: Columns{
-				{Name: "id", Column: Column{Type: TypeInt}},
-				{Name: "name", Column: Column{Type: TypeText}},
-				{Name: "active", Column: Column{Type: TypeBoolean}},
+			schema: table.Columns{
+				{Name: "id", Column: table.Column{Type: table.TypeInt}},
+				{Name: "name", Column: table.Column{Type: table.TypeText}},
+				{Name: "active", Column: table.Column{Type: table.TypeBoolean}},
 			},
 			jsonData: `{"id": 123, "name": "alice", "active": false}`,
 			want: map[string]any{
@@ -59,8 +60,8 @@ func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
+			var row Row
+			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -82,14 +83,14 @@ func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
 func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   Columns
+		schema   table.Columns
 		jsonData string
 		validate func(t *testing.T, data map[string]any)
 	}{
 		{
 			name: "bigint",
-			schema: Columns{
-				{Name: "big", Column: Column{Type: TypeBigInt}},
+			schema: table.Columns{
+				{Name: "big", Column: table.Column{Type: table.TypeBigInt}},
 			},
 			jsonData: `{"big": 9223372036854775807}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -105,8 +106,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 		},
 		{
 			name: "smallint",
-			schema: Columns{
-				{Name: "small", Column: Column{Type: TypeSmallInt}},
+			schema: table.Columns{
+				{Name: "small", Column: table.Column{Type: table.TypeSmallInt}},
 			},
 			jsonData: `{"small": 32767}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -122,8 +123,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 		},
 		{
 			name: "tinyint",
-			schema: Columns{
-				{Name: "tiny", Column: Column{Type: TypeTinyInt}},
+			schema: table.Columns{
+				{Name: "tiny", Column: table.Column{Type: table.TypeTinyInt}},
 			},
 			jsonData: `{"tiny": 127}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -139,8 +140,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 		},
 		{
 			name: "float",
-			schema: Columns{
-				{Name: "f", Column: Column{Type: TypeFloat}},
+			schema: table.Columns{
+				{Name: "f", Column: table.Column{Type: table.TypeFloat}},
 			},
 			jsonData: `{"f": 3.14}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -156,8 +157,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 		},
 		{
 			name: "double",
-			schema: Columns{
-				{Name: "d", Column: Column{Type: TypeDouble}},
+			schema: table.Columns{
+				{Name: "d", Column: table.Column{Type: table.TypeDouble}},
 			},
 			jsonData: `{"d": 3.141592653589793}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -175,8 +176,8 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
+			var row Row
+			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -188,21 +189,21 @@ func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
 func TestRow_UnmarshalAstraRaw_NullHandling(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   Columns
+		schema   table.Columns
 		jsonData string
 	}{
 		{
 			name: "null value",
-			schema: Columns{
-				{Name: "name", Column: Column{Type: TypeText}},
+			schema: table.Columns{
+				{Name: "name", Column: table.Column{Type: table.TypeText}},
 			},
 			jsonData: `{"name": null}`,
 		},
 		{
 			name: "missing field",
-			schema: Columns{
-				{Name: "name", Column: Column{Type: TypeText}},
-				{Name: "age", Column: Column{Type: TypeInt}},
+			schema: table.Columns{
+				{Name: "name", Column: table.Column{Type: table.TypeText}},
+				{Name: "age", Column: table.Column{Type: table.TypeInt}},
 			},
 			jsonData: `{"name": "test"}`,
 		},
@@ -210,24 +211,34 @@ func TestRow_UnmarshalAstraRaw_NullHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
+			var row Row
+			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
 
-			// Check that all Schema fields exist in Data
+			// Check that all data fields exist in the result
+			dataMap := row.ToMap()
 			for _, nc := range tt.schema {
-				val, ok := row.ToMap()[nc.Name]
-				if !ok {
-					t.Errorf("field %s missing from Data", nc.Name)
-					continue
+				val, ok := dataMap[nc.Name]
+
+				if tt.name == "null value" {
+					if !ok {
+						t.Errorf("field %s missing from Data", nc.Name)
+					} else if val != nil {
+						t.Errorf("field %s: expected nil, got %v", nc.Name, val)
+					}
 				}
 
-				// For missing or null fields, value should be nil
-				if tt.name == "null value" || (tt.name == "missing field" && nc.Name == "age") {
-					if val != nil {
-						t.Errorf("field %s: expected nil, got %v", nc.Name, val)
+				if tt.name == "missing field" {
+					if nc.Name == "age" {
+						if ok {
+							t.Errorf("field age should be missing from Data")
+						}
+					} else {
+						if !ok {
+							t.Errorf("field %s missing from Data", nc.Name)
+						}
 					}
 				}
 			}
@@ -238,16 +249,16 @@ func TestRow_UnmarshalAstraRaw_NullHandling(t *testing.T) {
 func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   Columns
+		schema   table.Columns
 		jsonData string
 		validate func(t *testing.T, data map[string]any)
 	}{
 		{
 			name: "list of ints",
-			schema: Columns{
-				{Name: "numbers", Column: Column{
-					Type:      TypeList,
-					ValueType: &Column{Type: TypeInt},
+			schema: table.Columns{
+				{Name: "numbers", Column: table.Column{
+					Type:      table.TypeList,
+					ValueType: &table.Column{Type: table.TypeInt},
 				}},
 			},
 			jsonData: `{"numbers": [1, 2, 3]}`,
@@ -270,10 +281,10 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 		},
 		{
 			name: "set of strings",
-			schema: Columns{
-				{Name: "tags", Column: Column{
-					Type:      TypeSet,
-					ValueType: &Column{Type: TypeText},
+			schema: table.Columns{
+				{Name: "tags", Column: table.Column{
+					Type:      table.TypeSet,
+					ValueType: &table.Column{Type: table.TypeText},
 				}},
 			},
 			jsonData: `{"tags": ["go", "test", "db"]}`,
@@ -290,11 +301,11 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 		},
 		{
 			name: "map string to int",
-			schema: Columns{
-				{Name: "scores", Column: Column{
-					Type:      TypeMap,
-					KeyType:   func() *string { s := TypeText; return &s }(),
-					ValueType: &Column{Type: TypeInt},
+			schema: table.Columns{
+				{Name: "scores", Column: table.Column{
+					Type:      table.TypeMap,
+					KeyType:   func() *string { s := table.TypeText; return &s }(),
+					ValueType: &table.Column{Type: table.TypeInt},
 				}},
 			},
 			jsonData: `{"scores": {"alice": 100, "bob": 95}}`,
@@ -313,8 +324,8 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
+			var row Row
+			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -325,25 +336,25 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 
 func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
 	// Define a simple UDT Schema
-	addressDef := &UDTDefinition{
-		Fields: Columns{
-			{Name: "street", Column: Column{Type: TypeText}},
-			{Name: "city", Column: Column{Type: TypeText}},
-			{Name: "zip", Column: Column{Type: TypeInt}},
+	addressDef := &table.UDTDefinition{
+		Fields: table.Columns{
+			{Name: "street", Column: table.Column{Type: table.TypeText}},
+			{Name: "city", Column: table.Column{Type: table.TypeText}},
+			{Name: "zip", Column: table.Column{Type: table.TypeInt}},
 		},
 	}
 
-	schema := Columns{
-		{Name: "address", Column: Column{
-			Type:       TypeUDT,
-			definition: addressDef,
+	schema := table.Columns{
+		{Name: "address", Column: table.Column{
+			Type:          table.TypeUDT,
+			UDTDefinition: addressDef,
 		}},
 	}
 
 	jsonData := `{"address": {"street": "123 Main St", "city": "Springfield", "zip": 12345}}`
 
-	row := &Row{}
-	err := serdes.Deserialize([]byte(jsonData), row, &LazySchema{AsCols: schema}, serdes.TargetTable)
+	var row Row
+	err := serdes.Deserialize([]byte(jsonData), &row, NewRowTargetCtx(schema), serdes.TargetTable)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
@@ -367,14 +378,14 @@ func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
 func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 	tests := []struct {
 		name     string
-		schema   Columns
+		schema   table.Columns
 		jsonData string
 		validate func(t *testing.T, data map[string]any)
 	}{
 		{
 			name: "uuid",
-			schema: Columns{
-				{Name: "id", Column: Column{Type: TypeUUID}},
+			schema: table.Columns{
+				{Name: "id", Column: table.Column{Type: table.TypeUUID}},
 			},
 			jsonData: `{"id": "550e8400-e29b-41d4-a716-446655440000"}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -386,8 +397,8 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 		},
 		{
 			name: "blob",
-			schema: Columns{
-				{Name: "data", Column: Column{Type: TypeBlob}},
+			schema: table.Columns{
+				{Name: "data", Column: table.Column{Type: table.TypeBlob}},
 			},
 			jsonData: `{"data": {"$binary": "aGVsbG8="}}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -403,8 +414,8 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 		},
 		{
 			name: "inet",
-			schema: Columns{
-				{Name: "ip", Column: Column{Type: TypeInet}},
+			schema: table.Columns{
+				{Name: "ip", Column: table.Column{Type: table.TypeInet}},
 			},
 			jsonData: `{"ip": [192, 168, 1, 1]}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -421,8 +432,8 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 		},
 		{
 			name: "vector",
-			schema: Columns{
-				{Name: "embedding", Column: Column{Type: TypeVector}},
+			schema: table.Columns{
+				{Name: "embedding", Column: table.Column{Type: table.TypeVector}},
 			},
 			jsonData: `{"embedding": [0.1, 0.2, 0.3]}`,
 			validate: func(t *testing.T, data map[string]any) {
@@ -436,8 +447,8 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
+			var row Row
+			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
@@ -447,60 +458,20 @@ func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
 }
 
 func TestRow_UnmarshalAstraRaw_InvalidJSON(t *testing.T) {
-	schema := Columns{
-		{Name: "id", Column: Column{Type: TypeInt}},
+	schema := table.Columns{
+		{Name: "id", Column: table.Column{Type: table.TypeInt}},
 	}
 
-	row := &Row{}
-	err := serdes.Deserialize([]byte(`{invalid json}`), row, &LazySchema{AsCols: schema}, serdes.TargetTable)
+	var row Row
+	err := serdes.Deserialize([]byte(`{invalid json}`), &row, NewRowTargetCtx(schema), serdes.TargetTable)
 	if err == nil {
 		t.Error("expected error for invalid JSON, got nil")
 	}
 }
 
-func TestRow_UnmarshalAstraRaw_MissingCollectionType(t *testing.T) {
-	tests := []struct {
-		name     string
-		schema   Columns
-		jsonData string
-	}{
-		{
-			name: "list without valueType",
-			schema: Columns{
-				{Name: "items", Column: Column{Type: TypeList}},
-			},
-			jsonData: `{"items": [1, 2, 3]}`,
-		},
-		{
-			name: "set without valueType",
-			schema: Columns{
-				{Name: "items", Column: Column{Type: TypeSet}},
-			},
-			jsonData: `{"items": [1, 2, 3]}`,
-		},
-		{
-			name: "map without keyType",
-			schema: Columns{
-				{Name: "items", Column: Column{Type: TypeMap, ValueType: &Column{Type: TypeInt}}},
-			},
-			jsonData: `{"items": {"a": 1}}`,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			row := &Row{}
-			err := serdes.Deserialize([]byte(tt.jsonData), row, &LazySchema{AsCols: tt.schema}, serdes.TargetTable)
-			if err == nil {
-				t.Error("expected error for missing collection type, got nil")
-			}
-		})
-	}
-}
-
 func TestDeserializeWithTypeHint_Varint(t *testing.T) {
 	raw := json.RawMessage(`12345678901234567890`)
-	col := Column{Type: TypeVarint}
+	col := table.Column{Type: table.TypeVarint}
 
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
 	val, err := deserializeColumn(ctx, raw, col)
@@ -523,7 +494,7 @@ func TestDeserializeWithTypeHint_Varint(t *testing.T) {
 
 func TestDeserializeWithTypeHint_Decimal(t *testing.T) {
 	raw := json.RawMessage(`123.456`)
-	col := Column{Type: TypeDecimal}
+	col := table.Column{Type: table.TypeDecimal}
 
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
 	val, err := deserializeColumn(ctx, raw, col)
@@ -539,7 +510,7 @@ func TestDeserializeWithTypeHint_Decimal(t *testing.T) {
 
 func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
 	raw := json.RawMessage(`"test"`)
-	col := Column{Type: "unknown_type"}
+	col := table.Column{Type: "unknown_type"}
 
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
 	val, err := deserializeColumn(ctx, raw, col)

@@ -3,6 +3,7 @@ package serdes_test
 import (
 	"testing"
 
+	"github.com/datastax/astra-db-go"
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/internal/testutils"
 	"github.com/datastax/astra-db-go/serdes"
@@ -66,8 +67,8 @@ func TestSerdesUUIDS_Untyped_Table(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		uuid := uuidGen.Draw(t, "uuid")
 
-		row := table.Row{"id": uuid}
-		schema := &table.LazySchema{AsCols: table.NewDefinition().AddUUIDColumn("id").Build().Columns}
+		row := astradb.NewRow{"id": uuid}
+		targetCtx := astradb.NewRowTargetCtx(table.Columns{{"id", table.UUID()}})
 
 		encoded, err := serdes.Serialize(row, serdes.TargetTable)
 		testutils.FailIfErr(t, err, "failed to serialize Row with UUID")
@@ -75,11 +76,11 @@ func TestSerdesUUIDS_Untyped_Table(t *testing.T) {
 		expected := `{"id":"` + uuid.String() + `"}`
 		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
-		var decoded table.Row
-		err = serdes.Deserialize(encoded, &decoded, schema, serdes.TargetTable)
+		var decoded astradb.Row
+		err = serdes.Deserialize(encoded, &decoded, targetCtx, serdes.TargetTable)
 		testutils.FailIfErr(t, err, "failed to deserialize Row with UUID")
 
-		decodedVal, ok := decoded["id"]
+		decodedVal, ok := decoded.ToMap()["id"]
 		testutils.FailIf(t, !ok, "missing 'id' field after deserialization")
 		testutils.FailIf(t, decodedVal != uuid, "mismatch after serdes: original %s, decoded %v", uuid, decodedVal)
 	})

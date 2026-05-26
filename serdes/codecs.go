@@ -26,8 +26,8 @@ type EncodeCtx struct {
 
 type DecodeCtx struct {
 	codecCtx
-	Target Target
-	Schema any
+	Target    Target
+	TargetCtx TargetDecodeCtx
 }
 
 type AstraMarshaler interface {
