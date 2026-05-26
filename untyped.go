@@ -13,47 +13,209 @@ import (
 	"github.com/datastax/astra-db-go/table"
 )
 
-// Document represents a document returned from a collection operation.
+// Document represents an untyped document used for a collection operation (as opposed to using a specific struct).
+//
+// To use a Document as an input for collection operations (Insert, Update, etc.),
+// use [NewDocument] to create a document from a map:
+//
+//	doc := astradb.NewDocument{"name": "token", "value": 123}
+//	res, err := collection.InsertOne(ctx, doc)
+//
+// To use a Document as a target for collection results (FindOne, Find, etc.),
+// pass a pointer to a [Document] interface variable to Decode methods:
+//
+//	var doc astradb.Document
+//	if err := result.Decode(&doc); err == nil {
+//	    val := doc.MustGet("name").(string)
+//	    fmt.Println(val)
+//	}
+//
+// The returned Document allows for dynamic access to the data.
 type Document interface {
 	isDocument()
+
+	// Get looks up a value in the document using a sequence of keys to navigate
+	// through nested maps.
+	//
+	// It returns (nil, false) if the path is empty, if any of the intermediate
+	// keys don't point to a map, or if the final key isn't found.
+	//
+	// Example:
+	//
+	//	if val, ok := doc.Get("metadata", "priority"); ok {
+	//	    fmt.Printf("Priority: %v\n", val)
+	//	}
 	Get(path ...string) (any, bool)
+
+	// MustGet is like [Document.Get] but panics if the path doesn't exist.
+	// Use this when you're certain the document has the structure you expect.
+	//
+	// Example:
+	//
+	//	name := doc.MustGet("user", "name").(string)
+	MustGet(path ...string) any
+
+	// Decode tries to extract the value at the path and store it in dest.
+	// You must provide a non-nil pointer for dest.
+	//
+	// It automatically handles type conversions, such as filling out nested
+	// structs from maps or parsing dates into time.Time.
+	//
+	// Example:
+	//
+	//	var tags []string
+	//	if err := doc.Decode(&tags, "metadata", "tags"); err == nil {
+	//	    fmt.Printf("Tags: %v\n", tags)
+	//	}
 	Decode(dest any, path ...string) error
+
+	// ToMap converts the entire document into a standard map[string]any.
+	//
+	// This is useful when you want to work with the data using standard map
+	// operations or need to pass it to functions that don't know about the
+	// Document interface.
 	ToMap() map[string]any
 }
 
-// Row represents a row returned from a table operation.
+// Row represents an untyped row used for a table operation (as opposed to using a specific struct).
+//
+// To use a Row as an input for table operations (Insert, Update, etc.),
+// use [NewRow] to create a row from a map:
+//
+//	row := astradb.NewRow{"id": 1, "name": "item"}
+//	res, err := table.InsertOne(ctx, row)
+//
+// To use a Row as a target for table results (FindOne, Find, etc.),
+// pass a pointer to a [Row] interface variable to Decode methods:
+//
+//	var row astradb.Row
+//	if err := result.Decode(&row); err == nil {
+//	    val := row.MustGet("name").(string)
+//	    fmt.Println(val)
+//	}
+//
+// The returned Row allows for dynamic access to the data.
 type Row interface {
 	isRow()
+
+	// Get looks up a value in the row using a sequence of keys to navigate
+	// through nested structures like maps or UDTs.
+	//
+	// It returns (nil, false) if the path is empty, if an intermediate key
+	// can't be traversed, or if the final key isn't found.
+	//
+	// Example:
+	//
+	//	if val, ok := row.Get("address", "city"); ok {
+	//	    fmt.Printf("City: %v\n", val)
+	//	}
 	Get(path ...string) (any, bool)
+
+	// MustGet is like [Row.Get] but panics if the path doesn't exist.
+	// Use this when you're certain the row has the structure you expect.
+	//
+	// Example:
+	//
+	//	city := row.MustGet("address", "city").(string)
+	MustGet(path ...string) any
+
+	// Decode tries to extract the value at the path and store it in dest.
+	// You must provide a non-nil pointer for dest.
+	//
+	// It handles all necessary type conversions, such as parsing strings into
+	// UUIDs or filling out structs from nested maps or UDTs.
+	//
+	// Example:
+	//
+	//	var id datatypes.UUID
+	//	if err := row.Decode(&id, "id"); err == nil {
+	//	    fmt.Printf("ID: %s\n", id)
+	//	}
 	Decode(dest any, path ...string) error
+
+	// ToMap converts the entire row into a standard map[string]any.
+	//
+	// This is useful when you want to work with the data using standard map
+	// operations or need to pass it to functions that don't know about the
+	// Row interface.
 	ToMap() map[string]any
 }
 
 // NewDocument is a map-based implementation of [Document], primarily used for insertion.
+// While standard maps can still be used for insertion, NewDocument provides a
+// convenient way to implement the [Document] interface if needed.
+//
+// Note that you must use the [Document] interface for retrieval when decoding
+// results from the server.
+//
+// Example:
+//
+//	doc := astradb.NewDocument{
+//	    "name": "token",
+//	    "metadata": map[string]any{
+//	        "created_at": time.Now(),
+//	        "tags": []string{"active", "priority"},
+//	    },
+//	}
+//
+// To retrieve values from a NewDocument, use [NewDocument.Get], [NewDocument.MustGet], or [NewDocument.Decode].
 type NewDocument map[string]any
 
 func (NewDocument) isDocument() {}
 
+// ToMap returns the document as a standard map[string]any.
+//
+// Since NewDocument is just a map under the hood, this returns a reference
+// to the actual data. Any changes you make to the map will affect the
+// document.
 func (d NewDocument) ToMap() map[string]any {
 	return d
 }
 
+// Get looks up a value in the document using a sequence of keys to navigate
+// through nested maps.
+//
+// It returns (nil, false) if the path is empty, if any of the intermediate
+// keys don't point to a map, or if the final key isn't found.
+//
+// It can not traverse into nested structures that aren't maps, such as lists or structs.
+//
+// Example:
+//
+//	val, ok := doc.Get("metadata", "tags")
 func (d NewDocument) Get(path ...string) (any, bool) {
 	return getDeepFromMap(d, path...)
 }
 
+// MustGet is like [NewDocument.Get] but panics if the path doesn't exist.
+// Use this when you're certain the document has the structure you expect.
+//
+// Example:
+//
+//	tags := doc.MustGet("metadata", "tags").([]string)
+func (d NewDocument) MustGet(path ...string) any {
+	return mustGet(d.Get, path, "Document")
+}
+
+// Decode tries to extract the value at the path and store it in dest.
+// You must provide a non-nil pointer for dest.
+//
+// It will automatically handle type conversions if the source value doesn't
+// exactly match what you're asking for—like parsing dates into time.Time
+// or filling out structs from nested maps. If the value's type already matches,
+// it performs a direct assignment to keep things fast.
+//
+// Example:
+//
+//	var metadata MyMetadataStruct
+//	if err := doc.Decode(&metadata, "metadata"); err == nil {
+//	    fmt.Printf("Tags: %v\n", metadata.Tags)
+//	}
+//
+// It returns an error if the path is missing or if the value can't be
+// converted to the requested type.
 func (d NewDocument) Decode(dest any, path ...string) error {
-	val, ok := d.Get(path...)
-	if !ok {
-		return fmt.Errorf("path not found")
-	}
-
-	b, err := serdes.Serialize(val, serdes.TargetCollection)
-	if err != nil {
-		return err
-	}
-
-	return serdes.Deserialize(b, dest, nil, serdes.TargetCollection)
+	return decodeFromMap(d, path, dest, serdes.TargetCollection)
 }
 
 func (d NewDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
@@ -63,35 +225,74 @@ func (d NewDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, 
 	return serdes.SerializeInto(map[string]any(d), ctx.Target, dst)
 }
 
-func (d *NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
+func (d NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewDocument; use the astradb.Document interface for results")
 }
 
 // NewRow is a map-based implementation of [Row], primarily used for insertion.
+// While standard maps can still be used for insertion, NewRow provides a
+// convenient way to implement the [Row] interface if needed.
+//
+// Note that you must use the [Row] interface for retrieval when decoding
+// results from the server.
+//
+// Example:
+//
+//	row := astradb.NewRow{
+//	    "id": 123,
+//	    "name": "token",
+//	    "address": map[string]any{
+//	        "city": "New York",
+//	        "zip": 10001,
+//	    },
+//	}
+//
+// To retrieve values from a NewRow, use [NewRow.Get], [NewRow.MustGet], or [NewRow.Decode].
 type NewRow map[string]any
 
 func (NewRow) isRow() {}
 
+// ToMap returns the underlying map representation of the row.
 func (r NewRow) ToMap() map[string]any {
 	return r
 }
 
+// Get retrieves a value from the row at the specified path.
+// It returns (nil, false) if the path does not exist or if an intermediate
+// element is not a map.
+//
+// Example:
+//
+//	val, ok := row.Get("address", "city")
 func (r NewRow) Get(path ...string) (any, bool) {
 	return getDeepFromMap(r, path...)
 }
 
+// MustGet retrieves a value from the row at the specified path.
+// It panics if the path does not exist.
+func (r NewRow) MustGet(path ...string) any {
+	return mustGet(r.Get, path, "Row")
+}
+
+// Decode tries to extract the value at the path and store it in dest.
+// You must provide a non-nil pointer for dest.
+//
+// It will automatically handle type conversions if the source value doesn't
+// exactly match what you're asking for—like parsing strings into UUIDs
+// or filling out structs from nested maps. If the value's type already matches,
+// it performs a direct assignment to keep things fast.
+//
+// Example:
+//
+//	var address MyAddressStruct
+//	if err := row.Decode(&address, "address"); err == nil {
+//	    fmt.Printf("City: %s\n", address.City)
+//	}
+//
+// It returns an error if the path is missing or if the value can't be
+// converted to the requested type.
 func (r NewRow) Decode(dest any, path ...string) error {
-	val, ok := r.Get(path...)
-	if !ok {
-		return fmt.Errorf("path not found")
-	}
-
-	b, err := serdes.Serialize(val, serdes.TargetTable)
-	if err != nil {
-		return err
-	}
-
-	return serdes.Deserialize(b, dest, nil, serdes.TargetTable)
+	return decodeFromMap(r, path, dest, serdes.TargetTable)
 }
 
 func (r NewRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
@@ -130,7 +331,7 @@ type serverDocument struct {
 	data map[string]json.RawMessage
 }
 
-func (s *serverDocument) isDocument() {}
+func (d *serverDocument) isDocument() {}
 
 func (d *serverDocument) ToMap() map[string]any {
 	result := make(map[string]any, len(d.data))
@@ -176,6 +377,10 @@ func (d *serverDocument) Get(path ...string) (any, bool) {
 	return generic, true
 }
 
+func (d *serverDocument) MustGet(path ...string) any {
+	return mustGet(d.Get, path, "Document")
+}
+
 func (d *serverDocument) Decode(dest any, path ...string) error {
 	if len(path) == 0 {
 		return fmt.Errorf("astradb: empty path for Decode")
@@ -217,15 +422,15 @@ type serverRow struct {
 	schema *lazySchema
 }
 
-func (s *serverRow) isRow() {}
+func (r *serverRow) isRow() {}
 
-func (s *serverRow) ToMap() map[string]any {
-	schema := s.schema.Get()
-	result := make(map[string]any, len(s.data))
+func (r *serverRow) ToMap() map[string]any {
+	schema := r.schema.Get()
+	result := make(map[string]any, len(r.data))
 
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: s.schema}
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema}
 
-	for name, rawValue := range s.data {
+	for name, rawValue := range r.data {
 		if string(rawValue) == "null" {
 			result[name] = nil
 			continue
@@ -249,18 +454,18 @@ func (s *serverRow) ToMap() map[string]any {
 	return result
 }
 
-func (s *serverRow) Get(path ...string) (any, bool) {
+func (r *serverRow) Get(path ...string) (any, bool) {
 	if len(path) == 0 {
 		return nil, false
 	}
 
-	currentRaw, ok := s.data[path[0]]
+	currentRaw, ok := r.data[path[0]]
 	if !ok {
 		return nil, false
 	}
 
-	currentCol, hasCol := s.schema.Get().Get(path[0])
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: s.schema}
+	currentCol, hasCol := r.schema.Get().Get(path[0])
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema}
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
@@ -293,17 +498,21 @@ func (s *serverRow) Get(path ...string) (any, bool) {
 	return generic, true
 }
 
-func (s *serverRow) Decode(dest any, path ...string) error {
+func (r *serverRow) MustGet(path ...string) any {
+	return mustGet(r.Get, path, "Row")
+}
+
+func (r *serverRow) Decode(dest any, path ...string) error {
 	if len(path) == 0 {
 		return fmt.Errorf("astradb: empty path for Decode")
 	}
 
-	currentRaw, ok := s.data[path[0]]
+	currentRaw, ok := r.data[path[0]]
 	if !ok {
 		return fmt.Errorf("astradb: path %q not found", path[0])
 	}
 
-	currentCol, hasCol := s.schema.Get().Get(path[0])
+	currentCol, hasCol := r.schema.Get().Get(path[0])
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
@@ -328,16 +537,16 @@ func (s *serverRow) Decode(dest any, path ...string) error {
 	return serdes.Deserialize(currentRaw, dest, targetCtx, serdes.TargetTable)
 }
 
-func (s *serverRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, value []byte) error {
-	s.data = make(map[string]json.RawMessage)
-	return serdes.Deserialize(value, &s.data, nil, serdes.TargetTable)
+func (r *serverRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, value []byte) error {
+	r.data = make(map[string]json.RawMessage)
+	return serdes.Deserialize(value, &r.data, nil, serdes.TargetTable)
 }
 
-func (s *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (r *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if ctx.Target != serdes.TargetTable {
 		return nil, fmt.Errorf("`Row` can only be serialized for tables, got %s", ctx.Target)
 	}
-	return serdes.SerializeInto(s.data, ctx.Target, dst)
+	return serdes.SerializeInto(r.data, ctx.Target, dst)
 }
 
 type lazySchema struct {
@@ -395,6 +604,10 @@ func (c collectionTargetCtx) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawU
 }
 
 var collectionCtx = collectionTargetCtx{}
+
+func NewDocumentTargetCtx() serdes.TargetDecodeCtx {
+	return collectionCtx
+}
 
 func getSubColumn(col table.Column, key string) (table.Column, bool) {
 	switch col.Type {
@@ -551,4 +764,46 @@ func deserializeUDT(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column)
 		return nil, err
 	}
 	return r.ToMap(), nil
+}
+
+func mustGet(get func(path ...string) (any, bool), path []string, target string) any {
+	val, ok := get(path...)
+	if !ok {
+		panic(fmt.Sprintf("astradb: path %v not found in %s", path, target))
+	}
+	return val
+}
+
+func decodeFromMap(m map[string]any, path []string, dest any, target serdes.Target) error {
+	val, ok := getDeepFromMap(m, path...)
+	if !ok {
+		return fmt.Errorf("astradb: path %v not found", path)
+	}
+
+	rv := reflect.ValueOf(dest)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return fmt.Errorf("astradb: destination must be a non-nil pointer")
+	}
+
+	if val != nil {
+		srcVal := reflect.ValueOf(val)
+		if srcVal.Type().AssignableTo(rv.Elem().Type()) {
+			rv.Elem().Set(srcVal)
+			return nil
+		}
+	} else {
+		elem := rv.Elem()
+		switch elem.Kind() {
+		case reflect.Pointer, reflect.Interface, reflect.Slice, reflect.Map:
+			elem.Set(reflect.Zero(elem.Type()))
+			return nil
+		}
+	}
+
+	b, err := serdes.Serialize(val, target)
+	if err != nil {
+		return err
+	}
+
+	return serdes.Deserialize(b, dest, nil, target)
 }

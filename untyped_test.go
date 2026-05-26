@@ -679,3 +679,107 @@ func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
 		t.Error("expected non-nil value for unknown type")
 	}
 }
+func TestDocument_MustGet(t *testing.T) {
+	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
+
+	var doc Document
+	err := serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+	if err != nil {
+		t.Fatalf("Deserialize() error = %v", err)
+	}
+
+	// Test success
+	id := doc.MustGet("id").(string)
+	if id != "123" {
+		t.Errorf("MustGet(id): got %v, want 123", id)
+	}
+
+	score := doc.MustGet("meta", "score").(float64)
+	if score != 0.95 {
+		t.Errorf("MustGet(meta.score): got %v, want 0.95", score)
+	}
+
+	// Test panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("MustGet(missing) did not panic")
+		}
+	}()
+
+	doc.MustGet("missing")
+}
+
+func TestRow_MustGet(t *testing.T) {
+	schema := table.Columns{
+		{Name: "id", Column: table.Column{Type: table.TypeInt}},
+		{Name: "meta", Column: table.Column{
+			Type:      table.TypeMap,
+			ValueType: &table.Column{Type: table.TypeFloat},
+		}},
+	}
+	jsonData := `{"id": 123, "meta": {"score": 0.95}}`
+
+	var row Row
+	err := serdes.Deserialize([]byte(jsonData), &row, NewRowTargetCtx(schema), serdes.TargetTable)
+	if err != nil {
+		t.Fatalf("Deserialize() error = %v", err)
+	}
+
+	// Test success
+	id := row.MustGet("id").(int)
+	if id != 123 {
+		t.Errorf("MustGet(id): got %v, want 123", id)
+	}
+
+	score := row.MustGet("meta", "score").(float32)
+	if score != 0.95 {
+		t.Errorf("MustGet(meta.score): got %v, want 0.95", score)
+	}
+
+	// Test panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("MustGet(missing) did not panic")
+		}
+	}()
+
+	row.MustGet("missing")
+}
+
+func TestNewDocument_MustGet(t *testing.T) {
+	doc := NewDocument{"id": "123", "meta": map[string]any{"score": 0.95}}
+
+	// Test success
+	id := doc.MustGet("id").(string)
+	if id != "123" {
+		t.Errorf("MustGet(id): got %v, want 123", id)
+	}
+
+	// Test panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("MustGet(missing) did not panic")
+		}
+	}()
+
+	doc.MustGet("missing")
+}
+
+func TestNewRow_MustGet(t *testing.T) {
+	row := NewRow{"id": 123, "meta": map[string]any{"score": 0.95}}
+
+	// Test success
+	id := row.MustGet("id").(int)
+	if id != 123 {
+		t.Errorf("MustGet(id): got %v, want 123", id)
+	}
+
+	// Test panic
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("MustGet(missing) did not panic")
+		}
+	}()
+
+	row.MustGet("missing")
+}
