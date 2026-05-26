@@ -13,37 +13,71 @@ import (
 	"github.com/datastax/astra-db-go/table"
 )
 
-type Row interface {
+// Document represents a document returned from a collection operation.
+type Document interface {
+	isDocument()
 	Get(path ...string) (any, bool)
 	Decode(dest any, path ...string) error
 	ToMap() map[string]any
 }
 
+// Row represents a row returned from a table operation.
+type Row interface {
+	isRow()
+	Get(path ...string) (any, bool)
+	Decode(dest any, path ...string) error
+	ToMap() map[string]any
+}
+
+// NewDocument is a map-based implementation of [Document], primarily used for insertion.
+type NewDocument map[string]any
+
+func (NewDocument) isDocument() {}
+
+func (d NewDocument) ToMap() map[string]any {
+	return d
+}
+
+func (d NewDocument) Get(path ...string) (any, bool) {
+	return getDeepFromMap(d, path...)
+}
+
+func (d NewDocument) Decode(dest any, path ...string) error {
+	val, ok := d.Get(path...)
+	if !ok {
+		return fmt.Errorf("path not found")
+	}
+
+	b, err := serdes.Serialize(val, serdes.TargetCollection)
+	if err != nil {
+		return err
+	}
+
+	return serdes.Deserialize(b, dest, nil, serdes.TargetCollection)
+}
+
+func (d NewDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	if ctx.Target != serdes.TargetCollection {
+		return nil, fmt.Errorf("`NewDocument` can only be serialized for collections, got %s", ctx.Target)
+	}
+	return serdes.SerializeInto(map[string]any(d), ctx.Target, dst)
+}
+
+func (d *NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
+	return fmt.Errorf("cannot deserialize into NewDocument; use the astradb.Document interface for results")
+}
+
+// NewRow is a map-based implementation of [Row], primarily used for insertion.
 type NewRow map[string]any
+
+func (NewRow) isRow() {}
 
 func (r NewRow) ToMap() map[string]any {
 	return r
 }
 
 func (r NewRow) Get(path ...string) (any, bool) {
-	current := r
-	for i, p := range path {
-		val, ok := current[p]
-		if !ok {
-			return nil, false
-		}
-
-		if i == len(path)-1 {
-			return val, true
-		}
-
-		nextMap, ok := val.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current = nextMap
-	}
-	return nil, false
+	return getDeepFromMap(r, path...)
 }
 
 func (r NewRow) Decode(dest any, path ...string) error {
@@ -71,10 +105,119 @@ func (r NewRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewRow; use the astradb.Row interface for results")
 }
 
+func getDeepFromMap(m map[string]any, path ...string) (any, bool) {
+	current := m
+	for i, p := range path {
+		val, ok := current[p]
+		if !ok {
+			return nil, false
+		}
+
+		if i == len(path)-1 {
+			return val, true
+		}
+
+		nextMap, ok := val.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current = nextMap
+	}
+	return nil, false
+}
+
+type serverDocument struct {
+	data map[string]json.RawMessage
+}
+
+func (s *serverDocument) isDocument() {}
+
+func (d *serverDocument) ToMap() map[string]any {
+	result := make(map[string]any, len(d.data))
+
+	for name, rawValue := range d.data {
+		if string(rawValue) == "null" {
+			result[name] = nil
+			continue
+		}
+
+		var val any
+		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetCollection)
+		result[name] = val
+	}
+	return result
+}
+
+func (d *serverDocument) Get(path ...string) (any, bool) {
+	if len(path) == 0 {
+		return nil, false
+	}
+
+	currentRaw, ok := d.data[path[0]]
+	if !ok {
+		return nil, false
+	}
+
+	for i := 1; i < len(path); i++ {
+		var nextLevel map[string]json.RawMessage
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection); err != nil {
+			return nil, false
+		}
+		currentRaw, ok = nextLevel[path[i]]
+		if !ok {
+			return nil, false
+		}
+	}
+
+	var generic any
+	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetCollection); err != nil {
+		return nil, false
+	}
+	return generic, true
+}
+
+func (d *serverDocument) Decode(dest any, path ...string) error {
+	if len(path) == 0 {
+		return fmt.Errorf("astradb: empty path for Decode")
+	}
+
+	currentRaw, ok := d.data[path[0]]
+	if !ok {
+		return fmt.Errorf("astradb: path %q not found", path[0])
+	}
+
+	for i := 1; i < len(path); i++ {
+		var nextLevel map[string]json.RawMessage
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection); err != nil {
+			return fmt.Errorf("astradb: failed to decode intermediate path %q: %w", path[i-1], err)
+		}
+		currentRaw, ok = nextLevel[path[i]]
+		if !ok {
+			return fmt.Errorf("astradb: path %q not found", path[i])
+		}
+	}
+
+	return serdes.Deserialize(currentRaw, dest, nil, serdes.TargetCollection)
+}
+
+func (d *serverDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, value []byte) error {
+	d.data = make(map[string]json.RawMessage)
+	return serdes.Deserialize(value, &d.data, nil, serdes.TargetCollection)
+}
+
+func (d *serverDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	if ctx.Target != serdes.TargetCollection {
+		return nil, fmt.Errorf("`Document` can only be serialized for collections, got %s", ctx.Target)
+	}
+	return serdes.SerializeInto(d.data, ctx.Target, dst)
+}
+
 type serverRow struct {
 	data   map[string]json.RawMessage
 	schema *lazySchema
 }
+
+func (s *serverRow) isRow() {}
 
 func (s *serverRow) ToMap() map[string]any {
 	schema := s.schema.Get()
@@ -134,10 +277,6 @@ func (s *serverRow) Get(path ...string) (any, bool) {
 		}
 	}
 
-	if string(currentRaw) == "null" {
-		return nil, true
-	}
-
 	if hasCol {
 		val, err := deserializeColumn(ctx, currentRaw, currentCol)
 		if err != nil {
@@ -156,31 +295,49 @@ func (s *serverRow) Get(path ...string) (any, bool) {
 
 func (s *serverRow) Decode(dest any, path ...string) error {
 	if len(path) == 0 {
-		return fmt.Errorf("empty path")
+		return fmt.Errorf("astradb: empty path for Decode")
 	}
 
 	currentRaw, ok := s.data[path[0]]
 	if !ok {
-		return fmt.Errorf("path %s not found", path[0])
+		return fmt.Errorf("astradb: path %q not found", path[0])
 	}
+
+	currentCol, hasCol := s.schema.Get().Get(path[0])
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
 		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable); err != nil {
-			return err
+			return fmt.Errorf("astradb: failed to decode intermediate path %q: %w", path[i-1], err)
 		}
 		currentRaw, ok = nextLevel[path[i]]
 		if !ok {
-			return fmt.Errorf("path %s not found", path[i])
+			return fmt.Errorf("astradb: path %q not found", path[i])
+		}
+
+		if hasCol {
+			currentCol, hasCol = getSubColumn(currentCol, path[i])
 		}
 	}
 
-	return serdes.Deserialize(currentRaw, dest, nil, serdes.TargetTable)
+	var targetCtx serdes.TargetDecodeCtx
+	if hasCol && currentCol.Type == table.TypeUDT {
+		targetCtx = &lazySchema{AsCols: currentCol.UDTDefinition.Fields}
+	}
+
+	return serdes.Deserialize(currentRaw, dest, targetCtx, serdes.TargetTable)
 }
 
 func (s *serverRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, value []byte) error {
 	s.data = make(map[string]json.RawMessage)
 	return serdes.Deserialize(value, &s.data, nil, serdes.TargetTable)
+}
+
+func (s *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	if ctx.Target != serdes.TargetTable {
+		return nil, fmt.Errorf("`Row` can only be serialized for tables, got %s", ctx.Target)
+	}
+	return serdes.SerializeInto(s.data, ctx.Target, dst)
 }
 
 type lazySchema struct {
@@ -193,13 +350,13 @@ func (s *lazySchema) Get() table.Columns {
 		return s.AsCols
 	}
 
-	if s.AsRaw == nil {
-		panic("no schema available")
+	if len(s.AsRaw) == 0 || string(s.AsRaw) == "null" {
+		return nil
 	}
 
 	var cols table.Columns
 	if err := serdes.Deserialize(s.AsRaw, &cols, nil, serdes.TargetTable); err != nil {
-		panic(fmt.Sprintf("failed to deserialize schema: %v", err))
+		panic(fmt.Sprintf("astradb: failed to deserialize schema: %v", err))
 	}
 
 	s.AsCols = cols
@@ -222,6 +379,22 @@ func (s *lazySchema) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawUnmarshal
 func NewRowTargetCtx(cols table.Columns) serdes.TargetDecodeCtx {
 	return &lazySchema{AsCols: cols}
 }
+
+var documentInterfaceType = reflect.TypeFor[Document]()
+
+type collectionTargetCtx struct{}
+
+func (c collectionTargetCtx) UntypedTargetInterface() reflect.Type {
+	return documentInterfaceType
+}
+
+func (c collectionTargetCtx) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawUnmarshaler {
+	doc := &serverDocument{}
+	*(*Document)(p) = doc
+	return doc
+}
+
+var collectionCtx = collectionTargetCtx{}
 
 func getSubColumn(col table.Column, key string) (table.Column, bool) {
 	switch col.Type {

@@ -4,12 +4,124 @@ import (
 	"encoding/json"
 	"math/big"
 	"net"
+	"reflect"
 	"testing"
 
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
 )
+
+func TestDocument_DeferredDecoding(t *testing.T) {
+	jsonData := `{"id": "123", "name": "Alice", "meta": {"score": 0.95}}`
+
+	var doc Document
+	err := serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+	if err != nil {
+		t.Fatalf("Deserialize() error = %v", err)
+	}
+
+	// Verify it's a serverDocument
+	if reflect.TypeOf(doc).String() != "*astradb.serverDocument" {
+		t.Errorf("expected *serverDocument, got %T", doc)
+	}
+
+	// Test Get()
+	id, ok := doc.Get("id")
+	if !ok || id != "123" {
+		t.Errorf("Get(id): got %v, ok %v, want 123", id, ok)
+	}
+
+	score, ok := doc.Get("meta", "score")
+	if !ok || score != 0.95 {
+		t.Errorf("Get(meta.score): got %v, ok %v, want 0.95", score, ok)
+	}
+
+	// Test Decode()
+	var name string
+	if err := doc.Decode(&name, "name"); err != nil {
+		t.Fatalf("Decode(name) error = %v", err)
+	}
+	if name != "Alice" {
+		t.Errorf("Decode(name): got %s, want Alice", name)
+	}
+
+	var m map[string]any
+	if err := doc.Decode(&m, "meta"); err != nil {
+		t.Fatalf("Decode(meta) error = %v", err)
+	}
+	if m["score"] != 0.95 {
+		t.Errorf("Decode(meta) score: got %v, want 0.95", m["score"])
+	}
+
+	// Test ToMap()
+	fullMap := doc.ToMap()
+	if fullMap["id"] != "123" || fullMap["name"] != "Alice" {
+		t.Errorf("ToMap() mismatch: %v", fullMap)
+	}
+	meta := fullMap["meta"].(map[string]any)
+	if meta["score"] != 0.95 {
+		t.Errorf("ToMap() nested mismatch: %v", meta)
+	}
+}
+
+func TestNewDocument_Insertion(t *testing.T) {
+	doc := NewDocument{
+		"id":   "456",
+		"tags": []string{"a", "b"},
+	}
+
+	encoded, err := serdes.Serialize(doc, serdes.TargetCollection)
+	if err != nil {
+		t.Fatalf("Serialize() error = %v", err)
+	}
+
+	expected := `{"id":"456","tags":["a","b"]}`
+	if string(encoded) != expected {
+		t.Errorf("expected %s, got %s", expected, string(encoded))
+	}
+
+	// Verify it cannot be used for results
+	var res NewDocument
+	err = serdes.Deserialize([]byte(expected), &res, nil, serdes.TargetCollection)
+	if err == nil {
+		t.Error("expected error when deserializing into NewDocument, got nil")
+	}
+}
+
+func TestDocument_NullHandling(t *testing.T) {
+	jsonData := `{"id": "123", "optional": null}`
+
+	var doc Document
+	serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+
+	val, ok := doc.Get("optional")
+	if !ok || val != nil {
+		t.Errorf("Get(optional): got %v, ok %v, want nil, true", val, ok)
+	}
+
+	fullMap := doc.ToMap()
+	if v, ok := fullMap["optional"]; !ok || v != nil {
+		t.Errorf("ToMap(optional): got %v, ok %v, want nil, true", v, ok)
+	}
+}
+
+func TestDocument_DeepPathNotFound(t *testing.T) {
+	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
+
+	var doc Document
+	serdes.Deserialize([]byte(jsonData), &doc, collectionCtx, serdes.TargetCollection)
+
+	_, ok := doc.Get("meta", "missing")
+	if ok {
+		t.Error("expected ok=false for missing deep path")
+	}
+
+	_, ok = doc.Get("missing", "path")
+	if ok {
+		t.Error("expected ok=false for missing root path")
+	}
+}
 
 func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
 	tests := []struct {
@@ -372,6 +484,50 @@ func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
 	}
 	if address["zip"] != 12345 {
 		t.Errorf("zip: got %v, want 12345", address["zip"])
+	}
+}
+
+func TestRow_Decode_NestedUDT(t *testing.T) {
+	// Define a simple UDT Schema
+	addressDef := &table.UDTDefinition{
+		Fields: table.Columns{
+			{Name: "street", Column: table.Column{Type: table.TypeText}},
+			{Name: "city", Column: table.Column{Type: table.TypeText}},
+			{Name: "zip", Column: table.Column{Type: table.TypeInt}},
+		},
+	}
+
+	schema := table.Columns{
+		{Name: "address", Column: table.Column{
+			Type:          table.TypeUDT,
+			UDTDefinition: addressDef,
+		}},
+	}
+
+	jsonData := `{"address": {"street": "123 Main St", "city": "Springfield", "zip": 12345}}`
+
+	var row Row
+	err := serdes.Deserialize([]byte(jsonData), &row, NewRowTargetCtx(schema), serdes.TargetTable)
+	if err != nil {
+		t.Fatalf("Deserialize() error = %v", err)
+	}
+
+	// Test Decode into a Row (nested)
+	var nestedRow Row
+	if err := row.Decode(&nestedRow, "address"); err != nil {
+		t.Fatalf("Decode(address) error = %v", err)
+	}
+
+	street, ok := nestedRow.Get("street")
+	if !ok || street != "123 Main St" {
+		t.Errorf("nestedRow.Get(street): got %v, ok %v, want '123 Main St'", street, ok)
+	}
+
+	zip, ok := nestedRow.Get("zip")
+	if !ok || zip != 42 { // Wait, zip is 12345 in jsonData
+		if !ok || zip != 12345 {
+			t.Errorf("nestedRow.Get(zip): got %v, ok %v, want 12345", zip, ok)
+		}
 	}
 }
 
