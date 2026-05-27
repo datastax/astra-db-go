@@ -10,6 +10,9 @@ import (
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/serdes"
 	"github.com/datastax/astra-db-go/table"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"pgregory.net/rapid"
 )
 
 func TestDocument_DeferredDecoding(t *testing.T) {
@@ -50,18 +53,20 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 	if err := doc.Decode(&m, "meta"); err != nil {
 		t.Fatalf("Decode(meta) error = %v", err)
 	}
-	if m["score"] != 0.95 {
-		t.Errorf("Decode(meta) score: got %v, want 0.95", m["score"])
+	expectedMeta := map[string]any{"score": 0.95}
+	if diff := cmp.Diff(expectedMeta, m); diff != "" {
+		t.Errorf("Decode(meta) mismatch (-want +got):\n%s", diff)
 	}
 
 	// Test ToMap()
 	fullMap := doc.ToMap()
-	if fullMap["id"] != "123" || fullMap["name"] != "Alice" {
-		t.Errorf("ToMap() mismatch: %v", fullMap)
+	expectedFullMap := map[string]any{
+		"id":   "123",
+		"name": "Alice",
+		"meta": map[string]any{"score": 0.95},
 	}
-	meta := fullMap["meta"].(map[string]any)
-	if meta["score"] != 0.95 {
-		t.Errorf("ToMap() nested mismatch: %v", meta)
+	if diff := cmp.Diff(expectedFullMap, fullMap); diff != "" {
+		t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -123,312 +128,110 @@ func TestDocument_DeepPathNotFound(t *testing.T) {
 	}
 }
 
-func TestRow_UnmarshalAstraRaw_PrimitiveTypes(t *testing.T) {
+func TestRow_UnmarshalAstraRaw(t *testing.T) {
 	tests := []struct {
 		name     string
 		schema   table.Columns
 		jsonData string
 		want     map[string]any
+		validate func(t *testing.T, row Row)
 	}{
 		{
-			name: "int field",
-			schema: table.Columns{
-				{Name: "id", Column: table.Column{Type: table.TypeInt}},
-			},
-			jsonData: `{"id": 42}`,
-			want:     map[string]any{"id": 42},
-		},
-		{
-			name: "string field",
-			schema: table.Columns{
-				{Name: "name", Column: table.Column{Type: table.TypeText}},
-			},
-			jsonData: `{"name": "test"}`,
-			want:     map[string]any{"name": "test"},
-		},
-		{
-			name: "boolean field",
-			schema: table.Columns{
-				{Name: "active", Column: table.Column{Type: table.TypeBoolean}},
-			},
-			jsonData: `{"active": true}`,
-			want:     map[string]any{"active": true},
-		},
-		{
-			name: "multiple fields",
+			name: "primitive fields",
 			schema: table.Columns{
 				{Name: "id", Column: table.Column{Type: table.TypeInt}},
 				{Name: "name", Column: table.Column{Type: table.TypeText}},
 				{Name: "active", Column: table.Column{Type: table.TypeBoolean}},
 			},
-			jsonData: `{"id": 123, "name": "alice", "active": false}`,
+			jsonData: `{"id": 42, "name": "test", "active": true}`,
 			want: map[string]any{
-				"id":     123,
-				"name":   "alice",
-				"active": false,
+				"id":     42,
+				"name":   "test",
+				"active": true,
 			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var row Row
-			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
-			if err != nil {
-				t.Fatalf("Deserialize() error = %v", err)
-			}
-
-			for key, wantVal := range tt.want {
-				gotVal, ok := row.ToMap()[key]
-				if !ok {
-					t.Errorf("missing field %s in result", key)
-					continue
-				}
-				if gotVal != wantVal {
-					t.Errorf("field %s: got %v (%T), want %v (%T)", key, gotVal, gotVal, wantVal, wantVal)
-				}
-			}
-		})
-	}
-}
-
-func TestRow_UnmarshalAstraRaw_NumericTypes(t *testing.T) {
-	tests := []struct {
-		name     string
-		schema   table.Columns
-		jsonData string
-		validate func(t *testing.T, data map[string]any)
-	}{
 		{
-			name: "bigint",
+			name: "numeric types",
 			schema: table.Columns{
 				{Name: "big", Column: table.Column{Type: table.TypeBigInt}},
-			},
-			jsonData: `{"big": 9223372036854775807}`,
-			validate: func(t *testing.T, data map[string]any) {
-				val, ok := data["big"].(int64)
-				if !ok {
-					t.Errorf("expected int64, got %T", data["big"])
-					return
-				}
-				if val != 9223372036854775807 {
-					t.Errorf("got %d, want 9223372036854775807", val)
-				}
-			},
-		},
-		{
-			name: "smallint",
-			schema: table.Columns{
 				{Name: "small", Column: table.Column{Type: table.TypeSmallInt}},
-			},
-			jsonData: `{"small": 32767}`,
-			validate: func(t *testing.T, data map[string]any) {
-				val, ok := data["small"].(int16)
-				if !ok {
-					t.Errorf("expected int16, got %T", data["small"])
-					return
-				}
-				if val != 32767 {
-					t.Errorf("got %d, want 32767", val)
-				}
-			},
-		},
-		{
-			name: "tinyint",
-			schema: table.Columns{
 				{Name: "tiny", Column: table.Column{Type: table.TypeTinyInt}},
-			},
-			jsonData: `{"tiny": 127}`,
-			validate: func(t *testing.T, data map[string]any) {
-				val, ok := data["tiny"].(int8)
-				if !ok {
-					t.Errorf("expected int8, got %T", data["tiny"])
-					return
-				}
-				if val != 127 {
-					t.Errorf("got %d, want 127", val)
-				}
-			},
-		},
-		{
-			name: "float",
-			schema: table.Columns{
 				{Name: "f", Column: table.Column{Type: table.TypeFloat}},
-			},
-			jsonData: `{"f": 3.14}`,
-			validate: func(t *testing.T, data map[string]any) {
-				val, ok := data["f"].(float32)
-				if !ok {
-					t.Errorf("expected float32, got %T", data["f"])
-					return
-				}
-				if val < 3.13 || val > 3.15 {
-					t.Errorf("got %f, want ~3.14", val)
-				}
-			},
-		},
-		{
-			name: "double",
-			schema: table.Columns{
 				{Name: "d", Column: table.Column{Type: table.TypeDouble}},
 			},
-			jsonData: `{"d": 3.141592653589793}`,
-			validate: func(t *testing.T, data map[string]any) {
-				val, ok := data["d"].(float64)
-				if !ok {
-					t.Errorf("expected float64, got %T", data["d"])
-					return
-				}
-				if val < 3.14 || val > 3.15 {
-					t.Errorf("got %f, want ~3.141592653589793", val)
-				}
+			jsonData: `{"big": 9223372036854775807, "small": 32767, "tiny": 127, "f": 3.14, "d": 3.141592653589793}`,
+			want: map[string]any{
+				"big":   int64(9223372036854775807),
+				"small": int16(32767),
+				"tiny":  int8(127),
+				"f":     float32(3.14),
+				"d":     3.141592653589793,
 			},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var row Row
-			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
-			if err != nil {
-				t.Fatalf("Deserialize() error = %v", err)
-			}
-			tt.validate(t, row.ToMap())
-		})
-	}
-}
-
-func TestRow_UnmarshalAstraRaw_NullHandling(t *testing.T) {
-	tests := []struct {
-		name     string
-		schema   table.Columns
-		jsonData string
-	}{
 		{
-			name: "null value",
-			schema: table.Columns{
-				{Name: "name", Column: table.Column{Type: table.TypeText}},
-			},
-			jsonData: `{"name": null}`,
-		},
-		{
-			name: "missing field",
+			name: "null and missing handling",
 			schema: table.Columns{
 				{Name: "name", Column: table.Column{Type: table.TypeText}},
 				{Name: "age", Column: table.Column{Type: table.TypeInt}},
 			},
-			jsonData: `{"name": "test"}`,
+			jsonData: `{"name": null}`,
+			want:     map[string]any{"name": nil},
 		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var row Row
-			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
-			if err != nil {
-				t.Fatalf("Deserialize() error = %v", err)
-			}
-
-			// Check that all data fields exist in the result
-			dataMap := row.ToMap()
-			for _, nc := range tt.schema {
-				val, ok := dataMap[nc.Name]
-
-				if tt.name == "null value" {
-					if !ok {
-						t.Errorf("field %s missing from Data", nc.Name)
-					} else if val != nil {
-						t.Errorf("field %s: expected nil, got %v", nc.Name, val)
-					}
-				}
-
-				if tt.name == "missing field" {
-					if nc.Name == "age" {
-						if ok {
-							t.Errorf("field age should be missing from Data")
-						}
-					} else {
-						if !ok {
-							t.Errorf("field %s missing from Data", nc.Name)
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
-	tests := []struct {
-		name     string
-		schema   table.Columns
-		jsonData string
-		validate func(t *testing.T, data map[string]any)
-	}{
 		{
-			name: "list of ints",
+			name: "collections",
 			schema: table.Columns{
 				{Name: "numbers", Column: table.Column{
 					Type:      table.TypeList,
 					ValueType: &table.Column{Type: table.TypeInt},
 				}},
-			},
-			jsonData: `{"numbers": [1, 2, 3]}`,
-			validate: func(t *testing.T, data map[string]any) {
-				list, ok := data["numbers"].([]any)
-				if !ok {
-					t.Errorf("expected []any, got %T", data["numbers"])
-					return
-				}
-				if len(list) != 3 {
-					t.Errorf("expected 3 elements, got %d", len(list))
-					return
-				}
-				for i, expected := range []int{1, 2, 3} {
-					if list[i] != expected {
-						t.Errorf("element %d: got %v, want %d", i, list[i], expected)
-					}
-				}
-			},
-		},
-		{
-			name: "set of strings",
-			schema: table.Columns{
-				{Name: "tags", Column: table.Column{
-					Type:      table.TypeSet,
-					ValueType: &table.Column{Type: table.TypeText},
-				}},
-			},
-			jsonData: `{"tags": ["go", "test", "db"]}`,
-			validate: func(t *testing.T, data map[string]any) {
-				set, ok := data["tags"].([]any)
-				if !ok {
-					t.Errorf("expected []any, got %T", data["tags"])
-					return
-				}
-				if len(set) != 3 {
-					t.Errorf("expected 3 elements, got %d", len(set))
-				}
-			},
-		},
-		{
-			name: "map string to int",
-			schema: table.Columns{
 				{Name: "scores", Column: table.Column{
 					Type:      table.TypeMap,
 					KeyType:   func() *string { s := table.TypeText; return &s }(),
 					ValueType: &table.Column{Type: table.TypeInt},
 				}},
 			},
-			jsonData: `{"scores": {"alice": 100, "bob": 95}}`,
-			validate: func(t *testing.T, data map[string]any) {
-				m, ok := data["scores"].(map[string]any)
-				if !ok {
-					t.Errorf("expected map[any]any, got %T", data["scores"])
-					return
+			jsonData: `{"numbers": [1, 2, 3], "scores": {"alice": 100}}`,
+			want: map[string]any{
+				"numbers": []any{1, 2, 3},
+				"scores":  map[string]any{"alice": 100},
+			},
+		},
+		{
+			name: "UDT",
+			schema: table.Columns{
+				{Name: "address", Column: table.Column{
+					Type: table.TypeUDT,
+					UDTDefinition: &table.UDTDefinition{
+						Fields: table.Columns{
+							{Name: "city", Column: table.Column{Type: table.TypeText}},
+							{Name: "zip", Column: table.Column{Type: table.TypeInt}},
+						},
+					},
+				}},
+			},
+			jsonData: `{"address": {"city": "Springfield", "zip": 12345}}`,
+			want: map[string]any{
+				"address": map[string]any{"city": "Springfield", "zip": 12345},
+			},
+		},
+		{
+			name: "special types",
+			schema: table.Columns{
+				{Name: "uuid", Column: table.Column{Type: table.TypeUUID}},
+				{Name: "ip", Column: table.Column{Type: table.TypeInet}},
+				{Name: "blob", Column: table.Column{Type: table.TypeBlob}},
+			},
+			jsonData: `{"uuid": "550e8400-e29b-41d4-a716-446655440000", "ip": [192, 168, 1, 1], "blob": {"$binary": "aGVsbG8="}}`,
+			validate: func(t *testing.T, row Row) {
+				data := row.ToMap()
+				if _, ok := data["uuid"].(datatypes.UUID); !ok {
+					t.Errorf("expected datatypes.UUID, got %T", data["uuid"])
 				}
-				if len(m) != 2 {
-					t.Errorf("expected 2 entries, got %d", len(m))
+				if _, ok := data["ip"].(net.IP); !ok {
+					t.Errorf("expected net.IP, got %T", data["ip"])
+				}
+				if b, ok := data["blob"].([]byte); !ok || string(b) != "hello" {
+					t.Errorf("expected []byte 'hello', got %v", data["blob"])
 				}
 			},
 		},
@@ -441,49 +244,17 @@ func TestRow_UnmarshalAstraRaw_Collections(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Deserialize() error = %v", err)
 			}
-			tt.validate(t, row.ToMap())
+
+			if tt.want != nil {
+				if diff := cmp.Diff(tt.want, row.ToMap()); diff != "" {
+					t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
+				}
+			}
+
+			if tt.validate != nil {
+				tt.validate(t, row)
+			}
 		})
-	}
-}
-
-func TestRow_UnmarshalAstraRaw_UDT(t *testing.T) {
-	// Define a simple UDT Schema
-	addressDef := &table.UDTDefinition{
-		Fields: table.Columns{
-			{Name: "street", Column: table.Column{Type: table.TypeText}},
-			{Name: "city", Column: table.Column{Type: table.TypeText}},
-			{Name: "zip", Column: table.Column{Type: table.TypeInt}},
-		},
-	}
-
-	schema := table.Columns{
-		{Name: "address", Column: table.Column{
-			Type:          table.TypeUDT,
-			UDTDefinition: addressDef,
-		}},
-	}
-
-	jsonData := `{"address": {"street": "123 Main St", "city": "Springfield", "zip": 12345}}`
-
-	var row Row
-	err := serdes.Deserialize([]byte(jsonData), &row, NewRowTargetCtx(schema), serdes.TargetTable)
-	if err != nil {
-		t.Fatalf("Deserialize() error = %v", err)
-	}
-
-	address, ok := row.ToMap()["address"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected map[string]any, got %T", row.ToMap()["address"])
-	}
-
-	if address["street"] != "123 Main St" {
-		t.Errorf("street: got %v, want '123 Main St'", address["street"])
-	}
-	if address["city"] != "Springfield" {
-		t.Errorf("city: got %v, want 'Springfield'", address["city"])
-	}
-	if address["zip"] != 12345 {
-		t.Errorf("zip: got %v, want 12345", address["zip"])
 	}
 }
 
@@ -524,92 +295,8 @@ func TestRow_Decode_NestedUDT(t *testing.T) {
 	}
 
 	zip, ok := nestedRow.Get("zip")
-	if !ok || zip != 42 { // Wait, zip is 12345 in jsonData
-		if !ok || zip != 12345 {
-			t.Errorf("nestedRow.Get(zip): got %v, ok %v, want 12345", zip, ok)
-		}
-	}
-}
-
-func TestRow_UnmarshalAstraRaw_SpecialTypes(t *testing.T) {
-	tests := []struct {
-		name     string
-		schema   table.Columns
-		jsonData string
-		validate func(t *testing.T, data map[string]any)
-	}{
-		{
-			name: "uuid",
-			schema: table.Columns{
-				{Name: "id", Column: table.Column{Type: table.TypeUUID}},
-			},
-			jsonData: `{"id": "550e8400-e29b-41d4-a716-446655440000"}`,
-			validate: func(t *testing.T, data map[string]any) {
-				_, ok := data["id"].(datatypes.UUID)
-				if !ok {
-					t.Errorf("expected datatypes.UUID, got %T", data["id"])
-				}
-			},
-		},
-		{
-			name: "blob",
-			schema: table.Columns{
-				{Name: "data", Column: table.Column{Type: table.TypeBlob}},
-			},
-			jsonData: `{"data": {"$binary": "aGVsbG8="}}`,
-			validate: func(t *testing.T, data map[string]any) {
-				blob, ok := data["data"].([]byte)
-				if !ok {
-					t.Errorf("expected []byte, got %T", data["data"])
-					return
-				}
-				if string(blob) != "hello" {
-					t.Errorf("got %s, want 'hello'", string(blob))
-				}
-			},
-		},
-		{
-			name: "inet",
-			schema: table.Columns{
-				{Name: "ip", Column: table.Column{Type: table.TypeInet}},
-			},
-			jsonData: `{"ip": [192, 168, 1, 1]}`,
-			validate: func(t *testing.T, data map[string]any) {
-				ip, ok := data["ip"].(net.IP)
-				if !ok {
-					t.Errorf("expected net.IP, got %T", data["ip"])
-					return
-				}
-				expected := net.IPv4(192, 168, 1, 1)
-				if !ip.Equal(expected) {
-					t.Errorf("got %v, want %v", ip, expected)
-				}
-			},
-		},
-		{
-			name: "vector",
-			schema: table.Columns{
-				{Name: "embedding", Column: table.Column{Type: table.TypeVector}},
-			},
-			jsonData: `{"embedding": [0.1, 0.2, 0.3]}`,
-			validate: func(t *testing.T, data map[string]any) {
-				_, ok := data["embedding"].(datatypes.DataAPIVector)
-				if !ok {
-					t.Errorf("expected datatypes.DataAPIVector, got %T", data["embedding"])
-				}
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var row Row
-			err := serdes.Deserialize([]byte(tt.jsonData), &row, NewRowTargetCtx(tt.schema), serdes.TargetTable)
-			if err != nil {
-				t.Fatalf("Deserialize() error = %v", err)
-			}
-			tt.validate(t, row.ToMap())
-		})
+	if !ok || zip != 12345 {
+		t.Errorf("nestedRow.Get(zip): got %v, ok %v, want 12345", zip, ok)
 	}
 }
 
@@ -625,43 +312,56 @@ func TestRow_UnmarshalAstraRaw_InvalidJSON(t *testing.T) {
 	}
 }
 
-func TestDeserializeWithTypeHint_Varint(t *testing.T) {
-	raw := json.RawMessage(`12345678901234567890`)
-	col := table.Column{Type: table.TypeVarint}
+func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := rapid.StringMatching(`-?[0-9]{1,50}`).Draw(t, "digits")
+		raw := json.RawMessage(s)
+		col := table.Column{Type: table.TypeVarint}
 
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-	val, err := deserializeColumn(ctx, raw, col)
-	if err != nil {
-		t.Fatalf("deserializeColumn() error = %v", err)
-	}
+		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
+		val, err := deserializeColumn(ctx, raw, col)
+		if err != nil {
+			t.Fatalf("deserializeColumn(%s) error = %v", s, err)
+		}
 
-	bigInt, ok := val.(big.Int)
-	if !ok {
-		t.Fatalf("expected big.Int, got %T", val)
-	}
+		got, ok := val.(big.Int)
+		if !ok {
+			t.Fatalf("expected big.Int, got %T", val)
+		}
 
-	expected := new(big.Int)
-	expected.SetString("12345678901234567890", 10)
+		expected := new(big.Int)
+		expected.SetString(s, 10)
 
-	if bigInt.Cmp(expected) != 0 {
-		t.Errorf("got %s, want %s", bigInt.String(), expected.String())
-	}
+		if got.Cmp(expected) != 0 {
+			t.Errorf("got %s, want %s", got.String(), expected.String())
+		}
+	})
 }
 
-func TestDeserializeWithTypeHint_Decimal(t *testing.T) {
-	raw := json.RawMessage(`123.456`)
-	col := table.Column{Type: table.TypeDecimal}
+func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := rapid.StringMatching(`-?[0-9]{1,20}(\.[0-9]{1,20})?`).Draw(t, "digits")
+		raw := json.RawMessage(s)
+		col := table.Column{Type: table.TypeDecimal}
 
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-	val, err := deserializeColumn(ctx, raw, col)
-	if err != nil {
-		t.Fatalf("deserializeColumn() error = %v", err)
-	}
+		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
+		val, err := deserializeColumn(ctx, raw, col)
+		if err != nil {
+			t.Fatalf("deserializeColumn(%s) error = %v", s, err)
+		}
 
-	_, ok := val.(big.Float)
-	if !ok {
-		t.Fatalf("expected big.Float, got %T", val)
-	}
+		got, ok := val.(big.Float)
+		if !ok {
+			t.Fatalf("expected big.Float, got %T", val)
+		}
+
+		expected := new(big.Float)
+		expected.SetString(s)
+
+		if got.Cmp(expected) != 0 {
+			t.Errorf("got %s, want %s", got.String(), expected.String())
+		}
+	})
 }
 
 func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
@@ -782,4 +482,407 @@ func TestNewRow_MustGet(t *testing.T) {
 	}()
 
 	row.MustGet("missing")
+}
+
+func TestProperty_Document(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		input := genJSONMap(0).Draw(t, "input")
+
+		encoded, err := serdes.Serialize(input, serdes.TargetCollection)
+		if err != nil {
+			t.Fatalf("Serialize() error = %v", err)
+		}
+
+		var doc Document
+		err = serdes.Deserialize(encoded, &doc, documentCtx, serdes.TargetCollection)
+		if err != nil {
+			t.Fatalf("Deserialize() error = %v", err)
+		}
+
+		got := doc.ToMap()
+
+		// JSON roundtrip might change some types (e.g., all numbers to float64)
+		// but since we are using untyped Document, we expect it to match the
+		// generic JSON deserialization of the same input.
+		var expected map[string]any
+		err = json.Unmarshal(encoded, &expected)
+		if err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+
+		if diff := cmp.Diff(expected, got); diff != "" {
+			t.Errorf("Document.ToMap() mismatch (-want +got):\n%s", diff)
+		}
+
+		// Test Get/MustGet/Decode for some paths
+		testPaths(t, doc, expected, nil)
+	})
+}
+
+func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string) {
+	for k, v := range expected {
+		fullPath := append(path, k)
+
+		// Get
+		gotVal, ok := doc.Get(fullPath...)
+		if !ok {
+			t.Errorf("Get(%v) failed", fullPath)
+			continue
+		}
+		if diff := cmp.Diff(v, gotVal); diff != "" {
+			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
+		}
+
+		// MustGet
+		mustGotVal := doc.MustGet(fullPath...)
+		if diff := cmp.Diff(v, mustGotVal); diff != "" {
+			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
+		}
+
+		// Decode
+		if v != nil {
+			var decoded any
+			if err := doc.Decode(&decoded, fullPath...); err != nil {
+				t.Errorf("Decode(%v) error = %v", fullPath, err)
+			} else {
+				if diff := cmp.Diff(v, decoded); diff != "" {
+					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
+				}
+			}
+		}
+
+		// Recurse into maps
+		if nextMap, ok := v.(map[string]any); ok {
+			testPaths(t, doc, nextMap, fullPath)
+		}
+	}
+}
+
+func TestProperty_Row(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		schema := genTableColumns().Draw(t, "schema")
+		input := genTableData(schema).Draw(t, "input")
+
+		encoded, err := serdes.Serialize(input, serdes.TargetTable)
+		if err != nil {
+			t.Fatalf("Serialize() error = %v", err)
+		}
+
+		var row Row
+		err = serdes.Deserialize(encoded, &row, NewRowTargetCtx(schema), serdes.TargetTable)
+		if err != nil {
+			t.Fatalf("Deserialize() error = %v", err)
+		}
+
+		got := row.ToMap()
+
+		// When comparing, we need to handle special types that Row decodes into
+		// (like datatypes.UUID, net.IP, etc.)
+		cmpOpts := []cmp.Option{
+			cmpopts.EquateEmpty(),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.DataAPITimestamp{}),
+			cmp.Comparer(func(x, y net.IP) bool { return x.Equal(y) }),
+			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y datatypes.DataAPITimestamp) bool { return x.Equals(y) }),
+		}
+
+		if diff := cmp.Diff(input, got, cmpOpts...); diff != "" {
+			t.Errorf("Row.ToMap() mismatch (-want +got):\n%s", diff)
+		}
+
+		// Test Get/MustGet/Decode for columns and nested UDT/Map fields
+		testRowPaths(t, row, input, nil, cmpOpts)
+	})
+}
+
+func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string, cmpOpts []cmp.Option) {
+	for k, v := range expected {
+		fullPath := append(path, k)
+
+		// Get
+		gotVal, ok := row.Get(fullPath...)
+		if !ok {
+			t.Errorf("Get(%v) failed", fullPath)
+			continue
+		}
+		if diff := cmp.Diff(v, gotVal, cmpOpts...); diff != "" {
+			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
+		}
+
+		// MustGet
+		mustGotVal := row.MustGet(fullPath...)
+		if diff := cmp.Diff(v, mustGotVal, cmpOpts...); diff != "" {
+			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
+		}
+
+		// Decode
+		if v != nil {
+			var decoded any
+			if err := row.Decode(&decoded, fullPath...); err != nil {
+				t.Errorf("Decode(%v) error = %v", fullPath, err)
+			} else {
+				if diff := cmp.Diff(v, decoded, cmpOpts...); diff != "" {
+					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
+				}
+			}
+		}
+
+		// Recurse into nested structures
+		if nextMap, ok := v.(map[string]any); ok {
+			testRowPaths(t, row, nextMap, fullPath, cmpOpts)
+		}
+	}
+}
+
+func TestProperty_NewDocument(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		input := genJSONMap(0).Draw(t, "input")
+		doc := NewDocument(input)
+
+		// Test ToMap
+		if diff := cmp.Diff(map[string]any(input), doc.ToMap()); diff != "" {
+			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
+		}
+
+		// Test serialization consistency
+		encodedDoc, err := serdes.Serialize(doc, serdes.TargetCollection)
+		if err != nil {
+			t.Fatalf("serdes.Serialize(doc) error = %v", err)
+		}
+
+		encodedMap, err := serdes.Serialize(input, serdes.TargetCollection)
+		if err != nil {
+			t.Fatalf("serdes.Serialize(input) error = %v", err)
+		}
+
+		if string(encodedDoc) != string(encodedMap) {
+			t.Errorf("serialization mismatch\n  doc: %s\n  map: %s", string(encodedDoc), string(encodedMap))
+		}
+	})
+}
+
+func TestProperty_NewRow(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		schema := genTableColumns().Draw(t, "schema")
+		input := genTableData(schema).Draw(t, "input")
+		row := NewRow(input)
+
+		// When comparing, we need to handle special types
+		cmpOpts := []cmp.Option{
+			cmpopts.EquateEmpty(),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.DataAPITimestamp{}),
+			cmp.Comparer(func(x, y net.IP) bool { return x.Equal(y) }),
+			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y datatypes.DataAPITimestamp) bool { return x.Equals(y) }),
+		}
+
+		// Test ToMap
+		if diff := cmp.Diff(map[string]any(input), row.ToMap(), cmpOpts...); diff != "" {
+			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
+		}
+
+		// Test serialization consistency
+		encodedRow, err := serdes.Serialize(row, serdes.TargetTable)
+		if err != nil {
+			t.Fatalf("serdes.Serialize(row) error = %v", err)
+		}
+
+		encodedMap, err := serdes.Serialize(input, serdes.TargetTable)
+		if err != nil {
+			t.Fatalf("serdes.Serialize(input) error = %v", err)
+		}
+
+		if string(encodedRow) != string(encodedMap) {
+			t.Errorf("serialization mismatch\n  row: %s\n  map: %s", string(encodedRow), string(encodedMap))
+		}
+	})
+}
+
+func genJSONValue(depth int) *rapid.Generator[any] {
+	return rapid.Custom(func(t *rapid.T) any {
+		gens := [](*rapid.Generator[any]){
+			rapid.Map(rapid.String(), func(v string) any { return any(v) }),
+			rapid.Map(rapid.Int(), func(v int) any { return float64(v) }),
+			rapid.Map(rapid.Float64(), func(v float64) any { return any(v) }),
+			rapid.Map(rapid.Bool(), func(v bool) any { return any(v) }),
+			rapid.Just[any](nil),
+		}
+
+		if depth < 3 {
+			gens = append(gens,
+				rapid.Map(rapid.SliceOf(rapid.Deferred(func() *rapid.Generator[any] { return genJSONValue(depth + 1) })), func(v []any) any { return any(v) }),
+				rapid.Map(rapid.MapOf(rapid.String(), rapid.Deferred(func() *rapid.Generator[any] { return genJSONValue(depth + 1) })), func(v map[string]any) any { return any(v) }),
+			)
+		}
+
+		return rapid.OneOf(gens...).Draw(t, "value")
+	})
+}
+
+func genJSONMap(depth int) *rapid.Generator[map[string]any] {
+	return rapid.MapOf(rapid.String(), genJSONValue(depth))
+}
+
+func genTableColumns() *rapid.Generator[table.Columns] {
+	return rapid.Custom(func(t *rapid.T) table.Columns {
+		count := rapid.IntRange(1, 5).Draw(t, "column_count")
+		cols := make(table.Columns, count)
+		names := make(map[string]bool)
+		for i := 0; i < count; i++ {
+			var name string
+			for {
+				name = rapid.StringMatching(`[a-z][a-z0-9_]*`).Draw(t, "name")
+				if !names[name] {
+					names[name] = true
+					break
+				}
+			}
+			cols[i] = table.NamedColumn{
+				Name:   name,
+				Column: genTableColumn(0).Draw(t, "column"),
+			}
+		}
+		return cols
+	})
+}
+
+func genTableColumn(depth int) *rapid.Generator[table.Column] {
+	return rapid.Custom(func(t *rapid.T) table.Column {
+		types := []string{
+			table.TypeText, table.TypeInt, table.TypeBigInt, table.TypeSmallInt,
+			table.TypeTinyInt, table.TypeFloat, table.TypeDouble, table.TypeBoolean,
+			table.TypeUUID, table.TypeInet, table.TypeBlob, table.TypeVarint,
+			table.TypeDecimal, table.TypeDate, table.TypeTime, table.TypeTimestamp,
+		}
+		if depth < 2 {
+			types = append(types, table.TypeList, table.TypeSet, table.TypeMap, table.TypeUDT)
+		}
+
+		typ := rapid.SampledFrom(types).Draw(t, "type")
+		col := table.Column{Type: typ}
+
+		switch typ {
+		case table.TypeList, table.TypeSet:
+			vt := genTableColumn(depth+1).Draw(t, "valueType")
+			col.ValueType = &vt
+		case table.TypeMap:
+			kt := table.TypeText
+			col.KeyType = &kt
+			vt := genTableColumn(depth+1).Draw(t, "valueType")
+			col.ValueType = &vt
+		case table.TypeUDT:
+			col.UDTDefinition = &table.UDTDefinition{
+				Fields: genTableColumnsAtDepth(depth+1).Draw(t, "fields"),
+			}
+		}
+		return col
+	})
+}
+
+func genTableColumnsAtDepth(depth int) *rapid.Generator[table.Columns] {
+	return rapid.Custom(func(t *rapid.T) table.Columns {
+		count := rapid.IntRange(1, 3).Draw(t, "column_count")
+		cols := make(table.Columns, count)
+		names := make(map[string]bool)
+		for i := 0; i < count; i++ {
+			var name string
+			for {
+				name = rapid.StringMatching(`[a-z][a-z0-9_]*`).Draw(t, "name")
+				if !names[name] {
+					names[name] = true
+					break
+				}
+			}
+			cols[i] = table.NamedColumn{
+				Name:   name,
+				Column: genTableColumn(depth).Draw(t, "column"),
+			}
+		}
+		return cols
+	})
+}
+
+func genTableData(cols table.Columns) *rapid.Generator[map[string]any] {
+	return rapid.Custom(func(t *rapid.T) map[string]any {
+		data := make(map[string]any)
+		for _, nc := range cols {
+			if rapid.Bool().Draw(t, "include") {
+				data[nc.Name] = genValueForColumn(nc.Column).Draw(t, "value")
+			}
+		}
+		return data
+	})
+}
+
+func genValueForColumn(col table.Column) *rapid.Generator[any] {
+	return rapid.Custom(func(t *rapid.T) any {
+		if rapid.Float64Range(0, 1).Draw(t, "is_null") < 0.1 {
+			return nil
+		}
+
+		switch col.Type {
+		case table.TypeText:
+			return rapid.String().Draw(t, "val")
+		case table.TypeInt:
+			return rapid.Int().Draw(t, "val")
+		case table.TypeBigInt:
+			return rapid.Int64().Draw(t, "val")
+		case table.TypeSmallInt:
+			return rapid.Int16().Draw(t, "val")
+		case table.TypeTinyInt:
+			return rapid.Int8().Draw(t, "val")
+		case table.TypeFloat:
+			return rapid.Float32().Draw(t, "val")
+		case table.TypeDouble:
+			return rapid.Float64().Draw(t, "val")
+		case table.TypeBoolean:
+			return rapid.Bool().Draw(t, "val")
+		case table.TypeUUID:
+			return datatypes.MustParseUUID(rapid.StringMatching(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).Draw(t, "uuid"))
+		case table.TypeInet:
+			return net.IP(rapid.SliceOfN(rapid.Byte(), 4, 16).Draw(t, "ip_bytes"))
+		case table.TypeBlob:
+			return rapid.SliceOf(rapid.Byte()).Draw(t, "blob")
+		case table.TypeVarint:
+			return rapid.Custom(func(t *rapid.T) any {
+				var bi big.Int
+				bi.SetBytes(rapid.SliceOfN(rapid.Byte(), 1, 32).Draw(t, "bytes"))
+				if rapid.Bool().Draw(t, "neg") {
+					bi.Neg(&bi)
+				}
+				return bi
+			}).Draw(t, "val")
+		case table.TypeDecimal:
+			return rapid.Custom(func(t *rapid.T) any {
+				s := rapid.StringMatching(`-?[0-9]{1,10}\.[0-9]{1,10}`).Draw(t, "s")
+				var bf big.Float
+				bf.SetString(s)
+				return bf
+			}).Draw(t, "val")
+		case table.TypeDate, table.TypeTime, table.TypeTimestamp:
+			return datatypes.DataAPITimestampFromMillis(rapid.Int64Range(0, 4102444800000).Draw(t, "val")) // Up to 2100-01-01
+		case table.TypeList, table.TypeSet:
+			slice := rapid.SliceOf(genValueForColumn(*col.ValueType)).Draw(t, "slice")
+			if slice == nil {
+				return []any{}
+			}
+			return slice
+		case table.TypeMap:
+			m := rapid.MapOf(rapid.String(), genValueForColumn(*col.ValueType)).Draw(t, "map")
+			if m == nil {
+				return map[string]any{}
+			}
+			res := make(map[string]any)
+			for k, v := range m {
+				res[k] = v
+			}
+			return res
+		case table.TypeUDT:
+			return genTableData(col.UDTDefinition.Fields).Draw(t, "udt")
+		default:
+			return nil
+		}
+	})
 }

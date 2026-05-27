@@ -550,6 +550,16 @@ func (r *serverRow) Decode(dest any, path ...string) error {
 		}
 	}
 
+	if _, ok := dest.(*any); ok && hasCol {
+		ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema}
+		val, err := deserializeColumn(ctx, currentRaw, currentCol)
+		if err != nil {
+			return err
+		}
+		*dest.(*any) = val
+		return nil
+	}
+
 	var targetCtx serdes.TargetDecodeCtx
 	if hasCol && currentCol.Type == table.TypeUDT {
 		targetCtx = &lazySchema{AsCols: currentCol.UDTDefinition.Fields}
@@ -630,6 +640,10 @@ func getSubColumn(col table.Column, key string) (table.Column, bool) {
 // region Column Deserialization
 
 func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
+	if string(raw) == "null" {
+		return nil, nil
+	}
+
 	switch col.Type {
 	case table.TypeInt:
 		var v int
