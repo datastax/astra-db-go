@@ -20,13 +20,12 @@ import (
 
 	"github.com/datastax/astra-db-go/internal/utils"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/table"
 )
 
 // InsertOneResult represents the result of an insertOne operation.
 type InsertOneResult struct {
 	insertedId json.RawMessage
-	schema     *table.LazySchema
+	targetCtx  serdes.TargetDecodeCtx
 	warnings   Warnings
 	target     serdes.Target
 }
@@ -41,12 +40,12 @@ type InsertManyResult struct {
 
 type InsertManyBatch struct {
 	InsertedIds []json.RawMessage
-	Schema      *table.LazySchema
+	TargetCtx   serdes.TargetDecodeCtx
 }
 
 // NewInsertOneResult creates a new InsertOneResult.
-func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, schema *table.LazySchema, target serdes.Target) *InsertOneResult {
-	return &InsertOneResult{insertedId, schema, warnings, target}
+func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target) *InsertOneResult {
+	return &InsertOneResult{insertedId, targetCtx, warnings, target}
 }
 
 // NewInsertManyResult creates a new InsertManyResult.
@@ -75,7 +74,7 @@ func (r *InsertOneResult) RawID() (any, error) {
 		return nil, errors.New("no inserted ID available")
 	}
 	var id any
-	if err := serdes.Deserialize(r.insertedId, &id, r.schema, r.target); err != nil {
+	if err := serdes.Deserialize(r.insertedId, &id, r.targetCtx, r.target); err != nil {
 		return nil, err
 	}
 	return id, nil
@@ -87,7 +86,7 @@ func (r *InsertOneResult) DecodeID(v any) error {
 	if r.insertedId == nil {
 		return errors.New("no inserted ID available")
 	}
-	return serdes.Deserialize(r.insertedId, v, r.schema, r.target)
+	return serdes.Deserialize(r.insertedId, v, r.targetCtx, r.target)
 }
 
 // RawIDs returns the raw inserted IDs as a slice of any.
@@ -96,7 +95,7 @@ func (r *InsertManyResult) RawIDs() ([]any, error) {
 	for _, batch := range r.batches {
 		for _, rawId := range batch.InsertedIds {
 			var id any
-			if err := serdes.Deserialize(rawId, &id, batch.Schema, r.target); err != nil {
+			if err := serdes.Deserialize(rawId, &id, batch.TargetCtx, r.target); err != nil {
 				return nil, err
 			}
 			ids = append(ids, id)
@@ -126,7 +125,7 @@ func (r *InsertManyResult) DecodeIDs(v any) error {
 	for _, batch := range r.batches {
 		for _, rawId := range batch.InsertedIds {
 			targetAddr := sliceVal.Index(idx).Addr().Interface()
-			if err := serdes.Deserialize(rawId, targetAddr, batch.Schema, r.target); err != nil {
+			if err := serdes.Deserialize(rawId, targetAddr, batch.TargetCtx, r.target); err != nil {
 				sliceVal.SetLen(idx)
 				return err
 			}

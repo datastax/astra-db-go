@@ -117,7 +117,18 @@ found:
 	if bytes.IndexByte(src[1:n], '\\') < 0 {
 		return src[n:], src[:n], true, nil
 	}
-	return src[n:], src[:n], false, nil
+
+	// TODO may need to handle fancy unicode stuff need to test
+	for i := 1; i < len(src); i++ {
+		switch src[i] {
+		case '\\':
+			i++
+		case '"':
+			return src[i+1:], src[:i+1], false, nil
+		}
+	}
+
+	return src, nil, false, fmt.Errorf("missing '\"' at the end of a string value")
 }
 
 func parseStringUnquote(src []byte) ([]byte, []byte, bool, error) {
@@ -176,14 +187,25 @@ func skipValue(src []byte) ([]byte, error) {
 			cls = ']'
 		}
 
-		for i := 0; i < len(src); i++ {
-			if src[i] == open {
+		for i := 0; i < len(src); {
+			switch src[i] {
+			case '"':
+				rest, _, _, err := parseString(src[i:])
+				if err != nil {
+					return src, err
+				}
+				i = len(src) - len(rest)
+			case open:
 				depth++
-			} else if src[i] == cls {
+				i++
+			case cls:
 				depth--
 				if depth == 0 {
 					return src[i+1:], nil
 				}
+				i++
+			default:
+				i++
 			}
 		}
 		return src, fmt.Errorf("unexpected end of input while skipping value")

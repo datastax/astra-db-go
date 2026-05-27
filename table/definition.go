@@ -117,11 +117,9 @@ type Column struct {
 	// UDTName is used for userDefined columns to specify the UDT name
 	UDTName *string `json:"udtName,omitempty"`
 
-	definition *UDTDefinition `json:",omitempty,allowunexported"` // TODO should this just be exported
-}
-
-func (c *Column) UDTDefinition() *UDTDefinition {
-	return c.definition
+	// UDTDefinition is the definition of the UDT if this column is a user defined type.
+	// This is returned by the server; users should not set this themselves when defining a table schema.
+	UDTDefinition *UDTDefinition `json:"definition,omitempty"`
 }
 
 type UDTDefinition struct {

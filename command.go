@@ -27,7 +27,6 @@ import (
 	"github.com/datastax/astra-db-go/options"
 	"github.com/datastax/astra-db-go/results"
 	"github.com/datastax/astra-db-go/serdes"
-	"github.com/datastax/astra-db-go/table"
 	"github.com/datastax/astra-db-go/update"
 )
 
@@ -161,7 +160,7 @@ func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error)
 
 // Execute a command against the astra DB web API.
 // Returns the response body, any warnings from the API, and any error that occurred.
-func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, *table.LazySchema, error) {
+func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	var body []byte
 	if c.db == nil {
 		return body, nil, nil, ErrCmdNilDb
@@ -234,7 +233,7 @@ type apiStatus struct {
 //	{"message":"Your database is resuming from hibernation and will be available in the next few minutes."}
 //
 // Will call WarningHandler if appropriate.
-func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, *table.LazySchema, error) {
+func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr DataAPIError
@@ -265,12 +264,11 @@ func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOp
 		status.schema = resp.Status.ProjectionSchema
 	}
 
-	var schema *table.LazySchema
-	if resp.Status.PrimaryKeySchema != nil {
-		schema = &table.LazySchema{AsRaw: status.schema}
-	}
-	if resp.Status.ProjectionSchema != nil {
-		schema = &table.LazySchema{AsRaw: status.schema}
+	var schema serdes.TargetDecodeCtx
+	if c.target == serdes.TargetCollection {
+		schema = documentCtx
+	} else if status.schema != nil {
+		schema = &lazySchema{AsRaw: status.schema}
 	}
 
 	// Return error if present
