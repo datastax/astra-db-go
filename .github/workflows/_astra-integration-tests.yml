@@ -18,4 +18,4 @@ jobs:
         uses: actions/setup-go@v6
 
       - name: Run integration tests
-        run: go run ./internal/integrationtests
+        run: go run ./astra/internal/integrationtests
