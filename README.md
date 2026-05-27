@@ -34,11 +34,11 @@ Import the package and create a client with your Application Token:
 
 ```go
 import (
-    astradb "github.com/datastax/astra-db-go"
-    "github.com/datastax/astra-db-go/options"
+    "github.com/datastax/astra-db-go/astra"
+    "github.com/datastax/astra-db-go/astra/options"
 )
 
-client := astradb.NewClient(
+client := astra.NewClient(
     options.WithToken("AstraCS:..."),
 )
 ```
@@ -94,7 +94,7 @@ _, err = coll.InsertMany(ctx, []Book{
 Use `FindOne` to retrieve a single document:
 
 ```go
-import "github.com/datastax/astra-db-go/filter"
+import "github.com/datastax/astra-db-go/astra/filter"
 
 var result Book
 err = coll.FindOne(ctx, filter.Eq("_id", "1")).Decode(&result)
@@ -144,7 +144,7 @@ count, err := coll.CountDocuments(ctx, filter.F{}, 1000)
 The `filter` package provides a composable set of operators for querying collections and tables.
 
 ```go
-import "github.com/datastax/astra-db-go/filter"
+import "github.com/datastax/astra-db-go/astra/filter"
 
 // Equality
 filter.Eq("status", "active")
@@ -179,7 +179,7 @@ Tables provide a structured, schema-enforced data model backed by Cassandra's CQ
 
 ```go
 import (
-    "github.com/datastax/astra-db-go/table"
+    "github.com/datastax/astra-db-go/astra/table"
 )
 
 definition := table.Definition{
@@ -267,7 +267,7 @@ regions, err := admin.FindAvailableRegions(ctx)
 #### Database Admin
 
 ```go
-dbAdmin := admin.DbAdmin("my-database-id")
+dbAdmin := admin.DatabaseAdmin("my-database-id")
 
 // Manage keyspaces
 keyspaces, err := dbAdmin.ListKeyspaces(ctx)
@@ -291,10 +291,10 @@ dbAdmin, err := db.DatabaseAdmin()
 Options can be specified at the client, database, collection, or table level. More specific options override broader ones.
 
 ```go
-import "github.com/datastax/astra-db-go/options"
+import "github.com/datastax/astra-db-go/astra/options"
 
 // Client-level defaults
-client := astradb.NewClient(
+client := astra.NewClient(
     options.WithToken("AstraCS:..."),
     options.WithTimeout(30 * time.Second),
     options.WithKeyspace("my_keyspace"),
@@ -307,13 +307,13 @@ db := client.Database(endpoint,
 
 // Custom HTTP client
 httpClient := &http.Client{Timeout: 60 * time.Second}
-client := astradb.NewClient(
+client := astra.NewClient(
     options.WithToken("AstraCS:..."),
     options.WithHTTPClient(httpClient),
 )
 
 // Warning handler
-client := astradb.NewClient(
+client := astra.NewClient(
     options.WithToken("AstraCS:..."),
     options.WithWarningHandler(func(warnings results.Warnings) {
         for _, w := range warnings {

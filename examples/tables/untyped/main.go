@@ -6,10 +6,10 @@ import (
 	"log"
 
 	"github.com/DeanPDX/dotconfig"
-	astradb "github.com/datastax/astra-db-go"
-	"github.com/datastax/astra-db-go/filter"
-	"github.com/datastax/astra-db-go/options"
-	"github.com/datastax/astra-db-go/table"
+	"github.com/datastax/astra-db-go/astra"
+	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/astra/table"
 )
 
 // Config is a struct for retrieving configuration from environment variables.
@@ -32,7 +32,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Configuration loaded successfully.")
-	client := astradb.NewClient(
+	client := astra.NewClient(
 		options.WithToken(config.ApplicationToken),
 	)
 	db := client.Database(config.DBEndpoint)
@@ -47,7 +47,7 @@ func main() {
 	dropTable(ctx, db)
 }
 
-func createTable(ctx context.Context, db *astradb.Db) *astradb.Table {
+func createTable(ctx context.Context, db *astra.Db) *astra.Table {
 	logHeader("Creating Table")
 	definition := table.Definition{
 		Columns: table.Columns{
@@ -69,9 +69,9 @@ func createTable(ctx context.Context, db *astradb.Db) *astradb.Table {
 	return tbl
 }
 
-func insertRows(ctx context.Context, tbl *astradb.Table) {
+func insertRows(ctx context.Context, tbl *astra.Table) {
 	logHeader("Inserting Rows")
-	_, err := tbl.InsertOne(ctx, astradb.NewRow{
+	_, err := tbl.InsertOne(ctx, astra.NewRow{
 		"id": "1", "title": "The Go Programming Language", "author": "Alan Donovan", "year": 2015,
 	})
 	if err != nil {
@@ -80,9 +80,9 @@ func insertRows(ctx context.Context, tbl *astradb.Table) {
 	fmt.Println("Inserted: \"The Go Programming Language\" by Alan Donovan (2015)")
 
 	// Insert multiple rows
-	_, err = tbl.InsertMany(ctx, []astradb.Row{
-		astradb.NewRow{"id": "2", "title": "Go in Action", "author": "William Kennedy", "year": 2015},
-		astradb.NewRow{"id": "3", "title": "Concurrency in Go", "author": "Katherine Cox-Buday", "year": 2017},
+	_, err = tbl.InsertMany(ctx, []astra.Row{
+		astra.NewRow{"id": "2", "title": "Go in Action", "author": "William Kennedy", "year": 2015},
+		astra.NewRow{"id": "3", "title": "Concurrency in Go", "author": "Katherine Cox-Buday", "year": 2017},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -90,9 +90,9 @@ func insertRows(ctx context.Context, tbl *astradb.Table) {
 	fmt.Println("Inserted 2 more rows via InsertMany.")
 }
 
-func findOneRow(ctx context.Context, tbl *astradb.Table) {
+func findOneRow(ctx context.Context, tbl *astra.Table) {
 	logHeader("Finding: id = '1'")
-	var row astradb.Row
+	var row astra.Row
 	err := tbl.FindOne(ctx, filter.Eq("id", "1")).Decode(&row)
 	if err != nil {
 		log.Fatal(err)
@@ -100,11 +100,11 @@ func findOneRow(ctx context.Context, tbl *astradb.Table) {
 	fmt.Printf("Found: %s by %s (%v)\n", row.MustGet("title"), row.MustGet("author"), row.MustGet("year"))
 }
 
-func findAllRows(ctx context.Context, tbl *astradb.Table) {
+func findAllRows(ctx context.Context, tbl *astra.Table) {
 	logHeader("Finding All Rows")
 	cursor := tbl.Find(nil)
 
-	var rows []astradb.Row
+	var rows []astra.Row
 	if err := cursor.DecodeAll(ctx, &rows); err != nil {
 		log.Fatal(err)
 	}
@@ -114,7 +114,7 @@ func findAllRows(ctx context.Context, tbl *astradb.Table) {
 	}
 }
 
-func createAndListIndexes(ctx context.Context, tbl *astradb.Table) {
+func createAndListIndexes(ctx context.Context, tbl *astra.Table) {
 	logHeader("Creating Indexes")
 	err := tbl.CreateIndex(ctx, "author_idx", "author")
 	if err != nil {
@@ -133,7 +133,7 @@ func createAndListIndexes(ctx context.Context, tbl *astradb.Table) {
 	}
 }
 
-func dropTable(ctx context.Context, db *astradb.Db) {
+func dropTable(ctx context.Context, db *astra.Db) {
 	logHeader("Dropping Table")
 	err := db.DropTable(ctx, "books")
 	if err != nil {

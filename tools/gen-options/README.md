@@ -78,8 +78,8 @@ func (o *TestOptions) Validate() error {
 go generate ./...
 ```
 
-Note the following in [options.go](./../../options/options.go):
+Note the following in [options.go](./../../astra/options/options.go):
 
 ```go
-//go:generate go run -modfile=../tools/gen-options/go.mod ../tools/gen-options/main.go -pkg .
+//go:generate go run -modfile=../../tools/gen-options/go.mod ../../tools/gen-options/main.go -pkg .
 ```
