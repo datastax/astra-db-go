@@ -8,18 +8,6 @@ import (
 
 // this file is full of ugly gross code that I plan to revisit later
 
-func mkSetCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	kt, _ := t.FieldByName("kType")
-	et := kt.Type.Elem()
-
-	c := resolveCodec(ctx, et, seen, false)
-
-	return codec{
-		mkSetEncoder(t, c.encode),
-		mkSetDecoder(et, t, c.decode),
-	}
-}
-
 func mkSliceCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	elem := t.Elem()
 	c := resolveCodec(ctx, elem, seen, true)
@@ -43,34 +31,22 @@ func mkArrayCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	}
 }
 
-func mkSetEncoder(setT reflect.Type, encode encoder) encoder {
-	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		m := reflect.NewAt(setT, p).Elem()
+func encodeArray(ctx EncodeCtx, dst []byte, p unsafe.Pointer, n int, size uintptr, encode encoder) ([]byte, error) {
+	start := len(dst)
+	var err error
+	dst = append(dst, '[')
 
-		if mapIsNil(m) {
-			return append(dst, "null"...), nil
+	for i := range n {
+		if i != 0 {
+			dst = append(dst, ',')
 		}
-
-		var err error
-		first := true
-
-		dst = append(dst, '[')
-
-		it := newMapIterFromSortedMap(m)
-		for it.Next() {
-			if !first {
-				dst = append(dst, ',')
-			}
-			first = false
-
-			if dst, err = encode(ctx, dst, valuePtr(it.Key())); err != nil {
-				return dst, err
-			}
+		if dst, err = encode(ctx, dst, unsafe.Pointer(uintptr(p)+(uintptr(i)*size))); err != nil {
+			return dst[:start], err
 		}
-
-		dst = append(dst, ']')
-		return dst, nil
 	}
+
+	dst = append(dst, ']')
+	return dst, nil
 }
 
 func mkSliceEncoder(size uintptr, encode encoder) encoder {
@@ -81,78 +57,13 @@ func mkSliceEncoder(size uintptr, encode encoder) encoder {
 			return append(dst, "null"...), nil
 		}
 
-		return mkArrayEncoder(s.len, size, encode)(ctx, dst, s.data)
+		return encodeArray(ctx, dst, s.data, s.len, size, encode)
 	}
 }
 
 func mkArrayEncoder(n int, size uintptr, encode encoder) encoder {
 	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		start := len(dst)
-		var err error
-		dst = append(dst, '[')
-
-		for i := range n {
-			if i != 0 {
-				dst = append(dst, ',')
-			}
-			if dst, err = encode(ctx, dst, unsafe.Pointer(uintptr(p)+(uintptr(i)*size))); err != nil {
-				return dst[:start], err
-			}
-		}
-
-		dst = append(dst, ']')
-		return dst, nil
-	}
-}
-
-func mkSetDecoder(kt, setT reflect.Type, decode decoder) decoder {
-	maker := mkSortedMapMaker(setT)
-
-	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-		src = skipWS(src)
-
-		if src, ok := consumeNull(src); ok {
-			reflect.NewAt(setT, p).Elem().Set(reflect.Zero(setT))
-			return src, nil
-		}
-
-		if len(src) == 0 || src[0] != '[' {
-			return src, fmt.Errorf("expected '['")
-		}
-		src = src[1:]
-
-		m := reflect.NewAt(setT, p).Elem()
-
-		if mapIsNil(m) {
-			*(*unsafe.Pointer)(p) = *(*unsafe.Pointer)(valuePtr(maker.makeMap()))
-		}
-
-		var err error
-
-		k := reflect.New(kt).Elem()
-		kptr := valuePtr(k)
-
-		for {
-			src = skipWS(src)
-
-			if len(src) != 0 && src[0] == ']' {
-				return src[1:], nil
-			}
-
-			k.Set(reflect.Zero(kt))
-
-			src, err = decode(ctx, src, kptr)
-			if err != nil {
-				return src, err
-			}
-
-			maker.setMap(m, k, emptyEmpty)
-			src = skipWS(src)
-
-			if len(src) != 0 && src[0] == ',' {
-				src = skipWS(src[1:])
-			}
-		}
+		return encodeArray(ctx, dst, p, n, size, encode)
 	}
 }
 

@@ -21,6 +21,18 @@ import (
 
 // Serdes
 
+func mkSetCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	kt, _ := t.FieldByName("kType")
+	et := kt.Type.Elem()
+
+	c := resolveCodec(ctx, et, seen, false)
+
+	return codec{
+		mkGenericMapEncoder(t, et, c.encode, nil, '[', ']', 0, newMapIterFromSortedMap),
+		mkGenericMapDecoder(t, et, emptyType, reflect.Zero(et), emptyEmpty, c.decode, nil, '[', ']', 0, mkSortedMapMaker(t)),
+	}
+}
+
 func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	mkIter := newMapIterMakerFromMap(t, true) // TODO make trySort an optional flag
 
@@ -163,14 +175,16 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 				return dst[:start], err
 			}
 
-			dst = append(dst, sep)
+			if encodeValue != nil {
+				dst = append(dst, sep)
 
-			if kt.Kind() == reflect.String {
-				ctx.fieldHint = extractFieldHint(iter.Key().String())
-			}
+				if kt.Kind() == reflect.String {
+					ctx.fieldHint = extractFieldHint(iter.Key().String())
+				}
 
-			if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
-				return dst[:start], err
+				if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
+					return dst[:start], err
+				}
 			}
 
 			if toArray {
@@ -243,19 +257,21 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 			}
 			src = skipWS(src)
 
-			if len(src) == 0 || src[0] != sep {
-				return src, fmt.Errorf("expected '%c' after key", sep)
-			}
-			src = skipWS(src[1:])
+			if decodeValue != nil {
+				if len(src) == 0 || src[0] != sep {
+					return src, fmt.Errorf("expected '%c' after key", sep)
+				}
+				src = skipWS(src[1:])
 
-			if kt.Kind() == reflect.String {
-				ctx.fieldHint = extractFieldHint(k.String())
-			}
+				if kt.Kind() == reflect.String {
+					ctx.fieldHint = extractFieldHint(k.String())
+				}
 
-			if src, err = decodeValue(ctx, src, vptr); err != nil {
-				return src, err
+				if src, err = decodeValue(ctx, src, vptr); err != nil {
+					return src, err
+				}
+				src = skipWS(src)
 			}
-			src = skipWS(src)
 
 			if fromArray {
 				if len(src) == 0 || src[0] != ']' {
@@ -299,12 +315,10 @@ type mapIter struct {
 	iterType    mapIterType
 }
 
-type comparator = func(i, j reflect.Value) bool
-
 func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) mapIter {
-	var cmp comparator
+	var cmp datatypes.Comparator
 	if trySort {
-		cmp = mkComparator(t.Key().Kind())
+		cmp = datatypes.ComparatorFor(t.Key())
 	}
 
 	return func(m reflect.Value) mapIter {
@@ -315,7 +329,7 @@ func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) 
 
 			if len(wrapper.keys) > 1 {
 				sort.Slice(wrapper.keys, func(i, j int) bool {
-					return cmp(wrapper.keys[i], wrapper.keys[j])
+					return cmp(valuePtr(wrapper.keys[i]), valuePtr(wrapper.keys[j])) < 0
 				})
 			}
 
@@ -347,23 +361,6 @@ func newMapIterFromSortedMap(m reflect.Value) mapIter {
 		index:       -1,
 		iterType:    sortedMapIter,
 		currentNode: firstNode,
-	}
-}
-
-// mkComparator returns the logic once so the loop doesn't have to switch
-// TODO any more comparators???
-func mkComparator(k reflect.Kind) comparator {
-	switch {
-	case k == reflect.String:
-		return func(i, j reflect.Value) bool { return i.String() < j.String() }
-	case k >= reflect.Int && k <= reflect.Int64:
-		return func(i, j reflect.Value) bool { return i.Int() < j.Int() }
-	case k >= reflect.Uint && k <= reflect.Uintptr:
-		return func(i, j reflect.Value) bool { return i.Uint() < j.Uint() }
-	case k == reflect.Float32 || k == reflect.Float64:
-		return func(i, j reflect.Value) bool { return i.Float() < j.Float() }
-	default:
-		return func(i, j reflect.Value) bool { return false }
 	}
 }
 
