@@ -234,7 +234,7 @@ func (m SortedMap[K, V]) All(bounds ...K) iter.Seq2[K, V] {
 			cur = cur.next[0]
 		}
 
-		for ; cur != nil; {
+		for cur != nil {
 			next := cur.next[0]
 			if len(bounds) == 2 && m.cmp(unsafe.Pointer(&cur.key), unsafe.Pointer(&bounds[1])) > 0 {
 				return

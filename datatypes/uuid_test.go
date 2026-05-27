@@ -96,7 +96,7 @@ func TestUUID_CompareTo(t *testing.T) {
 		u2 := datatypes.NewUUIDv7At(tm2)
 
 		got := u1.CompareTo(u2)
-		
+
 		want := tm1.Compare(tm2)
 		if want == 0 {
 			// If timestamps are equal, fallback to bytes.Compare

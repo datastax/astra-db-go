@@ -139,7 +139,7 @@ func TestSet_Equals(t *testing.T) {
 
 		if len(elems) > 0 {
 			s1.Add(rapid.String().Draw(t, "extra"))
-			// This might still be equal if extra was already in elems, 
+			// This might still be equal if extra was already in elems,
 			// but Equals is simple enough.
 		}
 	})
@@ -164,15 +164,15 @@ func TestSet_AllRev(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		elems := rapid.SliceOf(rapid.Int()).Draw(t, "elems")
 		s := datatypes.NewSet(elems...)
-		
+
 		var got []int
 		for e := range s.AllRev() {
 			got = append(got, e)
 		}
-		
+
 		want := s.ToSlice()
 		slices.Reverse(want)
-		
+
 		if diff := cmp.Diff(want, got, cmpopts.EquateEmpty()); diff != "" {
 			t.Fatalf("AllRev mismatch (-want +got):\n%s", diff)
 		}

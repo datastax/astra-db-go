@@ -15,10 +15,11 @@ func TestDateOnly_RoundTrip(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		year := rapid.IntRange(-100000, 100000).Draw(t, "year")
 		month := rapid.IntRange(1, 12).Draw(t, "month")
-		
+
 		daysInMonth := 31
 		switch month {
-		case 4, 6, 9, 11: daysInMonth = 30
+		case 4, 6, 9, 11:
+			daysInMonth = 30
 		case 2:
 			if (year%4 == 0 && year%100 != 0) || (year%400 == 0) {
 				daysInMonth = 29
@@ -46,7 +47,7 @@ func TestDateOnly_CompareTo(t *testing.T) {
 		y1 := rapid.IntRange(-100000, 100000).Draw(t, "t1_y")
 		m1 := rapid.IntRange(1, 12).Draw(t, "t1_m")
 		d1 := rapid.IntRange(1, 28).Draw(t, "t1_d")
-		
+
 		y2 := rapid.IntRange(-100000, 100000).Draw(t, "t2_y")
 		m2 := rapid.IntRange(1, 12).Draw(t, "t2_m")
 		d2 := rapid.IntRange(1, 28).Draw(t, "t2_d")

@@ -494,7 +494,7 @@ func mkLinkedMapMaker(t reflect.Type) mapMaker {
 
 func mkSortedMapMaker(t reflect.Type) mapMaker {
 	implType := t.Field(0).Type.Elem() // sortedMap[K,V]
-	kt := implType.Field(0).Type      // [0]K
+	kt := implType.Field(0).Type       // [0]K
 	cmpOff := implType.Field(2).Offset
 	headOff := implType.Field(3).Offset
 	headType := implType.Field(3).Type.Elem()

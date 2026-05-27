@@ -35,7 +35,7 @@ func TestTimeOnly_CompareTo(t *testing.T) {
 		m1 := rapid.IntRange(0, 59).Draw(t, "t1_m")
 		s1 := rapid.IntRange(0, 59).Draw(t, "t1_s")
 		n1 := rapid.IntRange(0, 999999999).Draw(t, "t1_n")
-		
+
 		h2 := rapid.IntRange(0, 23).Draw(t, "t2_h")
 		m2 := rapid.IntRange(0, 59).Draw(t, "t2_m")
 		s2 := rapid.IntRange(0, 59).Draw(t, "t2_s")
