@@ -27,10 +27,10 @@ type Config struct {
 
 // BookRow represents a row in the "books" table.
 type BookRow struct {
-	ID     string `json:"id"`
+	ID     string `json:"id" astra:"pk"`
 	Title  string `json:"title"`
 	Author string `json:"author"`
-	Year   int    `json:"year"`
+	Year   int    `json:"year" astra:"ck,1,desc"`
 }
 
 func main() {
@@ -57,17 +57,9 @@ func main() {
 
 func createTable(ctx context.Context, db *astradb.Db) *astradb.Table {
 	logHeader("Creating Table")
-	definition := table.Definition{
-		Columns: table.Columns{
-			{Name: "id", Column: table.Text()},
-			{Name: "title", Column: table.Text()},
-			{Name: "author", Column: table.Text()},
-			{Name: "year", Column: table.Int()},
-		},
-		PrimaryKey: table.PrimaryKey{
-			PartitionBy:   []string{"id"},
-			PartitionSort: table.PartitionSort{{Name: "year", Order: table.SortDescending}},
-		},
+	definition, err := table.Infer[BookRow]()
+	if err != nil {
+		log.Fatal(err)
 	}
 	tbl, err := db.CreateTable(ctx, "books", definition)
 	if err != nil {

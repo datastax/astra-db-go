@@ -7,8 +7,8 @@ Want to run an example? Follow the instructions below and change the commands ba
 You can copy/paste the examples in any of these subfolders into a local file. You can also just use [curl](https://curl.se/docs/tutorial.html):
 
 ```bash
-# Download an example. Replace /tables/ with whatever example you want to download.
-curl -L https://raw.githubusercontent.com/datastax/astra-db-go/main/examples/tables/main.go -o main.go
+# Download an example. Replace /tables/typed/ with whatever example you want to download.
+curl -L https://raw.githubusercontent.com/datastax/astra-db-go/main/examples/tables/typed/main.go -o main.go
 ```
 
 ## Initialize a go module and get dependencies
