@@ -1,6 +1,7 @@
 package datatypes
 
 import (
+	"bytes"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -8,6 +9,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/datastax/astra-db-go/internal/utils"
 )
 
 // ObjectId represents an ObjectId that can be used as an _id in the DataAPI.
@@ -15,6 +18,12 @@ import (
 type ObjectId struct {
 	// An ObjectId is 12 bytes: 4 bytes timestamp (seconds) + 5 bytes random + 3 bytes counter.
 	value [12]byte
+}
+
+// CompareTo implements the Comparable interface.
+func (o ObjectId) CompareTo(other any) int {
+	otherOid := other.(ObjectId)
+	return bytes.Compare(o.value[:], otherOid.value[:])
 }
 
 var (
@@ -26,7 +35,8 @@ var (
 func initOid() {
 	var buf [8]byte
 	if _, err := rand.Read(buf[:]); err != nil {
-		// See note in DataAPIVector but this PROBABLY can never happen. But just in case...
+		// This should be impossible; crypto/rand should only fail if the system's
+		// random number generator is completely broken or unavailable.
 		panic(fmt.Sprintf("datatypes: crypto/rand failed: %v", err))
 	}
 	copy(oidRandID[:], buf[:5])
@@ -79,11 +89,7 @@ func ParseObjectId(s string) (ObjectId, error) {
 }
 
 func MustParseObjectId(s string) ObjectId {
-	o, err := ParseObjectId(s)
-	if err != nil {
-		panic(fmt.Sprintf("datatypes: invalid ObjectId string: %q: %v", s, err))
-	}
-	return o
+	return utils.Must(ParseObjectId(s))
 }
 
 // String returns the 24-character lowercase hex representation of the ObjectId.

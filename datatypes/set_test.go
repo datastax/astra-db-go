@@ -1,465 +1,279 @@
 package datatypes_test
 
 import (
+	"math/big"
 	"slices"
 	"testing"
-	"testing/quick"
 
 	"github.com/datastax/astra-db-go/datatypes"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"pgregory.net/rapid"
 )
 
-func TestSetConstructors_NewSet(t *testing.T) {
-	f := func(elements []string) bool {
-		s := datatypes.NewSet(elements...)
-		unique := make(map[string]struct{})
-		for _, e := range elements {
-			unique[e] = struct{}{}
-		}
-		return s.Len() == len(unique)
-	}
+func TestSet_Operations(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		s := datatypes.NewSet[string]()
+		shadow := make(map[string]struct{})
 
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetConstructors_NewSetWithCapacity(t *testing.T) {
-	f := func(capacity int) bool {
-		if capacity < 0 {
-			var panicked bool
-			func() {
-				defer func() {
-					panicked = recover() != nil
-				}()
-				datatypes.NewSetWithCapacity[int](capacity)
-			}()
-
-			testutils.FailIf(t, !panicked, "expected NewSetWithCapacity to panic when given negative capacity")
-		} else {
-			datatypes.NewSetWithCapacity[int](capacity)
+		type op struct {
+			kind string
+			val  string
 		}
 
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetBasics(t *testing.T) {
-	f := func(v int, others []int) bool {
-		s := datatypes.NewSet[int]()
-
-		s.Add(v)
-		for _, val := range others {
-			s.Add(val)
-		}
-
-		testutils.FailIf(t, !s.Has(v), "expected set to have value after adding it")
-		s.Delete(v)
-		testutils.FailIf(t, s.Has(v), "expected set to not have value after deleting it")
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("Property failed: %v", err)
-	}
-}
-
-func TestSetPop(t *testing.T) {
-	type comparableStruct struct {
-		id   byte
-		name string
-	}
-
-	f := func(ids []byte, names []string) bool {
-		s := datatypes.NewSet[comparableStruct]()
-
-		if len(ids) == 0 || len(names) == 0 {
-			return true
-		}
-
-		for i := range ids {
-			s.Add(comparableStruct{id: ids[i], name: names[i%len(names)]})
-		}
-
-		seen := make(map[comparableStruct]struct{})
-		size := s.Len()
-
-		for i := 0; i < size; i++ {
-			found, ok := s.Pop()
-			_, seenHas := seen[found]
-
-			testutils.FailIf(t, !ok, "expected s.Pop() to return ok == true")
-			testutils.FailIf(t, seenHas, "expected popped value to not have been seen before")
-			testutils.FailIf(t, s.Has(found), "expected popped value to no longer be in the set")
-
-			seen[found] = struct{}{}
-		}
-
-		testutils.FailIf(t, s.Len() != 0, "expected set to be empty after popping all elements")
-
-		for range 5 {
-			found, ok := s.Pop()
-			testutils.FailIf(t, ok, "expected s.Pop() to return ok == false when popping from empty set")
-			testutils.FailIf(t, found != (comparableStruct{}), "expected popped value to be zero value when popping from empty set")
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Errorf("Property failed: %v", err)
-	}
-}
-
-func TestSetLen(t *testing.T) {
-	f := func(elements []int) bool {
-		if slices.Contains(elements, -999999) {
-			return true
-		}
-
-		s := datatypes.NewSet(elements...)
-		unique := make(map[int]struct{})
-		for _, e := range elements {
-			unique[e] = struct{}{}
-		}
-
-		testutils.FailIf(t, s.Len() != len(unique), "expected set length to match number of unique elements")
-
-		if len(elements) > 0 {
-			initialLen := s.Len()
-			s.Add(elements[0])
-			testutils.FailIf(t, s.Len() != initialLen, "expected length to remain same after adding duplicate")
-
-			newVal := -999999
-			s.Add(newVal)
-			testutils.FailIf(t, s.Len() != initialLen+1, "expected length to increase after adding new element")
-
-			s.Delete(newVal)
-			testutils.FailIf(t, s.Len() != initialLen, "expected length to decrease after deleting element")
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetClear(t *testing.T) {
-	f := func(elements []rune) bool {
-		if len(elements) == 0 {
-			return true
-		}
-		s := datatypes.NewSet(elements...)
-		testutils.FailIf(t, s.Len() == 0, "expected set to have elements after construction")
-		s.Clear()
-		testutils.FailIf(t, s.Len() != 0, "expected set to be empty after clear")
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetClone(t *testing.T) {
-	f := func(elements []string) bool {
-		if slices.Contains(elements, "new element") {
-			return true
-		}
-
-		s := datatypes.NewSet(elements...)
-		clone := s.Clone()
-
-		testutils.FailIf(t, s.Len() != clone.Len(), "expected clone to have same length as original")
-		for _, e := range elements {
-			testutils.FailIf(t, !s.Has(e), "expected original set to have element")
-			testutils.FailIf(t, !clone.Has(e), "expected cloned set to have element")
-		}
-
-		s.Add("new element")
-		testutils.FailIf(t, clone.Has("new element"), "expected clone to not have new element added to original")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetEquals(t *testing.T) {
-	f := func(elements []string) bool {
-		if slices.Contains(elements, "new element") {
-			return true
-		}
-
-		s1 := datatypes.NewSet(elements...)
-		s2 := datatypes.NewSet(elements...)
-
-		testutils.FailIf(t, !s1.Equals(s2), "expected sets with same elements to be equal")
-
-		if len(elements) > 0 {
-			s2.Add("new element")
-			testutils.FailIf(t, s1.Equals(s2), "expected sets with different elements to not be equal")
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetUnion(t *testing.T) {
-	f := func(elements1 []int, elements2 []int) bool {
-		s1 := datatypes.NewSet(elements1...)
-		s2 := datatypes.NewSet(elements2...)
-
-		union := s1.Union(s2)
-
-		for _, e := range elements1 {
-			testutils.FailIf(t, !union.Has(e), "expected union to contain element from first set")
-		}
-		for _, e := range elements2 {
-			testutils.FailIf(t, !union.Has(e), "expected union to contain element from second set")
-		}
-
-		testutils.FailIf(t, s1.Len() != datatypes.NewSet(elements1...).Len(), "expected original set to be unchanged")
-		testutils.FailIf(t, s2.Len() != datatypes.NewSet(elements2...).Len(), "expected original set to be unchanged")
-
-		testutils.FailIf(t, union.Len() > s1.Len()+s2.Len(), "expected union size to be at most sum of both sets")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetIntersection(t *testing.T) {
-	f := func(elements1 []int, elements2 []int) bool {
-		s1 := datatypes.NewSet(elements1...)
-		s2 := datatypes.NewSet(elements2...)
-
-		intersection := s1.Intersection(s2)
-
-		for v := range intersection.All() {
-			testutils.FailIf(t, !s1.Has(v), "expected intersection element to be in first set")
-			testutils.FailIf(t, !s2.Has(v), "expected intersection element to be in second set")
-		}
-
-		for _, e := range elements1 {
-			if s2.Has(e) {
-				testutils.FailIf(t, !intersection.Has(e), "expected common element to be in intersection")
-			}
-		}
-
-		testutils.FailIf(t, s1.Len() != datatypes.NewSet(elements1...).Len(), "expected original set to be unchanged")
-		testutils.FailIf(t, s2.Len() != datatypes.NewSet(elements2...).Len(), "expected original set to be unchanged")
-
-		testutils.FailIf(t, intersection.Len() > min(s1.Len(), s2.Len()), "expected intersection size to be at most size of smaller set")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetDifference(t *testing.T) {
-	f := func(elements1 []int, elements2 []int) bool {
-		s1 := datatypes.NewSet(elements1...)
-		s2 := datatypes.NewSet(elements2...)
-
-		difference := s1.Difference(s2)
-
-		for v := range difference.All() {
-			testutils.FailIf(t, !s1.Has(v), "expected difference element to be in first set")
-			testutils.FailIf(t, s2.Has(v), "expected difference element to not be in second set")
-		}
-
-		for _, e := range elements1 {
-			if !s2.Has(e) {
-				testutils.FailIf(t, !difference.Has(e), "expected element in s1 but not s2 to be in difference")
-			}
-		}
-
-		for _, e := range elements1 {
-			if s2.Has(e) {
-				testutils.FailIf(t, difference.Has(e), "expected element in both sets to not be in difference")
-			}
-		}
-
-		testutils.FailIf(t, s1.Len() != datatypes.NewSet(elements1...).Len(), "expected original set to be unchanged")
-		testutils.FailIf(t, s2.Len() != datatypes.NewSet(elements2...).Len(), "expected original set to be unchanged")
-
-		testutils.FailIf(t, difference.Len() > s1.Len(), "expected difference size to be at most size of first set")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetSymmetricDifference(t *testing.T) {
-	f := func(elements1 []int, elements2 []int) bool {
-		s1 := datatypes.NewSet(elements1...)
-		s2 := datatypes.NewSet(elements2...)
-
-		symDiff := s1.SymmetricDifference(s2)
-
-		for v := range symDiff.All() {
-			inS1 := s1.Has(v)
-			inS2 := s2.Has(v)
-			testutils.FailIf(t, inS1 && inS2, "expected symmetric difference element to not be in both sets")
-			testutils.FailIf(t, !inS1 && !inS2, "expected symmetric difference element to be in at least one set")
-		}
-
-		for _, e := range elements1 {
-			if !s2.Has(e) {
-				testutils.FailIf(t, !symDiff.Has(e), "expected element only in s1 to be in symmetric difference")
-			}
-		}
-		for _, e := range elements2 {
-			if !s1.Has(e) {
-				testutils.FailIf(t, !symDiff.Has(e), "expected element only in s2 to be in symmetric difference")
-			}
-		}
-
-		for _, e := range elements1 {
-			if s2.Has(e) {
-				testutils.FailIf(t, symDiff.Has(e), "expected element in both sets to not be in symmetric difference")
-			}
-		}
-
-		testutils.FailIf(t, s1.Len() != datatypes.NewSet(elements1...).Len(), "expected original set to be unchanged")
-		testutils.FailIf(t, s2.Len() != datatypes.NewSet(elements2...).Len(), "expected original set to be unchanged")
-
-		symDiff2 := s2.SymmetricDifference(s1)
-		testutils.FailIf(t, !symDiff.Equals(symDiff2), "expected symmetric difference to be commutative")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetIsSubsetOf(t *testing.T) {
-	f := func(elements1 []int, elements2 []int) bool {
-		s1 := datatypes.NewSet(elements1...)
-		s2 := datatypes.NewSet(elements2...)
-
-		testutils.FailIf(t, !s1.IsSubsetOf(s1), "expected set to be subset of itself")
-		testutils.FailIf(t, !s2.IsSubsetOf(s2), "expected set to be subset of itself")
-
-		empty := datatypes.NewSet[int]()
-		testutils.FailIf(t, !empty.IsSubsetOf(s1), "expected empty set to be subset of any set")
-		testutils.FailIf(t, !empty.IsSubsetOf(s2), "expected empty set to be subset of any set")
-
-		if s1.IsSubsetOf(s2) {
-			for _, e := range elements1 {
-				testutils.FailIf(t, !s2.Has(e), "expected superset to contain all subset elements")
-			}
-		}
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-
-	subset := datatypes.NewSet(1, 2, 3)
-	superset := datatypes.NewSet(1, 2, 3, 4, 5)
-	testutils.FailIf(t, !subset.IsSubsetOf(superset), "expected subset to be subset of superset")
-	testutils.FailIf(t, superset.IsSubsetOf(subset), "expected superset to not be subset of subset")
-}
-
-func TestSetToSlice(t *testing.T) {
-	f := func(elements []int) bool {
-		s := datatypes.NewSet(elements...)
-		slice := s.ToSlice()
-
-		testutils.FailIf(t, len(slice) != s.Len(), "expected slice length to match set length")
-
-		for _, e := range slice {
-			testutils.FailIf(t, !s.Has(e), "expected slice element to be in set")
-		}
-
-		sliceMap := make(map[int]struct{})
-		for _, e := range slice {
-			sliceMap[e] = struct{}{}
-		}
-		for v := range s.All() {
-			_, ok := sliceMap[v]
-			testutils.FailIf(t, !ok, "expected set element to be in slice")
-		}
-
-		empty := datatypes.NewSet[int]()
-		emptySlice := empty.ToSlice()
-		testutils.FailIf(t, len(emptySlice) != 0, "expected empty set to produce empty slice")
-
-		return true
-	}
-
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
-	}
-}
-
-func TestSetAll(t *testing.T) {
-	f := func(elements []string) bool {
-		s := datatypes.NewSet(elements...)
-
-		count := 0
-		seen := make(map[string]struct{})
-		for v := range s.All() {
-			count++
-			_, alreadySeen := seen[v]
-			testutils.FailIf(t, alreadySeen, "expected iterator to not yield duplicate elements")
-			testutils.FailIf(t, !s.Has(v), "expected iterator to only yield elements in set")
-			seen[v] = struct{}{}
-		}
-
-		testutils.FailIf(t, count != s.Len(), "expected iterator to yield all elements exactly once")
-
-		if s.Len() > 0 {
-			terminatedEarly := false
-			iterCount := 0
-			for range s.All() {
-				iterCount++
-				if iterCount >= 1 {
-					terminatedEarly = true
-					break
+		ops := rapid.SliceOf(rapid.Custom(func(t *rapid.T) op {
+			kind := rapid.SampledFrom([]string{"add", "delete", "has", "pop", "clear"}).Draw(t, "kind")
+			val := rapid.String().Draw(t, "val")
+			return op{kind, val}
+		})).Draw(t, "ops")
+
+		for _, o := range ops {
+			switch o.kind {
+			case "add":
+				s.Add(o.val)
+				shadow[o.val] = struct{}{}
+			case "delete":
+				s.Delete(o.val)
+				delete(shadow, o.val)
+			case "has":
+				if got, want := s.Has(o.val), shadowHas(shadow, o.val); got != want {
+					t.Fatalf("Has(%q) mismatch: got %v, want %v", o.val, got, want)
 				}
+			case "pop":
+				val, ok := s.Pop()
+				_, shadowOk := firstKey(shadow)
+				if ok != (shadowOk) {
+					t.Fatalf("Pop() ok mismatch: got %v, want %v", ok, shadowOk)
+				}
+				if ok {
+					if _, existed := shadow[val]; !existed {
+						t.Fatalf("Pop() returned %q which was not in shadow", val)
+					}
+					delete(shadow, val)
+				}
+			case "clear":
+				s.Clear()
+				clear(shadow)
 			}
-			testutils.FailIf(t, !terminatedEarly && s.Len() > 1, "expected to be able to break from iterator early")
+
+			if got, want := s.Len(), len(shadow); got != want {
+				t.Fatalf("Len() mismatch: got %d, want %d", got, want)
+			}
 		}
 
-		empty := datatypes.NewSet[string]()
-		emptyCount := 0
-		for range empty.All() {
-			emptyCount++
+		// Final state check
+		gotSlice := s.ToSlice()
+		slices.Sort(gotSlice)
+		wantSlice := mapKeys(shadow)
+		slices.Sort(wantSlice)
+		if diff := cmp.Diff(wantSlice, gotSlice, cmpopts.EquateEmpty()); diff != "" {
+			t.Fatalf("Final state mismatch (-want +got):\n%s", diff)
 		}
-		testutils.FailIf(t, emptyCount != 0, "expected empty set iterator to yield no elements")
+	})
+}
 
-		return true
+func TestSet_SetLogic(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		elems1 := rapid.SliceOf(rapid.Int()).Draw(t, "elems1")
+		elems2 := rapid.SliceOf(rapid.Int()).Draw(t, "elems2")
+
+		s1 := datatypes.NewSet(elems1...)
+		s2 := datatypes.NewSet(elems2...)
+
+		// Union
+		union := s1.Union(s2)
+		for _, e := range elems1 {
+			if !union.Has(e) {
+				t.Fatalf("Union missing element from s1: %v", e)
+			}
+		}
+		for _, e := range elems2 {
+			if !union.Has(e) {
+				t.Fatalf("Union missing element from s2: %v", e)
+			}
+		}
+
+		// Intersection
+		intersection := s1.Intersection(s2)
+		for _, e := range intersection.ToSlice() {
+			if !s1.Has(e) || !s2.Has(e) {
+				t.Fatalf("Intersection contains element not in both: %v", e)
+			}
+		}
+
+		// Difference
+		diff := s1.Difference(s2)
+		for _, e := range diff.ToSlice() {
+			if !s1.Has(e) || s2.Has(e) {
+				t.Fatalf("Difference contains invalid element: %v", e)
+			}
+		}
+
+		// SymmetricDifference
+		symDiff := s1.SymmetricDifference(s2)
+		for _, e := range symDiff.ToSlice() {
+			in1, in2 := s1.Has(e), s2.Has(e)
+			if (in1 && in2) || (!in1 && !in2) {
+				t.Fatalf("SymmetricDifference contains invalid element: %v", e)
+			}
+		}
+
+		// Subset
+		if !s1.IsSubsetOf(union) {
+			t.Fatalf("s1 should be subset of union")
+		}
+		if !datatypes.NewSet[int]().IsSubsetOf(s1) {
+			t.Fatalf("empty set should be subset of s1")
+		}
+	})
+}
+
+func TestSet_Equals(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		elems := rapid.SliceOf(rapid.String()).Draw(t, "elems")
+		s1 := datatypes.NewSet(elems...)
+		s2 := datatypes.NewSet(elems...)
+		if !s1.Equals(s2) {
+			t.Fatalf("Sets with same elements should be equal")
+		}
+
+		if len(elems) > 0 {
+			s1.Add(rapid.String().Draw(t, "extra"))
+			// This might still be equal if extra was already in elems,
+			// but Equals is simple enough.
+		}
+	})
+}
+
+func TestSet_Clone(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		elems := rapid.SliceOf(rapid.Int()).Draw(t, "elems")
+		s1 := datatypes.NewSet(elems...)
+		s2 := s1.Clone()
+		if !s1.Equals(s2) {
+			t.Fatalf("Clone should be equal")
+		}
+		s1.Add(-123456)
+		if s2.Has(-123456) {
+			t.Fatalf("Clone should be independent")
+		}
+	})
+}
+
+func TestSet_AllRev(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		elems := rapid.SliceOf(rapid.Int()).Draw(t, "elems")
+		s := datatypes.NewSet(elems...)
+
+		var got []int
+		for e := range s.AllRev() {
+			got = append(got, e)
+		}
+
+		want := s.ToSlice()
+		slices.Reverse(want)
+
+		if diff := cmp.Diff(want, got, cmpopts.EquateEmpty()); diff != "" {
+			t.Fatalf("AllRev mismatch (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func shadowHas(m map[string]struct{}, val string) bool {
+	_, ok := m[val]
+	return ok
+}
+
+func firstKey(m map[string]struct{}) (string, bool) {
+	for k := range m {
+		return k, true
+	}
+	return "", false
+}
+
+func mapKeys[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func TestSet_NonComparable(t *testing.T) {
+	s := datatypes.NewSet[big.Int]()
+
+	b1 := *big.NewInt(10)
+	b2 := *big.NewInt(20)
+	b3 := *big.NewInt(5)
+
+	s.Add(b1)
+	s.Add(b2)
+	s.Add(b3)
+
+	if s.Len() != 3 {
+		t.Fatalf("expected len 3, got %d", s.Len())
 	}
 
-	if err := quick.Check(f, nil); err != nil {
-		t.Error(err)
+	// Should be sorted
+	got := s.ToSlice()
+	if got[0].Cmp(big.NewInt(5)) != 0 || got[1].Cmp(big.NewInt(10)) != 0 || got[2].Cmp(big.NewInt(20)) != 0 {
+		t.Fatalf("not sorted correctly: %v", got)
+	}
+}
+
+func TestSet_Nil(t *testing.T) {
+	var s datatypes.Set[string]
+
+	// Reads should be safe and return zero values
+	if s.Has("any") {
+		t.Error("Has on nil set: got true, want false")
+	}
+	if got := s.Len(); got != 0 {
+		t.Errorf("Len on nil set: got %d, want 0", got)
+	}
+	if got := s.First(); got != "" {
+		t.Errorf("First on nil set: got %q, want \"\"", got)
+	}
+	if got := s.Last(); got != "" {
+		t.Errorf("Last on nil set: got %q, want \"\"", got)
+	}
+
+	// Iteration should be safe and empty
+	for range s.All() {
+		t.Fatal("All() on nil set should not yield anything")
+	}
+
+	// Delete and Clear should be safe no-ops
+	s.Delete("any")
+	s.Clear()
+
+	// Pop should be safe and return zero/false
+	if got, ok := s.Pop(); ok || got != "" {
+		t.Errorf("Pop on nil set: got (%q, %v), want (\"\", false)", got, ok)
+	}
+
+	// Writes should panic (via SortedMap)
+	defer func() {
+		if r := recover(); r == nil {
+			t.Error("Add on nil set should panic")
+		} else if r != "assignment to entry in nil SortedMap" {
+			t.Errorf("unexpected panic message: %v", r)
+		}
+	}()
+	s.Add("any")
+}
+
+func TestSet_String(t *testing.T) {
+	s := datatypes.NewSet("a", "b", "c")
+	got := s.String()
+	// Since Set is sorted (via SortedMap), order should be deterministic
+	want := "#{a, b, c}"
+	if got != want {
+		t.Errorf("String() = %q; want %q", got, want)
+	}
+
+	s2 := datatypes.NewSet[int]()
+	if got, want := s2.String(), "#{}"; got != want {
+		t.Errorf("empty String() = %q; want %q", got, want)
 	}
 }

@@ -113,34 +113,34 @@ func objectIdDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 }
 
 // ================================
-// | Timestamps - encoded as {"$date":<timestamp>} in collections and as ISO-8601 timestamps
+// | time.Time - encoded as {"$date":<timestamp>} in collections and as ISO-8601 timestamps
 // | in all other contexts.
 // ================================
 
 var dateTag = []byte("date")
 
-func timestampEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	ts := (*datatypes.DataAPITimestamp)(p)
+func timeEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	t := (*time.Time)(p)
 
 	if ctx.Target == TargetCollection {
 		return encodeDollarDatatype(dst, dateTag, func(dst []byte) ([]byte, error) {
-			return strconv.AppendInt(dst, ts.UnixMillis(), 10), nil
+			return strconv.AppendInt(dst, t.UnixMilli(), 10), nil
 		})
 	}
 
 	dst = append(dst, '"')
-	dst = ts.Time().AppendFormat(dst, time.RFC3339Nano)
+	dst = t.AppendFormat(dst, time.RFC3339Nano)
 	dst = append(dst, '"')
 	return dst, nil
 }
 
-func timestampDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
 		src, ms, err := parseDollarDatatype(src, dateTag, func(b []byte) ([]byte, int64, error) {
 			return parseInt(b)
 		})
 		if err == nil {
-			*(*datatypes.DataAPITimestamp)(p) = datatypes.DataAPITimestampFromMillis(ms)
+			*(*time.Time)(p) = time.UnixMilli(ms)
 		}
 		return src, err
 	}
@@ -155,27 +155,78 @@ func timestampDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 		return src, fmt.Errorf("invalid timestamp string: %w", err)
 	}
 
-	*(*datatypes.DataAPITimestamp)(p) = datatypes.NewDataAPITimestamp(t)
+	*(*time.Time)(p) = t
 	return src, nil
 }
 
 // ================================
-// | time.Time - uses the same encoding/decoding as DataAPITimestamp
+// | DateOnly - encoded as "YYYY-MM-DD" in tables; not allowed in collections
 // ================================
 
-func timeEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	t := (*time.Time)(p)
-	ts := datatypes.NewDataAPITimestamp(*t)
-	return timestampEncoder(ctx, dst, unsafe.Pointer(&ts))
+func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return nil, fmt.Errorf("cannot encode DateOnly in a collection")
+	}
+
+	d := (*datatypes.DateOnly)(p)
+	dst = append(dst, '"')
+	dst = append(dst, d.String()...)
+	dst = append(dst, '"')
+	return dst, nil
 }
 
-func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	var ts datatypes.DataAPITimestamp
-	src, err := timestampDecoder(ctx, src, unsafe.Pointer(&ts))
-	if err == nil {
-		*(*time.Time)(p) = ts.Time()
+func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return src, fmt.Errorf("cannot decode DateOnly from a collection")
 	}
-	return src, err
+
+	src, str, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, fmt.Errorf("invalid date string: %w", err)
+	}
+
+	d, err := datatypes.ParseDateOnly(unsafeString(str))
+	if err != nil {
+		return src, fmt.Errorf("invalid date string: %w", err)
+	}
+
+	*(*datatypes.DateOnly)(p) = d
+	return src, nil
+}
+
+// ================================
+// | TimeOnly - encoded as "HH:MM:SS.NNNNNNNNN" in tables; not allowed in collections
+// ================================
+
+func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return nil, fmt.Errorf("cannot encode TimeOnly in a collection")
+	}
+
+	t := (*datatypes.TimeOnly)(p)
+	dst = append(dst, '"')
+	dst = append(dst, t.String()...)
+	dst = append(dst, '"')
+	return dst, nil
+}
+
+func timeOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return src, fmt.Errorf("cannot decode TimeOnly from a collection")
+	}
+
+	src, str, _, err := parseStringUnquote(src)
+	if err != nil {
+		return src, fmt.Errorf("invalid time string: %w", err)
+	}
+
+	t, err := datatypes.ParseTimeOnly(unsafeString(str))
+	if err != nil {
+		return src, fmt.Errorf("invalid time string: %w", err)
+	}
+
+	*(*datatypes.TimeOnly)(p) = t
+	return src, nil
 }
 
 // ================================

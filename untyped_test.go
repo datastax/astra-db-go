@@ -6,6 +6,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/datastax/astra-db-go/datatypes"
 	"github.com/datastax/astra-db-go/serdes"
@@ -501,25 +502,30 @@ func TestProperty_Document(t *testing.T) {
 
 		got := doc.ToMap()
 
-		// JSON roundtrip might change some types (e.g., all numbers to float64)
-		// but since we are using untyped Document, we expect it to match the
-		// generic JSON deserialization of the same input.
-		var expected map[string]any
-		err = json.Unmarshal(encoded, &expected)
-		if err != nil {
-			t.Fatalf("json.Unmarshal() error = %v", err)
+		cmpOpts := []cmp.Option{
+			cmpopts.EquateEmpty(),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
+			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
-		if diff := cmp.Diff(expected, got); diff != "" {
+		var expected map[string]any
+		err = serdes.Deserialize(encoded, &expected, nil, serdes.TargetCollection)
+		if err != nil {
+			t.Fatalf("serdes.Deserialize() error = %v", err)
+		}
+
+		if diff := cmp.Diff(expected, got, cmpOpts...); diff != "" {
 			t.Errorf("Document.ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
 		// Test Get/MustGet/Decode for some paths
-		testPaths(t, doc, expected, nil)
+		testPaths(t, doc, expected, nil, cmpOpts)
 	})
 }
 
-func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string) {
+func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string, cmpOpts []cmp.Option) {
 	for k, v := range expected {
 		fullPath := append(path, k)
 
@@ -529,13 +535,13 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string)
 			t.Errorf("Get(%v) failed", fullPath)
 			continue
 		}
-		if diff := cmp.Diff(v, gotVal); diff != "" {
+		if diff := cmp.Diff(v, gotVal, cmpOpts...); diff != "" {
 			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
 		// MustGet
 		mustGotVal := doc.MustGet(fullPath...)
-		if diff := cmp.Diff(v, mustGotVal); diff != "" {
+		if diff := cmp.Diff(v, mustGotVal, cmpOpts...); diff != "" {
 			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
@@ -545,7 +551,7 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string)
 			if err := doc.Decode(&decoded, fullPath...); err != nil {
 				t.Errorf("Decode(%v) error = %v", fullPath, err)
 			} else {
-				if diff := cmp.Diff(v, decoded); diff != "" {
+				if diff := cmp.Diff(v, decoded, cmpOpts...); diff != "" {
 					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
 				}
 			}
@@ -553,7 +559,7 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string)
 
 		// Recurse into maps
 		if nextMap, ok := v.(map[string]any); ok {
-			testPaths(t, doc, nextMap, fullPath)
+			testPaths(t, doc, nextMap, fullPath, cmpOpts)
 		}
 	}
 }
@@ -580,11 +586,10 @@ func TestProperty_Row(t *testing.T) {
 		// (like datatypes.UUID, net.IP, etc.)
 		cmpOpts := []cmp.Option{
 			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.DataAPITimestamp{}),
-			cmp.Comparer(func(x, y net.IP) bool { return x.Equal(y) }),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
 			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
 			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y datatypes.DataAPITimestamp) bool { return x.Equals(y) }),
+			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
 		if diff := cmp.Diff(input, got, cmpOpts...); diff != "" {
@@ -640,8 +645,16 @@ func TestProperty_NewDocument(t *testing.T) {
 		input := genJSONMap(0).Draw(t, "input")
 		doc := NewDocument(input)
 
+		cmpOpts := []cmp.Option{
+			cmpopts.EquateEmpty(),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
+			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
+		}
+
 		// Test ToMap
-		if diff := cmp.Diff(map[string]any(input), doc.ToMap()); diff != "" {
+		if diff := cmp.Diff(map[string]any(input), doc.ToMap(), cmpOpts...); diff != "" {
 			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
@@ -671,11 +684,10 @@ func TestProperty_NewRow(t *testing.T) {
 		// When comparing, we need to handle special types
 		cmpOpts := []cmp.Option{
 			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.DataAPITimestamp{}),
-			cmp.Comparer(func(x, y net.IP) bool { return x.Equal(y) }),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
 			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
 			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y datatypes.DataAPITimestamp) bool { return x.Equals(y) }),
+			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
 		// Test ToMap
@@ -708,6 +720,15 @@ func genJSONValue(depth int) *rapid.Generator[any] {
 			rapid.Map(rapid.Float64(), func(v float64) any { return any(v) }),
 			rapid.Map(rapid.Bool(), func(v bool) any { return any(v) }),
 			rapid.Just[any](nil),
+			rapid.Map(rapid.StringMatching(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`), func(v string) any {
+				return any(datatypes.MustParseUUID(v))
+			}),
+			rapid.Map(rapid.StringMatching(`^[0-9a-f]{24}$`), func(v string) any {
+				return any(datatypes.MustParseObjectId(v))
+			}),
+			rapid.Map(rapid.Int64Range(0, 4102444800000), func(v int64) any {
+				return any(time.UnixMilli(v))
+			}),
 		}
 
 		if depth < 3 {
@@ -823,7 +844,7 @@ func genValueForColumn(col table.Column) *rapid.Generator[any] {
 		}
 
 		switch col.Type {
-		case table.TypeText:
+		case table.TypeText, table.TypeAscii:
 			return rapid.String().Draw(t, "val")
 		case table.TypeInt:
 			return rapid.Int().Draw(t, "val")
@@ -833,27 +854,27 @@ func genValueForColumn(col table.Column) *rapid.Generator[any] {
 			return rapid.Int16().Draw(t, "val")
 		case table.TypeTinyInt:
 			return rapid.Int8().Draw(t, "val")
+		case table.TypeVarint:
+			return rapid.Custom(func(t *rapid.T) any {
+				var bi big.Int
+				bi.SetBytes(rapid.SliceOfN(rapid.Byte(), 1, 8).Draw(t, "bytes"))
+				if rapid.Bool().Draw(t, "neg") {
+					bi.Neg(&bi)
+				}
+				return bi
+			}).Draw(t, "val")
 		case table.TypeFloat:
 			return rapid.Float32().Draw(t, "val")
 		case table.TypeDouble:
 			return rapid.Float64().Draw(t, "val")
 		case table.TypeBoolean:
 			return rapid.Bool().Draw(t, "val")
-		case table.TypeUUID:
+		case table.TypeUUID, table.TypeTimeUUID:
 			return datatypes.MustParseUUID(rapid.StringMatching(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).Draw(t, "uuid"))
 		case table.TypeInet:
 			return net.IP(rapid.SliceOfN(rapid.Byte(), 4, 16).Draw(t, "ip_bytes"))
 		case table.TypeBlob:
 			return rapid.SliceOf(rapid.Byte()).Draw(t, "blob")
-		case table.TypeVarint:
-			return rapid.Custom(func(t *rapid.T) any {
-				var bi big.Int
-				bi.SetBytes(rapid.SliceOfN(rapid.Byte(), 1, 32).Draw(t, "bytes"))
-				if rapid.Bool().Draw(t, "neg") {
-					bi.Neg(&bi)
-				}
-				return bi
-			}).Draw(t, "val")
 		case table.TypeDecimal:
 			return rapid.Custom(func(t *rapid.T) any {
 				s := rapid.StringMatching(`-?[0-9]{1,10}\.[0-9]{1,10}`).Draw(t, "s")
@@ -861,8 +882,25 @@ func genValueForColumn(col table.Column) *rapid.Generator[any] {
 				bf.SetString(s)
 				return bf
 			}).Draw(t, "val")
-		case table.TypeDate, table.TypeTime, table.TypeTimestamp:
-			return datatypes.DataAPITimestampFromMillis(rapid.Int64Range(0, 4102444800000).Draw(t, "val")) // Up to 2100-01-01
+		case table.TypeDate:
+			t := time.UnixMilli(rapid.Int64Range(0, 4102444800000).Draw(t, "val"))
+			return datatypes.DateOnlyFromTime(t)
+		case table.TypeTime:
+			t := time.UnixMilli(rapid.Int64Range(0, 4102444800000).Draw(t, "val"))
+			return datatypes.TimeOnlyFromTime(t)
+		case table.TypeTimestamp:
+			return time.UnixMilli(rapid.Int64Range(0, 4102444800000).Draw(t, "val")) // Up to 2100-01-01
+		case table.TypeVector:
+			dim := 0
+			if col.Dimension != nil {
+				dim = *col.Dimension
+			}
+			if dim == 0 {
+				dim = 3
+			}
+			return datatypes.NewVector(rapid.SliceOfN(rapid.Float32(), dim, dim).Draw(t, "vector"))
+		case table.TypeDuration:
+			return rapid.StringMatching(`[0-9]+[smhdw]`).Draw(t, "duration")
 		case table.TypeList, table.TypeSet:
 			slice := rapid.SliceOf(genValueForColumn(*col.ValueType)).Draw(t, "slice")
 			if slice == nil {

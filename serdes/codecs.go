@@ -137,8 +137,10 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return codec{uuidEncoder, uuidDecoder}
 	case oidType:
 		return codec{objectIdEncoder, objectIdDecoder}
-	case dApiTimeType:
-		return codec{timestampEncoder, timestampDecoder}
+	case dateOnlyType:
+		return codec{dateOnlyEncoder, dateOnlyDecoder}
+	case timeOnlyType:
+		return codec{timeOnlyEncoder, timeOnlyDecoder}
 	case timeType:
 		return codec{timeEncoder, timeDecoder}
 	}
@@ -206,8 +208,10 @@ func isSpecialGenericDatatype(t reflect.Type) (func(ctx codecCtx, t reflect.Type
 	tName := t.Name()
 
 	switch {
-	case strings.HasPrefix(tName, someOrderedMapTypeName):
-		return mkOrderedMapCodec, true
+	case strings.HasPrefix(tName, someLinkedMapTypeName):
+		return mkLinkedMapCodec, true
+	case strings.HasPrefix(tName, someSortedMapTypeName):
+		return mkSortedMapCodec, true
 	case strings.HasPrefix(tName, someSetTypeName):
 		return mkSetCodec, true
 	default:

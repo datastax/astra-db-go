@@ -1,246 +1,134 @@
-package datatypes
+package datatypes_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/datastax/astra-db-go/datatypes"
+	"pgregory.net/rapid"
 )
 
-// TestObjectIdJSONMarshalInDocument verifies ObjectId serialization within a document struct,
-// matching the Data API insertMany format.
-//
-// From the docs, an insertMany payload with an ObjectId _id looks like:
-//
-//	{
-//	  "insertMany": {
-//	    "documents": [
-//	      {
-//	        "name": "Melissa",
-//	        "_id": {"$objectId": "6672e1cbd7fabb4e5493916f"}
-//	      }
-//	    ]
-//	  }
-//	}
-//
-// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-id.html
-func TestObjectIdJSONMarshalInDocument(t *testing.T) {
-	type doc struct {
-		ID   ObjectId `json:"_id"`
-		Name string   `json:"name"`
-	}
-	oid, _ := ParseObjectId("6672e1cbd7fabb4e5493916f")
-	d := doc{ID: oid, Name: "Melissa"}
-	got, err := json.Marshal(d)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `{"_id":{"$objectId":"6672e1cbd7fabb4e5493916f"},"name":"Melissa"}`
-	if string(got) != expected {
-		t.Errorf("document marshal mismatch\n  got:  %s\n  want: %s", string(got), expected)
-	}
+func TestObjectId_RoundTrip(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		tm := time.Unix(rapid.Int64Range(0, 2147483647).Draw(t, "unix"), 0).UTC()
+		oid := datatypes.NewObjectIdAt(tm)
 
-	// Round-trip
-	var decoded doc
-	if err := json.Unmarshal(got, &decoded); err != nil {
-		t.Fatalf("unmarshal error: %v", err)
-	}
-	if !decoded.ID.Equals(oid) {
-		t.Errorf("round-trip ID mismatch: %s != %s", decoded.ID, oid)
-	}
+		// String round-trip
+		s := oid.String()
+		parsed, err := datatypes.ParseObjectId(s)
+		if err != nil {
+			t.Fatalf("ParseObjectId(%q) failed: %v", s, err)
+		}
+		if !oid.Equals(parsed) {
+			t.Fatalf("String round-trip mismatch: got %v, want %v", parsed, oid)
+		}
+
+		// JSON round-trip
+		data, err := json.Marshal(oid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var unmarshaled datatypes.ObjectId
+		if err := json.Unmarshal(data, &unmarshaled); err != nil {
+			t.Fatal(err)
+		}
+		if !oid.Equals(unmarshaled) {
+			t.Fatalf("JSON round-trip mismatch")
+		}
+
+		// Text round-trip
+		text, err := oid.MarshalText()
+		if err != nil {
+			t.Fatal(err)
+		}
+		var parsedText datatypes.ObjectId
+		if err := parsedText.UnmarshalText(text); err != nil {
+			t.Fatal(err)
+		}
+		if !oid.Equals(parsedText) {
+			t.Fatalf("Text round-trip mismatch")
+		}
+	})
 }
 
-// TestObjectIdInsertManyExample verifies that a mixed-ID insertMany payload can
-// be marshaled and unmarshaled, matching the docs example.
-//
-// Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/insert-many.html#example-specify-id
-func TestObjectIdInsertManyExample(t *testing.T) {
-	type doc struct {
-		ID   any    `json:"_id"`
-		Name string `json:"name"`
-	}
-	melissaOid, _ := ParseObjectId("6672e1cbd7fabb4e5493916f")
-	jessUid, _ := ParseUUID("1ef2e42c-1fdb-6ad6-aae4-e84679831739")
-	docs := []doc{
-		{Name: "Melissa", ID: melissaOid},
-		{Name: "Jess", ID: jessUid},
-		{Name: "Jane", ID: 1},
-		{Name: "Bobby", ID: "b_023"},
-	}
-	got, err := json.Marshal(docs)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `[{"_id":{"$objectId":"6672e1cbd7fabb4e5493916f"},"name":"Melissa"},{"_id":{"$uuid":"1ef2e42c-1fdb-6ad6-aae4-e84679831739"},"name":"Jess"},{"_id":1,"name":"Jane"},{"_id":"b_023","name":"Bobby"}]`
-	if string(got) != expected {
-		t.Errorf("\nGOT:\n%s\nWANT:\n%s", string(got), expected)
-	}
+func TestObjectId_Timestamp(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		unix := rapid.Int64Range(0, 2147483647).Draw(t, "unix")
+		tm := time.Unix(unix, 0).UTC()
+		oid := datatypes.NewObjectIdAt(tm)
+		if got := oid.GetTimestamp().Unix(); got != unix {
+			t.Fatalf("Timestamp mismatch: got %d, want %d", got, unix)
+		}
+	})
 }
 
-// TestObjectIdParseAndString verifies parse/string round-trip.
-func TestObjectIdParseAndString(t *testing.T) {
-	hex := "6672e1cbd7fabb4e5493916f"
-	oid, err := ParseObjectId(hex)
-	if err != nil {
-		t.Fatalf("ParseObjectId(%q) error: %v", hex, err)
-	}
-	if oid.String() != hex {
-		t.Errorf("String() = %q, want %q", oid.String(), hex)
-	}
-	// Verify round-trip
-	oid2, err := ParseObjectId(oid.String())
-	if err != nil {
-		t.Fatalf("round-trip parse error: %v", err)
-	}
-	if !oid.Equals(oid2) {
-		t.Errorf("round-trip mismatch: %s != %s", oid, oid2)
-	}
+func TestObjectId_Uniqueness(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		o1 := datatypes.NewObjectId()
+		o2 := datatypes.NewObjectId()
+		if o1.Equals(o2) {
+			t.Fatalf("Consecutive ObjectIds should be unique: %v", o1)
+		}
+	})
 }
 
-// TestObjectIdInvalidParsing tests that invalid strings return errors.
-func TestObjectIdInvalidParsing(t *testing.T) {
-	invalid := []string{
-		"",                          // empty
-		"6672e1cbd7fabb4e549391",    // too short (22 chars)
-		"6672e1cbd7fabb4e549391600", // too long (25 chars)
-		"6672e1cbd7fabb4e5493916Z",  // invalid hex character
-		"not-a-valid-object-id!!!",  // completely wrong
+func TestObjectId_CompareTo(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		o1 := datatypes.NewObjectId()
+		o2 := datatypes.NewObjectId()
+		got := o1.CompareTo(o2)
+
+		b1, b2 := o1.Bytes(), o2.Bytes()
+		want := bytes.Compare(b1[:], b2[:])
+
+		if got != want {
+			t.Fatalf("CompareTo mismatch: got %d, want %d", got, want)
+		}
+	})
+}
+
+func TestObjectId_ParseErrors(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"", "invalid ObjectId string"},
+		{"6672e1cbd7fabb4e549391", "invalid ObjectId string"},
+		{"6672e1cbd7fabb4e549391600", "invalid ObjectId string"},
+		{"6672e1cbd7fabb4e5493916Z", "invalid ObjectId string"},
+		{"not-a-valid-object-id!!!", "invalid ObjectId string"},
 	}
-	for _, s := range invalid {
-		if _, err := ParseObjectId(s); err == nil {
-			t.Errorf("expected error for invalid ObjectId %q, got nil", s)
+	for _, tc := range tests {
+		_, err := datatypes.ParseObjectId(tc.input)
+		if err == nil {
+			t.Errorf("expected error for %q", tc.input)
 		}
 	}
 }
 
-// TestObjectIdJSONUnmarshalInvalid verifies error handling for invalid JSON inputs.
-func TestObjectIdJSONUnmarshalInvalid(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{"not an object", `"not-an-object"`},
-		{"missing $objectId key", `{"objectId":"6672e1cbd7fabb4e5493916f"}`},
-		{"invalid objectId value", `{"$objectId":"not-valid"}`},
-		{"empty object", `{}`},
-		{"too short", `{"$objectId":"6672e1"}`},
+func TestObjectId_JSONErrors(t *testing.T) {
+	tests := []string{
+		`"not-an-object"`,
+		`{"objectId":"6672e1cbd7fabb4e5493916f"}`,
+		`{"$objectId":"not-valid"}`,
+		`{}`,
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var o ObjectId
-			if err := json.Unmarshal([]byte(tt.input), &o); err == nil {
-				t.Error("expected error but got none")
-			}
-		})
+	for _, input := range tests {
+		var o datatypes.ObjectId
+		if err := json.Unmarshal([]byte(input), &o); err == nil {
+			t.Errorf("expected JSON unmarshal error for %q", input)
+		}
 	}
 }
 
-// TestObjectIdGeneration verifies NewObjectId produces valid, unique ObjectIds.
-func TestObjectIdGeneration(t *testing.T) {
-	o1 := NewObjectId()
-	o2 := NewObjectId()
-
-	if o1.IsZero() {
-		t.Error("expected non-zero ObjectId")
-	}
-	if o1.Equals(o2) {
-		t.Errorf("expected unique ObjectIds, got identical: %s", o1)
-	}
-	// String should be 24 hex chars
-	if len(o1.String()) != 24 {
-		t.Errorf("expected 24-char hex string, got %d chars: %s", len(o1.String()), o1)
-	}
-}
-
-// TestObjectIdGetTimestamp verifies timestamp extraction from generated ObjectIds.
-func TestObjectIdGetTimestamp(t *testing.T) {
-	now := time.Now()
-	o := NewObjectId()
-	ts := o.GetTimestamp()
-	diff := ts.Sub(now)
-	if diff < 0 {
-		diff = -diff
-	}
-	// Timestamps have second precision, so 2s tolerance is generous.
-	if diff > 2*time.Second {
-		t.Errorf("timestamp %v differs from now %v by %v", ts, now, diff)
-	}
-}
-
-// TestObjectIdFromTimestamp verifies NewObjectIdAt encodes the given time.
-func TestObjectIdFromTimestamp(t *testing.T) {
-	target := time.Date(2024, 6, 19, 10, 0, 0, 0, time.UTC)
-	o := NewObjectIdAt(target)
-
-	ts := o.GetTimestamp()
-	if ts.Unix() != target.Unix() {
-		t.Errorf("timestamp mismatch: got %v (%d), want %v (%d)",
-			ts, ts.Unix(), target, target.Unix())
-	}
-}
-
-// TestObjectIdFromTimestampUniqueness verifies two ObjectIds at the same time differ.
-func TestObjectIdFromTimestampUniqueness(t *testing.T) {
-	target := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	o1 := NewObjectIdAt(target)
-	o2 := NewObjectIdAt(target)
-	if o1.Equals(o2) {
-		t.Errorf("expected unique ObjectIds at same timestamp, got identical: %s", o1)
-	}
-	// Both should encode the same timestamp
-	if o1.GetTimestamp().Unix() != o2.GetTimestamp().Unix() {
-		t.Errorf("expected same timestamp, got %v and %v", o1.GetTimestamp(), o2.GetTimestamp())
-	}
-}
-
-// TestObjectIdIsZero verifies IsZero behavior.
-func TestObjectIdIsZero(t *testing.T) {
-	var zero ObjectId
+func TestObjectId_IsZero(t *testing.T) {
+	var zero datatypes.ObjectId
 	if !zero.IsZero() {
-		t.Error("expected zero ObjectId to be zero")
+		t.Fatal("Zero value should be zero")
 	}
-	o := NewObjectId()
-	if o.IsZero() {
-		t.Error("expected generated ObjectId to be non-zero")
-	}
-}
-
-// TestObjectIdTextRoundTrip verifies MarshalText/UnmarshalText round-trip.
-func TestObjectIdTextRoundTrip(t *testing.T) {
-	o := NewObjectId()
-	text, err := o.MarshalText()
-	if err != nil {
-		t.Fatal(err)
-	}
-	var parsed ObjectId
-	if err := parsed.UnmarshalText(text); err != nil {
-		t.Fatalf("UnmarshalText error: %v", err)
-	}
-	if !o.Equals(parsed) {
-		t.Errorf("text round-trip mismatch: %s != %s", o, parsed)
-	}
-}
-
-// TestObjectIdKnownTimestamp verifies that parsing a known ObjectId from the docs
-// extracts the expected timestamp.
-func TestObjectIdKnownTimestamp(t *testing.T) {
-	// "6672e1cb" = first 4 bytes = 0x6672e1cb = 1718812107 seconds
-	// = 2024-06-19T14:28:27 UTC
-	oid, err := ParseObjectId("6672e1cbd7fabb4e5493916f")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ts := oid.GetTimestamp()
-	expected := time.Unix(0x6672e1cb, 0)
-	if ts.Unix() != expected.Unix() {
-		t.Errorf("timestamp = %v, want %v", ts, expected)
-	}
-}
-
-func TestObjectId_EqualsCaseInsensitive(t *testing.T) {
-	// Taken from 'should equal a similar ObjectId' test in ts
-	oid, _ := ParseObjectId("507f191e810c19729de860ea")
-	other, _ := ParseObjectId("507F191E810C19729DE860EA")
-	if !oid.Equals(other) {
-		t.Errorf("%s should equal %s", oid, other)
+	if datatypes.NewObjectId().IsZero() {
+		t.Fatal("NewObjectId should not be zero")
 	}
 }

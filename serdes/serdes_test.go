@@ -8,17 +8,17 @@ import (
 	"github.com/datastax/astra-db-go/serdes"
 )
 
-func TestSerdesOrderedMap(t *testing.T) {
-	var om datatypes.OrderedMap[int, any]
+func TestSerdesLinkedMap(t *testing.T) {
+	var om datatypes.LinkedMap[int, any]
 	b, err := serdes.Serialize(om, serdes.TargetCollection)
 	testutils.FailIfErr(t, err, "failed to serialize nil ordered map")
 	t.Logf("serialized nil ordered map: %s", b)
 
-	b, err = serdes.Serialize(datatypes.NewOrderedMap[int, any](), serdes.TargetCollection)
+	b, err = serdes.Serialize(datatypes.NewLinkedMap[int, any](), serdes.TargetCollection)
 	testutils.FailIfErr(t, err, "failed to serialize empty ordered map")
 	t.Logf("serialized empty ordered map: %s", b)
 
-	om = datatypes.NewOrderedMap[int, any]()
+	om = datatypes.NewLinkedMap[int, any]()
 	om.Set(1, "one")
 	om.Set(3, datatypes.NewUUID())
 	om.Set(2, 3)
@@ -27,19 +27,19 @@ func TestSerdesOrderedMap(t *testing.T) {
 	testutils.FailIfErr(t, err, "failed to serialize ordered map")
 	t.Logf("serialized ordered map: %s", b)
 
-	var dst datatypes.OrderedMap[int, any]
+	var dst datatypes.LinkedMap[int, any]
 	if err := serdes.Deserialize(b, &dst, nil, serdes.TargetTable); err != nil {
 		t.Fatalf("failed to deserialize ordered map: %v", err)
 	}
 	t.Logf("deserialized ordered map: %#v", dst.String())
 }
 
-func BenchmarkSerdesOrderedMap(t *testing.B) {
+func BenchmarkSerdesLinkedMap(t *testing.B) {
 	var b []byte
-	var dst datatypes.OrderedMap[int, string]
+	var dst datatypes.LinkedMap[int, string]
 	_ = b
 
-	var om = datatypes.NewOrderedMap[int, string]()
+	var om = datatypes.NewLinkedMap[int, string]()
 	om.Set(1, "one")
 	om.Set(3, "two")
 	om.Set(2, "three")

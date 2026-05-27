@@ -5,11 +5,13 @@ import (
 	"reflect"
 	"sort"
 	"unsafe"
+
+	"github.com/datastax/astra-db-go/datatypes"
 )
 
 // Map serdes is complex enough to warrant its own file, as we're allowing for a Cartesian product of features:
 // - Serdes w/ a table vs non-table target
-// - Serdes w/ a native Go map vs an OrderedMap[K, V]
+// - Serdes w/ a native Go map vs an LinkedMap[K, V]
 // - Sorted vs unsorted map encoding (for native Go maps)
 //
 // The below is not the cleanest code, but it aims to be fairly performant while still being maintainable
@@ -18,6 +20,18 @@ import (
 // for making/setting the map, and then we have thin wrappers around it for each of the 4 combinations of features
 
 // Serdes
+
+func mkSetCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	kt, _ := t.FieldByName("kType")
+	et := kt.Type.Elem()
+
+	c := resolveCodec(ctx, et, seen, false)
+
+	return codec{
+		mkGenericMapEncoder(t, et, c.encode, nil, '[', ']', 0, newMapIterFromSortedMap),
+		mkGenericMapDecoder(t, et, emptyType, reflect.Zero(et), emptyEmpty, c.decode, nil, '[', ']', 0, mkSortedMapMaker(t)),
+	}
+}
 
 func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	mkIter := newMapIterMakerFromMap(t, true) // TODO make trySort an optional flag
@@ -28,13 +42,20 @@ func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	return mkGenericMapCodec(ctx, t, kt, vt, seen, mkIter, mkNativeMapMaker(t))
 }
 
-func mkOrderedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	mkIter := newMapIterFromOrderedMap
+func mkLinkedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	mkIter := newMapIterFromLinkedMap
 
 	kt, _ := t.FieldByName("kType")
 	vt, _ := t.FieldByName("vType")
 
-	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, mkIter, mkOrderedMapMaker(t))
+	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, mkIter, mkLinkedMapMaker(t))
+}
+
+func mkSortedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
+	kt, _ := t.FieldByName("kType")
+	vt, _ := t.FieldByName("vType")
+
+	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, newMapIterFromSortedMap, mkSortedMapMaker(t))
 }
 
 func mkGenericMapCodec(ctx codecCtx, t, kt, vt reflect.Type, seen seenStructs, mkIter mkMapIter, maker mapMaker) codec {
@@ -154,14 +175,16 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 				return dst[:start], err
 			}
 
-			dst = append(dst, sep)
+			if encodeValue != nil {
+				dst = append(dst, sep)
 
-			if kt.Kind() == reflect.String {
-				ctx.fieldHint = extractFieldHint(iter.Key().String())
-			}
+				if kt.Kind() == reflect.String {
+					ctx.fieldHint = extractFieldHint(iter.Key().String())
+				}
 
-			if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
-				return dst[:start], err
+				if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
+					return dst[:start], err
+				}
 			}
 
 			if toArray {
@@ -234,19 +257,21 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 			}
 			src = skipWS(src)
 
-			if len(src) == 0 || src[0] != sep {
-				return src, fmt.Errorf("expected '%c' after key", sep)
-			}
-			src = skipWS(src[1:])
+			if decodeValue != nil {
+				if len(src) == 0 || src[0] != sep {
+					return src, fmt.Errorf("expected '%c' after key", sep)
+				}
+				src = skipWS(src[1:])
 
-			if kt.Kind() == reflect.String {
-				ctx.fieldHint = extractFieldHint(k.String())
-			}
+				if kt.Kind() == reflect.String {
+					ctx.fieldHint = extractFieldHint(k.String())
+				}
 
-			if src, err = decodeValue(ctx, src, vptr); err != nil {
-				return src, err
+				if src, err = decodeValue(ctx, src, vptr); err != nil {
+					return src, err
+				}
+				src = skipWS(src)
 			}
-			src = skipWS(src)
 
 			if fromArray {
 				if len(src) == 0 || src[0] != ']' {
@@ -277,7 +302,8 @@ type mapIterType int
 const (
 	mapUnsortedIter mapIterType = iota
 	mapSortedIter
-	orderedMapIter
+	linkedMapIter
+	sortedMapIter
 )
 
 type mapIter struct {
@@ -289,12 +315,10 @@ type mapIter struct {
 	iterType    mapIterType
 }
 
-type comparator = func(i, j reflect.Value) bool
-
 func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) mapIter {
-	var cmp comparator
+	var cmp datatypes.Comparator
 	if trySort {
-		cmp = mkComparator(t.Key().Kind())
+		cmp = datatypes.ComparatorFor(t.Key())
 	}
 
 	return func(m reflect.Value) mapIter {
@@ -305,7 +329,7 @@ func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) 
 
 			if len(wrapper.keys) > 1 {
 				sort.Slice(wrapper.keys, func(i, j int) bool {
-					return cmp(wrapper.keys[i], wrapper.keys[j])
+					return cmp(valuePtr(wrapper.keys[i]), valuePtr(wrapper.keys[j])) < 0
 				})
 			}
 
@@ -318,29 +342,25 @@ func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) 
 	}
 }
 
-func newMapIterFromOrderedMap(m reflect.Value) mapIter {
+func newMapIterFromLinkedMap(m reflect.Value) mapIter {
 	return mapIter{
 		m:           m,
 		index:       -1,
-		iterType:    orderedMapIter,
+		iterType:    linkedMapIter,
 		currentNode: m.FieldByIndex([]int{0, 3}),
 	}
 }
 
-// mkComparator returns the logic once so the loop doesn't have to switch
-// TODO any more comparators???
-func mkComparator(k reflect.Kind) comparator {
-	switch {
-	case k == reflect.String:
-		return func(i, j reflect.Value) bool { return i.String() < j.String() }
-	case k >= reflect.Int && k <= reflect.Int64:
-		return func(i, j reflect.Value) bool { return i.Int() < j.Int() }
-	case k >= reflect.Uint && k <= reflect.Uintptr:
-		return func(i, j reflect.Value) bool { return i.Uint() < j.Uint() }
-	case k == reflect.Float32 || k == reflect.Float64:
-		return func(i, j reflect.Value) bool { return i.Float() < j.Float() }
-	default:
-		return func(i, j reflect.Value) bool { return false }
+func newMapIterFromSortedMap(m reflect.Value) mapIter {
+	// SortedMap.Field(0) is *sortedMap[K,V]
+	// sortedMap fields: 0=kType, 1=vType, 2=cmp, 3=head, 4=len
+	// head is the sentinel; first real node is head.next[0] (node.Field(2).Index(0))
+	firstNode := m.FieldByIndex([]int{0, 3}).Elem().Field(2).Index(0)
+	return mapIter{
+		m:           m,
+		index:       -1,
+		iterType:    sortedMapIter,
+		currentNode: firstNode,
 	}
 }
 
@@ -349,7 +369,7 @@ func (u *mapIter) Next() bool {
 	case mapSortedIter:
 		u.index++
 		return u.index < len(u.keys)
-	case orderedMapIter:
+	case linkedMapIter:
 		if u.index == -1 {
 			u.index = 0
 			return !u.currentNode.IsNil()
@@ -363,6 +383,19 @@ func (u *mapIter) Next() bool {
 		u.currentNode = u.currentNode.Elem().Field(3)
 
 		return !u.currentNode.IsNil()
+	case sortedMapIter:
+		if u.index == -1 {
+			u.index = 0
+			return !u.currentNode.IsNil()
+		}
+
+		if u.currentNode.IsNil() {
+			return false
+		}
+
+		u.currentNode = u.currentNode.Elem().Field(2).Index(0) // next[0]
+
+		return !u.currentNode.IsNil()
 	default:
 		return u.iter.Next()
 	}
@@ -372,9 +405,11 @@ func (u *mapIter) Key() reflect.Value {
 	switch u.iterType {
 	case mapSortedIter:
 		return u.keys[u.index]
-	case orderedMapIter:
+	case linkedMapIter:
 		//return u.currentNode.Elem().FieldByName("key")
 		return u.currentNode.Elem().Field(0)
+	case sortedMapIter:
+		return u.currentNode.Elem().Field(0) // key
 	default:
 		return u.iter.Key()
 	}
@@ -384,9 +419,11 @@ func (u *mapIter) Value() reflect.Value {
 	switch u.iterType {
 	case mapSortedIter:
 		return u.m.MapIndex(u.keys[u.index])
-	case orderedMapIter:
+	case linkedMapIter:
 		//return u.currentNode.Elem().FieldByName("value")
 		return u.currentNode.Elem().Field(1)
+	case sortedMapIter:
+		return u.currentNode.Elem().Field(1) // value
 	default:
 		return u.iter.Value()
 	}
@@ -396,7 +433,9 @@ func (u *mapIter) IsEmpty() bool {
 	switch u.iterType {
 	case mapSortedIter:
 		return len(u.keys) == 0
-	case orderedMapIter:
+	case linkedMapIter:
+		return u.currentNode.IsNil()
+	case sortedMapIter:
 		return u.currentNode.IsNil()
 	default:
 		return !u.iter.Next()
@@ -422,35 +461,67 @@ func mkNativeMapMaker(t reflect.Type) mapMaker {
 	}
 }
 
-type orderedMapFastSetter interface {
+type linkedMapFastSetter interface {
 	SetAny(k, v any) bool
 }
 
-func mkOrderedMapMaker(t reflect.Type) mapMaker {
-	implType := t.Field(0).Type.Elem()
-	dataType := implType.Field(2).Type
+func mkLinkedMapMaker(t reflect.Type) mapMaker {
+	implType := t.Field(0).Type.Elem() // linkedMap[K,V]
+	dataType := implType.Field(2).Type // map[K]*LinkedMapNode[K,V]
+	dataOff := implType.Field(2).Offset
 
 	return mapMaker{
 		makeMap: func() reflect.Value {
-			// allocates OrderedMap
-			m := reflect.New(t).Elem()
+			m := reflect.New(t).Elem()       // LinkedMap[K,V]
+			implPtr := reflect.New(implType) // *linkedMap[K,V]
+			implAddr := implPtr.UnsafePointer()
 
-			// allocates orderedMap
-			implPtr := reflect.New(implType)
+			// set data field (field 2)
+			dataAddr := unsafe.Pointer(uintptr(implAddr) + dataOff)
+			*(*unsafe.Pointer)(dataAddr) = reflect.MakeMap(dataType).UnsafePointer()
 
-			// allocates the backing map
-			dataMap := reflect.MakeMap(dataType)
-
-			// sets the data map in orderedMap
-			*(*unsafe.Pointer)(implPtr.UnsafePointer()) = dataMap.UnsafePointer()
-
-			// sets *orderedMap in OrderedMap
-			*(*unsafe.Pointer)(valuePtr(m)) = implPtr.UnsafePointer()
+			// wire *linkedMap into LinkedMap
+			*(*unsafe.Pointer)(valuePtr(m)) = implAddr
 
 			return m
 		},
 		setMap: func(m, k, v reflect.Value) {
-			setter := m.Interface().(orderedMapFastSetter)
+			setter := m.Interface().(linkedMapFastSetter)
+			setter.SetAny(k.Interface(), v.Interface())
+		},
+	}
+}
+
+func mkSortedMapMaker(t reflect.Type) mapMaker {
+	implType := t.Field(0).Type.Elem() // sortedMap[K,V]
+	kt := implType.Field(0).Type       // [0]K
+	cmpOff := implType.Field(2).Offset
+	headOff := implType.Field(3).Offset
+	headType := implType.Field(3).Type.Elem()
+
+	cmp := datatypes.ComparatorFor(kt.Elem())
+
+	return mapMaker{
+		makeMap: func() reflect.Value {
+			m := reflect.New(t).Elem()       // SortedMap[K,V]
+			implPtr := reflect.New(implType) // *sortedMap[K,V]
+			implAddr := implPtr.UnsafePointer()
+
+			// set comparator (field 2)
+			cmpAddr := unsafe.Pointer(uintptr(implAddr) + cmpOff)
+			*(*datatypes.Comparator)(cmpAddr) = cmp
+
+			// set sentinel head (field 3)
+			headAddr := unsafe.Pointer(uintptr(implAddr) + headOff)
+			*(*unsafe.Pointer)(headAddr) = reflect.New(headType).UnsafePointer()
+
+			// wire *sortedMap into SortedMap
+			*(*unsafe.Pointer)(valuePtr(m)) = implAddr
+
+			return m
+		},
+		setMap: func(m, k, v reflect.Value) {
+			setter := m.Interface().(linkedMapFastSetter)
 			setter.SetAny(k.Interface(), v.Interface())
 		},
 	}
