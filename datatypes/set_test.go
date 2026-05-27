@@ -262,3 +262,18 @@ func TestSet_Nil(t *testing.T) {
 	}()
 	s.Add("any")
 }
+
+func TestSet_String(t *testing.T) {
+	s := datatypes.NewSet("a", "b", "c")
+	got := s.String()
+	// Since Set is sorted (via SortedMap), order should be deterministic
+	want := "#{a, b, c}"
+	if got != want {
+		t.Errorf("String() = %q; want %q", got, want)
+	}
+
+	s2 := datatypes.NewSet[int]()
+	if got, want := s2.String(), "#{}"; got != want {
+		t.Errorf("empty String() = %q; want %q", got, want)
+	}
+}

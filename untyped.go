@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"net"
 	"reflect"
+	"time"
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/datatypes"
@@ -695,8 +696,18 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
 		return v, err
 
-	case table.TypeDate, table.TypeTime, table.TypeTimestamp:
-		var v datatypes.DataAPITimestamp
+	case table.TypeDate:
+		var v datatypes.DateOnly
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		return v, err
+
+	case table.TypeTime:
+		var v datatypes.TimeOnly
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		return v, err
+
+	case table.TypeTimestamp:
+		var v time.Time
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
 		return v, err
 

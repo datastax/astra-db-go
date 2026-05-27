@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"iter"
 	"reflect"
+	"strings"
 )
 
 // Set represents a collection of unique elements, kept in sorted order.
@@ -205,17 +206,17 @@ func (s Set[T]) Last() T {
 	return zero
 }
 
-
 func (s Set[T]) String() string {
-	str := "#{"
+	var sb strings.Builder
+	sb.WriteString("#{")
 	first := true
 	for v := range s.All() {
 		if !first {
-			str += ", "
+			sb.WriteString(", ")
 		}
-		str += fmt.Sprintf("%v", v)
+		fmt.Fprintf(&sb, "%v", v)
 		first = false
 	}
-	str += "}"
-	return str
+	sb.WriteString("}")
+	return sb.String()
 }
