@@ -34,7 +34,7 @@ To run the tests:
 ```bash
 # Will run these against your instance and print logs to stdout as well as
 # a log file in ./logs.
-go run github.com/datastax/astra-db-go/astra/internal/integrationtests
+go run github.com/datastax/astra-db-go/integration
 ```
 
 Note that the files in [./tests](./tests) end with `_tests.go`, not `_test.go` because they aren't actually unit tests and we don't want them excluded from the `integrationtests` executable.

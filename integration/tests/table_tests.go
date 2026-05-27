@@ -23,11 +23,11 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/cursors"
 	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/internal/integrationtests/harness"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/sort"
 	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/integration/harness"
 )
 
 func init() {

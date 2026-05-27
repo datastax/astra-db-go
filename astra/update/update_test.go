@@ -3,9 +3,9 @@ package update_test
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/internal/testutils"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/update"
+	"github.com/datastax/astra-db-go/internal/testutils"
 )
 
 // Example taken from:

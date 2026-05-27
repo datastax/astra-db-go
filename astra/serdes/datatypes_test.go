@@ -5,9 +5,9 @@ import (
 
 	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/internal/testutils"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/internal/testutils"
 	"pgregory.net/rapid"
 )
 

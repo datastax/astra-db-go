@@ -23,8 +23,8 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/internal/integrationtests/harness"
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/integration/harness"
 )
 
 func init() {

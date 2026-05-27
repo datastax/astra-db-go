@@ -42,4 +42,4 @@ jobs:
         uses: actions/setup-go@v6
 
       - name: Run tests
-        run: go run ./astra/internal/integrationtests
+        run: go run ./integration
