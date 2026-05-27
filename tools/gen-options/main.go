@@ -26,7 +26,7 @@
 //
 // Usage (via go:generate in options/options.go):
 //
-//	//go:generate go run -modfile=../tools/gen-options/go.mod ../tools/gen-options -pkg .
+//	//go:generate go run -modfile=../../tools/gen-options/go.mod ../../tools/gen-options -pkg .
 //
 // Output files (never edit by hand):
 //

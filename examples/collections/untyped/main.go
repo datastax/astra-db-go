@@ -6,9 +6,9 @@ import (
 	"log"
 
 	"github.com/DeanPDX/dotconfig"
-	astradb "github.com/datastax/astra-db-go"
-	"github.com/datastax/astra-db-go/filter"
-	"github.com/datastax/astra-db-go/options"
+	"github.com/datastax/astra-db-go/astra"
+	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/options"
 )
 
 // Config is a struct for retrieving configuration from environment variables.
@@ -31,7 +31,7 @@ func main() {
 		log.Fatal(err)
 	}
 	fmt.Println("Configuration loaded successfully.")
-	client := astradb.NewClient(
+	client := astra.NewClient(
 		options.WithToken(config.ApplicationToken),
 	)
 	db := client.Database(config.DBEndpoint)
@@ -47,7 +47,7 @@ func main() {
 	dropCollection(ctx, db)
 }
 
-func createCollection(ctx context.Context, db *astradb.Db) *astradb.Collection {
+func createCollection(ctx context.Context, db *astra.Db) *astra.Collection {
 	logHeader("Creating Collection")
 	coll, err := db.CreateCollection(ctx, "my_collection")
 	if err != nil {
@@ -57,9 +57,9 @@ func createCollection(ctx context.Context, db *astradb.Db) *astradb.Collection {
 	return coll
 }
 
-func insertDocuments(ctx context.Context, coll *astradb.Collection) {
+func insertDocuments(ctx context.Context, coll *astra.Collection) {
 	logHeader("Inserting Documents")
-	resp, err := coll.InsertOne(ctx, astradb.NewDocument{
+	resp, err := coll.InsertOne(ctx, astra.NewDocument{
 		"title":  "The Go Programming Language",
 		"author": "Alan Donovan",
 		"year":   2015,
@@ -75,10 +75,10 @@ func insertDocuments(ctx context.Context, coll *astradb.Collection) {
 	fmt.Println("Inserted ID:", insertedId)
 
 	// Insert multiple documents
-	respMany, err := coll.InsertMany(ctx, []astradb.Document{
-		astradb.NewDocument{"title": "Go in Action", "author": "William Kennedy", "year": 2015},
-		astradb.NewDocument{"title": "Concurrency in Go", "author": "Katherine Cox-Buday", "year": 2017},
-		astradb.NewDocument{"title": "Learning Go: An Idiomatic Approach to Real-World Go Programming", "author": "Jon Bodner", "year": 2024},
+	respMany, err := coll.InsertMany(ctx, []astra.Document{
+		astra.NewDocument{"title": "Go in Action", "author": "William Kennedy", "year": 2015},
+		astra.NewDocument{"title": "Concurrency in Go", "author": "Katherine Cox-Buday", "year": 2017},
+		astra.NewDocument{"title": "Learning Go: An Idiomatic Approach to Real-World Go Programming", "author": "Jon Bodner", "year": 2024},
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -93,9 +93,9 @@ func insertDocuments(ctx context.Context, coll *astradb.Collection) {
 	}
 }
 
-func findOneDocument(ctx context.Context, coll *astradb.Collection) {
+func findOneDocument(ctx context.Context, coll *astra.Collection) {
 	logHeader("Finding: title = 'The Go Programming Language'")
-	var result astradb.Document
+	var result astra.Document
 	err := coll.FindOne(ctx, filter.Eq("title", "The Go Programming Language")).Decode(&result)
 	if err != nil {
 		log.Fatal(err)
@@ -103,11 +103,11 @@ func findOneDocument(ctx context.Context, coll *astradb.Collection) {
 	fmt.Printf("Found: %s by %s (%v)\n", result.MustGet("title"), result.MustGet("author"), result.MustGet("year"))
 }
 
-func findAllDocuments(ctx context.Context, coll *astradb.Collection) {
+func findAllDocuments(ctx context.Context, coll *astra.Collection) {
 	logHeader("Finding All Documents")
 	cursor := coll.Find(filter.F{})
 
-	var docs []astradb.Document
+	var docs []astra.Document
 	if err := cursor.DecodeAll(ctx, &docs); err != nil {
 		log.Fatal(err)
 	}
@@ -117,12 +117,12 @@ func findAllDocuments(ctx context.Context, coll *astradb.Collection) {
 	}
 }
 
-func filterDocumentsByYear(ctx context.Context, coll *astradb.Collection) {
+func filterDocumentsByYear(ctx context.Context, coll *astra.Collection) {
 	logHeader("Filtering: year >= 2016")
 	cursor := coll.Find(filter.F{"year": filter.F{"$gte": 2016}})
 
 	for cursor.Next(ctx) {
-		var doc astradb.Document
+		var doc astra.Document
 		if err := cursor.Decode(&doc); err != nil {
 			log.Fatal(err)
 		}
@@ -133,7 +133,7 @@ func filterDocumentsByYear(ctx context.Context, coll *astradb.Collection) {
 	}
 }
 
-func countDocuments(ctx context.Context, coll *astradb.Collection) {
+func countDocuments(ctx context.Context, coll *astra.Collection) {
 	logHeader("Counting Documents")
 	count, err := coll.CountDocuments(ctx, filter.F{}, 1000)
 	if err != nil {
@@ -142,7 +142,7 @@ func countDocuments(ctx context.Context, coll *astradb.Collection) {
 	fmt.Println("Total documents:", count)
 }
 
-func dropCollection(ctx context.Context, db *astradb.Db) {
+func dropCollection(ctx context.Context, db *astra.Db) {
 	logHeader("Dropping Collection")
 	if err := db.DropCollection(ctx, "my_collection"); err != nil {
 		log.Fatal(err)

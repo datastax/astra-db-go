@@ -1,7 +1,7 @@
 package testutils
 
 import (
-	"github.com/datastax/astra-db-go/serdes"
+	"github.com/datastax/astra-db-go/astra/serdes"
 )
 
 // command is a proxy for unexported command in main package
@@ -18,7 +18,7 @@ func NewTestCmd(name string, payload any) command {
 	}
 }
 
-// Check out rationale for this in main astradb package.
+// Check out rationale for this in main astra package.
 func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
