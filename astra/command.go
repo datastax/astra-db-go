@@ -38,10 +38,10 @@ type command struct {
 	keyspace        string
 	apiVersion      string
 	resourceName    string
-	databaseAdmin   bool                // When true, URL skips keyspace and resource segments
-	resourceOptions []options.APIOption // Cumulative options from Client -> DB -> Resource
-	commandOptions  []options.APIOption // Options for this specific command
-	commandAPIOpt   *options.APIOptions // Command-level APIOptions struct
+	databaseAdmin   bool                               // When true, URL skips keyspace and resource segments
+	resourceOptions options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource
+	commandOptions  []options.APIOption                // Options for this specific command
+	commandAPIOpt   *options.APIOptions                // Command-level APIOptions struct
 	target          serdes.Target
 }
 
@@ -67,8 +67,20 @@ func newDatabaseAdminCmd(db *Db, name string, payload any) command {
 	}
 }
 
+// newDatabaseAdminCmdWithMergedOptions creates a new command for database-level admin operations with merged options.
+func newDatabaseAdminCmdWithMergedOptions(db *Db, name string, payload any, cmdOpts *options.APIOptions) command {
+	return command{
+		db:              db,
+		name:            name,
+		payload:         payload,
+		databaseAdmin:   true,
+		resourceOptions: db.options,
+		commandAPIOpt:   cmdOpts,
+	}
+}
+
 // newCmdWithOptions creates a new command with resource and command-level options
-func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts []options.APIOption, target serdes.Target, cmdOpts ...options.APIOption) command {
+func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts options.Joined[options.APIOptions], target serdes.Target, cmdOpts ...options.APIOption) command {
 	return command{
 		db:              d,
 		name:            name,
@@ -81,7 +93,7 @@ func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts [
 }
 
 // newCmdWithMergedOptions creates a new command with resource and merged command-level options
-func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts []options.APIOption, target serdes.Target, cmdOpts *options.APIOptions) command {
+func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts options.Joined[options.APIOptions], target serdes.Target, cmdOpts *options.APIOptions) command {
 	return command{
 		db:              d,
 		name:            name,

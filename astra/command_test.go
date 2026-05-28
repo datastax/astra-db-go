@@ -119,7 +119,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 func TestURLDatabaseAdmin(t *testing.T) {
 	id, region := "db-id", "us-east-1"
 	client := NewClient()
-	db := newDbFromID(id, region, options.AstraEnvironmentProd, client)
+	db := newDbFromID(id, region, options.AstraEnvironmentProd, client, nil)
 	cmd := newDatabaseAdminCmd(db, "findKeyspaces", nil)
 	got, err := cmd.url()
 	if err != nil {
@@ -134,7 +134,7 @@ func TestURLDatabaseAdmin(t *testing.T) {
 func TestURLNonAstraBackend(t *testing.T) {
 	hcd := options.DataAPIBackendHCD
 	client := NewClient()
-	db := newDbFromEndpoint("http://localhost:8181", client, options.API().SetDataAPIBackend(hcd))
+	db := newDbFromEndpoint("http://localhost:8181", client, options.Join(nil, options.API().SetDataAPIBackend(hcd)))
 	cmd := newCmd(db, "find", nil)
 	cmd.resourceName = "my_collection"
 
@@ -148,3 +148,4 @@ func TestURLNonAstraBackend(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, got)
 	}
 }
+

@@ -1260,11 +1260,12 @@ func (b *collectionUpdateOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOption
 //
 // Example using the fluent builder ([CreateCollection]):
 //
-//	opts := options.CreateCollection().SetDefaultId(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateCollection().SetKeyspace("value")
 //
 // Example using a pointer to [CreateCollectionOptions] without the fluent builder:
 //
-//	opts := &options.CreateCollectionOptions{...}
+//	opts := &options.CreateCollectionOptions{Keyspace: ptr.To("value")}
 type CreateCollectionOption = Builder[CreateCollectionOptions]
 
 // Setters implements Builder[CreateCollectionOptions] allowing the raw struct to be
@@ -1332,6 +1333,28 @@ func (b *createCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]
 func (b *createCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Rerank, v...)
+	})
+	return b
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *createCollectionOptionsBuilder) SetKeyspace(v string) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *createCollectionOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1594,11 +1617,23 @@ func (b *createTableOptionsBuilder) SetIfNotExists(v bool) *createTableOptionsBu
 }
 
 // SetKeyspace sets the Keyspace option.
-// Keyspace specifies the keyspace in which to create the table.
-// If not provided, defaults to the working keyspace for the database.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
 func (b *createTableOptionsBuilder) SetKeyspace(v string) *createTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTableOptions) {
-		o.Keyspace = &v
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *createTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTableOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1671,6 +1706,65 @@ func (b *createVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *createVecto
 func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVectorIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
 		o.SourceModel = &v
+	})
+	return b
+}
+
+// DropCollectionOption configures a DropCollection operation.
+// You can use the fluent-style builder or a pointer to [DropCollectionOptions] interchangeably.
+//
+// Example using the fluent builder ([DropCollection]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.DropCollection().SetKeyspace("value")
+//
+// Example using a pointer to [DropCollectionOptions] without the fluent builder:
+//
+//	opts := &options.DropCollectionOptions{Keyspace: ptr.To("value")}
+type DropCollectionOption = Builder[DropCollectionOptions]
+
+// Setters implements Builder[DropCollectionOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[DropCollectionOptions].
+func (o *DropCollectionOptions) Setters() []func(*DropCollectionOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for DropCollectionOptions.
+func (o *DropCollectionOptions) Validate() error { return nil }
+
+// dropCollectionOptionsBuilder is a builder for DropCollectionOptions.
+type dropCollectionOptionsBuilder struct {
+	setters []func(*DropCollectionOptions)
+}
+
+// DropCollection creates a new builder for [DropCollectionOptions].
+func DropCollection() *dropCollectionOptionsBuilder {
+	return &dropCollectionOptionsBuilder{}
+}
+
+// Setters implements Builder[DropCollectionOptions].
+func (b *dropCollectionOptionsBuilder) Setters() []func(*DropCollectionOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *dropCollectionOptionsBuilder) SetKeyspace(v string) *dropCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *dropCollectionOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropCollectionOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1789,6 +1883,124 @@ func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeysp
 	return b
 }
 
+// DropTableIndexOption configures a DropTableIndex operation.
+// You can use the fluent-style builder or a pointer to [DropTableIndexOptions] interchangeably.
+//
+// Example using the fluent builder ([DropTableIndex]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.DropTableIndex().SetKeyspace("value")
+//
+// Example using a pointer to [DropTableIndexOptions] without the fluent builder:
+//
+//	opts := &options.DropTableIndexOptions{Keyspace: ptr.To("value")}
+type DropTableIndexOption = Builder[DropTableIndexOptions]
+
+// Setters implements Builder[DropTableIndexOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[DropTableIndexOptions].
+func (o *DropTableIndexOptions) Setters() []func(*DropTableIndexOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for DropTableIndexOptions.
+func (o *DropTableIndexOptions) Validate() error { return nil }
+
+// dropTableIndexOptionsBuilder is a builder for DropTableIndexOptions.
+type dropTableIndexOptionsBuilder struct {
+	setters []func(*DropTableIndexOptions)
+}
+
+// DropTableIndex creates a new builder for [DropTableIndexOptions].
+func DropTableIndex() *dropTableIndexOptionsBuilder {
+	return &dropTableIndexOptionsBuilder{}
+}
+
+// Setters implements Builder[DropTableIndexOptions].
+func (b *dropTableIndexOptionsBuilder) Setters() []func(*DropTableIndexOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *dropTableIndexOptionsBuilder) SetKeyspace(v string) *dropTableIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTableIndexOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *dropTableIndexOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropTableIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTableIndexOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// DropTableOption configures a DropTable operation.
+// You can use the fluent-style builder or a pointer to [DropTableOptions] interchangeably.
+//
+// Example using the fluent builder ([DropTable]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.DropTable().SetKeyspace("value")
+//
+// Example using a pointer to [DropTableOptions] without the fluent builder:
+//
+//	opts := &options.DropTableOptions{Keyspace: ptr.To("value")}
+type DropTableOption = Builder[DropTableOptions]
+
+// Setters implements Builder[DropTableOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[DropTableOptions].
+func (o *DropTableOptions) Setters() []func(*DropTableOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for DropTableOptions.
+func (o *DropTableOptions) Validate() error { return nil }
+
+// dropTableOptionsBuilder is a builder for DropTableOptions.
+type dropTableOptionsBuilder struct {
+	setters []func(*DropTableOptions)
+}
+
+// DropTable creates a new builder for [DropTableOptions].
+func DropTable() *dropTableOptionsBuilder {
+	return &dropTableOptionsBuilder{}
+}
+
+// Setters implements Builder[DropTableOptions].
+func (b *dropTableOptionsBuilder) Setters() []func(*DropTableOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *dropTableOptionsBuilder) SetKeyspace(v string) *dropTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTableOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *dropTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTableOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // FindAvailableRegionsOption configures a FindAvailableRegions operation.
 // You can use the fluent-style builder or a pointer to [FindAvailableRegionsOptions] interchangeably.
 //
@@ -1841,11 +2053,12 @@ func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailab
 //
 // Example using the fluent builder ([FindEmbeddingProviders]):
 //
-//	opts := options.FindEmbeddingProviders().SetFilterModelStatus(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.FindEmbeddingProviders().SetKeyspace("value")
 //
 // Example using a pointer to [FindEmbeddingProvidersOptions] without the fluent builder:
 //
-//	opts := &options.FindEmbeddingProvidersOptions{...}
+//	opts := &options.FindEmbeddingProvidersOptions{Keyspace: ptr.To("value")}
 type FindEmbeddingProvidersOption = Builder[FindEmbeddingProvidersOptions]
 
 // Setters implements Builder[FindEmbeddingProvidersOptions] allowing the raw struct to be
@@ -1892,6 +2105,18 @@ func (b *findEmbeddingProvidersOptionsBuilder) Setters() []func(*FindEmbeddingPr
 func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findEmbeddingProvidersOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
 		o.FilterModelStatus = &v
+	})
+	return b
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *findEmbeddingProvidersOptionsBuilder) SetKeyspace(v string) *findEmbeddingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
 	})
 	return b
 }
@@ -1991,11 +2216,12 @@ func (b *lexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
 //
 // Example using the fluent builder ([ListCollectionNames]):
 //
-//	opts := options.ListCollectionNames().SetAPIOptions(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListCollectionNames().SetKeyspace("value")
 //
 // Example using a pointer to [ListCollectionNamesOptions] without the fluent builder:
 //
-//	opts := &options.ListCollectionNamesOptions{...}
+//	opts := &options.ListCollectionNamesOptions{Keyspace: ptr.To("value")}
 type ListCollectionNamesOption = Builder[ListCollectionNamesOptions]
 
 // Setters implements Builder[ListCollectionNamesOptions] allowing the raw struct to be
@@ -2020,6 +2246,18 @@ func ListCollectionNames() *listCollectionNamesOptionsBuilder {
 // Setters implements Builder[ListCollectionNamesOptions].
 func (b *listCollectionNamesOptionsBuilder) Setters() []func(*ListCollectionNamesOptions) {
 	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *listCollectionNamesOptionsBuilder) SetKeyspace(v string) *listCollectionNamesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListCollectionNamesOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
 }
 
 // SetAPIOptions sets the APIOptions option.
@@ -2077,18 +2315,6 @@ func (b *listCollectionsOptionsBuilder) SetKeyspace(v string) *listCollectionsOp
 			o.APIOptions = &APIOptions{}
 		}
 		o.APIOptions.Keyspace = &v
-	})
-	return b
-}
-
-// SetTimeout sets the Timeout option.
-// Timeout contains timeout configuration (lifted from APIOptions)
-func (b *listCollectionsOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *listCollectionsOptionsBuilder {
-	b.setters = append(b.setters, func(o *ListCollectionsOptions) {
-		if o.APIOptions == nil {
-			o.APIOptions = &APIOptions{}
-		}
-		MergeInto(&o.APIOptions.Timeout, v...)
 	})
 	return b
 }
@@ -2229,11 +2455,12 @@ func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilde
 //
 // Example using the fluent builder ([ListTableNames]):
 //
-//	opts := options.ListTableNames().SetAPIOptions(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListTableNames().SetKeyspace("value")
 //
 // Example using a pointer to [ListTableNamesOptions] without the fluent builder:
 //
-//	opts := &options.ListTableNamesOptions{...}
+//	opts := &options.ListTableNamesOptions{Keyspace: ptr.To("value")}
 type ListTableNamesOption = Builder[ListTableNamesOptions]
 
 // Setters implements Builder[ListTableNamesOptions] allowing the raw struct to be
@@ -2260,6 +2487,18 @@ func (b *listTableNamesOptionsBuilder) Setters() []func(*ListTableNamesOptions) 
 	return b.setters
 }
 
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *listTableNamesOptionsBuilder) SetKeyspace(v string) *listTableNamesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTableNamesOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
 // SetAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
@@ -2275,11 +2514,12 @@ func (b *listTableNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *
 //
 // Example using the fluent builder ([ListTables]):
 //
-//	opts := options.ListTables().SetAPIOptions(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListTables().SetKeyspace("value")
 //
 // Example using a pointer to [ListTablesOptions] without the fluent builder:
 //
-//	opts := &options.ListTablesOptions{...}
+//	opts := &options.ListTablesOptions{Keyspace: ptr.To("value")}
 type ListTablesOption = Builder[ListTablesOptions]
 
 // Setters implements Builder[ListTablesOptions] allowing the raw struct to be
@@ -2304,6 +2544,18 @@ func ListTables() *listTablesOptionsBuilder {
 // Setters implements Builder[ListTablesOptions].
 func (b *listTablesOptionsBuilder) Setters() []func(*ListTablesOptions) {
 	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *listTablesOptionsBuilder) SetKeyspace(v string) *listTablesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTablesOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
 }
 
 // SetAPIOptions sets the APIOptions option.

@@ -47,7 +47,7 @@ type TableFilter = filter.Filterable
 type Table struct {
 	db      *Db
 	name    string
-	options []options.APIOption
+	options options.Joined[options.APIOptions]
 }
 
 // region Meta
@@ -559,33 +559,6 @@ func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, e
 
 // endregion
 
-// region Index Deletion
-
-// dropIndexPayload is the payload for the dropIndex command
-type dropIndexPayload struct {
-	Name string `json:"name"`
-}
-
-// DropTableIndex drops (deletes) an index from the database.
-//
-// Example usage:
-//
-//	err := db.DropTableIndex(ctx, "rating_idx")
-//
-// Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTableIndex(ctx context.Context, name string) error {
-	cmd := dropTableIndexCommand(d, name)
-	_, _, _, err := cmd.Execute(ctx)
-	return err
-}
-
-// dropTableIndexCommand builds the dropIndex command for the database
-func dropTableIndexCommand(d *Db, name string) command {
-	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
-}
-
-// endregion
-
 // region Altering
 
 // alterTablePayload is the payload for the alterTable command.
@@ -657,8 +630,8 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 // region Misc
 
 // Drop deletes the table and all its rows. Use with caution.
-func (t *Table) Drop(ctx context.Context) error {
-	return t.db.DropTable(ctx, t.name)
+func (t *Table) Drop(ctx context.Context, opts ...options.DropTableOption) error {
+	return t.db.DropTable(ctx, t.name, opts...)
 }
 
 // endregion

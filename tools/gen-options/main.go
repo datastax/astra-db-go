@@ -442,12 +442,14 @@ func settersFor(structName string, s *types.Struct, validator *types.Interface, 
 				}
 
 				// Find field in nestedStruct
+				found := false
 				for j := 0; j < nestedStruct.NumFields(); j++ {
 					nf := nestedStruct.Field(j)
 					if nf.Name() != lfName {
 						continue
 					}
 
+					found = true
 					if sd, ok := setterForField(nestedStructName, nf, validator, futureValidators, comments); ok {
 						if alias != "" {
 							sd.Method = "Set" + alias
@@ -457,6 +459,10 @@ func settersFor(structName string, s *types.Struct, validator *types.Interface, 
 						sd.ContainerType = nestedStructName
 						setters = append(setters, sd)
 					}
+				}
+
+				if !found {
+					log.Fatalf("optlift: field %s not found in %s (lifted by %s.%s)", lfName, nestedStructName, structName, f.Name())
 				}
 			}
 		}

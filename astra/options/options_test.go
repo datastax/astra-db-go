@@ -103,7 +103,7 @@ func TestMapOverwriteRule(t *testing.T) {
 func TestNestedInitialization(t *testing.T) {
 	// Verifies that "lifted" fields deep in a command struct correctly
 	// initialize their container structs (APIOptions, TimeoutOptions).
-	opts := options.ListCollections().SetTimeout(options.Timeout().SetRequest(45 * time.Second))
+	opts := options.ListCollections().SetAPIOptions(options.API().SetRequestTimeout(45 * time.Second))
 
 	resolved := options.Merge(opts)
 

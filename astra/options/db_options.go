@@ -52,11 +52,11 @@ type FindEmbeddingProvidersOptions struct {
 	//
 	//	// Only deprecated models
 	//	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
-	FilterModelStatus *ModelLifecycleStatus
+	FilterModelStatus *ModelLifecycleStatus `json:"filterModelStatus,omitempty"`
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions
+	APIOptions *APIOptions `optlift:"Keyspace"`
 }
 
 // ListCollectionsOptions represents options for listing collections in a database.
@@ -64,7 +64,7 @@ type FindEmbeddingProvidersOptions struct {
 type ListCollectionsOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-" optlift:"Keyspace,Timeout"`
+	APIOptions *APIOptions `optlift:"Keyspace"`
 }
 
 // ListCollectionNamesOptions represents options for listing collection names in a database.
@@ -72,7 +72,7 @@ type ListCollectionsOptions struct {
 type ListCollectionNamesOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions `optlift:"Keyspace"`
 }
 
 // ListTablesOptions represents options for listing tables in a database with full metadata.
@@ -80,7 +80,7 @@ type ListCollectionNamesOptions struct {
 type ListTablesOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions `optlift:"Keyspace"`
 }
 
 // ListTableNamesOptions represents options for listing table names in a database.
@@ -88,5 +88,29 @@ type ListTablesOptions struct {
 type ListTableNamesOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions `optlift:"Keyspace"`
+}
+
+// DropCollectionOptions represents options for dropping a collection.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type DropCollectionOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `optlift:"Keyspace"`
+}
+
+// DropTableOptions represents options for dropping a table.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type DropTableOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `optlift:"Keyspace"`
+}
+
+// DropTableIndexOptions represents options for dropping a table index.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type DropTableIndexOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `optlift:"Keyspace"`
 }

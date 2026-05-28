@@ -48,6 +48,22 @@ type Builder[T any] interface {
 	Setters() []func(*T)
 }
 
+// Joined is a type-safe wrapper for a slice of builders.
+// It is returned by [Join] and should be used in structs that store
+// accumulated options to ensure [Join] is used for combination.
+type Joined[T any] []Builder[T]
+
+// Setters implements [Builder] for [Joined].
+func (j Joined[T]) Setters() []func(*T) {
+	var res []func(*T)
+	for _, b := range j {
+		if b != nil && !reflect.ValueOf(b).IsNil() {
+			res = append(res, b.Setters()...)
+		}
+	}
+	return res
+}
+
 // NoopBuilder returns a [Builder] implementation that just copies
 // from the source to the target.
 func NoopBuilder[T any](src *T) []func(*T) {
@@ -56,6 +72,19 @@ func NoopBuilder[T any](src *T) []func(*T) {
 			copyNonNilFields(src, target)
 		},
 	}
+}
+
+// Join combines a base slice of builders with additional builders into a new
+// Joined slice. It always performs a copy to ensure that the original slice's
+// underlying array is never modified, making handle creation thread-safe.
+func Join[T any](base []Builder[T], additional ...Builder[T]) Joined[T] {
+	if len(additional) == 0 {
+		return base
+	}
+	res := make(Joined[T], 0, len(base)+len(additional))
+	res = append(res, base...)
+	res = append(res, additional...)
+	return res
 }
 
 // validateRecursive walks the ChildValidator tree depth-first, validating

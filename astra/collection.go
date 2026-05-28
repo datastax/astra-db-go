@@ -50,7 +50,7 @@ type CollectionFilter = filter.Filterable
 type Collection struct {
 	db      *Db
 	name    string
-	options []options.APIOption
+	options options.Joined[options.APIOptions]
 }
 
 // region Meta
@@ -619,8 +619,8 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 // region Misc
 
 // Drop deletes the collection and all its documents. Use with caution.
-func (c *Collection) Drop(ctx context.Context) error {
-	return c.db.DropCollection(ctx, c.name)
+func (c *Collection) Drop(ctx context.Context, opts ...options.DropCollectionOption) error {
+	return c.db.DropCollection(ctx, c.name, opts...)
 }
 
 // endregion

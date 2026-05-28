@@ -441,7 +441,7 @@ type createDatabaseRequest struct {
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (a *AstraAdmin) DatabaseAdmin(id, region string, opts ...options.APIOption) *AstraDatabaseAdmin {
 	return &AstraDatabaseAdmin{a, newDbFromID(id, region, a.astraEnvironment,
-		a.client, append(a.options, opts...)...)}
+		a.client, options.Join(a.options, opts...))}
 }
 
 // DatabaseAdminFromEndpoint returns an AstraDatabaseAdmin handle for the given database endpoint.
@@ -456,7 +456,7 @@ func (a *AstraAdmin) DatabaseAdmin(id, region string, opts ...options.APIOption)
 //	dbAdmin := admin.DatabaseAdminFromEndpoint("https://<db_id>-<region>.apps.astra.datastax.com")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (a *AstraAdmin) DatabaseAdminFromEndpoint(endpoint string, opts ...options.APIOption) *AstraDatabaseAdmin {
-	return &AstraDatabaseAdmin{a, newDbFromEndpoint(endpoint, a.client, append(a.options, opts...)...)}
+	return &AstraDatabaseAdmin{a, newDbFromEndpoint(endpoint, a.client, options.Join(a.options, opts...))}
 }
 
 type AwaitStatusOptions struct {

@@ -110,6 +110,13 @@ func (b *apiOptionsBuilder) SetHeader(key, value string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		if o.Headers == nil {
 			o.Headers = make(map[string]string)
+		} else {
+			// Copy-on-write to avoid mutating shared maps
+			newHeaders := make(map[string]string, len(o.Headers)+1)
+			for k, v := range o.Headers {
+				newHeaders[k] = v
+			}
+			o.Headers = newHeaders
 		}
 		o.Headers[key] = value
 	})

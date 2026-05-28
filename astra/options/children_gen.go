@@ -208,6 +208,49 @@ func (o *CreateCollectionOptions) Children() []Validator {
 	if o.Rerank != nil {
 		children = append(children, o.Rerank)
 	}
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for CreateTableOptions.
+// Returns all non-nil Validator fields.
+func (o *CreateTableOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for DropCollectionOptions.
+// Returns all non-nil Validator fields.
+func (o *DropCollectionOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for DropTableIndexOptions.
+// Returns all non-nil Validator fields.
+func (o *DropTableIndexOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for DropTableOptions.
+// Returns all non-nil Validator fields.
+func (o *DropTableOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
 	return children
 }
 

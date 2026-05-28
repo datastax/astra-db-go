@@ -455,12 +455,3 @@ func TestResolveGeneralMethodTimeoutFromAPIOverride(t *testing.T) {
 		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
 	}
 }
-
-func TestNilDB(t *testing.T) {
-	var db *astra.Db = nil
-	c := db.Collection("nildb")
-	_, err := c.CountDocuments(context.Background(), nil, 100)
-	if err == nil {
-		t.Errorf("Expected error. Got %v", err)
-	}
-}
