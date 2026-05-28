@@ -97,4 +97,3 @@ func (c *DataAPIClient) Admin(opts ...options.APIOption) (*AstraAdmin, error) {
 		astraEnvironment: env,
 	}, nil
 }
-

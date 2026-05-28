@@ -15,6 +15,7 @@
 package options
 
 import (
+	"maps"
 	"net/http"
 	"time"
 
@@ -89,7 +90,6 @@ func (o *TimeoutOptions) SetDefaults() {
 	o.Request = ptr.To(30 * time.Second)
 }
 
-
 // SerdesOptions contains options for serialization and deserialization behavior.
 // This is a placeholder for future extensibility.
 type SerdesOptions struct {
@@ -108,17 +108,10 @@ type APIOption = Builder[APIOptions]
 
 func (b *apiOptionsBuilder) SetHeader(key, value string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		if o.Headers == nil {
-			o.Headers = make(map[string]string)
-		} else {
-			// Copy-on-write to avoid mutating shared maps
-			newHeaders := make(map[string]string, len(o.Headers)+1)
-			for k, v := range o.Headers {
-				newHeaders[k] = v
-			}
-			o.Headers = newHeaders
-		}
-		o.Headers[key] = value
+		newHeaders := make(map[string]string, len(o.Headers)+1)
+		maps.Copy(newHeaders, o.Headers)
+		newHeaders[key] = value
+		o.Headers = newHeaders
 	})
 	return b
 }

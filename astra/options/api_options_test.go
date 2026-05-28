@@ -219,7 +219,7 @@ func TestMerge_FullHierarchy(t *testing.T) {
 		SetHeader("X-Collection", "true")
 
 	cmdOpts := options.API().
-		SetRequestTimeout(5*time.Second) // Override for specific command
+		SetRequestTimeout(5 * time.Second) // Override for specific command
 
 	result := options.Merge(clientOpts, dbOpts, collOpts, cmdOpts)
 
