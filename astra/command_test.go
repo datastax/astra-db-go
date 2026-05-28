@@ -104,7 +104,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 	handler := func(w results.Warning) {
 		called++
 	}
-	opts := options.NewAPIOptions(options.WithWarningHandler(handler))
+	opts := options.Merge(options.API().SetWarningHandler(handler))
 
 	cmd := command{}
 	_, _, _, err := cmd.extractErrors(200, []byte(warningsResponse), opts)
@@ -118,7 +118,8 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 
 func TestURLDatabaseAdmin(t *testing.T) {
 	id, region := "db-id", "us-east-1"
-	db := newDbFromID(id, region, options.AstraEnvironmentProd, nil, nil)
+	client := NewClient()
+	db := newDbFromID(id, region, options.AstraEnvironmentProd, client, nil)
 	cmd := newDatabaseAdminCmd(db, "findKeyspaces", nil)
 	got, err := cmd.url()
 	if err != nil {
@@ -132,12 +133,11 @@ func TestURLDatabaseAdmin(t *testing.T) {
 
 func TestURLNonAstraBackend(t *testing.T) {
 	hcd := options.DataAPIBackendHCD
-	db := newDbFromEndpoint("http://localhost:8181", nil, &options.APIOptions{DataAPIBackend: &hcd})
-	cmd := command{
-		db:           db,
-		name:         "find",
-		resourceName: "my_collection",
-	}
+	client := NewClient()
+	db := newDbFromEndpoint("http://localhost:8181", client, options.Join(nil, options.API().SetDataAPIBackend(hcd)))
+	cmd := newCmd(db, "find", nil)
+	cmd.resourceName = "my_collection"
+
 	got, err := cmd.url()
 	if err != nil {
 		t.Fatal(err)
@@ -146,5 +146,33 @@ func TestURLNonAstraBackend(t *testing.T) {
 	expected := "http://localhost:8181/v1/default_keyspace/my_collection"
 	if got != expected {
 		t.Errorf("expected %q, got %q", expected, got)
+	}
+}
+
+func TestCommandOptionsHierarchy(t *testing.T) {
+	// Test that command correctly merges:
+	// Client -> DB -> Collection -> Command Builders -> Command Struct
+	client := NewClient(options.API().SetToken("client-token"))
+	db := client.Database("http://localhost:8181", options.API().SetKeyspace("db-keyspace"))
+	coll := db.Collection("my-coll", options.API().SetAPIVersion("v2"))
+
+	// Create command with both builders and a merged struct override
+	cmd := newCmdWithOptions(db, coll.Name(), "find", nil, coll.options, serdes.TargetCollection,
+		options.API().SetHeader("X-Custom", "value"))
+	cmd.options = options.Join(cmd.options, options.API().SetToken("final-token"))
+
+	opts := cmd.resolveOptions()
+
+	if opts.GetToken() != "final-token" {
+		t.Errorf("expected final-token, got %q", opts.GetToken())
+	}
+	if opts.GetKeyspace() != "db-keyspace" {
+		t.Errorf("expected db-keyspace, got %q", opts.GetKeyspace())
+	}
+	if opts.GetAPIVersion() != "v2" {
+		t.Errorf("expected v2, got %q", opts.GetAPIVersion())
+	}
+	if opts.Headers["X-Custom"] != "value" {
+		t.Errorf("expected header value, got %q", opts.Headers["X-Custom"])
 	}
 }

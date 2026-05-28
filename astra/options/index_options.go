@@ -41,6 +41,10 @@ type CreateIndexOptions struct {
 	// CaseSensitive if true (default), enforces case-sensitive matching.
 	// Only applicable to text columns.
 	CaseSensitive *bool
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // CreateVectorIndexOptions represents options for creating a vector index.
@@ -61,6 +65,10 @@ type CreateVectorIndexOptions struct {
 	// this is a string. For reference:
 	// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#parameters
 	SourceModel *string
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }
 
 // ListIndexesOptions represents options for listing indexes.
@@ -68,4 +76,8 @@ type ListIndexesOptions struct {
 	// Explain if true, returns full index metadata including definitions.
 	// If false (default), only returns index names.
 	Explain *bool
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
 }

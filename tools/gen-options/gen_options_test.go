@@ -120,7 +120,7 @@ func TestPickAliasExample(t *testing.T) {
 		{
 			name: "picks first simple field",
 			setters: []setterDef{
-				{Method: "SetVector", Field: "Vector", IsVariadicBuilder: true, InnerType: "VectorOptions"},
+				{Method: "SetVector", Field: "Vector", IsVariadicBuilder: true},
 				{Method: "SetBlocking", Field: "Blocking", ParamType: "bool"},
 				{Method: "SetLimit", Field: "Limit", ParamType: "int"},
 			},
@@ -135,7 +135,7 @@ func TestPickAliasExample(t *testing.T) {
 		{
 			name: "fallback to first setter when no simple field",
 			setters: []setterDef{
-				{Method: "SetVector", Field: "Vector", IsVariadicBuilder: true, InnerType: "VectorOptions"},
+				{Method: "SetVector", Field: "Vector", IsVariadicBuilder: true},
 			},
 			want: aliasDef{Method: "SetVector"},
 		},

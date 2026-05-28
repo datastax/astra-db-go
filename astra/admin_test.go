@@ -120,13 +120,13 @@ func TestFindAvailableRegionsOptionsBuilder(t *testing.T) {
 
 func TestAdminResolveOptions(t *testing.T) {
 	// Verify that AstraAdmin inherits options from client
-	client := NewClient(options.WithToken("client-token"))
+	client := NewClient(options.API().SetToken("client-token"))
 	admin, err := client.Admin()
 	if err != nil {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
 	}
 
-	opts := admin.resolveOptions()
+	opts := admin.ClientOptions()
 	if opts.GetToken() != "client-token" {
 		t.Errorf("expected token 'client-token', got %s", opts.GetToken())
 	}
@@ -134,13 +134,13 @@ func TestAdminResolveOptions(t *testing.T) {
 
 func TestAdminOptionOverride(t *testing.T) {
 	// Verify that AstraAdmin-level options override client options
-	client := NewClient(options.WithToken("client-token"))
-	admin, err := client.Admin(options.WithToken("admin-token"))
+	client := NewClient(options.API().SetToken("client-token"))
+	admin, err := client.Admin(options.API().SetToken("admin-token"))
 	if err != nil {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
 	}
 
-	opts := admin.resolveOptions()
+	opts := admin.ClientOptions()
 	if opts.GetToken() != "admin-token" {
 		t.Errorf("expected token 'admin-token', got %s", opts.GetToken())
 	}
@@ -170,7 +170,7 @@ curl -sS -L -X GET "https://api.astra.datastax.com/v2/regions/serverless?region-
 
 func TestSTuff(t *testing.T) {
 	// Verify that AstraAdmin inherits options from client
-	client := NewClient(options.WithToken("client-token"))
+	client := NewClient(options.API().SetToken("client-token"))
 	admin, err := client.Admin()
 	if err != nil {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
@@ -187,7 +187,7 @@ func TestSTuff(t *testing.T) {
 }
 
 func TestAdminEnvironmentDefaultsProd(t *testing.T) {
-	client := NewClient(options.WithToken("token"))
+	client := NewClient(options.API().SetToken("token"))
 	admin, err := client.Admin()
 	if err != nil {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
@@ -199,8 +199,8 @@ func TestAdminEnvironmentDefaultsProd(t *testing.T) {
 
 func TestAdminEnvironmentFromClientOptions(t *testing.T) {
 	client := NewClient(
-		options.WithToken("token"),
-		options.WithAstraEnvironment(options.AstraEnvironmentDev),
+		options.API().SetToken("token"),
+		options.API().SetAstraEnvironment(options.AstraEnvironmentDev),
 	)
 	admin, err := client.Admin()
 	if err != nil {
@@ -213,10 +213,10 @@ func TestAdminEnvironmentFromClientOptions(t *testing.T) {
 
 func TestAdminEnvironmentOverriddenAtAdminLevel(t *testing.T) {
 	client := NewClient(
-		options.WithToken("token"),
-		options.WithAstraEnvironment(options.AstraEnvironmentDev),
+		options.API().SetToken("token"),
+		options.API().SetAstraEnvironment(options.AstraEnvironmentDev),
 	)
-	admin, err := client.Admin(options.WithAstraEnvironment(options.AstraEnvironmentTest))
+	admin, err := client.Admin(options.API().SetAstraEnvironment(options.AstraEnvironmentTest))
 	if err != nil {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
 	}
@@ -227,8 +227,8 @@ func TestAdminEnvironmentOverriddenAtAdminLevel(t *testing.T) {
 
 func TestAdminNotAvailableForNonAstra(t *testing.T) {
 	client := NewClient(
-		options.WithToken("token"),
-		options.WithDataAPIBackend(options.DataAPIBackendHCD),
+		options.API().SetToken("token"),
+		options.API().SetDataAPIBackend(options.DataAPIBackendHCD),
 	)
 	_, err := client.Admin()
 	if err == nil {

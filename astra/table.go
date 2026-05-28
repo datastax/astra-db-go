@@ -47,7 +47,7 @@ type TableFilter = filter.Filterable
 type Table struct {
 	db      *Db
 	name    string
-	options *options.APIOptions
+	options options.Joined[options.APIOptions]
 }
 
 // region Meta
@@ -57,12 +57,9 @@ func (t *Table) Name() string {
 	return t.name
 }
 
-// ClientOptions returns the table's options (or empty options if nil).
+// ClientOptions returns the table's options as a resolved struct with defaults.
 func (t *Table) ClientOptions() *options.APIOptions {
-	if t.options == nil {
-		return &options.APIOptions{}
-	}
-	return t.options
+	return options.Merge(t.options...)
 }
 
 // Database returns the parent database.
@@ -426,7 +423,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 		return command{}, err
 	}
 
-	return t.newCmd("createIndex", map[string]any{
+	return t.newCmdWithMergedOptions("createIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -439,7 +436,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 		"options": map[string]any{
 			"ifNotExists": merged.IfNotExists,
 		},
-	}), nil
+	}, merged.APIOptions), nil
 }
 
 // CreateVectorIndex creates a vector index on a vector column in the table.
@@ -483,7 +480,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		return command{}, err
 	}
 
-	return t.newCmd("createVectorIndex", map[string]any{
+	return t.newCmdWithMergedOptions("createVectorIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -495,7 +492,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		"options": map[string]any{
 			"ifNotExists": merged.IfNotExists,
 		},
-	}), nil
+	}, merged.APIOptions), nil
 }
 
 // endregion
@@ -553,38 +550,11 @@ func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, e
 		return command{}, err
 	}
 
-	return t.newCmd("listIndexes", map[string]any{
+	return t.newCmdWithMergedOptions("listIndexes", map[string]any{
 		"options": map[string]any{
 			"explain": merged.Explain,
 		},
-	}), nil
-}
-
-// endregion
-
-// region Index Deletion
-
-// dropIndexPayload is the payload for the dropIndex command
-type dropIndexPayload struct {
-	Name string `json:"name"`
-}
-
-// DropTableIndex drops (deletes) an index from the database.
-//
-// Example usage:
-//
-//	err := db.DropTableIndex(ctx, "rating_idx")
-//
-// Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTableIndex(ctx context.Context, name string) error {
-	cmd := dropTableIndexCommand(d, name)
-	_, _, _, err := cmd.Execute(ctx)
-	return err
-}
-
-// dropTableIndexCommand builds the dropIndex command for the database
-func dropTableIndexCommand(d *Db, name string) command {
-	return d.newCmd("dropIndex", dropIndexPayload{Name: name})
+	}, merged.APIOptions), nil
 }
 
 // endregion
@@ -660,8 +630,8 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 // region Misc
 
 // Drop deletes the table and all its rows. Use with caution.
-func (t *Table) Drop(ctx context.Context) error {
-	return t.db.DropTable(ctx, t.name)
+func (t *Table) Drop(ctx context.Context, opts ...options.DropTableOption) error {
+	return t.db.DropTable(ctx, t.name, opts...)
 }
 
 // endregion

@@ -39,6 +39,10 @@ type CreateCollectionOptions struct {
 
 	// Reranking options for the collection
 	Rerank *RerankOptions `json:"rerank,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
 }
 
 // SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.

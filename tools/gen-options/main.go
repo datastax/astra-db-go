@@ -44,6 +44,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"text/template"
 	"unicode"
@@ -241,11 +242,20 @@ type setterDef struct {
 	Method            string // e.g. "SetLimit"
 	Field             string // e.g. "Limit"
 	ParamType         string // e.g. "int", "Builder[VectorOptions]", "map[string]any"
-	IsVariadicBuilder bool   // true → takes ...Builder[T], calls Merge
-	InnerType         string // T in Builder[T] when IsVariadicBuilder is true
+	IsVariadicBuilder bool   // true → takes ...Builder[T], calls MergeInto
 	IsDirectAssign    bool   // true → stored directly, no pointer wrapping
 	IsSlice           bool   // true → variadic element setter, stored directly
 	ElemType          string // element type when IsSlice is true
+	ContainerField    string // e.g. "APIOptions"
+	ContainerType     string // e.g. "APIOptions"
+}
+
+func getUnderlyingStruct(t types.Type) (*types.Struct, bool) {
+	if ptr, ok := t.Underlying().(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
+	s, ok := t.Underlying().(*types.Struct)
+	return s, ok
 }
 
 // aliasDef holds info for generating a doc comment and type alias for Options builders.
@@ -396,13 +406,68 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 	return renderJob{PkgName: pkg.name, Tmpl: buildersTmpl, Data: defs}
 }
 
+func typeName(t types.Type) string {
+	if ptr, ok := t.Underlying().(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
+	if named, ok := t.(*types.Named); ok {
+		return named.Obj().Name()
+	}
+	return ""
+}
+
 // settersFor inspects every field of s and returns a setterDef for each one we
 // know how to generate. Unrecognised field kinds are silently skipped — they can
 // be written by hand as convenience methods that delegate to the generated ones.
 func settersFor(structName string, s *types.Struct, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) []setterDef {
 	var setters []setterDef
-	for i := range s.NumFields() {
-		if sd, ok := setterForField(structName, s.Field(i), validator, futureValidators, comments); ok {
+	for i := 0; i < s.NumFields(); i++ {
+		f := s.Field(i)
+
+		// Check for optlift tag
+		tag := s.Tag(i)
+		if lift := reflect.StructTag(tag).Get("optlift"); lift != "" {
+			nestedStruct, ok := getUnderlyingStruct(f.Type())
+			if !ok {
+				continue
+			}
+
+			nestedStructName := typeName(f.Type())
+			for _, item := range strings.Split(lift, ",") {
+				lfName := strings.TrimSpace(item)
+				alias := ""
+				if parts := strings.Split(lfName, ":"); len(parts) == 2 {
+					lfName = strings.TrimSpace(parts[0])
+					alias = strings.TrimSpace(parts[1])
+				}
+
+				// Find field in nestedStruct
+				found := false
+				for j := 0; j < nestedStruct.NumFields(); j++ {
+					nf := nestedStruct.Field(j)
+					if nf.Name() != lfName {
+						continue
+					}
+
+					found = true
+					if sd, ok := setterForField(nestedStructName, nf, validator, futureValidators, comments); ok {
+						if alias != "" {
+							sd.Method = "Set" + alias
+						}
+						sd.Comment = fmt.Sprintf("%s (lifted from %s)", sd.Comment, nestedStructName)
+						sd.ContainerField = f.Name()
+						sd.ContainerType = nestedStructName
+						setters = append(setters, sd)
+					}
+				}
+
+				if !found {
+					log.Fatalf("optlift: field %s not found in %s (lifted by %s.%s)", lfName, nestedStructName, structName, f.Name())
+				}
+			}
+		}
+
+		if sd, ok := setterForField(structName, f, validator, futureValidators, comments); ok {
 			setters = append(setters, sd)
 		}
 	}
@@ -481,19 +546,23 @@ func setterForField(structName string, f *types.Var, validator *types.Interface,
 			isValidator = futureValidators[named.Obj().Name()]
 		}
 		if isValidator && isNamed {
-			inner := named.Obj().Name()
 			return setterDef{
 				Comment:           comment,
 				Method:            method,
 				Field:             f.Name(),
-				ParamType:         fmt.Sprintf("Builder[%s]", inner),
+				ParamType:         fmt.Sprintf("Builder[%s]", named.Obj().Name()),
 				IsVariadicBuilder: true,
-				InnerType:         inner,
 			}, true
 		}
 		// *scalar → value setter (we take v T and store &v)
 		if param := typeStr(t.Elem()); param != "" {
-			return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param}, true
+			isDirect := false
+			if _, ok := t.Elem().Underlying().(*types.Basic); !ok {
+				// Non-basic types (structs, etc.) should be passed by pointer
+				param = "*" + param
+				isDirect = true
+			}
+			return setterDef{Comment: comment, Method: method, Field: f.Name(), ParamType: param, IsDirectAssign: isDirect}, true
 		}
 
 	case *types.Map:
@@ -691,7 +760,12 @@ func (b *{{ .BuilderType }}) Setters() []func(*{{ .OptsType }}) {
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.BuilderType }} {
 	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) {
-		o.{{ .Field }} = Merge(v...)
+		{{- if .ContainerField }}
+		if o.{{ .ContainerField }} == nil {
+			o.{{ .ContainerField }} = &{{ .ContainerType }}{}
+		}
+		{{- end }}
+		MergeInto(&o.{{ if .ContainerField }}{{ .ContainerField }}.{{ end }}{{ .Field }}, v...)
 	})
 	return b
 }
@@ -699,21 +773,42 @@ func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ParamType }}) *{{ $o.Build
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v ...{{ .ElemType }}) *{{ $o.BuilderType }} {
-	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) {
+		{{- if .ContainerField }}
+		if o.{{ .ContainerField }} == nil {
+			o.{{ .ContainerField }} = &{{ .ContainerType }}{}
+		}
+		{{- end }}
+		o.{{ if .ContainerField }}{{ .ContainerField }}.{{ end }}{{ .Field }} = v
+	})
 	return b
 }
 {{ else if .IsDirectAssign }}
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {
-	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = v })
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) {
+		{{- if .ContainerField }}
+		if o.{{ .ContainerField }} == nil {
+			o.{{ .ContainerField }} = &{{ .ContainerType }}{}
+		}
+		{{- end }}
+		o.{{ if .ContainerField }}{{ .ContainerField }}.{{ end }}{{ .Field }} = v
+	})
 	return b
 }
 {{ else }}
 // {{ .Method }} sets the {{ .Field }} option.
 // {{ .Comment }}
 func (b *{{ $o.BuilderType }}) {{ .Method }}(v {{ .ParamType }}) *{{ $o.BuilderType }} {
-	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) { o.{{ .Field }} = &v })
+	b.setters = append(b.setters, func(o *{{ $o.OptsType }}) {
+		{{- if .ContainerField }}
+		if o.{{ .ContainerField }} == nil {
+			o.{{ .ContainerField }} = &{{ .ContainerType }}{}
+		}
+		{{- end }}
+		o.{{ if .ContainerField }}{{ .ContainerField }}.{{ end }}{{ .Field }} = &v
+	})
 	return b
 }
 {{ end -}}

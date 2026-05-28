@@ -391,8 +391,8 @@ func getTestTable(t *testing.T) *Table {
 	// See: https://pkg.go.dev/testing#T.Helper
 	t.Helper()
 
-	client := NewClient(options.WithToken("TEST_TOKEN"))
-	db := client.Database("https://API_ENDPOINT", options.WithKeyspace("some_keyspace"))
+	client := NewClient(options.API().SetToken("TEST_TOKEN"))
+	db := client.Database("https://API_ENDPOINT", options.API().SetKeyspace("some_keyspace"))
 	return db.Table("example_table")
 }
 
@@ -671,52 +671,6 @@ func TestCreateVectorIndexIfNotExistsCommandMarshal(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleVectorIndexIfNotExistsPayloadJSON, string(cmdBytes))
-	}
-}
-
-// getTestDb acts as a test fixture to provide a *Db.
-func getTestDb(t *testing.T) *Db {
-	t.Helper()
-	client := NewClient(options.WithToken("TEST_TOKEN"))
-	if client.Options().Token == nil {
-		t.Fatal("expected token to be set")
-	}
-	return client.Database("https://API_ENDPOINT", options.WithKeyspace("some_keyspace"))
-}
-
-// This example was taken from the documentation here:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/drop-index.html#drop-an-index
-var exampleDropIndexPayloadJSON = testutils.CleanString(`{
-  "dropIndex": {
-    "name": "rating"
-  }
-}`)
-
-// TestDropTableIndexCommandMarshal verifies that the resulting command from dropTableIndexCommand
-// matches the payload in the docs.
-func TestDropTableIndexCommandMarshal(t *testing.T) {
-	cmd := dropTableIndexCommand(getTestDb(t), "rating")
-	cmdBytes, err := serdes.Serialize(cmd, serdes.TargetCollection)
-	if err != nil {
-		t.Fatalf("serdes.Serialize: %v", err)
-	}
-	if string(cmdBytes) != exampleDropIndexPayloadJSON {
-		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleDropIndexPayloadJSON, string(cmdBytes))
-	}
-}
-
-// TestDropTableIndexCommandURL verifies that the dropTableIndexCommand URL
-// matches the URL in the docs.
-func TestDropTableIndexCommandURL(t *testing.T) {
-	cmd := dropTableIndexCommand(getTestDb(t), "rating")
-	postURL, err := cmd.url()
-	if err != nil {
-		t.Fatalf("cmd.url: %v", err)
-	}
-	// Verify the URL matches what example CURL command is expecting
-	expectedURL := "https://API_ENDPOINT/api/json/v1/some_keyspace"
-	if postURL != expectedURL {
-		t.Errorf("expected URL %s, got %s", expectedURL, postURL)
 	}
 }
 
@@ -1063,9 +1017,9 @@ var exampleUpdateOneSetPayloadJSON = testutils.CleanString(`{
 // httpTestTable creates a Table backed by the given httptest.Server for
 // integration-style testing. Mirrors newTestCollection in collection_test.go.
 func httpTestTable(ts *httptest.Server, apiOpts ...options.APIOption) *Table {
-	allOpts := append([]options.APIOption{options.WithToken("test-token")}, apiOpts...)
+	allOpts := append([]options.APIOption{options.API().SetToken("test-token")}, apiOpts...)
 	client := NewClient(allOpts...)
-	db := client.Database(ts.URL, options.WithKeyspace("ks"))
+	db := client.Database(ts.URL, options.API().SetKeyspace("ks"))
 	return db.Table("tbl")
 }
 

@@ -33,7 +33,7 @@ func main() {
 	}
 	fmt.Println("Configuration loaded successfully.")
 	client := astra.NewClient(
-		options.WithToken(config.ApplicationToken),
+		options.API().SetToken(config.ApplicationToken),
 	)
 	db := client.Database(config.DBEndpoint)
 	fmt.Printf("Using database endpoint: %s\n", config.DBEndpoint)

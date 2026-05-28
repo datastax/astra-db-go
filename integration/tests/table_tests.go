@@ -221,7 +221,7 @@ func TableFind(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 	warningHandlerRun := false
-	tbl := db.Table(tableName, options.WithWarningHandler(func(w results.Warning) {
+	tbl := db.Table(tableName, options.API().SetWarningHandler(func(w results.Warning) {
 		warningHandlerRun = true
 	}))
 

@@ -22,9 +22,9 @@ type CreateTableOptions struct {
 	// with the given name already exists. This only checks table names, not schemas.
 	IfNotExists *bool `json:"ifNotExists,omitempty"`
 
-	// Keyspace specifies the keyspace in which to create the table.
-	// If not provided, defaults to the working keyspace for the database.
-	Keyspace *string `json:"-"`
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
 }
 
 // TableFindOneOptions represents options for a findOne operation.

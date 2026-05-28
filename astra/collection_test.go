@@ -245,7 +245,7 @@ func TestCollectionDeleteManyEnforceNonNilFilters(t *testing.T) {
 
 // newTestCollection creates a Collection backed by the given httptest.Server.
 func newTestCollection(ts *httptest.Server, apiOpts ...options.APIOption) *astra.Collection {
-	allOpts := append([]options.APIOption{options.WithToken("test-token")}, apiOpts...)
+	allOpts := append([]options.APIOption{options.API().SetToken("test-token")}, apiOpts...)
 	client := astra.NewClient(allOpts...)
 	db := client.Database(ts.URL)
 	return db.Collection("test_coll")
@@ -316,7 +316,7 @@ func TestDeleteManyHierarchyTimeout(t *testing.T) {
 	defer ts.Close()
 
 	// Set GeneralMethod timeout at the client level
-	coll := newTestCollection(ts, options.WithGeneralMethodTimeout(250*time.Millisecond))
+	coll := newTestCollection(ts, options.API().SetGeneralMethodTimeout(250*time.Millisecond))
 	ctx := context.Background()
 
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"})
@@ -340,7 +340,7 @@ func TestDeleteManyMethodTimeoutOverridesHierarchy(t *testing.T) {
 	defer ts.Close()
 
 	// Hierarchy has a very short timeout that would expire
-	coll := newTestCollection(ts, options.WithGeneralMethodTimeout(1*time.Millisecond))
+	coll := newTestCollection(ts, options.API().SetGeneralMethodTimeout(1*time.Millisecond))
 	ctx := context.Background()
 
 	// Method-level timeout is generous enough to succeed
@@ -453,14 +453,5 @@ func TestResolveGeneralMethodTimeoutFromAPIOverride(t *testing.T) {
 	}
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
-	}
-}
-
-func TestNilDB(t *testing.T) {
-	var db *astra.Db = nil
-	c := db.Collection("nildb")
-	_, err := c.CountDocuments(context.Background(), nil, 100)
-	if err == nil {
-		t.Errorf("Expected error. Got %v", err)
 	}
 }

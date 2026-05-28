@@ -32,24 +32,22 @@ import (
 
 // command represents a command to be executed against the astra DB.
 type command struct {
-	db              *Db
-	name            string
-	payload         any
-	keyspace        string
-	apiVersion      string
-	resourceName    string
-	databaseAdmin   bool                // When true, URL skips keyspace and resource segments
-	resourceOptions *options.APIOptions // Options from the collection/table level
-	commandOptions  *options.APIOptions // Options for this specific command
-	target          serdes.Target
+	db            *Db
+	name          string
+	payload       any
+	resourceName  string
+	databaseAdmin bool                               // When true, URL skips keyspace and resource segments
+	options       options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource -> Command
+	target        serdes.Target
 }
 
-// newCmd creates a new command from the given DB
+// newCmd creates a new command from the given DB.
 func newCmd(d *Db, name string, payload any) command {
 	return command{
 		db:      d,
 		name:    name,
 		payload: payload,
+		options: d.options,
 	}
 }
 
@@ -61,69 +59,61 @@ func newDatabaseAdminCmd(db *Db, name string, payload any) command {
 		name:          name,
 		payload:       payload,
 		databaseAdmin: true,
+		options:       db.options,
 	}
 }
 
-// newCmdWithOptions creates a new command with resource and command-level options
-func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts ...options.APIOption) command {
-	var cmdOptions *options.APIOptions
-	if len(cmdOpts) > 0 {
-		cmdOptions = options.NewAPIOptions(cmdOpts...)
-	}
-
-	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, target, cmdOptions)
-}
-
-// newCmdWithMergedOptions creates a new command with resource and merged command-level options
-func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts *options.APIOptions) command {
+// newDatabaseAdminCmdWithMergedOptions creates a new command for database-level admin operations with merged options.
+func newDatabaseAdminCmdWithMergedOptions(db *Db, name string, payload any, cmdOpts *options.APIOptions) command {
 	return command{
-		db:              d,
-		name:            name,
-		resourceName:    resource,
-		payload:         payload,
-		resourceOptions: resourceOpts,
-		commandOptions:  cmdOpts,
-		target:          target,
+		db:            db,
+		name:          name,
+		payload:       payload,
+		databaseAdmin: true,
+		options:       options.Join(db.options, cmdOpts),
+	}
+}
+
+// newCmdWithOptions creates a new command with resource and command-level options.
+func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts options.Joined[options.APIOptions], target serdes.Target, cmdOpts ...options.APIOption) command {
+	return command{
+		db:           d,
+		name:         name,
+		resourceName: resource,
+		payload:      payload,
+		options:      options.Join(resourceOpts, cmdOpts...),
+		target:       target,
+	}
+}
+
+// newCmdWithMergedOptions creates a new command with resource and merged command-level options.
+func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts options.Joined[options.APIOptions], target serdes.Target, cmdOpts *options.APIOptions) command {
+	return command{
+		db:           d,
+		name:         name,
+		resourceName: resource,
+		payload:      payload,
+		options:      options.Join(resourceOpts, cmdOpts),
+		target:       target,
 	}
 }
 
 // resolveOptions merges all option layers and returns the final resolved options.
-// Merge order: Defaults -> Client -> Database -> Resource (Collection/Table) -> Command
+// Merge order: Cumulative Resource Options (Client -> DB -> Resource) -> Command Options.
+// Defaults (like API version "v1" and "default_keyspace") are applied by options.Merge.
 func (c *command) resolveOptions() *options.APIOptions {
-	var clientOpts, dbOpts *options.APIOptions
-
-	if c.db != nil {
-		dbOpts = c.db.options
-		if c.db.client != nil {
-			clientOpts = c.db.client.options
-		}
-	}
-
-	return options.MergeAPILayers(
-		clientOpts,        // Client level
-		dbOpts,            // Database level
-		c.resourceOptions, // Collection/Table level
-		c.commandOptions,  // Command level
-	)
+	return options.Merge(c.options...)
 }
 
-// Keyspace returns the keyspace to use for this command.
-// If explicitly set on the command, that value is used.
-// Otherwise, it falls back to the resolved options.
+// Keyspace returns the keyspace to use for this command by resolving it from the
+// options hierarchy (Client -> Database -> Collection -> Command).
 func (c *command) Keyspace() string {
-	if len(c.keyspace) > 0 {
-		return c.keyspace
-	}
 	return c.resolveOptions().GetKeyspace()
 }
 
-// ApiVersion returns the API version to use for this command.
-// If explicitly set on the command, that value is used.
-// Otherwise, it falls back to the resolved options.
+// ApiVersion returns the Data API version to use for this command by resolving it
+// from the options hierarchy.
 func (c *command) ApiVersion() string {
-	if len(c.apiVersion) > 0 {
-		return c.apiVersion
-	}
 	return c.resolveOptions().GetAPIVersion()
 }
 

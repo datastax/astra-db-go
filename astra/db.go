@@ -36,33 +36,29 @@ type Db struct {
 	region   *string
 	env      options.AstraEnvironment
 	client   *DataAPIClient
-	options  *options.APIOptions
+	options  options.Joined[options.APIOptions]
 }
 
 // Constructors
 
-func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, apiOptions *options.APIOptions) *Db {
-	return &Db{env.AstraDBEndpoint(id, region), ptr.To(id), ptr.To(region), env, client, apiOptions}
+func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, opts options.Joined[options.APIOptions]) *Db {
+	return &Db{env.AstraDBEndpoint(id, region), ptr.To(id), ptr.To(region), env, client, opts}
 }
 
-func newDbFromEndpoint(endpoint string, client *DataAPIClient, apiOptions *options.APIOptions) *Db {
+func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Joined[options.APIOptions]) *Db {
 	id, region, env := options.ParseAstraEndpoint(endpoint)
 	if id != "" {
-		return &Db{endpoint, ptr.To(id), ptr.To(region), env, client, apiOptions}
+		return &Db{endpoint, ptr.To(id), ptr.To(region), env, client, opts}
 	}
-	return &Db{endpoint, nil, nil, env, client, apiOptions}
+	return &Db{endpoint, nil, nil, env, client, opts}
 }
 
-// region Misc
-
-func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return newCmdWithOptions(d, "", name, payload, d.options, serdes.TargetNone, opts...)
-}
+// region Meta
 
 // newCmdWithMergedOptions creates a database-level command with a pre-merged
 // *APIOptions for the command-level overrides.
-func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdOpts)
+func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
+	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdAPIOpt)
 }
 
 // Endpoint returns the database API endpoint.
@@ -112,12 +108,9 @@ func (d *Db) Region() (string, error) {
 	return *d.region, nil
 }
 
-// Options returns the database's options (or empty options if nil).
-func (d *Db) Options() *options.APIOptions {
-	if d.options == nil {
-		return &options.APIOptions{}
-	}
-	return d.options
+// ClientOptions returns the database's options as a resolved struct with defaults.
+func (d *Db) ClientOptions() *options.APIOptions {
+	return options.Merge(d.options...)
 }
 
 // Client returns the parent DataAPIClient.
@@ -136,10 +129,10 @@ func (d *Db) Client() *DataAPIClient {
 // Example:
 //
 //	coll := db.Collection("my_collection",
-//	    options.WithTimeout(60 * time.Second),
+//	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
 func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
-	return &Collection{d, name, options.NewAPIOptions(opts...)}
+	return &Collection{d, name, options.Join(d.options, opts...)}
 }
 
 // Table returns a Table object for the specified table name.
@@ -150,10 +143,10 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 // Example:
 //
 //	tbl := db.Table("my_table",
-//	    options.WithTimeout(60 * time.Second),
+//	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
 func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{d, name, options.NewAPIOptions(opts...)}
+	return &Table{d, name, options.Join(d.options, opts...)}
 }
 
 // endregion
@@ -181,7 +174,7 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 //			Type: options.DefaultIdTypeUUIDv7,
 //		},
 //	}
-//	coll, err := db.CreateCollection(ctx, "my_collection", options.WithCreateCollectionOptions(opts))
+//	coll, err := db.CreateCollection(ctx, "my_collection", opts)
 //
 // Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.CreateCollectionOption) (*Collection, error) {
@@ -190,10 +183,10 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		return nil, err
 	}
 
-	cmd := d.newCmd("createCollection", map[string]any{
+	cmd := d.newCmdWithMergedOptions("createCollection", map[string]any{
 		"name":    name,
 		"options": merged,
-	})
+	}, merged.APIOptions)
 
 	_, _, _, err = cmd.Execute(ctx)
 	if err != nil {
@@ -201,8 +194,9 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 	}
 
 	return &Collection{
-		db:   d,
-		name: name,
+		db:      d,
+		name:    name,
+		options: options.Join(d.options, merged.APIOptions),
 	}, nil
 }
 
@@ -232,15 +226,11 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 		return nil, err
 	}
 
-	cmd := d.newCmd("createTable", map[string]any{
+	cmd := d.newCmdWithMergedOptions("createTable", map[string]any{
 		"name":       name,
 		"definition": definition,
 		"options":    merged,
-	})
-
-	if merged.Keyspace != nil {
-		cmd.keyspace = *merged.Keyspace
-	}
+	}, merged.APIOptions)
 
 	_, _, _, err = cmd.Execute(ctx)
 	if err != nil {
@@ -248,22 +238,27 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	}
 
 	return &Table{
-		db:   d,
-		name: name,
+		db:      d,
+		name:    name,
+		options: options.Join(d.options, merged.APIOptions),
 	}, nil
 }
 
 // endregion
 
-// region Table/Collection Deletion
+// region Table/Collection/Index Deletion
 
 // DropCollection drops a collection from the database.
 // Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropCollection(ctx context.Context, name string) error {
-	cmd := d.newCmd("deleteCollection", map[string]any{
+func (d *Db) DropCollection(ctx context.Context, name string, opts ...options.DropCollectionOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+	cmd := d.newCmdWithMergedOptions("deleteCollection", map[string]any{
 		"name": name,
-	})
-	_, _, _, err := cmd.Execute(ctx)
+	}, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -274,11 +269,34 @@ func (d *Db) DropCollection(ctx context.Context, name string) error {
 //	err := db.DropTable(ctx, "my_table")
 //
 // Note: warnings are accessible via the WarningHandler option callback only.
-func (d *Db) DropTable(ctx context.Context, name string) error {
-	cmd := d.newCmd("dropTable", map[string]any{
+func (d *Db) DropTable(ctx context.Context, name string, opts ...options.DropTableOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+	cmd := d.newCmdWithMergedOptions("dropTable", map[string]any{
 		"name": name,
-	})
-	_, _, _, err := cmd.Execute(ctx)
+	}, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
+	return err
+}
+
+// DropTableIndex drops (deletes) an index from the database.
+//
+// Example usage:
+//
+//	err := db.DropTableIndex(ctx, "rating_idx")
+//
+// Note: warnings are accessible via the WarningHandler option callback only.
+func (d *Db) DropTableIndex(ctx context.Context, name string, opts ...options.DropTableIndexOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+	cmd := d.newCmdWithMergedOptions("dropIndex", map[string]any{
+		"name": name,
+	}, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
@@ -442,7 +460,7 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 		if _, err := d.ID(); err != nil {
 			return nil, err
 		}
-		admin, err := d.client.Admin(options.WithAstraEnvironment(d.env))
+		admin, err := d.client.Admin(options.API().SetAstraEnvironment(d.env))
 		if err != nil {
 			return nil, err
 		}

@@ -23,7 +23,7 @@ import (
 )
 
 func TestDefaultAPIOptions(t *testing.T) {
-	opts := options.DefaultAPIOptions()
+	opts := options.Merge[options.APIOptions]()
 
 	if opts.GetAPIVersion() != "v1" {
 		t.Errorf("expected default API version 'v1', got %q", opts.GetAPIVersion())
@@ -43,9 +43,10 @@ func TestNewAPIOptions(t *testing.T) {
 	token := "test-token"
 	keyspace := "my_keyspace"
 
-	opts := options.NewAPIOptions(
-		options.WithToken(token),
-		options.WithKeyspace(keyspace),
+	// Merge is for resolution.
+	opts := options.Merge(
+		options.API().SetToken(token),
+		options.API().SetKeyspace(keyspace),
 	)
 
 	if opts.GetToken() != token {
@@ -58,9 +59,10 @@ func TestNewAPIOptions(t *testing.T) {
 
 func TestMerge_SingleLayer(t *testing.T) {
 	token := "layer-token"
-	layer := options.NewAPIOptions(options.WithToken(token))
+	// Use builder for layer
+	layer := options.API().SetToken(token)
 
-	result := options.MergeAPILayers(layer)
+	result := options.Merge(layer)
 
 	if result.GetToken() != token {
 		t.Errorf("expected token %q, got %q", token, result.GetToken())
@@ -76,11 +78,12 @@ func TestMerge_MultipleLayers(t *testing.T) {
 	dbKeyspace := "db_keyspace"
 	collectionTimeout := 60 * time.Second
 
-	clientOpts := options.NewAPIOptions(options.WithToken(clientToken))
-	dbOpts := options.NewAPIOptions(options.WithKeyspace(dbKeyspace))
-	collOpts := options.NewAPIOptions(options.WithRequestTimeout(collectionTimeout))
+	// Use builders for layers to avoid clobbering with intermediate defaults
+	clientOpts := options.API().SetToken(clientToken)
+	dbOpts := options.API().SetKeyspace(dbKeyspace)
+	collOpts := options.API().SetRequestTimeout(collectionTimeout)
 
-	result := options.MergeAPILayers(clientOpts, dbOpts, collOpts)
+	result := options.Merge(clientOpts, dbOpts, collOpts)
 
 	// Token from client layer
 	if result.GetToken() != clientToken {
@@ -100,10 +103,10 @@ func TestMerge_LaterLayerOverrides(t *testing.T) {
 	clientKeyspace := "client_ks"
 	dbKeyspace := "db_ks"
 
-	clientOpts := options.NewAPIOptions(options.WithKeyspace(clientKeyspace))
-	dbOpts := options.NewAPIOptions(options.WithKeyspace(dbKeyspace))
+	clientOpts := options.API().SetKeyspace(clientKeyspace)
+	dbOpts := options.API().SetKeyspace(dbKeyspace)
 
-	result := options.MergeAPILayers(clientOpts, dbOpts)
+	result := options.Merge(clientOpts, dbOpts)
 
 	// DB keyspace should override client keyspace
 	if result.GetKeyspace() != dbKeyspace {
@@ -113,10 +116,10 @@ func TestMerge_LaterLayerOverrides(t *testing.T) {
 
 func TestMerge_NilLayers(t *testing.T) {
 	token := "my-token"
-	opts := options.NewAPIOptions(options.WithToken(token))
+	opts := options.API().SetToken(token)
 
 	// Should handle nil layers gracefully
-	result := options.MergeAPILayers(nil, opts, nil)
+	result := options.Merge(nil, opts, nil)
 
 	if result.GetToken() != token {
 		t.Errorf("expected token %q, got %q", token, result.GetToken())
@@ -124,16 +127,14 @@ func TestMerge_NilLayers(t *testing.T) {
 }
 
 func TestMerge_Headers(t *testing.T) {
-	clientOpts := options.NewAPIOptions(
-		options.WithHeader("X-Client-Header", "client-value"),
-		options.WithHeader("X-Shared-Header", "client-shared"),
-	)
-	dbOpts := options.NewAPIOptions(
-		options.WithHeader("X-DB-Header", "db-value"),
-		options.WithHeader("X-Shared-Header", "db-shared"), // Override
-	)
+	clientOpts := options.API().
+		SetHeader("X-Client-Header", "client-value").
+		SetHeader("X-Shared-Header", "client-shared")
+	dbOpts := options.API().
+		SetHeader("X-DB-Header", "db-value").
+		SetHeader("X-Shared-Header", "db-shared") // Override
 
-	result := options.MergeAPILayers(clientOpts, dbOpts)
+	result := options.Merge(clientOpts, dbOpts)
 
 	// Client header preserved
 	if result.Headers["X-Client-Header"] != "client-value" {
@@ -152,7 +153,7 @@ func TestMerge_Headers(t *testing.T) {
 func TestWithHTTPClient(t *testing.T) {
 	customClient := &http.Client{Timeout: 120 * time.Second}
 
-	opts := options.NewAPIOptions(options.WithHTTPClient(customClient))
+	opts := options.Merge(options.API().SetHTTPClient(customClient))
 
 	if opts.HTTPClient != customClient {
 		t.Error("expected custom HTTP client to be set")
@@ -162,7 +163,7 @@ func TestWithHTTPClient(t *testing.T) {
 func TestWithTimeout(t *testing.T) {
 	timeout := 45 * time.Second
 
-	opts := options.NewAPIOptions(options.WithTimeout(timeout))
+	opts := options.Merge(options.API().SetRequestTimeout(timeout))
 
 	if opts.Timeout == nil || opts.Timeout.Request == nil {
 		t.Fatal("expected timeout to be set")
@@ -175,7 +176,7 @@ func TestWithTimeout(t *testing.T) {
 func TestWithAPIVersion(t *testing.T) {
 	version := "vdoesntexist"
 
-	opts := options.NewAPIOptions(options.WithAPIVersion(version))
+	opts := options.Merge(options.API().SetAPIVersion(version))
 
 	if opts.APIVersion == nil || *opts.APIVersion != version {
 		t.Errorf("expected API version %q, got %v", version, opts.APIVersion)
@@ -185,46 +186,42 @@ func TestWithAPIVersion(t *testing.T) {
 func TestGetters_NilSafety(t *testing.T) {
 	var nilOpts *options.APIOptions
 
-	// All getters should be safe to call on nil
+	// All getters should be safe to call on nil and return zero-values
 	if nilOpts.GetToken() != "" {
 		t.Error("expected empty token for nil options")
 	}
-	if nilOpts.GetKeyspace() != "default_keyspace" {
-		t.Error("expected default keyspace for nil options")
+	if nilOpts.GetKeyspace() != "" {
+		t.Error("expected empty keyspace for nil options")
 	}
-	if nilOpts.GetAPIVersion() != "v1" {
-		t.Error("expected default API version for nil options")
+	if nilOpts.GetAPIVersion() != "" {
+		t.Error("expected empty API version for nil options")
 	}
-	if nilOpts.GetHTTPClient() == nil {
-		t.Error("expected default HTTP client for nil options")
+	if nilOpts.GetHTTPClient() != nil {
+		t.Error("expected nil HTTP client for nil options")
 	}
-	if nilOpts.GetRequestTimeout() != 30*time.Second {
-		t.Error("expected default timeout for nil options")
+	if nilOpts.GetRequestTimeout() != 0 {
+		t.Error("expected zero timeout for nil options")
 	}
 }
 
 func TestMerge_FullHierarchy(t *testing.T) {
 	// Simulate full hierarchy: Client -> Database -> Collection -> Command
-	clientOpts := options.NewAPIOptions(
-		options.WithToken("client-token"),
-		options.WithKeyspace("client_keyspace"),
-		options.WithHeader("X-Client", "true"),
-	)
+	clientOpts := options.API().
+		SetToken("client-token").
+		SetKeyspace("client_keyspace").
+		SetHeader("X-Client", "true")
 
-	dbOpts := options.NewAPIOptions(
-		options.WithKeyspace("db_keyspace"), // Override
-	)
+	dbOpts := options.API().
+		SetKeyspace("db_keyspace") // Override
 
-	collOpts := options.NewAPIOptions(
-		options.WithTimeout(60*time.Second),
-		options.WithHeader("X-Collection", "true"),
-	)
+	collOpts := options.API().
+		SetRequestTimeout(60*time.Second).
+		SetHeader("X-Collection", "true")
 
-	cmdOpts := options.NewAPIOptions(
-		options.WithTimeout(5 * time.Second), // Override for specific command
-	)
+	cmdOpts := options.API().
+		SetRequestTimeout(5 * time.Second) // Override for specific command
 
-	result := options.MergeAPILayers(clientOpts, dbOpts, collOpts, cmdOpts)
+	result := options.Merge(clientOpts, dbOpts, collOpts, cmdOpts)
 
 	// Token from client (unchanged)
 	if result.GetToken() != "client-token" {
@@ -255,10 +252,10 @@ func TestTimeoutOptions(t *testing.T) {
 	reqTimeout := 30 * time.Second
 	bulkTimeout := 120 * time.Second
 
-	opts := options.NewAPIOptions(
-		options.WithConnectionTimeout(connTimeout),
-		options.WithRequestTimeout(reqTimeout),
-		options.WithBulkOperationTimeout(bulkTimeout),
+	opts := options.Merge(
+		options.API().SetConnectionTimeout(connTimeout),
+		options.API().SetRequestTimeout(reqTimeout),
+		options.API().SetBulkOperationTimeout(bulkTimeout),
 	)
 
 	if opts.Timeout == nil {
@@ -278,8 +275,8 @@ func TestTimeoutOptions(t *testing.T) {
 func TestGeneralMethodTimeout(t *testing.T) {
 	generalTimeout := 5 * time.Minute
 
-	opts := options.NewAPIOptions(
-		options.WithGeneralMethodTimeout(generalTimeout),
+	opts := options.Merge(
+		options.API().SetGeneralMethodTimeout(generalTimeout),
 	)
 
 	if opts.Timeout == nil {
@@ -297,14 +294,10 @@ func TestGeneralMethodTimeoutMerge(t *testing.T) {
 	clientTimeout := 5 * time.Minute
 	collTimeout := 2 * time.Minute
 
-	clientOpts := options.NewAPIOptions(
-		options.WithGeneralMethodTimeout(clientTimeout),
-	)
-	collOpts := options.NewAPIOptions(
-		options.WithGeneralMethodTimeout(collTimeout),
-	)
+	clientOpts := options.API().SetGeneralMethodTimeout(clientTimeout)
+	collOpts := options.API().SetGeneralMethodTimeout(collTimeout)
 
-	result := options.MergeAPILayers(clientOpts, collOpts)
+	result := options.Merge(clientOpts, collOpts)
 
 	if result.Timeout == nil || result.Timeout.GeneralMethod == nil {
 		t.Fatal("expected GeneralMethod timeout after merge")
@@ -316,8 +309,8 @@ func TestGeneralMethodTimeoutMerge(t *testing.T) {
 
 func TestGeneralMethodTimeoutMergePreservesNil(t *testing.T) {
 	// When no layer sets GeneralMethod, it should remain nil
-	clientOpts := options.NewAPIOptions(options.WithToken("t"))
-	result := options.MergeAPILayers(clientOpts)
+	clientOpts := options.API().SetToken("t")
+	result := options.Merge(clientOpts)
 
 	if result.GetGeneralMethodTimeout() != nil {
 		t.Errorf("expected nil GeneralMethod timeout, got %v", result.GetGeneralMethodTimeout())
@@ -337,7 +330,7 @@ func TestWithHeaders(t *testing.T) {
 		"X-Header-2": "value2",
 	}
 
-	opts := options.NewAPIOptions(options.WithHeaders(headers))
+	opts := options.Merge(options.API().SetHeaders(headers))
 
 	if len(opts.Headers) != 2 {
 		t.Errorf("expected 2 headers, got %d", len(opts.Headers))
