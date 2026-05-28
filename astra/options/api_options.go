@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 )
 
@@ -42,7 +43,7 @@ type APIOptions struct {
 	Headers map[string]string
 
 	// Timeout contains timeout configuration
-	Timeout *TimeoutOptions
+	Timeout *TimeoutOptions `optlift:"Request:RequestTimeout,Connection:ConnectionTimeout,BulkOperation:BulkOperationTimeout,GeneralMethod:GeneralMethodTimeout"`
 
 	// Serdes contains serialization/deserialization options
 	Serdes *SerdesOptions
@@ -60,6 +61,17 @@ type APIOptions struct {
 	DataAPIBackend *DataAPIBackend
 }
 
+func (o *APIOptions) SetDefaults() {
+	o.APIVersion = ptr.To("v1")
+	o.Keyspace = ptr.To("default_keyspace")
+	o.HTTPClient = &http.Client{}
+	o.Headers = make(map[string]string)
+	o.Timeout = &TimeoutOptions{}
+	o.Timeout.SetDefaults()
+	o.AstraEnvironment = ptr.To(AstraEnvironmentProd)
+	o.DataAPIBackend = ptr.To(DataAPIBackendAstra)
+}
+
 // TimeoutOptions contains timeout configuration for API operations.
 type TimeoutOptions struct {
 	// Request is the timeout for individual HTTP requests
@@ -72,6 +84,11 @@ type TimeoutOptions struct {
 	// When set, the entire multi-page operation must complete within this duration.
 	GeneralMethod *time.Duration
 }
+
+func (o *TimeoutOptions) SetDefaults() {
+	o.Request = ptr.To(30 * time.Second)
+}
+
 
 // SerdesOptions contains options for serialization and deserialization behavior.
 // This is a placeholder for future extensibility.
@@ -86,247 +103,27 @@ type SerdesOptions struct {
 // warnings indicate non-fatal conditions such as missing indexes or deprecated features.
 type WarningHandler func(w results.Warning)
 
-// APIOption is a function that modifies APIOptions.
-// Use the With* functions to create APIOption values.
-type APIOption func(*APIOptions)
+// APIOption is a Builder that modifies APIOptions.
+type APIOption = Builder[APIOptions]
 
-// DefaultAPIOptions returns the default options used as the base for merging.
-func DefaultAPIOptions() *APIOptions {
-	apiVersion := "v1"
-	keyspace := "default_keyspace"
-	httpClient := &http.Client{}
-	requestTimeout := 30 * time.Second
-
-	return &APIOptions{
-		APIVersion: &apiVersion,
-		Keyspace:   &keyspace,
-		HTTPClient: httpClient,
-		Headers:    make(map[string]string),
-		Timeout: &TimeoutOptions{
-			Request: &requestTimeout,
-		},
-	}
-}
-
-// NewAPIOptions creates an APIOptions with the given options applied.
-func NewAPIOptions(opts ...APIOption) *APIOptions {
-	o := &APIOptions{
-		Headers: make(map[string]string),
-	}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
-// MergeAPILayers combines multiple APIOptions layers, with later options overriding earlier ones.
-// The merge order should be: Defaults -> Client -> Database -> Collection/Table -> Command
-// Returns a new APIOptions with all non-nil values from the layers applied.
-func MergeAPILayers(layers ...*APIOptions) *APIOptions {
-	result := DefaultAPIOptions()
-
-	for _, layer := range layers {
-		if layer == nil {
-			continue
-		}
-
-		if layer.Token != nil {
-			result.Token = layer.Token
-		}
-		if layer.Keyspace != nil {
-			result.Keyspace = layer.Keyspace
-		}
-		if layer.APIVersion != nil {
-			result.APIVersion = layer.APIVersion
-		}
-		if layer.HTTPClient != nil {
-			result.HTTPClient = layer.HTTPClient
-		}
-
-		// Merge headers (layer headers override/add to existing)
-		if layer.Headers != nil {
-			if result.Headers == nil {
-				result.Headers = make(map[string]string)
-			}
-			for k, v := range layer.Headers {
-				result.Headers[k] = v
-			}
-		}
-
-		// Merge timeout options
-		if layer.Timeout != nil {
-			if result.Timeout == nil {
-				result.Timeout = &TimeoutOptions{}
-			}
-			if layer.Timeout.Request != nil {
-				result.Timeout.Request = layer.Timeout.Request
-			}
-			if layer.Timeout.Connection != nil {
-				result.Timeout.Connection = layer.Timeout.Connection
-			}
-			if layer.Timeout.BulkOperation != nil {
-				result.Timeout.BulkOperation = layer.Timeout.BulkOperation
-			}
-			if layer.Timeout.GeneralMethod != nil {
-				result.Timeout.GeneralMethod = layer.Timeout.GeneralMethod
-			}
-		}
-
-		// Merge serdes options
-		if layer.Serdes != nil {
-			result.Serdes = layer.Serdes
-		}
-
-		// Merge warning handler (later layers override)
-		if layer.WarningHandler != nil {
-			result.WarningHandler = layer.WarningHandler
-		}
-
-		// Merge environment
-		if layer.AstraEnvironment != nil {
-			result.AstraEnvironment = layer.AstraEnvironment
-		}
-		if layer.DataAPIBackend != nil {
-			result.DataAPIBackend = layer.DataAPIBackend
-		}
-	}
-
-	return result
-}
-
-// WithToken sets the authentication token.
-func WithToken(token string) APIOption {
-	return func(o *APIOptions) {
-		o.Token = &token
-	}
-}
-
-// WithKeyspace sets the keyspace.
-func WithKeyspace(keyspace string) APIOption {
-	return func(o *APIOptions) {
-		o.Keyspace = &keyspace
-	}
-}
-
-// WithAPIVersion sets the API version.
-func WithAPIVersion(version string) APIOption {
-	return func(o *APIOptions) {
-		o.APIVersion = &version
-	}
-}
-
-// WithHTTPClient sets the HTTP client.
-func WithHTTPClient(client *http.Client) APIOption {
-	return func(o *APIOptions) {
-		o.HTTPClient = client
-	}
-}
-
-// WithHeader adds a single header.
-func WithHeader(key, value string) APIOption {
-	return func(o *APIOptions) {
+func (b *apiOptionsBuilder) SetHeader(key, value string) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
 		if o.Headers == nil {
 			o.Headers = make(map[string]string)
 		}
 		o.Headers[key] = value
-	}
+	})
+	return b
 }
 
-// WithHeaders sets multiple headers at once.
-func WithHeaders(headers map[string]string) APIOption {
-	return func(o *APIOptions) {
-		if o.Headers == nil {
-			o.Headers = make(map[string]string)
-		}
-		for k, v := range headers {
-			o.Headers[k] = v
-		}
-	}
-}
-
-// WithRequestTimeout sets the per-request timeout.
-func WithRequestTimeout(d time.Duration) APIOption {
-	return func(o *APIOptions) {
-		if o.Timeout == nil {
-			o.Timeout = &TimeoutOptions{}
-		}
-		o.Timeout.Request = &d
-	}
-}
-
-// WithConnectionTimeout sets the connection timeout.
-func WithConnectionTimeout(d time.Duration) APIOption {
-	return func(o *APIOptions) {
-		if o.Timeout == nil {
-			o.Timeout = &TimeoutOptions{}
-		}
-		o.Timeout.Connection = &d
-	}
-}
-
-// WithBulkOperationTimeout sets the bulk operation timeout (for insertMany, etc.).
-func WithBulkOperationTimeout(d time.Duration) APIOption {
-	return func(o *APIOptions) {
-		if o.Timeout == nil {
-			o.Timeout = &TimeoutOptions{}
-		}
-		o.Timeout.BulkOperation = &d
-	}
-}
-
-// WithTimeout is a convenience function that sets the request timeout.
-// This is the most commonly used timeout setting.
-func WithTimeout(d time.Duration) APIOption {
-	return WithRequestTimeout(d)
-}
-
-// WithGeneralMethodTimeout sets the overall timeout for paginated operations
-// like deleteMany and updateMany. When set, the entire multi-page operation
-// must complete within this duration.
-func WithGeneralMethodTimeout(d time.Duration) APIOption {
-	return func(o *APIOptions) {
-		if o.Timeout == nil {
-			o.Timeout = &TimeoutOptions{}
-		}
-		o.Timeout.GeneralMethod = &d
-	}
-}
-
-// WithAstraEnvironment sets the Astra environment (prod, dev, test).
-func WithAstraEnvironment(env AstraEnvironment) APIOption {
-	return func(o *APIOptions) {
-		o.AstraEnvironment = &env
-	}
-}
-
-// WithDataAPIBackend sets the database backend (astra, hcd, dse, cassandra, other).
-func WithDataAPIBackend(backend DataAPIBackend) APIOption {
-	return func(o *APIOptions) {
-		o.DataAPIBackend = &backend
-	}
-}
-
-// WithWarningHandler sets a callback to be invoked for each API warning.
-// The handler is called synchronously before the method returns.
-//
-// Example usage:
-//
-//	client := astra.NewClient(
-//		options.WithToken("..."),
-//		options.WithWarningHandler(func(w results.Warning) {
-//			slog.Warn("API warning", "code", w.ErrorCode, "message", w.Message)
-//		}),
-//	)
-//
-// warnings can indicate missing indexes, deprecated features, or other
-// non-fatal conditions that don't prevent the operation from completing.
-func WithWarningHandler(handler WarningHandler) APIOption {
-	return func(o *APIOptions) {
+func (b *apiOptionsBuilder) SetWarningHandler(handler WarningHandler) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
 		o.WarningHandler = handler
-	}
+	})
+	return b
 }
 
-// Helper functions for getting values with defaults
+// Helper functions for getting values safely.
 
 // GetToken returns the token or empty string if not set.
 func (o *APIOptions) GetToken() string {
@@ -336,50 +133,50 @@ func (o *APIOptions) GetToken() string {
 	return *o.Token
 }
 
-// GetKeyspace returns the keyspace or "default_keyspace" if not set.
+// GetKeyspace returns the keyspace or empty string if not set.
 func (o *APIOptions) GetKeyspace() string {
 	if o == nil || o.Keyspace == nil {
-		return "default_keyspace"
+		return ""
 	}
 	return *o.Keyspace
 }
 
-// GetAPIVersion returns the API version or "v1" if not set.
+// GetAPIVersion returns the API version or empty string if not set.
 func (o *APIOptions) GetAPIVersion() string {
 	if o == nil || o.APIVersion == nil {
-		return "v1"
+		return ""
 	}
 	return *o.APIVersion
 }
 
-// GetHTTPClient returns the HTTP client or a default client if not set.
+// GetHTTPClient returns the HTTP client or nil if not set.
 func (o *APIOptions) GetHTTPClient() *http.Client {
-	if o == nil || o.HTTPClient == nil {
-		return &http.Client{}
+	if o == nil {
+		return nil
 	}
 	return o.HTTPClient
 }
 
-// GetAstraEnvironment returns the Astra environment or AstraEnvironmentProd if not set.
+// GetAstraEnvironment returns the Astra environment or zero-value if not set.
 func (o *APIOptions) GetAstraEnvironment() AstraEnvironment {
 	if o == nil || o.AstraEnvironment == nil {
-		return AstraEnvironmentProd
+		return ""
 	}
 	return *o.AstraEnvironment
 }
 
-// GetDataAPIBackend returns the database backend or DataAPIBackendAstra if not set.
+// GetDataAPIBackend returns the database backend or zero-value if not set.
 func (o *APIOptions) GetDataAPIBackend() DataAPIBackend {
 	if o == nil || o.DataAPIBackend == nil {
-		return DataAPIBackendAstra
+		return ""
 	}
 	return *o.DataAPIBackend
 }
 
-// GetRequestTimeout returns the request timeout or 30s if not set.
+// GetRequestTimeout returns the request timeout or 0 if not set.
 func (o *APIOptions) GetRequestTimeout() time.Duration {
 	if o == nil || o.Timeout == nil || o.Timeout.Request == nil {
-		return 30 * time.Second
+		return 0
 	}
 	return *o.Timeout.Request
 }

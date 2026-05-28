@@ -50,28 +50,36 @@ func (b *apiOptionsBuilder) Setters() []func(*APIOptions) {
 // SetToken sets the Token option.
 // Token is the authentication token for Astra DB
 func (b *apiOptionsBuilder) SetToken(v string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.Token = &v })
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.Token = &v
+	})
 	return b
 }
 
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the keyspace to use for operations
 func (b *apiOptionsBuilder) SetKeyspace(v string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.Keyspace = &v })
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.Keyspace = &v
+	})
 	return b
 }
 
 // SetAPIVersion sets the APIVersion option.
 // APIVersion is the Data API version (e.g., "v1")
 func (b *apiOptionsBuilder) SetAPIVersion(v string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.APIVersion = &v })
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.APIVersion = &v
+	})
 	return b
 }
 
 // SetHTTPClient sets the HTTPClient option.
 // HTTPClient is the HTTP client to use for requests
-func (b *apiOptionsBuilder) SetHTTPClient(v http.Client) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.HTTPClient = &v })
+func (b *apiOptionsBuilder) SetHTTPClient(v *http.Client) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.HTTPClient = v
+	})
 	return b
 }
 
@@ -79,7 +87,58 @@ func (b *apiOptionsBuilder) SetHTTPClient(v http.Client) *apiOptionsBuilder {
 // Headers contains custom headers to include in requests
 // (e.g., for embedding API keys like "x-embedding-api-key")
 func (b *apiOptionsBuilder) SetHeaders(v map[string]string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.Headers = v })
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.Headers = v
+	})
+	return b
+}
+
+// SetRequestTimeout sets the Request option.
+// Request is the timeout for individual HTTP requests (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetRequestTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.Request = &v
+	})
+	return b
+}
+
+// SetConnectionTimeout sets the Connection option.
+// Connection is the timeout for establishing connections (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetConnectionTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.Connection = &v
+	})
+	return b
+}
+
+// SetBulkOperationTimeout sets the BulkOperation option.
+// BulkOperation is the timeout for bulk operations like insertMany (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetBulkOperationTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.BulkOperation = &v
+	})
+	return b
+}
+
+// SetGeneralMethodTimeout sets the GeneralMethod option.
+// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
+// When set, the entire multi-page operation must complete within this duration. (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetGeneralMethodTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.GeneralMethod = &v
+	})
 	return b
 }
 
@@ -87,7 +146,7 @@ func (b *apiOptionsBuilder) SetHeaders(v map[string]string) *apiOptionsBuilder {
 // Timeout contains timeout configuration
 func (b *apiOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Timeout = Merge(v...)
+		MergeInto(&o.Timeout, v...)
 	})
 	return b
 }
@@ -96,7 +155,7 @@ func (b *apiOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *apiOptions
 // Serdes contains serialization/deserialization options
 func (b *apiOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Serdes = Merge(v...)
+		MergeInto(&o.Serdes, v...)
 	})
 	return b
 }
@@ -105,7 +164,9 @@ func (b *apiOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *apiOptionsBu
 // AstraEnvironment is the Astra environment (prod, dev, test).
 // Controls the DevOps API URL. Defaults to prod.
 func (b *apiOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.AstraEnvironment = &v })
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.AstraEnvironment = &v
+	})
 	return b
 }
 
@@ -113,7 +174,9 @@ func (b *apiOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *apiOptionsB
 // DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
 // Controls the Data API path. Defaults to astra.
 func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) { o.DataAPIBackend = &v })
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.DataAPIBackend = &v
+	})
 	return b
 }
 
@@ -158,7 +221,7 @@ func (b *alterTableOptionsBuilder) Setters() []func(*AlterTableOptions) {
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *alterTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *alterTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *AlterTableOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -204,7 +267,7 @@ func (b *collectionCountDocumentsOptionsBuilder) Setters() []func(*CollectionCou
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionCountDocumentsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionCountDocumentsOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionCountDocumentsOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -250,7 +313,9 @@ func (b *collectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultI
 // Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
 // If not specified, the default ID will be a string UUID.
 func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collectionDefaultIdOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionDefaultIdOptions) { o.Type = &v })
+	b.setters = append(b.setters, func(o *CollectionDefaultIdOptions) {
+		o.Type = &v
+	})
 	return b
 }
 
@@ -295,7 +360,9 @@ func (b *collectionDeleteManyOptionsBuilder) Setters() []func(*CollectionDeleteM
 // Timeout is the overall timeout for the entire paginated operation.
 // Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
 func (b *collectionDeleteManyOptionsBuilder) SetTimeout(v time.Duration) *collectionDeleteManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionDeleteManyOptions) { o.Timeout = &v })
+	b.setters = append(b.setters, func(o *CollectionDeleteManyOptions) {
+		o.Timeout = &v
+	})
 	return b
 }
 
@@ -304,7 +371,7 @@ func (b *collectionDeleteManyOptionsBuilder) SetTimeout(v time.Duration) *collec
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionDeleteManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionDeleteManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDeleteManyOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -349,7 +416,9 @@ func (b *collectionDeleteOneOptionsBuilder) Setters() []func(*CollectionDeleteOn
 // Sort specifies the sort order to apply before selecting the document to delete.
 // This determines which document is deleted when the filter matches multiple documents.
 func (b *collectionDeleteOneOptionsBuilder) SetSort(v sort.Sortable) *collectionDeleteOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
@@ -358,7 +427,7 @@ func (b *collectionDeleteOneOptionsBuilder) SetSort(v sort.Sortable) *collection
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionDeleteOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionDeleteOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -404,7 +473,7 @@ func (b *collectionEstimatedDocumentCountOptionsBuilder) Setters() []func(*Colle
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionEstimatedDocumentCountOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionEstimatedDocumentCountOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionEstimatedDocumentCountOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -448,14 +517,18 @@ func (b *collectionFindOneAndDeleteOptionsBuilder) Setters() []func(*CollectionF
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to delete.
 func (b *collectionFindOneAndDeleteOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneAndDeleteOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned document.
 func (b *collectionFindOneAndDeleteOptionsBuilder) SetProjection(v map[string]any) *collectionFindOneAndDeleteOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
@@ -464,7 +537,7 @@ func (b *collectionFindOneAndDeleteOptionsBuilder) SetProjection(v map[string]an
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionFindOneAndDeleteOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndDeleteOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -509,28 +582,36 @@ func (b *collectionFindOneAndReplaceOptionsBuilder) Setters() []func(*Collection
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to replace.
 func (b *collectionFindOneAndReplaceOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneAndReplaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned document.
 func (b *collectionFindOneAndReplaceOptionsBuilder) SetProjection(v map[string]any) *collectionFindOneAndReplaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
 // SetUpsert sets the Upsert option.
 // Upsert if true, inserts a new document if no document matches the filter.
 func (b *collectionFindOneAndReplaceOptionsBuilder) SetUpsert(v bool) *collectionFindOneAndReplaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) { o.Upsert = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) {
+		o.Upsert = &v
+	})
 	return b
 }
 
 // SetReturnDocument sets the ReturnDocument option.
 // ReturnDocument specifies whether to return the document before or after the replacement.
 func (b *collectionFindOneAndReplaceOptionsBuilder) SetReturnDocument(v ReturnDocument) *collectionFindOneAndReplaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) { o.ReturnDocument = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) {
+		o.ReturnDocument = &v
+	})
 	return b
 }
 
@@ -539,7 +620,7 @@ func (b *collectionFindOneAndReplaceOptionsBuilder) SetReturnDocument(v ReturnDo
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionFindOneAndReplaceOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndReplaceOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -584,28 +665,36 @@ func (b *collectionFindOneAndUpdateOptionsBuilder) Setters() []func(*CollectionF
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to update.
 func (b *collectionFindOneAndUpdateOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneAndUpdateOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned document.
 func (b *collectionFindOneAndUpdateOptionsBuilder) SetProjection(v map[string]any) *collectionFindOneAndUpdateOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
 // SetUpsert sets the Upsert option.
 // Upsert if true, inserts a new document if no document matches the filter.
 func (b *collectionFindOneAndUpdateOptionsBuilder) SetUpsert(v bool) *collectionFindOneAndUpdateOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) { o.Upsert = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) {
+		o.Upsert = &v
+	})
 	return b
 }
 
 // SetReturnDocument sets the ReturnDocument option.
 // ReturnDocument specifies whether to return the document before or after the update.
 func (b *collectionFindOneAndUpdateOptionsBuilder) SetReturnDocument(v ReturnDocument) *collectionFindOneAndUpdateOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) { o.ReturnDocument = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) {
+		o.ReturnDocument = &v
+	})
 	return b
 }
 
@@ -614,7 +703,7 @@ func (b *collectionFindOneAndUpdateOptionsBuilder) SetReturnDocument(v ReturnDoc
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionFindOneAndUpdateOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndUpdateOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -659,14 +748,18 @@ func (b *collectionFindOneOptionsBuilder) Setters() []func(*CollectionFindOneOpt
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to update.
 func (b *collectionFindOneOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned document.
 func (b *collectionFindOneOptionsBuilder) SetProjection(v map[string]any) *collectionFindOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
@@ -674,7 +767,9 @@ func (b *collectionFindOneOptionsBuilder) SetProjection(v map[string]any) *colle
 // IncludeSimilarity if true, include the similarity score in the result via the
 // $similarity field.
 func (b *collectionFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *collectionFindOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOneOptions) { o.IncludeSimilarity = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOneOptions) {
+		o.IncludeSimilarity = &v
+	})
 	return b
 }
 
@@ -683,7 +778,7 @@ func (b *collectionFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *collecti
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionFindOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -731,7 +826,9 @@ func (b *collectionFindOptionsBuilder) Setters() []func(*CollectionFindOptions) 
 //   - Vector search with a vector: sort.Vector([]float32{0.1, 0.2, 0.3})
 //   - Vector search with vectorize: sort.Vectorize("search text")
 func (b *collectionFindOptionsBuilder) SetSort(v sort.Sortable) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
@@ -739,14 +836,18 @@ func (b *collectionFindOptionsBuilder) SetSort(v sort.Sortable) *collectionFindO
 // Projection controls which fields are included or excluded in the returned documents
 // Use true to include a field, false to exclude it
 func (b *collectionFindOptionsBuilder) SetProjection(v map[string]any) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
 // SetLimit sets the Limit option.
 // Limit limits the total number of documents returned
 func (b *collectionFindOptionsBuilder) SetLimit(v int) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Limit = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.Limit = &v
+	})
 	return b
 }
 
@@ -754,7 +855,9 @@ func (b *collectionFindOptionsBuilder) SetLimit(v int) *collectionFindOptionsBui
 // Skip specifies the number of documents to bypass before returning results.
 // Only valid with ascending/descending sort, not with vector search.
 func (b *collectionFindOptionsBuilder) SetSkip(v int) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.Skip = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.Skip = &v
+	})
 	return b
 }
 
@@ -762,7 +865,9 @@ func (b *collectionFindOptionsBuilder) SetSkip(v int) *collectionFindOptionsBuil
 // IncludeSimilarity if true, includes a $similarity property in the response
 // for vector searches.
 func (b *collectionFindOptionsBuilder) SetIncludeSimilarity(v bool) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.IncludeSimilarity = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.IncludeSimilarity = &v
+	})
 	return b
 }
 
@@ -770,14 +875,18 @@ func (b *collectionFindOptionsBuilder) SetIncludeSimilarity(v bool) *collectionF
 // IncludeSortVector if true, includes the sort vector in the response.
 // Useful for vector searches using $vectorize.
 func (b *collectionFindOptionsBuilder) SetIncludeSortVector(v bool) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.IncludeSortVector = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.IncludeSortVector = &v
+	})
 	return b
 }
 
 // SetInitialPageState sets the InitialPageState option.
 // InitialPageState is used for pagination to fetch the next page of results
 func (b *collectionFindOptionsBuilder) SetInitialPageState(v string) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.InitialPageState = &v })
+	b.setters = append(b.setters, func(o *CollectionFindOptions) {
+		o.InitialPageState = &v
+	})
 	return b
 }
 
@@ -786,7 +895,7 @@ func (b *collectionFindOptionsBuilder) SetInitialPageState(v string) *collection
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -827,26 +936,32 @@ func (b *collectionInsertManyOptionsBuilder) Setters() []func(*CollectionInsertM
 
 // SetOrdered sets the Ordered option.
 func (b *collectionInsertManyOptionsBuilder) SetOrdered(v bool) *collectionInsertManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) { o.Ordered = &v })
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
+		o.Ordered = &v
+	})
 	return b
 }
 
 // SetChunkSize sets the ChunkSize option.
 func (b *collectionInsertManyOptionsBuilder) SetChunkSize(v int) *collectionInsertManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) { o.ChunkSize = &v })
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
+		o.ChunkSize = &v
+	})
 	return b
 }
 
 // SetConcurrency sets the Concurrency option.
 func (b *collectionInsertManyOptionsBuilder) SetConcurrency(v int) *collectionInsertManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) { o.Concurrency = &v })
+	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
+		o.Concurrency = &v
+	})
 	return b
 }
 
 // SetAPIOptions sets the APIOptions option.
 func (b *collectionInsertManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionInsertManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -892,7 +1007,7 @@ func (b *collectionInsertOneOptionsBuilder) Setters() []func(*CollectionInsertOn
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionInsertOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionInsertOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionInsertOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -938,7 +1053,7 @@ func (b *collectionOptionsOptionsBuilder) Setters() []func(*CollectionOptionsOpt
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionOptionsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionOptionsOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionOptionsOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -983,14 +1098,18 @@ func (b *collectionReplaceOneOptionsBuilder) Setters() []func(*CollectionReplace
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to replace.
 func (b *collectionReplaceOneOptionsBuilder) SetSort(v sort.Sortable) *collectionReplaceOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionReplaceOneOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionReplaceOneOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetUpsert sets the Upsert option.
 // Upsert if true, inserts a new document if no document matches the filter.
 func (b *collectionReplaceOneOptionsBuilder) SetUpsert(v bool) *collectionReplaceOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionReplaceOneOptions) { o.Upsert = &v })
+	b.setters = append(b.setters, func(o *CollectionReplaceOneOptions) {
+		o.Upsert = &v
+	})
 	return b
 }
 
@@ -999,7 +1118,7 @@ func (b *collectionReplaceOneOptionsBuilder) SetUpsert(v bool) *collectionReplac
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionReplaceOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionReplaceOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionReplaceOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1044,7 +1163,9 @@ func (b *collectionUpdateManyOptionsBuilder) Setters() []func(*CollectionUpdateM
 // SetUpsert sets the Upsert option.
 // Upsert if true, inserts a new document if no document matches the filter.
 func (b *collectionUpdateManyOptionsBuilder) SetUpsert(v bool) *collectionUpdateManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) { o.Upsert = &v })
+	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
+		o.Upsert = &v
+	})
 	return b
 }
 
@@ -1052,7 +1173,9 @@ func (b *collectionUpdateManyOptionsBuilder) SetUpsert(v bool) *collectionUpdate
 // Timeout is the overall timeout for the entire paginated operation.
 // Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
 func (b *collectionUpdateManyOptionsBuilder) SetTimeout(v time.Duration) *collectionUpdateManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) { o.Timeout = &v })
+	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
+		o.Timeout = &v
+	})
 	return b
 }
 
@@ -1061,7 +1184,7 @@ func (b *collectionUpdateManyOptionsBuilder) SetTimeout(v time.Duration) *collec
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionUpdateManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionUpdateManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1107,14 +1230,18 @@ func (b *collectionUpdateOneOptionsBuilder) Setters() []func(*CollectionUpdateOn
 // Sort specifies the sort order to apply before selecting the document to update.
 // This determines which document is updated when the filter matches multiple documents.
 func (b *collectionUpdateOneOptionsBuilder) SetSort(v sort.Sortable) *collectionUpdateOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetUpsert sets the Upsert option.
 // Upsert if true, inserts a new document if no document matches the filter.
 func (b *collectionUpdateOneOptionsBuilder) SetUpsert(v bool) *collectionUpdateOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) { o.Upsert = &v })
+	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) {
+		o.Upsert = &v
+	})
 	return b
 }
 
@@ -1123,7 +1250,7 @@ func (b *collectionUpdateOneOptionsBuilder) SetUpsert(v bool) *collectionUpdateO
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *collectionUpdateOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionUpdateOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1168,7 +1295,7 @@ func (b *createCollectionOptionsBuilder) Setters() []func(*CreateCollectionOptio
 // Settings for generating ids
 func (b *createCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDefaultIdOptions]) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
-		o.DefaultId = Merge(v...)
+		MergeInto(&o.DefaultId, v...)
 	})
 	return b
 }
@@ -1177,7 +1304,7 @@ func (b *createCollectionOptionsBuilder) SetDefaultId(v ...Builder[CollectionDef
 // Vector specifications for the collection
 func (b *createCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
-		o.Vector = Merge(v...)
+		MergeInto(&o.Vector, v...)
 	})
 	return b
 }
@@ -1186,7 +1313,7 @@ func (b *createCollectionOptionsBuilder) SetVector(v ...Builder[VectorOptions]) 
 // Overrides for document indexing
 func (b *createCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOptions]) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
-		o.Indexing = Merge(v...)
+		MergeInto(&o.Indexing, v...)
 	})
 	return b
 }
@@ -1195,7 +1322,7 @@ func (b *createCollectionOptionsBuilder) SetIndexing(v ...Builder[IndexingOption
 // Lexical analysis options for the collection
 func (b *createCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
-		o.Lexical = Merge(v...)
+		MergeInto(&o.Lexical, v...)
 	})
 	return b
 }
@@ -1204,7 +1331,7 @@ func (b *createCollectionOptionsBuilder) SetLexical(v ...Builder[LexicalOptions]
 // Reranking options for the collection
 func (b *createCollectionOptionsBuilder) SetRerank(v ...Builder[RerankOptions]) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
-		o.Rerank = Merge(v...)
+		MergeInto(&o.Rerank, v...)
 	})
 	return b
 }
@@ -1249,7 +1376,9 @@ func (b *createDatabaseOptionsBuilder) Setters() []func(*CreateDatabaseOptions) 
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the initial keyspace name. Defaults to "default_keyspace" if not specified.
 func (b *createDatabaseOptionsBuilder) SetKeyspace(v string) *createDatabaseOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateDatabaseOptions) { o.Keyspace = &v })
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) {
+		o.Keyspace = &v
+	})
 	return b
 }
 
@@ -1257,7 +1386,9 @@ func (b *createDatabaseOptionsBuilder) SetKeyspace(v string) *createDatabaseOpti
 // Blocking controls whether to wait for the database to become ACTIVE.
 // Defaults to true.
 func (b *createDatabaseOptionsBuilder) SetBlocking(v bool) *createDatabaseOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateDatabaseOptions) { o.Blocking = &v })
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) {
+		o.Blocking = &v
+	})
 	return b
 }
 
@@ -1265,7 +1396,9 @@ func (b *createDatabaseOptionsBuilder) SetBlocking(v bool) *createDatabaseOption
 // PollInterval is how often to check the database status when blocking.
 // Defaults to DefaultDatabasePollInterval (10 seconds).
 func (b *createDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *createDatabaseOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateDatabaseOptions) { o.PollInterval = &v })
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) {
+		o.PollInterval = &v
+	})
 	return b
 }
 
@@ -1310,7 +1443,9 @@ func (b *createIndexOptionsBuilder) Setters() []func(*CreateIndexOptions) {
 // IfNotExists if true, the command will silently succeed even if an index
 // with the given name already exists. This only checks index names, not definitions.
 func (b *createIndexOptionsBuilder) SetIfNotExists(v bool) *createIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.IfNotExists = &v })
+	b.setters = append(b.setters, func(o *CreateIndexOptions) {
+		o.IfNotExists = &v
+	})
 	return b
 }
 
@@ -1318,7 +1453,9 @@ func (b *createIndexOptionsBuilder) SetIfNotExists(v bool) *createIndexOptionsBu
 // Ascii if true, converts non-ASCII characters to US-ASCII before indexing.
 // Only applicable to text columns.
 func (b *createIndexOptionsBuilder) SetAscii(v bool) *createIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.Ascii = &v })
+	b.setters = append(b.setters, func(o *CreateIndexOptions) {
+		o.Ascii = &v
+	})
 	return b
 }
 
@@ -1326,7 +1463,9 @@ func (b *createIndexOptionsBuilder) SetAscii(v bool) *createIndexOptionsBuilder 
 // Normalize if true, applies Unicode character normalization before indexing.
 // Only applicable to text columns.
 func (b *createIndexOptionsBuilder) SetNormalize(v bool) *createIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.Normalize = &v })
+	b.setters = append(b.setters, func(o *CreateIndexOptions) {
+		o.Normalize = &v
+	})
 	return b
 }
 
@@ -1334,7 +1473,9 @@ func (b *createIndexOptionsBuilder) SetNormalize(v bool) *createIndexOptionsBuil
 // CaseSensitive if true (default), enforces case-sensitive matching.
 // Only applicable to text columns.
 func (b *createIndexOptionsBuilder) SetCaseSensitive(v bool) *createIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateIndexOptions) { o.CaseSensitive = &v })
+	b.setters = append(b.setters, func(o *CreateIndexOptions) {
+		o.CaseSensitive = &v
+	})
 	return b
 }
 
@@ -1379,7 +1520,9 @@ func (b *createKeyspaceOptionsBuilder) Setters() []func(*CreateKeyspaceOptions) 
 // Blocking controls whether to wait for the keyspace to become visible.
 // Defaults to true. Only used by the Astra (DevOps API) path.
 func (b *createKeyspaceOptionsBuilder) SetBlocking(v bool) *createKeyspaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) { o.Blocking = &v })
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
+		o.Blocking = &v
+	})
 	return b
 }
 
@@ -1387,7 +1530,9 @@ func (b *createKeyspaceOptionsBuilder) SetBlocking(v bool) *createKeyspaceOption
 // PollInterval is how often to check whether the keyspace exists when blocking.
 // Defaults to DefaultKeyspacePollInterval (1 second). Only used by the Astra (DevOps API) path.
 func (b *createKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *createKeyspaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) { o.PollInterval = &v })
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
+		o.PollInterval = &v
+	})
 	return b
 }
 
@@ -1395,7 +1540,9 @@ func (b *createKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *createK
 // ReplicationFactor sets the replication factor for the keyspace.
 // Only used by the Data API path (non-Astra environments).
 func (b *createKeyspaceOptionsBuilder) SetReplicationFactor(v int) *createKeyspaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) { o.ReplicationFactor = &v })
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
+		o.ReplicationFactor = &v
+	})
 	return b
 }
 
@@ -1440,7 +1587,9 @@ func (b *createTableOptionsBuilder) Setters() []func(*CreateTableOptions) {
 // IfNotExists if true, the command will silently succeed even if a table
 // with the given name already exists. This only checks table names, not schemas.
 func (b *createTableOptionsBuilder) SetIfNotExists(v bool) *createTableOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateTableOptions) { o.IfNotExists = &v })
+	b.setters = append(b.setters, func(o *CreateTableOptions) {
+		o.IfNotExists = &v
+	})
 	return b
 }
 
@@ -1448,7 +1597,9 @@ func (b *createTableOptionsBuilder) SetIfNotExists(v bool) *createTableOptionsBu
 // Keyspace specifies the keyspace in which to create the table.
 // If not provided, defaults to the working keyspace for the database.
 func (b *createTableOptionsBuilder) SetKeyspace(v string) *createTableOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateTableOptions) { o.Keyspace = &v })
+	b.setters = append(b.setters, func(o *CreateTableOptions) {
+		o.Keyspace = &v
+	})
 	return b
 }
 
@@ -1493,7 +1644,9 @@ func (b *createVectorIndexOptionsBuilder) Setters() []func(*CreateVectorIndexOpt
 // IfNotExists if true, the command will silently succeed even if an index
 // with the given name already exists. This only checks index names, not definitions.
 func (b *createVectorIndexOptionsBuilder) SetIfNotExists(v bool) *createVectorIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) { o.IfNotExists = &v })
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
+		o.IfNotExists = &v
+	})
 	return b
 }
 
@@ -1501,7 +1654,9 @@ func (b *createVectorIndexOptionsBuilder) SetIfNotExists(v bool) *createVectorIn
 // Metric is the similarity measurement for vector search.
 // Valid values: "cosine" (default), "dot_product", "euclidean"
 func (b *createVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *createVectorIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) { o.Metric = &v })
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
+		o.Metric = &v
+	})
 	return b
 }
 
@@ -1514,7 +1669,9 @@ func (b *createVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *createVecto
 // this is a string. For reference:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#parameters
 func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVectorIndexOptionsBuilder {
-	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) { o.SourceModel = &v })
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
+		o.SourceModel = &v
+	})
 	return b
 }
 
@@ -1559,7 +1716,9 @@ func (b *dropDatabaseOptionsBuilder) Setters() []func(*DropDatabaseOptions) {
 // Blocking controls whether to wait for the database to be fully terminated.
 // Defaults to true.
 func (b *dropDatabaseOptionsBuilder) SetBlocking(v bool) *dropDatabaseOptionsBuilder {
-	b.setters = append(b.setters, func(o *DropDatabaseOptions) { o.Blocking = &v })
+	b.setters = append(b.setters, func(o *DropDatabaseOptions) {
+		o.Blocking = &v
+	})
 	return b
 }
 
@@ -1567,7 +1726,9 @@ func (b *dropDatabaseOptionsBuilder) SetBlocking(v bool) *dropDatabaseOptionsBui
 // PollInterval is how often to check the database status when blocking.
 // Defaults to DefaultDatabasePollInterval (10 seconds).
 func (b *dropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *dropDatabaseOptionsBuilder {
-	b.setters = append(b.setters, func(o *DropDatabaseOptions) { o.PollInterval = &v })
+	b.setters = append(b.setters, func(o *DropDatabaseOptions) {
+		o.PollInterval = &v
+	})
 	return b
 }
 
@@ -1612,7 +1773,9 @@ func (b *dropKeyspaceOptionsBuilder) Setters() []func(*DropKeyspaceOptions) {
 // Blocking controls whether to wait for the keyspace to be fully terminated.
 // Defaults to true.
 func (b *dropKeyspaceOptionsBuilder) SetBlocking(v bool) *dropKeyspaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *DropKeyspaceOptions) { o.Blocking = &v })
+	b.setters = append(b.setters, func(o *DropKeyspaceOptions) {
+		o.Blocking = &v
+	})
 	return b
 }
 
@@ -1620,7 +1783,9 @@ func (b *dropKeyspaceOptionsBuilder) SetBlocking(v bool) *dropKeyspaceOptionsBui
 // PollInterval is how often to check the keyspace status when blocking.
 // Defaults to DefaultKeyspacePollInterval (1 second).
 func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeyspaceOptionsBuilder {
-	b.setters = append(b.setters, func(o *DropKeyspaceOptions) { o.PollInterval = &v })
+	b.setters = append(b.setters, func(o *DropKeyspaceOptions) {
+		o.PollInterval = &v
+	})
 	return b
 }
 
@@ -1665,7 +1830,9 @@ func (b *findAvailableRegionsOptionsBuilder) Setters() []func(*FindAvailableRegi
 // FilterByOrg filters by organization access. Whether to only return regions that
 // can be used by the caller's organization.
 func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailableRegionsOptionsBuilder {
-	b.setters = append(b.setters, func(o *FindAvailableRegionsOptions) { o.FilterByOrg = &v })
+	b.setters = append(b.setters, func(o *FindAvailableRegionsOptions) {
+		o.FilterByOrg = &v
+	})
 	return b
 }
 
@@ -1723,7 +1890,9 @@ func (b *findEmbeddingProvidersOptionsBuilder) Setters() []func(*FindEmbeddingPr
 //	// Only deprecated models
 //	options.FindEmbeddingProviders().SetFilterModelStatus(options.ModelLifecycleStatusDeprecated)
 func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findEmbeddingProvidersOptionsBuilder {
-	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) { o.FilterModelStatus = &v })
+	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
+		o.FilterModelStatus = &v
+	})
 	return b
 }
 
@@ -1732,7 +1901,7 @@ func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifec
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *findEmbeddingProvidersOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *findEmbeddingProvidersOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1774,7 +1943,9 @@ func (b *indexingOptionsBuilder) Setters() []func(*IndexingOptions) {
 // Allow is a list of field paths to index, or ["*"] to index all fields.
 // Mutually exclusive with Deny.
 func (b *indexingOptionsBuilder) SetAllow(v ...string) *indexingOptionsBuilder {
-	b.setters = append(b.setters, func(o *IndexingOptions) { o.Allow = v })
+	b.setters = append(b.setters, func(o *IndexingOptions) {
+		o.Allow = v
+	})
 	return b
 }
 
@@ -1782,7 +1953,9 @@ func (b *indexingOptionsBuilder) SetAllow(v ...string) *indexingOptionsBuilder {
 // Deny is a list of field paths to exclude from indexing, or ["*"] to disable indexing entirely.
 // Mutually exclusive with Allow.
 func (b *indexingOptionsBuilder) SetDeny(v ...string) *indexingOptionsBuilder {
-	b.setters = append(b.setters, func(o *IndexingOptions) { o.Deny = v })
+	b.setters = append(b.setters, func(o *IndexingOptions) {
+		o.Deny = v
+	})
 	return b
 }
 
@@ -1854,7 +2027,7 @@ func (b *listCollectionNamesOptionsBuilder) Setters() []func(*ListCollectionName
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *listCollectionNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listCollectionNamesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListCollectionNamesOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1864,11 +2037,12 @@ func (b *listCollectionNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOption
 //
 // Example using the fluent builder ([ListCollections]):
 //
-//	opts := options.ListCollections().SetAPIOptions(...)
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListCollections().SetKeyspace("value")
 //
 // Example using a pointer to [ListCollectionsOptions] without the fluent builder:
 //
-//	opts := &options.ListCollectionsOptions{...}
+//	opts := &options.ListCollectionsOptions{Keyspace: ptr.To("value")}
 type ListCollectionsOption = Builder[ListCollectionsOptions]
 
 // Setters implements Builder[ListCollectionsOptions] allowing the raw struct to be
@@ -1895,12 +2069,36 @@ func (b *listCollectionsOptionsBuilder) Setters() []func(*ListCollectionsOptions
 	return b.setters
 }
 
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *listCollectionsOptionsBuilder) SetKeyspace(v string) *listCollectionsOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListCollectionsOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetTimeout sets the Timeout option.
+// Timeout contains timeout configuration (lifted from APIOptions)
+func (b *listCollectionsOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *listCollectionsOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListCollectionsOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		MergeInto(&o.APIOptions.Timeout, v...)
+	})
+	return b
+}
+
 // SetAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *listCollectionsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listCollectionsOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListCollectionsOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -1945,21 +2143,27 @@ func (b *listDatabasesOptionsBuilder) Setters() []func(*ListDatabasesOptions) {
 // SetInclude sets the Include option.
 // Include filters databases by status. Defaults to [DatabaseStatusNonTerminated].
 func (b *listDatabasesOptionsBuilder) SetInclude(v DatabaseStatus) *listDatabasesOptionsBuilder {
-	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.Include = &v })
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
+		o.Include = &v
+	})
 	return b
 }
 
 // SetProvider sets the Provider option.
 // Provider filters databases by cloud provider. Defaults to [CloudProviderAll].
 func (b *listDatabasesOptionsBuilder) SetProvider(v CloudProviderFilter) *listDatabasesOptionsBuilder {
-	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.Provider = &v })
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
+		o.Provider = &v
+	})
 	return b
 }
 
 // SetLimit sets the Limit option.
 // Limit is the maximum number of databases to return (1-100). Defaults to 25.
 func (b *listDatabasesOptionsBuilder) SetLimit(v int) *listDatabasesOptionsBuilder {
-	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.Limit = &v })
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
+		o.Limit = &v
+	})
 	return b
 }
 
@@ -1967,7 +2171,9 @@ func (b *listDatabasesOptionsBuilder) SetLimit(v int) *listDatabasesOptionsBuild
 // StartingAfter is a database ID to use with pagination. Pass the DB ID of the
 // last item on the previous page to get the next page.
 func (b *listDatabasesOptionsBuilder) SetStartingAfter(v string) *listDatabasesOptionsBuilder {
-	b.setters = append(b.setters, func(o *ListDatabasesOptions) { o.StartingAfter = &v })
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
+		o.StartingAfter = &v
+	})
 	return b
 }
 
@@ -2012,7 +2218,9 @@ func (b *listIndexesOptionsBuilder) Setters() []func(*ListIndexesOptions) {
 // Explain if true, returns full index metadata including definitions.
 // If false (default), only returns index names.
 func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilder {
-	b.setters = append(b.setters, func(o *ListIndexesOptions) { o.Explain = &v })
+	b.setters = append(b.setters, func(o *ListIndexesOptions) {
+		o.Explain = &v
+	})
 	return b
 }
 
@@ -2057,7 +2265,7 @@ func (b *listTableNamesOptionsBuilder) Setters() []func(*ListTableNamesOptions) 
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *listTableNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTableNamesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListTableNamesOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2103,7 +2311,7 @@ func (b *listTablesOptionsBuilder) Setters() []func(*ListTablesOptions) {
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *listTablesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTablesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListTablesOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2203,7 +2411,7 @@ func (b *tableDefinitionOptionsBuilder) Setters() []func(*TableDefinitionOptions
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *tableDefinitionOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableDefinitionOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDefinitionOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2249,7 +2457,7 @@ func (b *tableDeleteManyOptionsBuilder) Setters() []func(*TableDeleteManyOptions
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableDeleteManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableDeleteManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDeleteManyOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2295,7 +2503,7 @@ func (b *tableDeleteOneOptionsBuilder) Setters() []func(*TableDeleteOneOptions) 
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableDeleteOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableDeleteOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDeleteOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2340,14 +2548,18 @@ func (b *tableFindOneOptionsBuilder) Setters() []func(*TableFindOneOptions) {
 // SetSort sets the Sort option.
 // Sort specifies the sort order to apply before selecting the document to update.
 func (b *tableFindOneOptionsBuilder) SetSort(v sort.Sortable) *tableFindOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOneOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *TableFindOneOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
 // SetProjection sets the Projection option.
 // Projection controls which fields are included or excluded in the returned document.
 func (b *tableFindOneOptionsBuilder) SetProjection(v map[string]any) *tableFindOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOneOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *TableFindOneOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
@@ -2355,7 +2567,9 @@ func (b *tableFindOneOptionsBuilder) SetProjection(v map[string]any) *tableFindO
 // IncludeSimilarity if true, include the similarity score in the result via the
 // $similarity field.
 func (b *tableFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOneOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOneOptions) { o.IncludeSimilarity = &v })
+	b.setters = append(b.setters, func(o *TableFindOneOptions) {
+		o.IncludeSimilarity = &v
+	})
 	return b
 }
 
@@ -2364,7 +2578,7 @@ func (b *tableFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOneO
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableFindOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableFindOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2412,7 +2626,9 @@ func (b *tableFindOptionsBuilder) Setters() []func(*TableFindOptions) {
 //   - Vector search with a vector: sort.Vector([]float32{0.1, 0.2, 0.3})
 //   - Vector search with vectorize: sort.Vectorize("search text")
 func (b *tableFindOptionsBuilder) SetSort(v sort.Sortable) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.Sort = v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.Sort = v
+	})
 	return b
 }
 
@@ -2420,14 +2636,18 @@ func (b *tableFindOptionsBuilder) SetSort(v sort.Sortable) *tableFindOptionsBuil
 // Projection controls which columns are included or excluded in the returned rows
 // Use true to include a column, false to exclude it
 func (b *tableFindOptionsBuilder) SetProjection(v map[string]any) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.Projection = v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.Projection = v
+	})
 	return b
 }
 
 // SetLimit sets the Limit option.
 // Limit limits the total number of rows returned
 func (b *tableFindOptionsBuilder) SetLimit(v int) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.Limit = &v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.Limit = &v
+	})
 	return b
 }
 
@@ -2435,7 +2655,9 @@ func (b *tableFindOptionsBuilder) SetLimit(v int) *tableFindOptionsBuilder {
 // Skip specifies the number of rows to bypass before returning rows.
 // Only valid with ascending/descending sort, not with vector search.
 func (b *tableFindOptionsBuilder) SetSkip(v int) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.Skip = &v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.Skip = &v
+	})
 	return b
 }
 
@@ -2443,7 +2665,9 @@ func (b *tableFindOptionsBuilder) SetSkip(v int) *tableFindOptionsBuilder {
 // IncludeSimilarity if true, includes a $similarity property in the response
 // for vector searches. Only works with direct vector search, not vectorize.
 func (b *tableFindOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.IncludeSimilarity = &v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.IncludeSimilarity = &v
+	})
 	return b
 }
 
@@ -2451,14 +2675,18 @@ func (b *tableFindOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOptions
 // IncludeSortVector if true, includes the sort vector in the response.
 // Useful for vector searches using $vectorize.
 func (b *tableFindOptionsBuilder) SetIncludeSortVector(v bool) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.IncludeSortVector = &v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.IncludeSortVector = &v
+	})
 	return b
 }
 
 // SetInitialPageState sets the InitialPageState option.
 // InitialPageState is used for pagination to fetch the next page of results
 func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.InitialPageState = &v })
+	b.setters = append(b.setters, func(o *TableFindOptions) {
+		o.InitialPageState = &v
+	})
 	return b
 }
 
@@ -2467,7 +2695,7 @@ func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOption
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 func (b *tableFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2511,19 +2739,25 @@ func (b *tableInsertManyOptionsBuilder) Setters() []func(*TableInsertManyOptions
 
 // SetOrdered sets the Ordered option.
 func (b *tableInsertManyOptionsBuilder) SetOrdered(v bool) *tableInsertManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableInsertManyOptions) { o.Ordered = &v })
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) {
+		o.Ordered = &v
+	})
 	return b
 }
 
 // SetChunkSize sets the ChunkSize option.
 func (b *tableInsertManyOptionsBuilder) SetChunkSize(v int) *tableInsertManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableInsertManyOptions) { o.ChunkSize = &v })
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) {
+		o.ChunkSize = &v
+	})
 	return b
 }
 
 // SetConcurrency sets the Concurrency option.
 func (b *tableInsertManyOptionsBuilder) SetConcurrency(v int) *tableInsertManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableInsertManyOptions) { o.Concurrency = &v })
+	b.setters = append(b.setters, func(o *TableInsertManyOptions) {
+		o.Concurrency = &v
+	})
 	return b
 }
 
@@ -2532,7 +2766,7 @@ func (b *tableInsertManyOptionsBuilder) SetConcurrency(v int) *tableInsertManyOp
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableInsertManyOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableInsertManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableInsertManyOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2578,7 +2812,7 @@ func (b *tableInsertOneOptionsBuilder) Setters() []func(*TableInsertOneOptions) 
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableInsertOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableInsertOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableInsertOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2624,7 +2858,7 @@ func (b *tableUpdateOneOptionsBuilder) Setters() []func(*TableUpdateOneOptions) 
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableUpdateOneOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableUpdateOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableUpdateOneOptions) {
-		o.APIOptions = Merge(v...)
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2669,21 +2903,27 @@ func (b *timeoutOptionsBuilder) Setters() []func(*TimeoutOptions) {
 // SetRequest sets the Request option.
 // Request is the timeout for individual HTTP requests
 func (b *timeoutOptionsBuilder) SetRequest(v time.Duration) *timeoutOptionsBuilder {
-	b.setters = append(b.setters, func(o *TimeoutOptions) { o.Request = &v })
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.Request = &v
+	})
 	return b
 }
 
 // SetConnection sets the Connection option.
 // Connection is the timeout for establishing connections
 func (b *timeoutOptionsBuilder) SetConnection(v time.Duration) *timeoutOptionsBuilder {
-	b.setters = append(b.setters, func(o *TimeoutOptions) { o.Connection = &v })
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.Connection = &v
+	})
 	return b
 }
 
 // SetBulkOperation sets the BulkOperation option.
 // BulkOperation is the timeout for bulk operations like insertMany
 func (b *timeoutOptionsBuilder) SetBulkOperation(v time.Duration) *timeoutOptionsBuilder {
-	b.setters = append(b.setters, func(o *TimeoutOptions) { o.BulkOperation = &v })
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.BulkOperation = &v
+	})
 	return b
 }
 
@@ -2691,7 +2931,9 @@ func (b *timeoutOptionsBuilder) SetBulkOperation(v time.Duration) *timeoutOption
 // GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
 // When set, the entire multi-page operation must complete within this duration.
 func (b *timeoutOptionsBuilder) SetGeneralMethod(v time.Duration) *timeoutOptionsBuilder {
-	b.setters = append(b.setters, func(o *TimeoutOptions) { o.GeneralMethod = &v })
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.GeneralMethod = &v
+	})
 	return b
 }
 
@@ -2736,7 +2978,9 @@ func (b *vectorOptionsBuilder) Setters() []func(*VectorOptions) {
 // Dimension specifies the dimension of vectors stored in this collection.
 // Required for vector-enabled collections.
 func (b *vectorOptionsBuilder) SetDimension(v int) *vectorOptionsBuilder {
-	b.setters = append(b.setters, func(o *VectorOptions) { o.Dimension = &v })
+	b.setters = append(b.setters, func(o *VectorOptions) {
+		o.Dimension = &v
+	})
 	return b
 }
 
@@ -2745,7 +2989,9 @@ func (b *vectorOptionsBuilder) SetDimension(v int) *vectorOptionsBuilder {
 // Valid values are "cosine", "euclidean", or "dot_product".
 // Default is "cosine".
 func (b *vectorOptionsBuilder) SetMetric(v string) *vectorOptionsBuilder {
-	b.setters = append(b.setters, func(o *VectorOptions) { o.Metric = &v })
+	b.setters = append(b.setters, func(o *VectorOptions) {
+		o.Metric = &v
+	})
 	return b
 }
 
@@ -2753,7 +2999,7 @@ func (b *vectorOptionsBuilder) SetMetric(v string) *vectorOptionsBuilder {
 // Service configures automatic vector embedding generation (vectorize).
 func (b *vectorOptionsBuilder) SetService(v ...Builder[VectorServiceOptions]) *vectorOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorOptions) {
-		o.Service = Merge(v...)
+		MergeInto(&o.Service, v...)
 	})
 	return b
 }
@@ -2796,7 +3042,9 @@ func (b *vectorServiceOptionsBuilder) Setters() []func(*VectorServiceOptions) {
 // Provider is the name of the embedding provider which provides the model to use
 // (e.g., "openai", "nvidia").
 func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOptionsBuilder {
-	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Provider = &v })
+	b.setters = append(b.setters, func(o *VectorServiceOptions) {
+		o.Provider = &v
+	})
 	return b
 }
 
@@ -2805,7 +3053,9 @@ func (b *vectorServiceOptionsBuilder) SetProvider(v string) *vectorServiceOption
 // Use "endpoint-defined-model" for providers like huggingfaceDedicated where the
 // model is defined by the endpoint rather than selected by name.
 func (b *vectorServiceOptionsBuilder) SetModelName(v string) *vectorServiceOptionsBuilder {
-	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.ModelName = &v })
+	b.setters = append(b.setters, func(o *VectorServiceOptions) {
+		o.ModelName = &v
+	})
 	return b
 }
 
@@ -2817,7 +3067,9 @@ func (b *vectorServiceOptionsBuilder) SetModelName(v string) *vectorServiceOptio
 //
 //	Authentication: map[string]any{"providerKey": "*KEY_NAME*"}
 func (b *vectorServiceOptionsBuilder) SetAuthentication(v map[string]any) *vectorServiceOptionsBuilder {
-	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Authentication = v })
+	b.setters = append(b.setters, func(o *VectorServiceOptions) {
+		o.Authentication = v
+	})
 	return b
 }
 
@@ -2829,6 +3081,8 @@ func (b *vectorServiceOptionsBuilder) SetAuthentication(v map[string]any) *vecto
 //
 //	Parameters: map[string]any{"projectId": "my-project"}
 func (b *vectorServiceOptionsBuilder) SetParameters(v map[string]any) *vectorServiceOptionsBuilder {
-	b.setters = append(b.setters, func(o *VectorServiceOptions) { o.Parameters = v })
+	b.setters = append(b.setters, func(o *VectorServiceOptions) {
+		o.Parameters = v
+	})
 	return b
 }

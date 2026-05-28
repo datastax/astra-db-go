@@ -35,7 +35,7 @@ const DefaultAdminAPIVersion = "v2"
 // Only valid for Astra environments.
 type AstraAdmin struct {
 	client           *DataAPIClient
-	options          *options.APIOptions
+	options          []options.APIOption // Cumulative options from Client -> Admin
 	apiVersion       string
 	astraEnvironment options.AstraEnvironment
 }
@@ -256,13 +256,9 @@ func (r *rawDatabaseResponse) toDatabaseInfo(env options.AstraEnvironment) *Data
 	}
 }
 
-// resolveOptions merges AstraAdmin options with client options.
-func (a *AstraAdmin) resolveOptions() *options.APIOptions {
-	var clientOpts *options.APIOptions
-	if a.client != nil {
-		clientOpts = a.client.Options()
-	}
-	return options.MergeAPILayers(clientOpts, a.options)
+// ClientOptions returns the admin's options as a resolved struct with defaults.
+func (a *AstraAdmin) ClientOptions() *options.APIOptions {
+	return options.Merge(a.options...)
 }
 
 // FindAvailableRegions retrieves available serverless regions from the DevOps API.
@@ -443,9 +439,9 @@ type createDatabaseRequest struct {
 //
 //	dbAdmin := admin.DatabaseAdmin("a6a1d8d6-...-377566f345bf", "us-east1")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DatabaseAdmin(id, region string, opts *options.APIOptions) *AstraDatabaseAdmin {
+func (a *AstraAdmin) DatabaseAdmin(id, region string, opts ...options.APIOption) *AstraDatabaseAdmin {
 	return &AstraDatabaseAdmin{a, newDbFromID(id, region, a.astraEnvironment,
-		a.client, opts)}
+		a.client, append(a.options, opts...)...)}
 }
 
 // DatabaseAdminFromEndpoint returns an AstraDatabaseAdmin handle for the given database endpoint.
@@ -459,8 +455,8 @@ func (a *AstraAdmin) DatabaseAdmin(id, region string, opts *options.APIOptions) 
 //
 //	dbAdmin := admin.DatabaseAdminFromEndpoint("https://<db_id>-<region>.apps.astra.datastax.com")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (a *AstraAdmin) DatabaseAdminFromEndpoint(endpoint string, opts *options.APIOptions) *AstraDatabaseAdmin {
-	return &AstraDatabaseAdmin{a, newDbFromEndpoint(endpoint, a.client, opts)}
+func (a *AstraAdmin) DatabaseAdminFromEndpoint(endpoint string, opts ...options.APIOption) *AstraDatabaseAdmin {
+	return &AstraDatabaseAdmin{a, newDbFromEndpoint(endpoint, a.client, append(a.options, opts...)...)}
 }
 
 type AwaitStatusOptions struct {
@@ -592,7 +588,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 
 	region := params.Region
 
-	dbAdmin := a.DatabaseAdmin(dbID, region, a.options)
+	dbAdmin := a.DatabaseAdmin(dbID, region, a.options...)
 
 	if !*merged.Blocking {
 		return dbAdmin, nil

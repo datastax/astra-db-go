@@ -26,7 +26,7 @@ import (
 // Options set on the client are inherited by all databases, collections,
 // tables, and commands created from it, unless overridden at a lower level.
 type DataAPIClient struct {
-	options        *options.APIOptions
+	options        []options.APIOption
 	dataAPIBackend options.DataAPIBackend
 }
 
@@ -35,29 +35,27 @@ type DataAPIClient struct {
 // Example:
 //
 //	client := astra.NewClient(
-//	    options.WithToken("AstraCS:..."),
+//	    options.API().SetToken("AstraCS:..."),
 //	)
 //
 // Example with non-Astra backend:
 //
 //	client := astra.NewClient(
-//	    options.WithToken("AstraCS:..."),
-//	    options.WithDataAPIBackend(options.DataAPIBackendHCD),
+//	    options.API().SetToken("AstraCS:..."),
+//	    options.API().SetDataAPIBackend(options.DataAPIBackendHCD),
 //	)
 func NewClient(opts ...options.APIOption) *DataAPIClient {
-	apiOpts := options.NewAPIOptions(opts...)
+	// We still need to resolve once to determine the default backend.
+	resolved := options.Merge(opts...)
 	return &DataAPIClient{
-		options:        apiOpts,
-		dataAPIBackend: apiOpts.GetDataAPIBackend(),
+		options:        opts,
+		dataAPIBackend: resolved.GetDataAPIBackend(),
 	}
 }
 
-// Options returns the client's options (or an empty options if nil).
-func (c *DataAPIClient) Options() *options.APIOptions {
-	if c.options == nil {
-		return &options.APIOptions{}
-	}
-	return c.options
+// ClientOptions returns the client's options as a resolved struct with defaults.
+func (c *DataAPIClient) ClientOptions() *options.APIOptions {
+	return options.Merge(c.options...)
 }
 
 // Database returns a handle for the given database endpoint.
@@ -67,10 +65,10 @@ func (c *DataAPIClient) Options() *options.APIOptions {
 // Example:
 //
 //	db := client.Database("https://...",
-//	    options.WithKeyspace("my_keyspace"),
+//	    options.API().SetKeyspace("my_keyspace"),
 //	)
 func (c *DataAPIClient) Database(endpoint string, opts ...options.APIOption) *Db {
-	return newDbFromEndpoint(endpoint, c, options.NewAPIOptions(opts...))
+	return newDbFromEndpoint(endpoint, c, append(c.options, opts...)...)
 }
 
 // Admin returns an AstraAdmin handle for DevOps API operations.
@@ -89,12 +87,13 @@ func (c *DataAPIClient) Admin(opts ...options.APIOption) (*AstraAdmin, error) {
 	if !c.dataAPIBackend.IsAstra() {
 		return nil, fmt.Errorf("Admin is only available with the Astra backend (current: %s)", c.dataAPIBackend)
 	}
-	adminOpts := options.NewAPIOptions(opts...)
-	env := options.MergeAPILayers(c.options, adminOpts).GetAstraEnvironment()
+	// We resolve once to get the environment for the handle.
+	env := options.Merge(append(c.options, opts...)...).GetAstraEnvironment()
 	return &AstraAdmin{
 		client:           c,
-		options:          adminOpts,
+		options:          append(c.options, opts...),
 		apiVersion:       DefaultAdminAPIVersion,
 		astraEnvironment: env,
 	}, nil
 }
+

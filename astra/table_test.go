@@ -391,8 +391,8 @@ func getTestTable(t *testing.T) *Table {
 	// See: https://pkg.go.dev/testing#T.Helper
 	t.Helper()
 
-	client := NewClient(options.WithToken("TEST_TOKEN"))
-	db := client.Database("https://API_ENDPOINT", options.WithKeyspace("some_keyspace"))
+	client := NewClient(options.API().SetToken("TEST_TOKEN"))
+	db := client.Database("https://API_ENDPOINT", options.API().SetKeyspace("some_keyspace"))
 	return db.Table("example_table")
 }
 
@@ -677,11 +677,11 @@ func TestCreateVectorIndexIfNotExistsCommandMarshal(t *testing.T) {
 // getTestDb acts as a test fixture to provide a *Db.
 func getTestDb(t *testing.T) *Db {
 	t.Helper()
-	client := NewClient(options.WithToken("TEST_TOKEN"))
-	if client.Options().Token == nil {
+	client := NewClient(options.API().SetToken("TEST_TOKEN"))
+	if client.ClientOptions().Token == nil {
 		t.Fatal("expected token to be set")
 	}
-	return client.Database("https://API_ENDPOINT", options.WithKeyspace("some_keyspace"))
+	return client.Database("https://API_ENDPOINT", options.API().SetKeyspace("some_keyspace"))
 }
 
 // This example was taken from the documentation here:
@@ -1063,9 +1063,9 @@ var exampleUpdateOneSetPayloadJSON = testutils.CleanString(`{
 // httpTestTable creates a Table backed by the given httptest.Server for
 // integration-style testing. Mirrors newTestCollection in collection_test.go.
 func httpTestTable(ts *httptest.Server, apiOpts ...options.APIOption) *Table {
-	allOpts := append([]options.APIOption{options.WithToken("test-token")}, apiOpts...)
+	allOpts := append([]options.APIOption{options.API().SetToken("test-token")}, apiOpts...)
 	client := NewClient(allOpts...)
-	db := client.Database(ts.URL, options.WithKeyspace("ks"))
+	db := client.Database(ts.URL, options.API().SetKeyspace("ks"))
 	return db.Table("tbl")
 }
 

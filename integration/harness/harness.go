@@ -48,23 +48,25 @@ func Environment() TestEnv {
 
 func (e *TestEnv) DefaultClient() *astra.DataAPIClient {
 	return astra.NewClient(
-		options.WithToken(e.ApplicationToken),
-		options.WithDataAPIBackend(options.DataAPIBackend(e.Backend)),
+		options.API().
+			SetToken(e.ApplicationToken).
+			SetDataAPIBackend(options.DataAPIBackend(e.Backend)),
 	)
 }
 
 // DefaultDb returns a Db handle configured with the test environment settings.
 func (e *TestEnv) DefaultDb() *astra.Db {
 	client := astra.NewClient(
-		options.WithToken(e.ApplicationToken),
-		options.WithDataAPIBackend(options.DataAPIBackend(e.Backend)),
-		options.WithWarningHandler(func(w results.Warning) {
-			// Add client handler just to make sure it is properly superseded by
-			// DB level handler.
-			slog.Error("Client handler called and should have been superseded by DB handler")
-		}),
+		options.API().
+			SetToken(e.ApplicationToken).
+			SetDataAPIBackend(options.DataAPIBackend(e.Backend)).
+			SetWarningHandler(func(w results.Warning) {
+				// Add client handler just to make sure it is properly superseded by
+				// DB level handler.
+				slog.Error("Client handler called and should have been superseded by DB handler")
+			}),
 	)
-	return client.Database(e.APIEndpoint, options.WithWarningHandler(func(w results.Warning) {
+	return client.Database(e.APIEndpoint, options.API().SetWarningHandler(func(w results.Warning) {
 		// Warn and let logs know this came from DB handler. In our tests we will
 		// make sure that collection/table/command level handlers supersede this.
 		slog.Warn("API warning from DB handler", "code", w.ErrorCode, "message", w.Message)

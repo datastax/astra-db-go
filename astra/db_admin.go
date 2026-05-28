@@ -47,6 +47,11 @@ type AstraDatabaseAdmin struct {
 	db    *Db
 }
 
+// Db returns the underlying Db handle.
+func (a *AstraDatabaseAdmin) Db() *Db {
+	return a.db
+}
+
 // ID returns the database ID.
 func (d *AstraDatabaseAdmin) ID() string {
 	return *d.db.id

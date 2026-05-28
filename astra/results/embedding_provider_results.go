@@ -78,7 +78,7 @@ type EmbeddingProviderInfo struct {
 	//   - "HEADER": Authentication using direct API keys passed through headers on every Data API call.
 	//
 	//	    coll := db.Collection("my_coll",
-	//	        options.WithHeaders(map[string]string{
+	//	        options.API().SetHeaders(map[string]string{
 	//	            // Not tied to the collection; can be different every time.
 	//	            "x-embedding-api-key": "sk-...",
 	//	        }),

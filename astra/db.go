@@ -36,21 +36,21 @@ type Db struct {
 	region   *string
 	env      options.AstraEnvironment
 	client   *DataAPIClient
-	options  *options.APIOptions
+	options  []options.APIOption
 }
 
 // Constructors
 
-func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, apiOptions *options.APIOptions) *Db {
-	return &Db{env.AstraDBEndpoint(id, region), ptr.To(id), ptr.To(region), env, client, apiOptions}
+func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, opts ...options.APIOption) *Db {
+	return &Db{env.AstraDBEndpoint(id, region), ptr.To(id), ptr.To(region), env, client, opts}
 }
 
-func newDbFromEndpoint(endpoint string, client *DataAPIClient, apiOptions *options.APIOptions) *Db {
+func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts ...options.APIOption) *Db {
 	id, region, env := options.ParseAstraEndpoint(endpoint)
 	if id != "" {
-		return &Db{endpoint, ptr.To(id), ptr.To(region), env, client, apiOptions}
+		return &Db{endpoint, ptr.To(id), ptr.To(region), env, client, opts}
 	}
-	return &Db{endpoint, nil, nil, env, client, apiOptions}
+	return &Db{endpoint, nil, nil, env, client, opts}
 }
 
 // region Misc
@@ -61,8 +61,8 @@ func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command
 
 // newCmdWithMergedOptions creates a database-level command with a pre-merged
 // *APIOptions for the command-level overrides.
-func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdOpts)
+func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
+	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdAPIOpt)
 }
 
 // Endpoint returns the database API endpoint.
@@ -112,12 +112,9 @@ func (d *Db) Region() (string, error) {
 	return *d.region, nil
 }
 
-// Options returns the database's options (or empty options if nil).
-func (d *Db) Options() *options.APIOptions {
-	if d.options == nil {
-		return &options.APIOptions{}
-	}
-	return d.options
+// ClientOptions returns the database's options as a resolved struct with defaults.
+func (d *Db) ClientOptions() *options.APIOptions {
+	return options.Merge(d.options...)
 }
 
 // Client returns the parent DataAPIClient.
@@ -136,10 +133,14 @@ func (d *Db) Client() *DataAPIClient {
 // Example:
 //
 //	coll := db.Collection("my_collection",
-//	    options.WithTimeout(60 * time.Second),
+//	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
 func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
-	return &Collection{d, name, options.NewAPIOptions(opts...)}
+	var base []options.APIOption
+	if d != nil {
+		base = d.options
+	}
+	return &Collection{d, name, append(base, opts...)}
 }
 
 // Table returns a Table object for the specified table name.
@@ -150,10 +151,14 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 // Example:
 //
 //	tbl := db.Table("my_table",
-//	    options.WithTimeout(60 * time.Second),
+//	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
 func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{d, name, options.NewAPIOptions(opts...)}
+	var base []options.APIOption
+	if d != nil {
+		base = d.options
+	}
+	return &Table{d, name, append(base, opts...)}
 }
 
 // endregion
@@ -181,7 +186,7 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 //			Type: options.DefaultIdTypeUUIDv7,
 //		},
 //	}
-//	coll, err := db.CreateCollection(ctx, "my_collection", options.WithCreateCollectionOptions(opts))
+//	coll, err := db.CreateCollection(ctx, "my_collection", opts)
 //
 // Note: warnings are accessible via the WarningHandler option callback only.
 func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.CreateCollectionOption) (*Collection, error) {
@@ -442,7 +447,7 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 		if _, err := d.ID(); err != nil {
 			return nil, err
 		}
-		admin, err := d.client.Admin(options.WithAstraEnvironment(d.env))
+		admin, err := d.client.Admin(options.API().SetAstraEnvironment(d.env))
 		if err != nil {
 			return nil, err
 		}

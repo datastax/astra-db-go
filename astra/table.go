@@ -47,7 +47,7 @@ type TableFilter = filter.Filterable
 type Table struct {
 	db      *Db
 	name    string
-	options *options.APIOptions
+	options []options.APIOption
 }
 
 // region Meta
@@ -57,12 +57,9 @@ func (t *Table) Name() string {
 	return t.name
 }
 
-// ClientOptions returns the table's options (or empty options if nil).
+// ClientOptions returns the table's options as a resolved struct with defaults.
 func (t *Table) ClientOptions() *options.APIOptions {
-	if t.options == nil {
-		return &options.APIOptions{}
-	}
-	return t.options
+	return options.Merge(t.options...)
 }
 
 // Database returns the parent database.

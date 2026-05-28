@@ -101,7 +101,7 @@ func (ac *adminCommand) execute(ctx context.Context) (*adminResponse, error) {
 	}
 
 	// Set headers
-	resolvedOpts := ac.admin.resolveOptions()
+	resolvedOpts := ac.admin.ClientOptions()
 	token := resolvedOpts.GetToken()
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)

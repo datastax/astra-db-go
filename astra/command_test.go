@@ -104,7 +104,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 	handler := func(w results.Warning) {
 		called++
 	}
-	opts := options.NewAPIOptions(options.WithWarningHandler(handler))
+	opts := options.Merge(options.API().SetWarningHandler(handler))
 
 	cmd := command{}
 	_, _, _, err := cmd.extractErrors(200, []byte(warningsResponse), opts)
@@ -118,7 +118,8 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 
 func TestURLDatabaseAdmin(t *testing.T) {
 	id, region := "db-id", "us-east-1"
-	db := newDbFromID(id, region, options.AstraEnvironmentProd, nil, nil)
+	client := NewClient()
+	db := newDbFromID(id, region, options.AstraEnvironmentProd, client)
 	cmd := newDatabaseAdminCmd(db, "findKeyspaces", nil)
 	got, err := cmd.url()
 	if err != nil {
@@ -132,12 +133,11 @@ func TestURLDatabaseAdmin(t *testing.T) {
 
 func TestURLNonAstraBackend(t *testing.T) {
 	hcd := options.DataAPIBackendHCD
-	db := newDbFromEndpoint("http://localhost:8181", nil, &options.APIOptions{DataAPIBackend: &hcd})
-	cmd := command{
-		db:           db,
-		name:         "find",
-		resourceName: "my_collection",
-	}
+	client := NewClient()
+	db := newDbFromEndpoint("http://localhost:8181", client, options.API().SetDataAPIBackend(hcd))
+	cmd := newCmd(db, "find", nil)
+	cmd.resourceName = "my_collection"
+
 	got, err := cmd.url()
 	if err != nil {
 		t.Fatal(err)

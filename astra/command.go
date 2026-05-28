@@ -39,17 +39,19 @@ type command struct {
 	apiVersion      string
 	resourceName    string
 	databaseAdmin   bool                // When true, URL skips keyspace and resource segments
-	resourceOptions *options.APIOptions // Options from the collection/table level
-	commandOptions  *options.APIOptions // Options for this specific command
+	resourceOptions []options.APIOption // Cumulative options from Client -> DB -> Resource
+	commandOptions  []options.APIOption // Options for this specific command
+	commandAPIOpt   *options.APIOptions // Command-level APIOptions struct
 	target          serdes.Target
 }
 
 // newCmd creates a new command from the given DB
 func newCmd(d *Db, name string, payload any) command {
 	return command{
-		db:      d,
-		name:    name,
-		payload: payload,
+		db:              d,
+		name:            name,
+		payload:         payload,
+		resourceOptions: d.options,
 	}
 }
 
@@ -57,25 +59,16 @@ func newCmd(d *Db, name string, payload any) command {
 // The URL will be {endpoint}/api/json/{version} with no keyspace or resource segments.
 func newDatabaseAdminCmd(db *Db, name string, payload any) command {
 	return command{
-		db:            db,
-		name:          name,
-		payload:       payload,
-		databaseAdmin: true,
+		db:              db,
+		name:            name,
+		payload:         payload,
+		databaseAdmin:   true,
+		resourceOptions: db.options,
 	}
 }
 
 // newCmdWithOptions creates a new command with resource and command-level options
-func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts ...options.APIOption) command {
-	var cmdOptions *options.APIOptions
-	if len(cmdOpts) > 0 {
-		cmdOptions = options.NewAPIOptions(cmdOpts...)
-	}
-
-	return newCmdWithMergedOptions(d, resource, name, payload, resourceOpts, target, cmdOptions)
-}
-
-// newCmdWithMergedOptions creates a new command with resource and merged command-level options
-func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts *options.APIOptions, target serdes.Target, cmdOpts *options.APIOptions) command {
+func newCmdWithOptions(d *Db, resource, name string, payload any, resourceOpts []options.APIOption, target serdes.Target, cmdOpts ...options.APIOption) command {
 	return command{
 		db:              d,
 		name:            name,
@@ -87,24 +80,32 @@ func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resource
 	}
 }
 
-// resolveOptions merges all option layers and returns the final resolved options.
-// Merge order: Defaults -> Client -> Database -> Resource (Collection/Table) -> Command
-func (c *command) resolveOptions() *options.APIOptions {
-	var clientOpts, dbOpts *options.APIOptions
+// newCmdWithMergedOptions creates a new command with resource and merged command-level options
+func newCmdWithMergedOptions(d *Db, resource, name string, payload any, resourceOpts []options.APIOption, target serdes.Target, cmdOpts *options.APIOptions) command {
+	return command{
+		db:              d,
+		name:            name,
+		resourceName:    resource,
+		payload:         payload,
+		resourceOptions: resourceOpts,
+		commandAPIOpt:   cmdOpts,
+		target:          target,
+	}
+}
 
-	if c.db != nil {
-		dbOpts = c.db.options
-		if c.db.client != nil {
-			clientOpts = c.db.client.options
-		}
+// resolveOptions merges all option layers and returns the final resolved options.
+// Merge order: Cumulative Resource Options (Client -> DB -> Resource) -> Command Options
+// Defaults are applied by options.Merge.
+func (c *command) resolveOptions() *options.APIOptions {
+	var opts []options.APIOption
+	opts = append(opts, c.resourceOptions...)
+	opts = append(opts, c.commandOptions...)
+
+	if c.commandAPIOpt != nil {
+		opts = append(opts, c.commandAPIOpt)
 	}
 
-	return options.MergeAPILayers(
-		clientOpts,        // Client level
-		dbOpts,            // Database level
-		c.resourceOptions, // Collection/Table level
-		c.commandOptions,  // Command level
-	)
+	return options.Merge(opts...)
 }
 
 // Keyspace returns the keyspace to use for this command.
