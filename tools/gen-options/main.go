@@ -406,9 +406,6 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 	return renderJob{PkgName: pkg.name, Tmpl: buildersTmpl, Data: defs}
 }
 
-// settersFor inspects every field of s and returns a setterDef for each one we
-// know how to generate. Unrecognised field kinds are silently skipped — they can
-// be written by hand as convenience methods that delegate to the generated ones.
 func typeName(t types.Type) string {
 	if ptr, ok := t.Underlying().(*types.Pointer); ok {
 		t = ptr.Elem()
@@ -419,6 +416,9 @@ func typeName(t types.Type) string {
 	return ""
 }
 
+// settersFor inspects every field of s and returns a setterDef for each one we
+// know how to generate. Unrecognised field kinds are silently skipped — they can
+// be written by hand as convenience methods that delegate to the generated ones.
 func settersFor(structName string, s *types.Struct, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) []setterDef {
 	var setters []setterDef
 	for i := 0; i < s.NumFields(); i++ {

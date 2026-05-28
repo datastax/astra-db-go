@@ -214,9 +214,29 @@ func (o *CreateCollectionOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for CreateIndexOptions.
+// Returns all non-nil Validator fields.
+func (o *CreateIndexOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CreateTableOptions.
 // Returns all non-nil Validator fields.
 func (o *CreateTableOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for CreateVectorIndexOptions.
+// Returns all non-nil Validator fields.
+func (o *CreateVectorIndexOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)
@@ -277,6 +297,16 @@ func (o *ListCollectionNamesOptions) Children() []Validator {
 // Children implements ChildValidator for ListCollectionsOptions.
 // Returns all non-nil Validator fields.
 func (o *ListCollectionsOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for ListIndexesOptions.
+// Returns all non-nil Validator fields.
+func (o *ListIndexesOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)

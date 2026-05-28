@@ -423,7 +423,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 		return command{}, err
 	}
 
-	return t.newCmd("createIndex", map[string]any{
+	return t.newCmdWithMergedOptions("createIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -436,7 +436,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 		"options": map[string]any{
 			"ifNotExists": merged.IfNotExists,
 		},
-	}), nil
+	}, merged.APIOptions), nil
 }
 
 // CreateVectorIndex creates a vector index on a vector column in the table.
@@ -480,7 +480,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		return command{}, err
 	}
 
-	return t.newCmd("createVectorIndex", map[string]any{
+	return t.newCmdWithMergedOptions("createVectorIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -492,7 +492,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		"options": map[string]any{
 			"ifNotExists": merged.IfNotExists,
 		},
-	}), nil
+	}, merged.APIOptions), nil
 }
 
 // endregion
@@ -550,11 +550,11 @@ func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, e
 		return command{}, err
 	}
 
-	return t.newCmd("listIndexes", map[string]any{
+	return t.newCmdWithMergedOptions("listIndexes", map[string]any{
 		"options": map[string]any{
 			"explain": merged.Explain,
 		},
-	}), nil
+	}, merged.APIOptions), nil
 }
 
 // endregion

@@ -194,8 +194,9 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 	}
 
 	return &Collection{
-		db:   d,
-		name: name,
+		db:      d,
+		name:    name,
+		options: options.Join(d.options, merged.APIOptions),
 	}, nil
 }
 
@@ -237,8 +238,9 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	}
 
 	return &Table{
-		db:   d,
-		name: name,
+		db:      d,
+		name:    name,
+		options: options.Join(d.options, merged.APIOptions),
 	}, nil
 }
 

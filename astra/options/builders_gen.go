@@ -1502,6 +1502,16 @@ func (b *createIndexOptionsBuilder) SetCaseSensitive(v bool) *createIndexOptions
 	return b
 }
 
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *createIndexOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateIndexOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CreateKeyspaceOption configures a CreateKeyspace operation.
 // You can use the fluent-style builder or a pointer to [CreateKeyspaceOptions] interchangeably.
 //
@@ -1706,6 +1716,16 @@ func (b *createVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *createVecto
 func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVectorIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
 		o.SourceModel = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *createVectorIndexOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createVectorIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2446,6 +2466,16 @@ func (b *listIndexesOptionsBuilder) Setters() []func(*ListIndexesOptions) {
 func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListIndexesOptions) {
 		o.Explain = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *listIndexesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listIndexesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListIndexesOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }

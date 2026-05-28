@@ -35,7 +35,7 @@ const DefaultAdminAPIVersion = "v2"
 // Only valid for Astra environments.
 type AstraAdmin struct {
 	client           *DataAPIClient
-	options          []options.APIOption // Cumulative options from Client -> Admin
+	options          options.Joined[options.APIOptions] // Cumulative options from Client -> Admin
 	apiVersion       string
 	astraEnvironment options.AstraEnvironment
 }
@@ -258,7 +258,7 @@ func (r *rawDatabaseResponse) toDatabaseInfo(env options.AstraEnvironment) *Data
 
 // ClientOptions returns the admin's options as a resolved struct with defaults.
 func (a *AstraAdmin) ClientOptions() *options.APIOptions {
-	return options.Merge(a.options...)
+	return options.Merge(a.options)
 }
 
 // FindAvailableRegions retrieves available serverless regions from the DevOps API.
@@ -588,7 +588,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 
 	region := params.Region
 
-	dbAdmin := a.DatabaseAdmin(dbID, region, a.options...)
+	dbAdmin := a.DatabaseAdmin(dbID, region)
 
 	if !*merged.Blocking {
 		return dbAdmin, nil

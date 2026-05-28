@@ -148,3 +148,31 @@ func TestURLNonAstraBackend(t *testing.T) {
 		t.Errorf("expected %q, got %q", expected, got)
 	}
 }
+
+func TestCommandOptionsHierarchy(t *testing.T) {
+	// Test that command correctly merges:
+	// Client -> DB -> Collection -> Command Builders -> Command Struct
+	client := NewClient(options.API().SetToken("client-token"))
+	db := client.Database("http://localhost:8181", options.API().SetKeyspace("db-keyspace"))
+	coll := db.Collection("my-coll", options.API().SetAPIVersion("v2"))
+
+	// Create command with both builders and a merged struct override
+	cmd := newCmdWithOptions(db, coll.Name(), "find", nil, coll.options, serdes.TargetCollection,
+		options.API().SetHeader("X-Custom", "value"))
+	cmd.options = options.Join(cmd.options, options.API().SetToken("final-token"))
+
+	opts := cmd.resolveOptions()
+
+	if opts.GetToken() != "final-token" {
+		t.Errorf("expected final-token, got %q", opts.GetToken())
+	}
+	if opts.GetKeyspace() != "db-keyspace" {
+		t.Errorf("expected db-keyspace, got %q", opts.GetKeyspace())
+	}
+	if opts.GetAPIVersion() != "v2" {
+		t.Errorf("expected v2, got %q", opts.GetAPIVersion())
+	}
+	if opts.Headers["X-Custom"] != "value" {
+		t.Errorf("expected header value, got %q", opts.Headers["X-Custom"])
+	}
+}
