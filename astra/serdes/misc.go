@@ -210,9 +210,6 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 		}
 
 		u := reflect.NewAt(t, p)
-		if u.IsNil() {
-			u.Set(reflect.New(t))
-		}
 
 		err = u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx, intermediate)
 		if err != nil {
@@ -225,9 +222,6 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		u := reflect.NewAt(t, p)
-		if u.IsNil() {
-			u.Set(reflect.New(t))
-		}
 
 		srcAfter, err := skipValue(ctx, src)
 		if err != nil {

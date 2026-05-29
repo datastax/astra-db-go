@@ -439,7 +439,7 @@ func (u *mapIter) IsEmpty() bool {
 	case sortedMapIter:
 		return u.currentNode.IsNil()
 	default:
-		return !u.iter.Next()
+		return u.m.Len() == 0
 	}
 }
 

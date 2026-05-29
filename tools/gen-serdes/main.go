@@ -55,7 +55,7 @@ func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 	startSrc := src
 	src, num, err := {{.DesFunc}}(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[{{.Type}}]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[{{.Type}}](), err)
 	}
 
 	if {{.BoundsCheck}} {
