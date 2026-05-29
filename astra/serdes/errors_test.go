@@ -65,7 +65,7 @@ func TestErrorMessages(t *testing.T) {
 		if err.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
-		})
+	})
 
 	t.Run("Custom Unmarshaler Error", func(t *testing.T) {
 		_ = AstraUnmarshaler(nil) // check interface
@@ -115,8 +115,7 @@ func TestErrorMessages(t *testing.T) {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
 	})
-	}
-
+}
 
 type mockUnmarshaler struct {
 	err error

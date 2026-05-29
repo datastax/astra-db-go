@@ -53,7 +53,6 @@ func mkStructEncoder(info *structInfo) encoder {
 				dst = append(dst, f.prefix...)
 			}
 
-
 			ctx.fieldHint = extractFieldHint(f.meta.name)
 
 			var err error

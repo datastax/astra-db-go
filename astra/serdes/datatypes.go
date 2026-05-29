@@ -251,7 +251,6 @@ func bigIntDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return src, err
 	}
 
-
 	var bi big.Int
 	if _, ok := bi.SetString(unsafeString(numStr), 10); !ok {
 		return src, ctx.syntaxError(src, "invalid big.Int value")
@@ -281,7 +280,6 @@ func bigFloatDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	if err != nil {
 		return src, err
 	}
-
 
 	var bf big.Float
 	if _, ok := bf.SetString(unsafeString(numStr)); !ok {

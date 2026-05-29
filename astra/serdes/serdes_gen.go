@@ -67,7 +67,7 @@ func intDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int](), err)
 	}
 
 	if num < math.MinInt || num > math.MaxInt {
@@ -90,7 +90,7 @@ func int8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int8]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int8](), err)
 	}
 
 	if num < math.MinInt8 || num > math.MaxInt8 {
@@ -113,7 +113,7 @@ func int16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int16]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int16](), err)
 	}
 
 	if num < math.MinInt16 || num > math.MaxInt16 {
@@ -136,7 +136,7 @@ func int32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int32]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int32](), err)
 	}
 
 	if num < math.MinInt32 || num > math.MaxInt32 {
@@ -159,7 +159,7 @@ func int64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int64]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[int64](), err)
 	}
 
 	if num < math.MinInt64 || num > math.MaxInt64 {
@@ -182,7 +182,7 @@ func uintDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint](), err)
 	}
 
 	if num < 0 || num > math.MaxUint {
@@ -205,7 +205,7 @@ func uint8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	startSrc := src
 	src, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint8]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint8](), err)
 	}
 
 	if num < 0 || num > math.MaxUint8 {
@@ -228,7 +228,7 @@ func uint16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	startSrc := src
 	src, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint16]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint16](), err)
 	}
 
 	if num < 0 || num > math.MaxUint16 {
@@ -251,7 +251,7 @@ func uint32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	startSrc := src
 	src, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint32]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint32](), err)
 	}
 
 	if num < 0 || num > math.MaxUint32 {
@@ -274,7 +274,7 @@ func uint64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	startSrc := src
 	src, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint64]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uint64](), err)
 	}
 
 	if num < 0 || num > math.MaxUint64 {
@@ -297,7 +297,7 @@ func uintptrDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	startSrc := src
 	src, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uintptr]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[uintptr](), err)
 	}
 
 	if num < 0 || num > uint64(maxUintptr) {
@@ -320,7 +320,7 @@ func float32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	startSrc := src
 	src, num, err := parseFloat(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[float32]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[float32](), err)
 	}
 
 	if false {
@@ -343,7 +343,7 @@ func float64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	startSrc := src
 	src, num, err := parseFloat(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[float64]() , err)
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[float64](), err)
 	}
 
 	if false {
