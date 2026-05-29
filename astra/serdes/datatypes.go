@@ -33,15 +33,15 @@ func uuidDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	var err error
 
 	if ctx.Target == TargetCollection {
-		src, uuid, err = parseDollarDatatype(src, uuidTag, decodeUUID)
+		src, uuid, err = parseDollarDatatype(ctx, src, uuidTag, decodeUUID)
 	} else {
-		src, uuid, err = decodeUUID(src)
+		src, uuid, err = decodeUUID(ctx, src)
 	}
 
 	if err == nil {
 		*(*datatypes.UUID)(p) = uuid
 	}
-	return src, nil
+	return src, err
 }
 
 func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -51,15 +51,15 @@ func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return dst, nil
 }
 
-func decodeUUID(src []byte) ([]byte, datatypes.UUID, error) {
-	src, str, _, err := parseStringUnquote(src)
+func decodeUUID(ctx DecodeCtx, src []byte) ([]byte, datatypes.UUID, error) {
+	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, datatypes.UUID{}, fmt.Errorf("invalid UUID string: %w", err)
+		return src, datatypes.UUID{}, err
 	}
 
 	uuid, err := datatypes.ParseUUID(unsafeString(str))
 	if err != nil {
-		return src, datatypes.UUID{}, fmt.Errorf("invalid UUID string: %w", err)
+		return src, datatypes.UUID{}, ctx.syntaxErrorWrap(src, "invalid UUID string", err)
 	}
 
 	return src, uuid, nil
@@ -76,7 +76,7 @@ var oidTag = []byte("objectId")
 
 func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return dst, fmt.Errorf("cannot encode ObjectId in a non-collection")
+		return dst, &UnsupportedValueError{Msg: "cannot encode ObjectId in a non-collection"}
 	}
 
 	return encodeDollarDatatype(dst, oidTag, func(dst []byte) ([]byte, error) {
@@ -89,18 +89,18 @@ func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func objectIdDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return src, fmt.Errorf("cannot decode ObjectId from a non-collection")
+		return src, ctx.syntaxError(src, "cannot decode ObjectId from a non-collection")
 	}
 
-	src, oid, err := parseDollarDatatype(src, oidTag, func(b []byte) ([]byte, datatypes.ObjectId, error) {
-		src, str, _, err := parseStringUnquote(b)
+	src, oid, err := parseDollarDatatype(ctx, src, oidTag, func(ctx DecodeCtx, b []byte) ([]byte, datatypes.ObjectId, error) {
+		src, str, _, err := parseStringUnquote(ctx, b)
 		if err != nil {
-			return src, datatypes.ObjectId{}, fmt.Errorf("invalid ObjectId string: %w", err)
+			return src, datatypes.ObjectId{}, err
 		}
 
 		oid, err := datatypes.ParseObjectId(unsafeString(str))
 		if err != nil {
-			return src, datatypes.ObjectId{}, fmt.Errorf("invalid ObjectId string: %w", err)
+			return src, datatypes.ObjectId{}, ctx.syntaxErrorWrap(src, "invalid ObjectId string", err)
 		}
 
 		return src, oid, nil
@@ -136,8 +136,8 @@ func timeEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 
 func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		src, ms, err := parseDollarDatatype(src, dateTag, func(b []byte) ([]byte, int64, error) {
-			return parseInt(b)
+		src, ms, err := parseDollarDatatype(ctx, src, dateTag, func(ctx DecodeCtx, b []byte) ([]byte, int64, error) {
+			return parseInt(ctx, b)
 		})
 		if err == nil {
 			*(*time.Time)(p) = time.UnixMilli(ms)
@@ -145,14 +145,14 @@ func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return src, err
 	}
 
-	src, str, _, err := parseStringUnquote(src)
+	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, fmt.Errorf("invalid timestamp string: %w", err)
+		return src, err
 	}
 
 	t, err := time.Parse(time.RFC3339Nano, unsafeString(str))
 	if err != nil {
-		return src, fmt.Errorf("invalid timestamp string: %w", err)
+		return src, ctx.syntaxErrorWrap(src, "invalid timestamp string", err)
 	}
 
 	*(*time.Time)(p) = t
@@ -165,7 +165,7 @@ func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, fmt.Errorf("cannot encode DateOnly in a collection")
+		return nil, &UnsupportedValueError{Msg: "cannot encode DateOnly in a collection"}
 	}
 
 	d := (*datatypes.DateOnly)(p)
@@ -177,17 +177,17 @@ func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, fmt.Errorf("cannot decode DateOnly from a collection")
+		return src, ctx.syntaxError(src, "cannot decode DateOnly from a collection")
 	}
 
-	src, str, _, err := parseStringUnquote(src)
+	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, fmt.Errorf("invalid date string: %w", err)
+		return src, err
 	}
 
 	d, err := datatypes.ParseDateOnly(unsafeString(str))
 	if err != nil {
-		return src, fmt.Errorf("invalid date string: %w", err)
+		return src, ctx.syntaxErrorWrap(src, "invalid date string", err)
 	}
 
 	*(*datatypes.DateOnly)(p) = d
@@ -200,7 +200,7 @@ func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, fmt.Errorf("cannot encode TimeOnly in a collection")
+		return nil, &UnsupportedValueError{Msg: "cannot encode TimeOnly in a collection"}
 	}
 
 	t := (*datatypes.TimeOnly)(p)
@@ -212,17 +212,17 @@ func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, fmt.Errorf("cannot decode TimeOnly from a collection")
+		return src, ctx.syntaxError(src, "cannot decode TimeOnly from a collection")
 	}
 
-	src, str, _, err := parseStringUnquote(src)
+	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, fmt.Errorf("invalid time string: %w", err)
+		return src, err
 	}
 
 	t, err := datatypes.ParseTimeOnly(unsafeString(str))
 	if err != nil {
-		return src, fmt.Errorf("invalid time string: %w", err)
+		return src, ctx.syntaxErrorWrap(src, "invalid time string", err)
 	}
 
 	*(*datatypes.TimeOnly)(p) = t
@@ -238,21 +238,21 @@ func bigIntEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return bi.Append(dst, 10), nil
 }
 
-func bigIntDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func bigIntDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
 
-	src, numStr, err := parseNumber(src)
+	src, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, fmt.Errorf("invalid big.Int: %w", err)
+		return src, err
 	}
 
 	var bi big.Int
 	if _, ok := bi.SetString(unsafeString(numStr), 10); !ok {
-		return src, fmt.Errorf("invalid big.Int value: %s", numStr)
+		return src, ctx.syntaxError(src, "invalid big.Int value")
 	}
 
 	*(*big.Int)(p) = bi
@@ -268,21 +268,21 @@ func bigFloatEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) 
 	return bf.Append(dst, 'g', -1), nil
 }
 
-func bigFloatDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func bigFloatDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
 
-	src, numStr, err := parseNumber(src)
+	src, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, fmt.Errorf("invalid big.Float: %w", err)
+		return src, err
 	}
 
 	var bf big.Float
 	if _, ok := bf.SetString(unsafeString(numStr)); !ok {
-		return src, fmt.Errorf("invalid big.Float value: %s", numStr)
+		return src, ctx.syntaxError(src, "invalid big.Float value")
 	}
 
 	*(*big.Float)(p) = bf
@@ -308,7 +308,7 @@ func vectorEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
-	if len(src) == 0 || src[0] == '[' {
+	if len(src) != 0 && src[0] == '[' {
 		var arr []float32
 		src, err := mkSliceDecoder(4, float32SliceType, float32Decoder)(ctx, src, unsafe.Pointer(&arr))
 		if err == nil {
@@ -318,11 +318,11 @@ func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return src, err
 	}
 
-	if len(src) == 0 || src[0] == '{' {
-		src, vector, err := parseDollarDatatype(src, []byte("binary"), func(b []byte) ([]byte, datatypes.DataAPIVector, error) {
-			src, str, isNew, err := parseStringUnquote(b)
+	if len(src) != 0 && src[0] == '{' {
+		src, vector, err := parseDollarDatatype(ctx, src, []byte("binary"), func(ctx DecodeCtx, b []byte) ([]byte, datatypes.DataAPIVector, error) {
+			src, str, isNew, err := parseStringUnquote(ctx, b)
 			if err != nil {
-				return src, datatypes.DataAPIVector{}, fmt.Errorf("invalid vector string: %w", err)
+				return src, datatypes.DataAPIVector{}, err
 			}
 
 			if isNew {
@@ -337,7 +337,7 @@ func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return src, err
 	}
 
-	return src, fmt.Errorf("expected []float32 or {\"$binary\":\"<base64>\"} for vector value")
+	return src, ctx.unmarshalTypeError(src, vectorType)
 }
 
 // ================================
@@ -354,8 +354,8 @@ func binaryEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
-	if len(src) == 0 || src[0] == '"' {
-		src, str, _, err := parseStringUnquote(src)
+	if len(src) != 0 && src[0] == '"' {
+		src, str, _, err := parseStringUnquote(ctx, src)
 		if err != nil {
 			return src, err
 		}
@@ -364,8 +364,8 @@ func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return src, nil
 	}
 
-	if len(src) == 0 || src[0] == '{' {
-		src, data, err := parseDollarDatatype(src, []byte("binary"), decodeBytesFromBase64)
+	if len(src) != 0 && src[0] == '{' {
+		src, data, err := parseDollarDatatype(ctx, src, []byte("binary"), decodeBytesFromBase64)
 
 		if err == nil {
 			*(*[]byte)(p) = data
@@ -373,7 +373,7 @@ func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return src, err
 	}
 
-	if len(src) == 0 || src[0] == '[' {
+	if len(src) != 0 && src[0] == '[' {
 		var arr []byte
 		src, err := mkSliceDecoder(1, byteSliceType, uint8Decoder)(ctx, src, unsafe.Pointer(&arr))
 		if err == nil {
@@ -382,7 +382,7 @@ func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return src, err
 	}
 
-	return src, fmt.Errorf("expected string, []byte, or {\"$binary\":\"<base64>\"} for []byte value")
+	return src, ctx.unmarshalTypeError(src, byteSliceType)
 }
 
 func encodeBytesAsBase64(dst []byte, data []byte) []byte {
@@ -409,16 +409,16 @@ func encodeBytesAsBase64(dst []byte, data []byte) []byte {
 	return dst
 }
 
-func decodeBytesFromBase64(src []byte) ([]byte, []byte, error) {
-	src, str, _, err := parseStringUnquote(src)
+func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
+	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, nil, fmt.Errorf("invalid base64 string: %w", err)
+		return src, nil, err
 	}
 
 	data := make([]byte, base64.StdEncoding.DecodedLen(len(str)))
 	n, err := base64.StdEncoding.Decode(data, str)
 	if err != nil {
-		return src, nil, fmt.Errorf("invalid base64 string: %w", err)
+		return src, nil, ctx.syntaxErrorWrap(src, "invalid base64 string", err)
 	}
 
 	return src, data[:n], nil
@@ -440,43 +440,43 @@ func encodeDollarDatatype(dst []byte, datatype []byte, encode func([]byte) ([]by
 	return dst, nil
 }
 
-func parseDollarDatatype[T any](src []byte, datatype []byte, decode func([]byte) ([]byte, T, error)) ([]byte, T, error) {
+func parseDollarDatatype[T any](ctx DecodeCtx, src []byte, datatype []byte, decode func(DecodeCtx, []byte) ([]byte, T, error)) ([]byte, T, error) {
 	var zero T
 
 	src = skipWS(src)
 	if len(src) == 0 || src[0] != '{' {
-		return src, zero, fmt.Errorf("error parsing %s: expected object", datatype)
+		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected object for %s", datatype))
 	}
 
 	src = skipWS(src[1:])
 	if !bytes.HasPrefix(src, []byte(`"$`)) {
-		return src, zero, fmt.Errorf("error parsing %s: expected object of the format {\"$%s\":...}", datatype, datatype)
+		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key", datatype))
 	}
 
-	src = skipWS(src[2:])
+	src = src[2:]
 	if len(src) < len(datatype) || !bytes.Equal(src[:len(datatype)], datatype) {
-		return src, zero, fmt.Errorf("error parsing %s: expected object of the format {\"$%s\":...}", datatype, datatype)
+		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key", datatype))
 	}
 
 	src = src[len(datatype):]
 	if len(src) == 0 || src[0] != '"' {
-		return src, zero, fmt.Errorf("error parsing %s: expected object of the format {\"$%s\":...}", datatype, datatype)
+		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key to be quoted", datatype))
 	}
 
 	src = skipWS(src[1:])
 	if len(src) == 0 || src[0] != ':' {
-		return src, zero, fmt.Errorf("error parsing %s: expected object of the format {\"$%s\":...}", datatype, datatype)
+		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected ':' after \"$%s\" key", datatype))
 	}
 
 	src = skipWS(src[1:])
-	src, res, err := decode(src)
+	src, res, err := decode(ctx, src)
 	if err != nil {
 		return src, zero, err
 	}
 
 	src = skipWS(src)
 	if len(src) == 0 || src[0] != '}' {
-		return src, zero, fmt.Errorf("error parsing %s: expected object of the format {\"$%s\":...}", datatype, datatype)
+		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected '}' at the end of %s object", datatype))
 	}
 
 	return src[1:], res, nil
@@ -495,7 +495,7 @@ func decodeDollarDatatype(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, 
 		return initSrc, nil, false
 	}
 
-	src, datatype, _, err := parseStringUnquote(src)
+	src, datatype, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
 		return src, err, true
 	}

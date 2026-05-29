@@ -116,7 +116,7 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 			return encodeArrayMap(ctx, dst, p)
 		}
 
-		return dst, fmt.Errorf("cannot have a map with non-string keys in tables")
+		return dst, &UnsupportedValueError{Msg: "cannot have a map with non-string keys in tables"}
 	}
 }
 
@@ -135,7 +135,7 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 			return decodeArrayMap(ctx, src, p)
 		}
 
-		return src, fmt.Errorf("expected a json object or null when parsing map")
+		return src, ctx.unmarshalTypeError(src, t)
 	}
 }
 
@@ -172,7 +172,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 			}
 
 			if dst, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
-				return dst[:start], err
+				return dst[:start], wrapPath(err, "key")
 			}
 
 			if encodeValue != nil {
@@ -183,7 +183,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 				}
 
 				if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
-					return dst[:start], err
+					return dst[:start], wrapPath(err, fmt.Sprintf("[%v]", iter.Key().Interface()))
 				}
 			}
 
@@ -204,7 +204,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 		}
 
 		if len(src) < 2 || src[0] != open {
-			return src, fmt.Errorf("expected '%c'", open)
+			return src, ctx.unmarshalTypeError(src, t)
 		}
 
 		m := reflect.NewAt(t, p).Elem()
@@ -233,10 +233,10 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			if i != 0 {
 				if len(src) == 0 {
-					return src, fmt.Errorf("unexpected end of JSON")
+					return src, ctx.syntaxError(src, "unexpected end of JSON")
 				}
 				if src[0] != ',' {
-					return src, fmt.Errorf("expected ',' but found '%c'", src[0])
+					return src, ctx.syntaxError(src, fmt.Sprintf("expected ',' but found '%c'", src[0]))
 				}
 				src = skipWS(src[1:])
 			}
@@ -246,20 +246,20 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			if fromArray {
 				if len(src) == 0 || src[0] != '[' {
-					return src, fmt.Errorf("expected '[' for table entry")
+					return src, ctx.syntaxError(src, "expected '[' for table entry")
 				}
 				src = skipWS(src[1:])
 			}
 
 			var err error
 			if src, err = decodeKey(ctx, src, kptr); err != nil {
-				return src, err
+				return src, wrapPath(err, "key")
 			}
 			src = skipWS(src)
 
 			if decodeValue != nil {
 				if len(src) == 0 || src[0] != sep {
-					return src, fmt.Errorf("expected '%c' after key", sep)
+					return src, ctx.syntaxError(src, fmt.Sprintf("expected '%c' after key", sep))
 				}
 				src = skipWS(src[1:])
 
@@ -268,14 +268,15 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 				}
 
 				if src, err = decodeValue(ctx, src, vptr); err != nil {
-					return src, err
+					return src, wrapPath(err, fmt.Sprintf("[%v]", k.Interface()))
 				}
+
 				src = skipWS(src)
 			}
 
 			if fromArray {
 				if len(src) == 0 || src[0] != ']' {
-					return src, fmt.Errorf("expected ']' after table entry")
+					return src, ctx.syntaxError(src, "expected ']' after table entry")
 				}
 				src = skipWS(src[1:])
 			}
@@ -438,7 +439,7 @@ func (u *mapIter) IsEmpty() bool {
 	case sortedMapIter:
 		return u.currentNode.IsNil()
 	default:
-		return !u.iter.Next()
+		return u.m.Len() == 0
 	}
 }
 

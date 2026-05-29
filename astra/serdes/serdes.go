@@ -15,7 +15,6 @@
 package serdes
 
 import (
-	"fmt"
 	"reflect"
 	"runtime"
 	"sync"
@@ -76,20 +75,24 @@ func SerializeInto(data any, target Target, dst []byte) ([]byte, error) {
 	dst, err = c.encode(ctx, dst, p)
 	runtime.KeepAlive(data)
 
-	return dst, err
+	return dst, wrapStruct(err, t.Name())
 }
 
 func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target Target) error {
+	if res == nil {
+		return &InvalidUnmarshalError{Type: nil}
+	}
+
 	t := reflect.TypeOf(res)
 	p := (*iface)(unsafe.Pointer(&res)).ptr
 
 	if t.Kind() != reflect.Ptr {
-		return fmt.Errorf("deserialize requires a pointer, got %v", t)
+		return &InvalidUnmarshalError{Type: t}
 	}
 
-	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx}
+	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, originalSrc: data}
 	c := resolveCodecCaching(ctx.codecCtx, t.Elem())
 
 	_, err := c.decode(ctx, data, p)
-	return err
+	return wrapStruct(err, t.Elem().Name())
 }

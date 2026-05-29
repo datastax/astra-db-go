@@ -1,7 +1,6 @@
 package serdes
 
 import (
-	"fmt"
 	"maps"
 	"reflect"
 	"strings"
@@ -26,8 +25,37 @@ type EncodeCtx struct {
 
 type DecodeCtx struct {
 	codecCtx
-	Target    Target
-	TargetCtx TargetDecodeCtx
+	Target      Target
+	TargetCtx   TargetDecodeCtx
+	originalSrc []byte // we could potentially just store the offset and length without the capacity as a minor optimization?
+}
+
+func (c DecodeCtx) offset(src []byte) int64 {
+	return int64(len(c.originalSrc) - len(src))
+}
+
+func (c DecodeCtx) syntaxError(src []byte, msg string) error {
+	return &SyntaxError{msg: msg, Offset: c.offset(src)}
+}
+
+func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
+	return &SyntaxError{msg: msg, Offset: c.offset(src), Err: err}
+}
+
+func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
+	return &UnmarshalTypeError{Value: getValueType(src), Type: t, Offset: c.offset(src)}
+}
+
+func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
+	return &UnmarshalTypeError{Value: value, Type: t, Offset: c.offset(src)}
+}
+
+func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
+	return &UnmarshalTypeError{Value: getValueType(src), Type: t, Offset: c.offset(src), Err: err}
+}
+
+func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {
+	return &UnmarshalTypeError{Value: value, Type: t, Offset: c.offset(src), Err: err}
 }
 
 type AstraMarshaler interface {
@@ -173,7 +201,7 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		c = mkSomeInterfaceCodec(t)
 	default:
 		if c.encode == nil {
-			c = mkErroredCodec(fmt.Errorf("unsupported type %s", t.String()))
+			c = mkErroredCodec(&UnsupportedTypeError{Type: t})
 		}
 	}
 
