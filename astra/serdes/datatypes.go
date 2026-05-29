@@ -52,7 +52,6 @@ func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func decodeUUID(ctx DecodeCtx, src []byte) ([]byte, datatypes.UUID, error) {
-	startSrc := src
 	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
 		return src, datatypes.UUID{}, err
@@ -60,7 +59,7 @@ func decodeUUID(ctx DecodeCtx, src []byte) ([]byte, datatypes.UUID, error) {
 
 	uuid, err := datatypes.ParseUUID(unsafeString(str))
 	if err != nil {
-		return src, datatypes.UUID{}, ctx.syntaxErrorWrap(startSrc, "invalid UUID string", err)
+		return src, datatypes.UUID{}, ctx.syntaxErrorWrap(src, "invalid UUID string", err)
 	}
 
 	return src, uuid, nil

@@ -229,9 +229,6 @@ func (e *InvalidUnmarshalError) Error() string {
 }
 
 func getValueType(src []byte) string {
-	if len(src) == 0 {
-		return "eof"
-	}
 	src = skipWS(src)
 	if len(src) == 0 {
 		return "eof"
