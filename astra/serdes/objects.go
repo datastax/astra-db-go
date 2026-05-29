@@ -14,7 +14,7 @@ func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool)
 	info, err := compileStructInfo(ctx, t, seen, canAddr)
 
 	if err != nil {
-		return mkErroredCodec(fmt.Errorf("failed to compile struct %s: %w", t.String(), err))
+		return mkErroredCodec(&UnsupportedValueError{Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)})
 	}
 
 	return codec{
@@ -47,11 +47,12 @@ func mkStructEncoder(info *structInfo) encoder {
 			lengthBeforeKey := len(dst)
 
 			if firstField {
-				dst = append(dst, f.prefix[1:]...) // skip leading comma for the first fieldHint
+				dst = append(dst, f.prefix[1:]...) // skip leading comma for the first field
 				firstField = false
 			} else {
 				dst = append(dst, f.prefix...)
 			}
+
 
 			ctx.fieldHint = extractFieldHint(f.meta.name)
 
@@ -62,7 +63,8 @@ func mkStructEncoder(info *structInfo) encoder {
 					dst = dst[:lengthBeforeKey]
 					continue
 				}
-				return dst[:start], err
+
+				return dst[:start], wrapField(err, info.typ.Name(), f.meta.name)
 			}
 		}
 
@@ -89,7 +91,7 @@ func mkStructDecoder(info *structInfo) decoder {
 		}
 
 		if len(src) == 0 || src[0] != '{' {
-			return src, fmt.Errorf("expected '{'")
+			return src, ctx.unmarshalTypeError(src, info.typ)
 		}
 		src = src[1:] // skip '{'
 
@@ -100,7 +102,7 @@ func mkStructDecoder(info *structInfo) decoder {
 			src = skipWS(src)
 
 			if len(src) == 0 {
-				return src, fmt.Errorf("unexpected end of JSON")
+				return src, ctx.syntaxError(src, "unexpected end of JSON")
 			}
 
 			if src[0] == '}' {
@@ -109,19 +111,19 @@ func mkStructDecoder(info *structInfo) decoder {
 
 			if i > 0 {
 				if src[0] != ',' {
-					return src, fmt.Errorf("expected ',' after fieldHint value")
+					return src, ctx.syntaxError(src, "expected ',' after field value")
 				}
 				src = skipWS(src[1:])
 			}
 
-			src, key, _, err = parseStringUnquote(src)
+			src, key, _, err = parseStringUnquote(ctx, src)
 			if err != nil {
 				return src, err
 			}
 			src = skipWS(src)
 
 			if len(src) == 0 || src[0] != ':' {
-				return src, fmt.Errorf("expected ':' after key")
+				return src, ctx.syntaxError(src, "expected ':' after key")
 			}
 			src = skipWS(src[1:])
 
@@ -133,10 +135,13 @@ func mkStructDecoder(info *structInfo) decoder {
 
 				src, err = f.codec.decode(ctx, src, ptr)
 				if err != nil {
-					return src, err
+					return src, wrapField(err, info.typ.Name(), f.meta.name)
 				}
 			} else {
-				src, err = skipValue(src)
+				src, err = skipValue(ctx, src)
+				if err != nil {
+					return src, err
+				}
 			}
 		}
 	}
@@ -148,7 +153,7 @@ func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, allowed boo
 
 		if v == nil {
 			if unexported && !allowed {
-				return nil, fmt.Errorf("json: cannot set embedded pointer to unexported struct without the \"allowunexported\" struct tag: %s", t)
+				return nil, &UnsupportedValueError{Msg: fmt.Sprintf("cannot set embedded pointer to unexported struct without the \"allowunexported\" struct tag: %s", t)}
 			}
 			v = unsafe.Pointer(reflect.New(t).Pointer())
 			*(*unsafe.Pointer)(p) = v
@@ -321,7 +326,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 		case shadowed:
 			continue
 		case ambiguous:
-			return nil, fmt.Errorf("unresolvable ambiguity for fieldHint %q in struct %s", subfield.meta.name, t.String())
+			return nil, &UnsupportedValueError{Msg: fmt.Sprintf("unresolvable ambiguity for field %q in struct %s", subfield.meta.name, t.String())}
 		case unambiguous:
 			// all good
 		}
@@ -389,7 +394,7 @@ const (
 
 func resolveEmbeddedAmbiguity(meta jsonMeta, topLevelNames map[string]struct{}, nameCounts, tagCounts map[string]int) embeddedAmbiguity {
 	if _, exists := topLevelNames[meta.name]; exists {
-		return shadowed // top level fieldHint with the same name exists so ignore this embedded fieldHint
+		return shadowed // top level field with the same name exists so ignore this embedded field
 	}
 
 	if nameCounts[meta.name] == 1 {
@@ -397,14 +402,14 @@ func resolveEmbeddedAmbiguity(meta jsonMeta, topLevelNames map[string]struct{}, 
 	}
 
 	if tagCounts[meta.name] == 1 && meta.tagged {
-		return unambiguous // multiple fields with the same name, so the fieldHint with the tag wins
+		return unambiguous // multiple fields with the same name, so the field with the tag wins
 	}
 
 	if tagCounts[meta.name] != 1 {
 		return ambiguous // zero or multiple tags w/ the same name so we can't resolve anything
 	}
 
-	return shadowed // fieldHint collided and lost to a tagged fieldHint.
+	return shadowed // field collided and lost to a tagged field.
 }
 
 // vendored from segmentio/encode/json

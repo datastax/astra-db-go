@@ -47,18 +47,19 @@ func {{.Type}}Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error)
 	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.SerArgs}}), nil
 }
 
-func {{.Type}}Decoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
 		return b, nil
 	}
 
-	src, num, err := {{.DesFunc}}(src)
+	startSrc := src
+	src, num, err := {{.DesFunc}}(ctx, src)
 	if err != nil {
-		return src, err
+		return src, ctx.unmarshalTypeErrorWrap(startSrc, reflect.TypeFor[{{.Type}}]() , err)
 	}
 
 	if {{.BoundsCheck}} {
-		return src, fmt.Errorf("value %v out of range for {{.Type}}", num)
+		return src, ctx.unmarshalValueTypeError(startSrc, reflect.TypeFor[{{.Type}}](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*{{.Type}})(p) = {{.Type}}(num)

@@ -156,9 +156,9 @@ func (u *UUIDM) UnmarshalAstraRaw(target Target, value []byte) error {
 	var err error
 
 	if target == TargetCollection {
-		_, uuid, err = parseDollarDatatype(value, []byte("uuid"), decodeUUID)
+		_, uuid, err = parseDollarDatatype(DecodeCtx{}, value, []byte("uuid"), decodeUUID)
 	} else {
-		_, uuid, err = decodeUUID(value)
+		_, uuid, err = decodeUUID(DecodeCtx{}, value)
 	}
 
 	if err == nil {
@@ -171,7 +171,7 @@ func (u *UUIDM) UnmarshalJSON(data []byte) error {
 	var uuid datatypes.UUID
 	var err error
 
-	_, uuid, err = decodeUUID(data)
+	_, uuid, err = decodeUUID(DecodeCtx{}, data)
 
 	if err == nil {
 		u.value = uuid.Bytes()

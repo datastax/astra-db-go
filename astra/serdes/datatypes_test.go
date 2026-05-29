@@ -1,6 +1,7 @@
 package serdes_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/datastax/astra-db-go/astra"
@@ -120,8 +121,8 @@ func TestObjectIds_Typed_NonCollection(t *testing.T) {
 		_, err := serdes.Serialize(oid, target)
 		testutils.FailIf(t, err == nil, "expected error encoding ObjectId for non-collection Target")
 
-		expectedErr := "cannot encode ObjectId in a non-collection"
-		testutils.FailIf(t, err.Error() != expectedErr, "unexpected error message: %v", err)
+		expectedErrPrefix := "serdes: unsupported value: cannot encode ObjectId in a non-collection"
+		testutils.FailIf(t, !strings.HasPrefix(err.Error(), expectedErrPrefix), "unexpected error message: %v", err)
 	})
 }
 

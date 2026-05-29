@@ -49,11 +49,11 @@ func nullEncoder(_ EncodeCtx, dst []byte, _ unsafe.Pointer) ([]byte, error) {
 	return append(dst, "null"...), nil
 }
 
-func nullDecoder(_ DecodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
+func nullDecoder(ctx DecodeCtx, b []byte, _ unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(b); ok {
 		return b, nil
 	}
-	return b, fmt.Errorf("expected null")
+	return b, ctx.syntaxError(b, "expected null")
 }
 
 // Booleans
@@ -65,7 +65,7 @@ func boolEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return append(dst, "false"...), nil
 }
 
-func boolDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func boolDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	if b, ok := consumeNull(src); ok {
@@ -80,7 +80,7 @@ func boolDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return src[5:], nil
 	}
 
-	return src, fmt.Errorf("expected boolean")
+	return src, ctx.unmarshalTypeError(src, reflect.TypeFor[bool]())
 }
 
 // Strings
@@ -89,8 +89,8 @@ func stringEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return appendString(dst, *(*string)(p)), nil
 }
 
-func stringDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-	src, str, isNew, err := parseStringUnquote(src)
+func stringDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	src, str, isNew, err := parseStringUnquote(ctx, src)
 	if err != nil {
 		return src, err
 	}
@@ -131,7 +131,7 @@ func mkPointerEncoder(encode encoder) encoder {
 				ctx.ptrSeen = make(map[unsafe.Pointer]struct{})
 			}
 			if _, seen := ctx.ptrSeen[p]; seen {
-				return dst, fmt.Errorf("encountered a cycle via pointer %p", p)
+				return dst, &UnsupportedValueError{Msg: fmt.Sprintf("encountered a cycle via pointer %p", p)}
 			}
 			ctx.ptrSeen[p] = struct{}{}
 			defer delete(ctx.ptrSeen, p)
@@ -178,7 +178,7 @@ func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 
 		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx)
 		if err != nil {
-			return dst, fmt.Errorf("error calling MarshalAstra on type %v: %w", t, err)
+			return dst, &MarshalerError{Type: t, Err: err}
 		}
 
 		return emptyInterfaceEncoder(ctx, dst, unsafe.Pointer(&res))
@@ -214,7 +214,11 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 			u.Set(reflect.New(t))
 		}
 
-		return src, u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx, intermediate)
+		err = u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx, intermediate)
+		if err != nil {
+			return src, &UnmarshalerError{Type: t, Err: err}
+		}
+		return src, nil
 	}
 }
 
@@ -225,14 +229,18 @@ func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 			u.Set(reflect.New(t))
 		}
 
-		srcAfter, err := skipValue(src)
+		srcAfter, err := skipValue(ctx, src)
 		if err != nil {
 			return src, err
 		}
 
 		splitPoint := len(src) - len(srcAfter)
 
-		return srcAfter, u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx, src[:splitPoint])
+		err = u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx, src[:splitPoint])
+		if err != nil {
+			return srcAfter, &UnmarshalerError{Type: t, Err: err}
+		}
+		return srcAfter, nil
 	}
 }
 
@@ -259,7 +267,7 @@ func emptyInterfaceDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte,
 	src = skipWS(src)
 
 	if len(src) == 0 {
-		return src, fmt.Errorf("unexpected end of input")
+		return src, ctx.syntaxError(src, "unexpected end of input")
 	}
 
 	var val any
@@ -285,7 +293,7 @@ func emptyInterfaceDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte,
 			*(*any)(p) = nil
 			return src, nil
 		}
-		return src, fmt.Errorf("expected null")
+		return src, ctx.syntaxError(src, "expected null")
 
 	case 't', 'f':
 		var b bool
@@ -326,7 +334,7 @@ func emptyInterfaceDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte,
 			src, err = float64Decoder(ctx, src, unsafe.Pointer(&f)) // TODO figure out better way of handling numbers
 			val = f
 		} else {
-			return src, fmt.Errorf("unexpected character: %c", src[0])
+			return src, ctx.syntaxError(src, fmt.Sprintf("unexpected character: %c", src[0]))
 		}
 	}
 
@@ -346,7 +354,7 @@ func mkSomeInterfaceDecoder(t reflect.Type) decoder {
 
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		if ctx.TargetCtx != nil && ctx.TargetCtx.UntypedTargetInterface() == t {
-			srcAfter, err := skipValue(src)
+			srcAfter, err := skipValue(ctx, src)
 			if err != nil {
 				return src, err
 			}
@@ -361,7 +369,7 @@ func mkSomeInterfaceDecoder(t reflect.Type) decoder {
 
 			return srcAfter, nil
 		}
-		return src, fmt.Errorf("cannot decode into non-empty interface type %s", t)
+		return src, ctx.unmarshalTypeError(src, t)
 	}
 }
 
@@ -377,17 +385,17 @@ func rawMessageEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 	var throwaway any
 	_, err := emptyInterfaceDecoder(DecodeCtx{}, v, unsafe.Pointer(&throwaway))
 	if err != nil {
-		return dst, fmt.Errorf("invalid raw message: %w", err)
+		return dst, &MarshalerError{Type: rawMessageType, Err: err}
 	}
 
 	return append(dst, v...), nil
 }
 
-func rawMessageDecoder(_ DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+func rawMessageDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
 	start := src
-	end, err := skipValue(src)
+	end, err := skipValue(ctx, src)
 	if err != nil {
 		return src, err
 	}

@@ -3,7 +3,6 @@ package serdes
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math/bits"
 	"strconv"
 )
@@ -16,7 +15,7 @@ func consumeNull(src []byte) ([]byte, bool) {
 	return src, false
 }
 
-func parseInt(src []byte) ([]byte, int64, error) {
+func parseInt(ctx DecodeCtx, src []byte) ([]byte, int64, error) {
 	src = skipWS(src)
 	end := 0
 	for end < len(src) && (src[end] == '-' || (src[end] >= '0' && src[end] <= '9')) {
@@ -24,14 +23,17 @@ func parseInt(src []byte) ([]byte, int64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, fmt.Errorf("expected integer")
+		return src, 0, ctx.syntaxError(src, "expected integer")
 	}
 
 	num, err := strconv.ParseInt(unsafeString(src[:end]), 10, 64)
-	return src[end:], num, err
+	if err != nil {
+		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid integer", err)
+	}
+	return src[end:], num, nil
 }
 
-func parseUint(src []byte) ([]byte, uint64, error) {
+func parseUint(ctx DecodeCtx, src []byte) ([]byte, uint64, error) {
 	src = skipWS(src)
 	end := 0
 	for end < len(src) && (src[end] >= '0' && src[end] <= '9') {
@@ -39,11 +41,14 @@ func parseUint(src []byte) ([]byte, uint64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, fmt.Errorf("expected unsigned integer")
+		return src, 0, ctx.syntaxError(src, "expected unsigned integer")
 	}
 
 	num, err := strconv.ParseUint(unsafeString(src[:end]), 10, 64)
-	return src[end:], num, err
+	if err != nil {
+		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid unsigned integer", err)
+	}
+	return src[end:], num, nil
 }
 
 var floatChars = [256]uint8{
@@ -52,18 +57,21 @@ var floatChars = [256]uint8{
 	'.': 1, '-': 1, '+': 1, 'e': 1, 'E': 1,
 }
 
-func parseFloat(src []byte) ([]byte, float64, error) {
-	src, numStr, err := parseNumber(src)
+func parseFloat(ctx DecodeCtx, src []byte) ([]byte, float64, error) {
+	src, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, 0, fmt.Errorf("invalid float: %w", err)
+		return src, 0, err
 	}
 
 	f, err := strconv.ParseFloat(unsafeString(numStr), 64)
-	return src, f, err
+	if err != nil {
+		return src, 0, ctx.syntaxErrorWrap(src, "invalid float", err)
+	}
+	return src, f, nil
 }
 
 // parseNumber extracts a number string without parsing it, for use with big.Int and big.Float
-func parseNumber(src []byte) ([]byte, []byte, error) {
+func parseNumber(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 	src = skipWS(src)
 	end := 0
 
@@ -72,7 +80,7 @@ func parseNumber(src []byte) ([]byte, []byte, error) {
 	}
 
 	if end == 0 {
-		return src, nil, fmt.Errorf("expected number")
+		return src, nil, ctx.syntaxError(src, "expected number")
 	}
 
 	return src[end:], src[:end], nil
@@ -80,14 +88,14 @@ func parseNumber(src []byte) ([]byte, []byte, error) {
 
 // parseString is vendored and modified from:
 // https://github.com/segmentio/encoding/blob/fd406855de30c54110d23eace25478ab9c6fa2cc/json/parse.go#L405
-func parseString(src []byte) ([]byte, []byte, bool, error) {
+func parseString(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error) {
 	src = skipWS(src)
 
 	if len(src) < 2 {
-		return src[len(src):], nil, false, fmt.Errorf("expected string")
+		return src[len(src):], nil, false, ctx.syntaxError(src, "expected string")
 	}
 	if src[0] != '"' {
-		return src, nil, false, fmt.Errorf("expected '\"' at the beginning of a string value")
+		return src, nil, false, ctx.syntaxError(src, "expected '\"' at the beginning of a string value")
 	}
 
 	var n int
@@ -110,7 +118,7 @@ func parseString(src []byte) ([]byte, []byte, bool, error) {
 	}
 	n = bytes.IndexByte(src[1:], '"') + 2
 	if n <= 1 {
-		return src, nil, false, fmt.Errorf("missing '\"' at the end of a string value")
+		return src, nil, false, ctx.syntaxError(src, "missing '\"' at the end of a string value")
 	}
 
 found:
@@ -128,11 +136,11 @@ found:
 		}
 	}
 
-	return src, nil, false, fmt.Errorf("missing '\"' at the end of a string value")
+	return src, nil, false, ctx.syntaxError(src, "missing '\"' at the end of a string value")
 }
 
-func parseStringUnquote(src []byte) ([]byte, []byte, bool, error) {
-	src, s, escaped, err := parseString(src)
+func parseStringUnquote(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error) {
+	src, s, escaped, err := parseString(ctx, src)
 	if err != nil {
 		return src, s, false, err
 	}
@@ -143,7 +151,7 @@ func parseStringUnquote(src []byte) ([]byte, []byte, bool, error) {
 
 	res, err := strconv.Unquote(unsafeString(s))
 	if err != nil {
-		return src, nil, true, err
+		return src, nil, true, ctx.syntaxErrorWrap(src, "invalid string escape", err)
 	}
 
 	return src, []byte(res), true, nil
@@ -167,15 +175,15 @@ func skipWSRev(src []byte) []byte {
 	return nil
 }
 
-func skipValue(src []byte) ([]byte, error) {
+func skipValue(ctx DecodeCtx, src []byte) ([]byte, error) {
 	src = skipWS(src)
 	if len(src) == 0 {
-		return src, fmt.Errorf("unexpected end of input")
+		return src, ctx.syntaxError(src, "unexpected end of input")
 	}
 
 	switch src[0] {
 	case '"':
-		src, _, _, err := parseString(src)
+		src, _, _, err := parseString(ctx, src)
 		if err != nil {
 			return src, err
 		}
@@ -190,7 +198,7 @@ func skipValue(src []byte) ([]byte, error) {
 		for i := 0; i < len(src); {
 			switch src[i] {
 			case '"':
-				rest, _, _, err := parseString(src[i:])
+				rest, _, _, err := parseString(ctx, src[i:])
 				if err != nil {
 					return src, err
 				}
@@ -208,7 +216,7 @@ func skipValue(src []byte) ([]byte, error) {
 				i++
 			}
 		}
-		return src, fmt.Errorf("unexpected end of input while skipping value")
+		return src, ctx.syntaxError(src, "unexpected end of input while skipping value")
 
 	default:
 		i := 0
