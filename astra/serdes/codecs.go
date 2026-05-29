@@ -25,20 +25,13 @@ type EncodeCtx struct {
 
 type DecodeCtx struct {
 	codecCtx
-	Target    Target
-	TargetCtx TargetDecodeCtx
-	origin    unsafe.Pointer
-	dataLen   int64
+	Target      Target
+	TargetCtx   TargetDecodeCtx
+	originalSrc []byte // we could potentially just store the offset and length without the capacity as a minor optimization?
 }
 
 func (c DecodeCtx) offset(src []byte) int64 {
-	if c.origin == nil {
-		return -1
-	}
-	if len(src) == 0 {
-		return c.dataLen
-	}
-	return int64(uintptr(unsafe.Pointer(&src[0])) - uintptr(c.origin))
+	return int64(len(c.originalSrc) - len(src))
 }
 
 func (c DecodeCtx) syntaxError(src []byte, msg string) error {

@@ -90,11 +90,7 @@ func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target T
 		return &InvalidUnmarshalError{Type: t}
 	}
 
-	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, dataLen: int64(len(data))}
-	if len(data) > 0 {
-		ctx.origin = unsafe.Pointer(&data[0])
-	}
-
+	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, originalSrc: data}
 	c := resolveCodecCaching(ctx.codecCtx, t.Elem())
 
 	_, err := c.decode(ctx, data, p)
