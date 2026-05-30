@@ -64,17 +64,17 @@ func intDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseInt(ctx, src)
+	srcAfter, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int](), err)
 	}
 
 	if num < math.MinInt || num > math.MaxInt {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*int)(p) = int(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func int8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -86,17 +86,17 @@ func int8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseInt(ctx, src)
+	srcAfter, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int8](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int8](), err)
 	}
 
 	if num < math.MinInt8 || num > math.MaxInt8 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int8](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int8](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*int8)(p) = int8(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func int16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -108,17 +108,17 @@ func int16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseInt(ctx, src)
+	srcAfter, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int16](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int16](), err)
 	}
 
 	if num < math.MinInt16 || num > math.MaxInt16 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int16](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int16](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*int16)(p) = int16(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func int32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -130,17 +130,17 @@ func int32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseInt(ctx, src)
+	srcAfter, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int32](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int32](), err)
 	}
 
 	if num < math.MinInt32 || num > math.MaxInt32 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int32](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int32](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*int32)(p) = int32(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func int64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -152,17 +152,17 @@ func int64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseInt(ctx, src)
+	srcAfter, num, err := parseInt(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int64](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int64](), err)
 	}
 
 	if num < math.MinInt64 || num > math.MaxInt64 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int64](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[int64](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*int64)(p) = int64(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func uintEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -174,17 +174,17 @@ func uintDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseUint(ctx, src)
+	srcAfter, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint](), err)
 	}
 
 	if num < 0 || num > math.MaxUint {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*uint)(p) = uint(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func uint8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -196,17 +196,17 @@ func uint8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	src, num, err := parseUint(ctx, src)
+	srcAfter, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint8](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint8](), err)
 	}
 
 	if num < 0 || num > math.MaxUint8 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint8](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint8](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*uint8)(p) = uint8(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func uint16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -218,17 +218,17 @@ func uint16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := parseUint(ctx, src)
+	srcAfter, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint16](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint16](), err)
 	}
 
 	if num < 0 || num > math.MaxUint16 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint16](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint16](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*uint16)(p) = uint16(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func uint32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -240,17 +240,17 @@ func uint32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := parseUint(ctx, src)
+	srcAfter, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint32](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint32](), err)
 	}
 
 	if num < 0 || num > math.MaxUint32 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint32](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint32](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*uint32)(p) = uint32(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func uint64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -262,17 +262,17 @@ func uint64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, num, err := parseUint(ctx, src)
+	srcAfter, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint64](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint64](), err)
 	}
 
 	if num < 0 || num > math.MaxUint64 {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint64](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uint64](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*uint64)(p) = uint64(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func uintptrEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -284,17 +284,17 @@ func uintptrDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	src, num, err := parseUint(ctx, src)
+	srcAfter, num, err := parseUint(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uintptr](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uintptr](), err)
 	}
 
 	if num < 0 || num > uint64(maxUintptr) {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uintptr](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[uintptr](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*uintptr)(p) = uintptr(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func float32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -306,17 +306,17 @@ func float32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	src, num, err := parseFloat(ctx, src)
+	srcAfter, num, err := parseFloat(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float32](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float32](), err)
 	}
 
 	if false {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[float32](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[float32](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*float32)(p) = float32(num)
-	return src, nil
+	return srcAfter, nil
 }
 
 func float64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
@@ -328,15 +328,15 @@ func float64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	src, num, err := parseFloat(ctx, src)
+	srcAfter, num, err := parseFloat(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float64](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float64](), err)
 	}
 
 	if false {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[float64](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[float64](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*float64)(p) = float64(num)
-	return src, nil
+	return srcAfter, nil
 }

@@ -25,7 +25,7 @@ func TestErrorMessages(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		expected := `serdes: cannot unmarshal string into Go value of field Address.addresses[0].zip of type int: syntax error at offset 60: expected integer`
+		expected := `serdes: cannot unmarshal string into 'User.addresses[0].zip' (type int) near: '"not-a-number"}]...'`
 		if err.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
@@ -40,11 +40,8 @@ func TestErrorMessages(t *testing.T) {
 			if typeErr.Type != reflect.TypeFor[int]() {
 				t.Errorf("expected Type 'int', got %v", typeErr.Type)
 			}
-			if typeErr.Offset != 60 {
-				t.Errorf("expected Offset 60, got %d", typeErr.Offset)
-			}
-			if typeErr.Struct != "Address" {
-				t.Errorf("expected Struct 'Address', got %q", typeErr.Struct)
+			if typeErr.Struct != "User" {
+				t.Errorf("expected Struct 'User', got %q", typeErr.Struct)
 			}
 			if typeErr.Field != "addresses[0].zip" {
 				t.Errorf("expected Field 'addresses[0].zip', got %q", typeErr.Field)
@@ -61,7 +58,7 @@ func TestErrorMessages(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		expected := `serdes: syntax error at offset 63 of field User.addresses[0]: expected ',' after field value`
+		expected := `serdes: syntax error in 'User.addresses[0]': expected ',' after field value near: ']}'`
 		if err.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
@@ -79,14 +76,14 @@ func TestErrorMessages(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		expected := `serdes: cannot unmarshal eof into Go value of field User.addresses[0] of type serdes.Address at offset 31`
+		expected := `serdes: cannot unmarshal EOF into 'User.addresses[0]' (type serdes.Address): expected '{' at the start of an object`
 		if err.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
 	})
 
 	t.Run("Nested serdes errors - prefix suppression", func(t *testing.T) {
-		m := &mockUnmarshaler{err: &SyntaxError{msg: "inner problem", Offset: 5}}
+		m := &mockUnmarshaler{err: &SyntaxError{msg: "inner problem"}}
 		data := []byte(`"some-value"`)
 		err := Deserialize(data, m, nil, TargetCollection)
 
@@ -94,8 +91,8 @@ func TestErrorMessages(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		// Should not have "serdes: serdes:"
-		expected := "serdes: error calling UnmarshalAstra of field mockUnmarshaler of type serdes.mockUnmarshaler: syntax error at offset 5: inner problem"
+		// Should not have "serdes: serdes:" or redundant "syntax error:"
+		expected := "serdes: error calling UnmarshalAstra for type serdes.mockUnmarshaler: inner problem near: '\"some-value\"'"
 		if err.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
@@ -110,7 +107,7 @@ func TestErrorMessages(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 
-		expected := `serdes: cannot unmarshal string into Go value of field User of type serdes.User at offset 0`
+		expected := `serdes: cannot unmarshal string into type serdes.User: expected '{' at the start of an object near: '"not-an-object"'`
 		if err.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, err.Error())
 		}
@@ -144,7 +141,7 @@ func TestCustomUnmarshalerError(t *testing.T) {
 			t.Errorf("expected wrapped error 'custom failure', got %v", unmarshalErr.Err)
 		}
 
-		expected := "serdes: error calling UnmarshalAstra of field mockUnmarshaler of type serdes.mockUnmarshaler: custom failure"
+		expected := "serdes: error calling UnmarshalAstra for type serdes.mockUnmarshaler: custom failure near: '\"some-value\"'"
 		if unmarshalErr.Error() != expected {
 			t.Errorf("\nexpected: %s\ngot:      %s", expected, unmarshalErr.Error())
 		}

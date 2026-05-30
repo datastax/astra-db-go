@@ -52,17 +52,17 @@ func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 		return b, nil
 	}
 
-	src, num, err := {{.DesFunc}}(ctx, src)
+	srcAfter, num, err := {{.DesFunc}}(ctx, src)
 	if err != nil {
-		return src, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[{{.Type}}](), err)
+		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[{{.Type}}](), err)
 	}
 
 	if {{.BoundsCheck}} {
-		return src, ctx.unmarshalValueTypeError(src, reflect.TypeFor[{{.Type}}](), fmt.Sprintf("number %v", num))
+		return srcAfter, ctx.unmarshalValueTypeError(src, reflect.TypeFor[{{.Type}}](), fmt.Sprintf("number %v", num))
 	}
 
 	*(*{{.Type}})(p) = {{.Type}}(num)
-	return src, nil
+	return srcAfter, nil
 }
 {{end}}`))
 

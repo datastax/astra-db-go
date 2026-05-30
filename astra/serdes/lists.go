@@ -77,7 +77,7 @@ func mkSliceDecoder(size uintptr, t reflect.Type, decode decoder) decoder {
 		}
 
 		if len(src) == 0 || src[0] != '[' {
-			return src, ctx.unmarshalTypeError(src, t)
+			return src, ctx.unmarshalTypeErrorWrap(src, t, ctx.syntaxError(src, "expected '[' at the start of an array"))
 		}
 		src = src[1:]
 
@@ -112,11 +112,11 @@ func mkSliceDecoder(size uintptr, t reflect.Type, decode decoder) decoder {
 			}
 
 			elemPtr := unsafe.Pointer(uintptr(s.data) + uintptr(s.len)*size)
-			var err error
-			src, err = decode(ctx, src, elemPtr)
+			srcAfter, err := decode(ctx, src, elemPtr)
 			if err != nil {
-				return src, wrapPath(err, fmt.Sprintf("[%d]", s.len))
+				return srcAfter, wrapPath(err, fmt.Sprintf("[%d]", s.len))
 			}
+			src = srcAfter
 
 			s.len++
 		}
@@ -144,7 +144,7 @@ func mkArrayDecoder(n int, size uintptr, t reflect.Type, decode decoder) decoder
 		}
 
 		if len(src) == 0 || src[0] != '[' {
-			return src, ctx.unmarshalTypeError(src, t)
+			return src, ctx.unmarshalTypeErrorWrap(src, t, ctx.syntaxError(src, "expected '[' at the start of an array"))
 		}
 		src = src[1:]
 
@@ -159,11 +159,11 @@ func mkArrayDecoder(n int, size uintptr, t reflect.Type, decode decoder) decoder
 			}
 
 			elemPtr := unsafe.Pointer(uintptr(p) + uintptr(i)*size)
-			var err error
-			src, err = decode(ctx, src, elemPtr)
+			srcAfter, err := decode(ctx, src, elemPtr)
 			if err != nil {
-				return src, wrapPath(err, fmt.Sprintf("[%d]", i))
+				return srcAfter, wrapPath(err, fmt.Sprintf("[%d]", i))
 			}
+			src = srcAfter
 		}
 
 		src = skipWS(src)

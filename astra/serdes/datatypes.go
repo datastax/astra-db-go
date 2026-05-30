@@ -52,17 +52,17 @@ func encodeUUID(dst []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func decodeUUID(ctx DecodeCtx, src []byte) ([]byte, datatypes.UUID, error) {
-	src, str, _, err := parseStringUnquote(ctx, src)
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, datatypes.UUID{}, err
+		return srcAfter, datatypes.UUID{}, err
 	}
 
 	uuid, err := datatypes.ParseUUID(unsafeString(str))
 	if err != nil {
-		return src, datatypes.UUID{}, ctx.syntaxErrorWrap(src, "invalid UUID string", err)
+		return srcAfter, datatypes.UUID{}, ctx.syntaxErrorWrap(src, "invalid UUID string", err)
 	}
 
-	return src, uuid, nil
+	return srcAfter, uuid, nil
 }
 
 // ================================
@@ -76,7 +76,7 @@ var oidTag = []byte("objectId")
 
 func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return dst, &UnsupportedValueError{Msg: "cannot encode ObjectId in a non-collection"}
+		return dst, &UnsupportedValueError{Msg: "ObjectId is only supported for collections"}
 	}
 
 	return encodeDollarDatatype(dst, oidTag, func(dst []byte) ([]byte, error) {
@@ -89,7 +89,7 @@ func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func objectIdDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return src, ctx.syntaxError(src, "cannot decode ObjectId from a non-collection")
+		return src, &UnsupportedValueError{Msg: "ObjectId is only supported for collections"}
 	}
 
 	src, oid, err := parseDollarDatatype(ctx, src, oidTag, func(ctx DecodeCtx, b []byte) ([]byte, datatypes.ObjectId, error) {
@@ -145,18 +145,18 @@ func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return src, err
 	}
 
-	src, str, _, err := parseStringUnquote(ctx, src)
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, err
+		return srcAfter, err
 	}
 
 	t, err := time.Parse(time.RFC3339Nano, unsafeString(str))
 	if err != nil {
-		return src, ctx.syntaxErrorWrap(src, "invalid timestamp string", err)
+		return srcAfter, ctx.syntaxErrorWrap(src, "invalid timestamp string", err)
 	}
 
 	*(*time.Time)(p) = t
-	return src, nil
+	return srcAfter, nil
 }
 
 // ================================
@@ -165,7 +165,7 @@ func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "cannot encode DateOnly in a collection"}
+		return nil, &UnsupportedValueError{Msg: "DateOnly is not supported for collections"}
 	}
 
 	d := (*datatypes.DateOnly)(p)
@@ -177,21 +177,21 @@ func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, ctx.syntaxError(src, "cannot decode DateOnly from a collection")
+		return src, &UnsupportedValueError{Msg: "DateOnly is not supported for collections"}
 	}
 
-	src, str, _, err := parseStringUnquote(ctx, src)
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, err
+		return srcAfter, err
 	}
 
 	d, err := datatypes.ParseDateOnly(unsafeString(str))
 	if err != nil {
-		return src, ctx.syntaxErrorWrap(src, "invalid date string", err)
+		return srcAfter, ctx.syntaxErrorWrap(src, "invalid date string", err)
 	}
 
 	*(*datatypes.DateOnly)(p) = d
-	return src, nil
+	return srcAfter, nil
 }
 
 // ================================
@@ -200,7 +200,7 @@ func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "cannot encode TimeOnly in a collection"}
+		return nil, &UnsupportedValueError{Msg: "TimeOnly is not supported for collections"}
 	}
 
 	t := (*datatypes.TimeOnly)(p)
@@ -212,21 +212,21 @@ func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, ctx.syntaxError(src, "cannot decode TimeOnly from a collection")
+		return src, &UnsupportedValueError{Msg: "TimeOnly is not supported for collections"}
 	}
 
-	src, str, _, err := parseStringUnquote(ctx, src)
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, err
+		return srcAfter, err
 	}
 
 	t, err := datatypes.ParseTimeOnly(unsafeString(str))
 	if err != nil {
-		return src, ctx.syntaxErrorWrap(src, "invalid time string", err)
+		return srcAfter, ctx.syntaxErrorWrap(src, "invalid time string", err)
 	}
 
 	*(*datatypes.TimeOnly)(p) = t
-	return src, nil
+	return srcAfter, nil
 }
 
 // ================================
@@ -245,18 +245,18 @@ func bigIntDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	src, numStr, err := parseNumber(ctx, src)
+	srcAfter, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, err
+		return srcAfter, err
 	}
 
 	var bi big.Int
 	if _, ok := bi.SetString(unsafeString(numStr), 10); !ok {
-		return src, ctx.syntaxError(src, "invalid big.Int value")
+		return srcAfter, ctx.syntaxError(src, "invalid big.Int value")
 	}
 
 	*(*big.Int)(p) = bi
-	return src, nil
+	return srcAfter, nil
 }
 
 // ================================
@@ -275,18 +275,18 @@ func bigFloatDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 		return b, nil
 	}
 
-	src, numStr, err := parseNumber(ctx, src)
+	srcAfter, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, err
+		return srcAfter, err
 	}
 
 	var bf big.Float
 	if _, ok := bf.SetString(unsafeString(numStr)); !ok {
-		return src, ctx.syntaxError(src, "invalid big.Float value")
+		return srcAfter, ctx.syntaxError(src, "invalid big.Float value")
 	}
 
 	*(*big.Float)(p) = bf
-	return src, nil
+	return srcAfter, nil
 }
 
 // ================================
@@ -410,18 +410,18 @@ func encodeBytesAsBase64(dst []byte, data []byte) []byte {
 }
 
 func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
-	src, str, _, err := parseStringUnquote(ctx, src)
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
-		return src, nil, err
+		return srcAfter, nil, err
 	}
 
 	data := make([]byte, base64.StdEncoding.DecodedLen(len(str)))
 	n, err := base64.StdEncoding.Decode(data, str)
 	if err != nil {
-		return src, nil, ctx.syntaxErrorWrap(src, "invalid base64 string", err)
+		return srcAfter, nil, ctx.syntaxErrorWrap(src, "invalid base64 string", err)
 	}
 
-	return src, data[:n], nil
+	return srcAfter, data[:n], nil
 }
 
 // ================================

@@ -90,12 +90,9 @@ func mkStructDecoder(info *structInfo) decoder {
 		}
 
 		if len(src) == 0 || src[0] != '{' {
-			return src, ctx.unmarshalTypeError(src, info.typ)
+			return src, ctx.unmarshalTypeErrorWrap(src, info.typ, ctx.syntaxError(src, "expected '{' at the start of an object"))
 		}
 		src = src[1:] // skip '{'
-
-		var key []byte
-		var err error
 
 		for i := 0; ; i++ {
 			src = skipWS(src)
@@ -115,11 +112,11 @@ func mkStructDecoder(info *structInfo) decoder {
 				src = skipWS(src[1:])
 			}
 
-			src, key, _, err = parseStringUnquote(ctx, src)
+			srcAfter, key, _, err := parseStringUnquote(ctx, src)
 			if err != nil {
-				return src, err
+				return srcAfter, err
 			}
-			src = skipWS(src)
+			src = skipWS(srcAfter)
 
 			if len(src) == 0 || src[0] != ':' {
 				return src, ctx.syntaxError(src, "expected ':' after key")

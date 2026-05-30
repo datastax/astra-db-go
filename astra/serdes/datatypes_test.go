@@ -121,7 +121,7 @@ func TestObjectIds_Typed_NonCollection(t *testing.T) {
 		_, err := serdes.Serialize(oid, target)
 		testutils.FailIf(t, err == nil, "expected error encoding ObjectId for non-collection Target")
 
-		expectedErrPrefix := "serdes: unsupported value: cannot encode ObjectId in a non-collection"
+		expectedErrPrefix := "serdes: unsupported value: ObjectId is only supported for collections"
 		testutils.FailIf(t, !strings.HasPrefix(err.Error(), expectedErrPrefix), "unexpected error message: %v", err)
 	})
 }
