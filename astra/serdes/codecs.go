@@ -25,37 +25,32 @@ type EncodeCtx struct {
 
 type DecodeCtx struct {
 	codecCtx
-	Target      Target
-	TargetCtx   TargetDecodeCtx
-	originalSrc []byte // we could potentially just store the offset and length without the capacity as a minor optimization?
-}
-
-func (c DecodeCtx) offset(src []byte) int64 {
-	return int64(len(c.originalSrc) - len(src))
+	Target    Target
+	TargetCtx TargetDecodeCtx
 }
 
 func (c DecodeCtx) syntaxError(src []byte, msg string) error {
-	return &SyntaxError{msg: msg, Offset: c.offset(src)}
+	return &SyntaxError{msg: msg, Snippet: errorSnippet(src)}
 }
 
 func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
-	return &SyntaxError{msg: msg, Offset: c.offset(src), Err: err}
+	return &SyntaxError{msg: msg, Snippet: errorSnippet(src), Err: err}
 }
 
 func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
-	return &UnmarshalTypeError{Value: getValueType(src), Type: t, Offset: c.offset(src)}
+	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src)}
 }
 
 func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
-	return &UnmarshalTypeError{Value: value, Type: t, Offset: c.offset(src)}
+	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src)}
 }
 
 func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
-	return &UnmarshalTypeError{Value: getValueType(src), Type: t, Offset: c.offset(src), Err: err}
+	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src), Err: err}
 }
 
 func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {
-	return &UnmarshalTypeError{Value: value, Type: t, Offset: c.offset(src), Err: err}
+	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src), Err: err}
 }
 
 type AstraMarshaler interface {

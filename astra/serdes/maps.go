@@ -116,7 +116,7 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 			return encodeArrayMap(ctx, dst, p)
 		}
 
-		return dst, &UnsupportedValueError{Msg: "cannot have a map with non-string keys in tables"}
+		return dst, &UnsupportedValueError{Msg: "maps with non-string keys are only supported for tables"}
 	}
 }
 
@@ -204,7 +204,11 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 		}
 
 		if len(src) < 2 || src[0] != open {
-			return src, ctx.unmarshalTypeError(src, t)
+			msg := "expected '{' at the start of an object"
+			if open == '[' {
+				msg = "expected '[' at the start of an array"
+			}
+			return src, ctx.unmarshalTypeErrorWrap(src, t, ctx.syntaxError(src, msg))
 		}
 
 		m := reflect.NewAt(t, p).Elem()
@@ -251,11 +255,11 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 				src = skipWS(src[1:])
 			}
 
-			var err error
-			if src, err = decodeKey(ctx, src, kptr); err != nil {
-				return src, wrapPath(err, "key")
+			srcAfter, err := decodeKey(ctx, src, kptr)
+			if err != nil {
+				return srcAfter, wrapPath(err, "key")
 			}
-			src = skipWS(src)
+			src = skipWS(srcAfter)
 
 			if decodeValue != nil {
 				if len(src) == 0 || src[0] != sep {
@@ -267,11 +271,12 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 					ctx.fieldHint = extractFieldHint(k.String())
 				}
 
-				if src, err = decodeValue(ctx, src, vptr); err != nil {
-					return src, wrapPath(err, fmt.Sprintf("[%v]", k.Interface()))
+				srcAfter, err := decodeValue(ctx, src, vptr)
+				if err != nil {
+					return srcAfter, wrapPath(err, fmt.Sprintf("[%v]", k.Interface()))
 				}
 
-				src = skipWS(src)
+				src = skipWS(srcAfter)
 			}
 
 			if fromArray {

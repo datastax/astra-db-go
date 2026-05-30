@@ -3,6 +3,8 @@ package serdes
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
+	"fmt"
 	"math/bits"
 	"strconv"
 )
@@ -23,12 +25,12 @@ func parseInt(ctx DecodeCtx, src []byte) ([]byte, int64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected integer")
+		return src, 0, ctx.syntaxError(src, "expected int64 but found "+nextType(src))
 	}
 
 	num, err := strconv.ParseInt(unsafeString(src[:end]), 10, 64)
 	if err != nil {
-		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid integer", err)
+		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid int64", err)
 	}
 	return src[end:], num, nil
 }
@@ -41,12 +43,12 @@ func parseUint(ctx DecodeCtx, src []byte) ([]byte, uint64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected unsigned integer")
+		return src, 0, ctx.syntaxError(src, "expected uint64 but found "+nextType(src))
 	}
 
 	num, err := strconv.ParseUint(unsafeString(src[:end]), 10, 64)
 	if err != nil {
-		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid unsigned integer", err)
+		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid uint64", err)
 	}
 	return src[end:], num, nil
 }
@@ -60,7 +62,7 @@ var floatChars = [256]uint8{
 func parseFloat(ctx DecodeCtx, src []byte) ([]byte, float64, error) {
 	src, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, 0, err
+		return src, 0, ctx.syntaxError(src, "expected float64 but found "+nextType(src))
 	}
 
 	f, err := strconv.ParseFloat(unsafeString(numStr), 64)
@@ -86,16 +88,25 @@ func parseNumber(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 	return src[end:], src[:end], nil
 }
 
+type stringKind int
+
+const (
+	erroredString stringKind = iota
+	simpleString
+	escapedString
+	unicodeString
+)
+
 // parseString is vendored and modified from:
 // https://github.com/segmentio/encoding/blob/fd406855de30c54110d23eace25478ab9c6fa2cc/json/parse.go#L405
-func parseString(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error) {
+func parseString(ctx DecodeCtx, src []byte) ([]byte, []byte, stringKind, error) {
 	src = skipWS(src)
 
 	if len(src) < 2 {
-		return src[len(src):], nil, false, ctx.syntaxError(src, "expected string")
+		return src[len(src):], nil, erroredString, ctx.syntaxError(src, "expected string")
 	}
 	if src[0] != '"' {
-		return src, nil, false, ctx.syntaxError(src, "expected '\"' at the beginning of a string value")
+		return src, nil, erroredString, ctx.syntaxError(src, "expected '\"' at the beginning of a string value")
 	}
 
 	var n int
@@ -118,43 +129,57 @@ func parseString(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error) {
 	}
 	n = bytes.IndexByte(src[1:], '"') + 2
 	if n <= 1 {
-		return src, nil, false, ctx.syntaxError(src, "missing '\"' at the end of a string value")
+		return src, nil, erroredString, ctx.syntaxError(src, "missing '\"' at the end of a string value")
 	}
 
 found:
 	if bytes.IndexByte(src[1:n], '\\') < 0 {
-		return src[n:], src[:n], true, nil
+		return src[n:], src[:n], simpleString, nil
 	}
 
-	// TODO may need to handle fancy unicode stuff need to test
+	kind := escapedString
 	for i := 1; i < len(src); i++ {
 		switch src[i] {
 		case '\\':
 			i++
+			if i < len(src) { // TODO any more I should just delegate to json.Unmarshal for?
+				c := src[i]
+				if c == 'u' || c == '/' {
+					kind = unicodeString
+				}
+			}
 		case '"':
-			return src[i+1:], src[:i+1], false, nil
+			return src[i+1:], src[:i+1], kind, nil
 		}
 	}
 
-	return src, nil, false, ctx.syntaxError(src, "missing '\"' at the end of a string value")
+	return src, nil, erroredString, ctx.syntaxError(src, "missing '\"' at the end of a string value")
 }
 
 func parseStringUnquote(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error) {
-	src, s, escaped, err := parseString(ctx, src)
+	src, s, kind, err := parseString(ctx, src)
 	if err != nil {
 		return src, s, false, err
 	}
 
-	if escaped {
+	switch kind {
+	case simpleString:
 		return src, s[1 : len(s)-1], false, nil
+	case escapedString:
+		res, err := strconv.Unquote(unsafeString(s))
+		if err != nil {
+			return src, nil, true, ctx.syntaxErrorWrap(src, "invalid string escape", err)
+		}
+		return src, []byte(res), true, nil
+	case unicodeString:
+		var res string
+		if err := json.Unmarshal(s, &res); err != nil {
+			return src, nil, true, ctx.syntaxErrorWrap(src, "invalid string escape", err)
+		}
+		return src, []byte(res), true, nil
 	}
 
-	res, err := strconv.Unquote(unsafeString(s))
-	if err != nil {
-		return src, nil, true, ctx.syntaxErrorWrap(src, "invalid string escape", err)
-	}
-
-	return src, []byte(res), true, nil
+	panic(fmt.Sprintf("unexpected string kind: %d", kind))
 }
 
 func skipWS(src []byte) []byte {

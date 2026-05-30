@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type pathContext struct {
@@ -13,9 +14,7 @@ type pathContext struct {
 
 func (p *pathContext) setField(part string) { p.Field = joinPath(part, p.Field) }
 func (p *pathContext) setStruct(name string) {
-	if p.Struct == "" {
-		p.Struct = name
-	}
+	p.Struct = name
 }
 
 func (p *pathContext) fullPath() string {
@@ -24,7 +23,7 @@ func (p *pathContext) fullPath() string {
 
 func (p *pathContext) formatPath() string {
 	if path := p.fullPath(); path != "" {
-		return " of field " + path
+		return " in '" + path + "'"
 	}
 	return ""
 }
@@ -50,7 +49,7 @@ func wrapPath(err error, part string) error {
 		return err
 	}
 
-	return fmt.Errorf("field %s: %w", part, err)
+	return fmt.Errorf("field '%s': %w", part, err)
 }
 
 func wrapStruct(err error, name string) error {
@@ -77,21 +76,26 @@ func wrapField(err error, structName, fieldName string) error {
 // A SyntaxError is a description of a JSON/BSON syntax error.
 type SyntaxError struct {
 	pathContext
-	msg    string // description of error
-	Offset int64  // error occurred after reading Offset bytes
-	Err    error  // underlying error
+	msg     string // description of error
+	Snippet string // snippet of JSON near the error
+	Err     error  // underlying error
 }
 
-func (e *SyntaxError) Error() string {
-	msg := "serdes: syntax error"
-	if e.Offset >= 0 && !hasSerdesOffset(e.Err) {
-		msg += fmt.Sprintf(" at offset %d", e.Offset)
-	}
-	msg += e.formatPath() + ": " + e.msg
+func (e *SyntaxError) diagnostic() string {
+	msg := e.msg
 	if e.Err != nil {
 		msg += ": " + displayError(e.Err)
 	}
 	return msg
+}
+
+func (e *SyntaxError) Error() string {
+	msg := "serdes: syntax error"
+	if path := e.formatPath(); path != "" {
+		msg += path
+	}
+	msg += ": " + e.diagnostic()
+	return withSnippet(e, msg)
 }
 
 func (e *SyntaxError) Unwrap() error { return e.Err }
@@ -100,24 +104,90 @@ func (e *SyntaxError) Unwrap() error { return e.Err }
 // not appropriate for a value of a specific Go type.
 type UnmarshalTypeError struct {
 	pathContext
-	Value  string       // description of JSON/BSON value - "bool", "array", "number -5"
-	Type   reflect.Type // type of Go value it could not be assigned to
-	Offset int64        // error occurred after reading Offset bytes
-	Err    error        // underlying error
+	Value   string       // description of JSON/BSON value - "bool", "array", "number -5"
+	Type    reflect.Type // type of Go value it could not be assigned to
+	Snippet string       // snippet of JSON near the error
+	Err     error        // underlying error
+}
+
+func (e *UnmarshalTypeError) diagnostic() string {
+	if e.Err != nil {
+		return displayError(e.Err)
+	}
+	return ""
 }
 
 func (e *UnmarshalTypeError) Error() string {
-	msg := "serdes: cannot unmarshal " + e.Value + " into Go value" + e.formatPath() + " of type " + e.Type.String()
-	if e.Err != nil {
-		msg += ": " + displayError(e.Err)
+	msg := "serdes: cannot unmarshal " + e.Value
+	path := e.fullPath()
+	if path != "" && path != e.Type.String() && path != e.Type.Name() {
+		msg += " into '" + path + "' (type " + e.Type.String() + ")"
+	} else {
+		msg += " into type " + e.Type.String()
 	}
-	if e.Offset >= 0 && !hasSerdesOffset(e.Err) {
-		msg += fmt.Sprintf(" at offset %d", e.Offset)
+
+	if diag := e.diagnostic(); diag != "" {
+		// Suppress redundant "expected [type]" if it matches the target type
+		typeName := getValueName(e.Type)
+		if !strings.Contains(diag, "expected "+e.Type.String()) && !strings.Contains(diag, "expected "+typeName) {
+			msg += ": " + diag
+		}
 	}
-	return msg
+
+	return withSnippet(e, msg)
+}
+
+func getValueName(t reflect.Type) string {
+	switch t.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return "integer"
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return "unsigned integer"
+	case reflect.Float32, reflect.Float64:
+		return "number"
+	case reflect.Bool:
+		return "boolean"
+	case reflect.String:
+		return "string"
+	default:
+		return t.String()
+	}
 }
 
 func (e *UnmarshalTypeError) Unwrap() error { return e.Err }
+
+func errorSnippet(b []byte) string {
+	if len(b) == 0 {
+		return ""
+	}
+	const max = 16 // TODO will have a flag for extended error context
+	if len(b) > max {
+		return string(b[:max]) + "..."
+	}
+	return string(b)
+}
+
+func innermostSnippet(err error) string {
+	var snippet string
+	for err != nil {
+		if se, ok := err.(*SyntaxError); ok && se.Snippet != "" {
+			snippet = se.Snippet
+		} else if te, ok := err.(*UnmarshalTypeError); ok && te.Snippet != "" {
+			snippet = te.Snippet
+		} else if ue, ok := err.(*UnmarshalerError); ok && ue.Snippet != "" {
+			snippet = ue.Snippet
+		}
+		err = errors.Unwrap(err)
+	}
+	return snippet
+}
+
+func withSnippet(err error, msg string) string {
+	if s := innermostSnippet(err); s != "" && !strings.Contains(msg, "near: '"+s+"'") {
+		return msg + " near: '" + s + "'"
+	}
+	return msg
+}
 
 // A MarshalerError represents an error from calling a MarshalAstra method.
 type MarshalerError struct {
@@ -126,8 +196,20 @@ type MarshalerError struct {
 	Err  error
 }
 
+func (e *MarshalerError) diagnostic() string {
+	return displayError(e.Err)
+}
+
 func (e *MarshalerError) Error() string {
-	return "serdes: error calling MarshalAstra" + e.formatPath() + " of type " + e.Type.String() + ": " + displayError(e.Err)
+	msg := "serdes: error calling MarshalAstra"
+	path := e.fullPath()
+	if path != "" && path != e.Type.String() && path != e.Type.Name() {
+		msg += " in '" + path + "'"
+	} else {
+		msg += " for type " + e.Type.String()
+	}
+	msg += ": " + e.diagnostic()
+	return msg
 }
 
 func (e *MarshalerError) Unwrap() error { return e.Err }
@@ -135,12 +217,25 @@ func (e *MarshalerError) Unwrap() error { return e.Err }
 // An UnmarshalerError represents an error from calling an UnmarshalAstra method.
 type UnmarshalerError struct {
 	pathContext
-	Type reflect.Type
-	Err  error
+	Type    reflect.Type
+	Snippet string
+	Err     error
+}
+
+func (e *UnmarshalerError) diagnostic() string {
+	return displayError(e.Err)
 }
 
 func (e *UnmarshalerError) Error() string {
-	return "serdes: error calling UnmarshalAstra" + e.formatPath() + " of type " + e.Type.String() + ": " + displayError(e.Err)
+	msg := "serdes: error calling UnmarshalAstra"
+	path := e.fullPath()
+	if path != "" && path != e.Type.String() && path != e.Type.Name() {
+		msg += " in '" + path + "'"
+	} else {
+		msg += " for type " + e.Type.String()
+	}
+	msg += ": " + e.diagnostic()
+	return withSnippet(e, msg)
 }
 
 func (e *UnmarshalerError) Unwrap() error { return e.Err }
@@ -176,26 +271,14 @@ func displayError(err error) string {
 	if err == nil {
 		return ""
 	}
+	if de, ok := err.(interface{ diagnostic() string }); ok {
+		return de.diagnostic()
+	}
 	s := err.Error()
 	if len(s) >= 8 && s[:8] == "serdes: " {
 		return s[8:]
 	}
 	return s
-}
-
-func hasSerdesOffset(err error) bool {
-	if err == nil {
-		return false
-	}
-	var se *SyntaxError
-	if errors.As(err, &se) {
-		return se.Offset >= 0
-	}
-	var te *UnmarshalTypeError
-	if errors.As(err, &te) {
-		return te.Offset >= 0
-	}
-	return false
 }
 
 func joinPath(part, current string) string {
@@ -228,10 +311,10 @@ func (e *InvalidUnmarshalError) Error() string {
 	return "serdes: Deserialize(nil " + e.Type.String() + ")"
 }
 
-func getValueType(src []byte) string {
+func nextType(src []byte) string {
 	src = skipWS(src)
 	if len(src) == 0 {
-		return "eof"
+		return "EOF"
 	}
 	switch src[0] {
 	case '{':
