@@ -268,7 +268,7 @@ func emptyInterfaceDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte,
 	var err error
 
 	if ctx.fieldHint == vectorField {
-		var v datatypes.DataAPIVector
+		var v datatypes.Vector
 		src, err = vectorDecoder(ctx, src, unsafe.Pointer(&v))
 		val = v
 		goto decoded

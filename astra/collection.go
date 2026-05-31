@@ -211,6 +211,31 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 	return cursors.NewCollectionFindCursor(f, merged, fetcher, err)
 }
 
+// FindAndRerank finds and reranks documents in the collection using hybrid search.
+//
+// Example usage:
+//
+//	cursor := collection.FindAndRerank(filter, options.CollectionFindAndRerank().
+//	  SetSort(sort.Hybrid("search query")).
+//	  SetLimit(10).
+//	  SetIncludeScores(true))
+//
+//	for cursor.Next(ctx) {
+//	  var doc MyDocument
+//	  cursor.Decode(&doc)
+//	  scores := cursor.GetScores()
+//	}
+func (c *Collection) FindAndRerank(f CollectionFilter, opts ...options.CollectionFindAndRerankOption) *cursors.CollectionFindAndRerankCursor {
+	merged, err := options.MergeAndValidate(opts...)
+
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+		cmd := c.newCmdWithMergedOptions("findAndRerank", payload, merged.APIOptions)
+		return cmd.Execute(ctx)
+	}
+
+	return cursors.NewCollectionFindAndRerankCursor(f, merged, fetcher, err)
+}
+
 // endregion
 
 // region Updates

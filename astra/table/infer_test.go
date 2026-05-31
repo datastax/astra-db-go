@@ -62,7 +62,7 @@ func TestGoTypeToColumn(t *testing.T) {
 		{"string+type = ascii", reflect.TypeFor[string](), tagInfo{typeOverride: "ascii"}, Ascii(), false},
 		{"string+type = uuid", reflect.TypeFor[string](), tagInfo{typeOverride: "uuid"}, UUID(), false},
 		{"[]float32+vector+dim = 3", reflect.TypeFor[[]float32](), tagInfo{isVector: true, dimension: 3}, Vector(3), false},
-		{"DataAPIVector+dim = 4", reflect.TypeFor[datatypes.DataAPIVector](), tagInfo{dimension: 4}, Vector(4), false},
+		{"Vector+dim = 4", reflect.TypeFor[datatypes.Vector](), tagInfo{dimension: 4}, Vector(4), false},
 		{
 			"vectorize",
 			reflect.TypeFor[any](),
@@ -72,7 +72,7 @@ func TestGoTypeToColumn(t *testing.T) {
 		},
 
 		// Error cases
-		{"DataAPIVector no dim", reflect.TypeFor[datatypes.DataAPIVector](), tagInfo{}, Column{}, true},
+		{"Vector no dim", reflect.TypeFor[datatypes.Vector](), tagInfo{}, Column{}, true},
 		{"vector no dim", reflect.TypeFor[[]float32](), tagInfo{isVector: true}, Column{}, true},
 		{"interface no modifier", reflect.TypeFor[any](), tagInfo{}, Column{}, true},
 	}
@@ -538,28 +538,28 @@ func TestInferDocsUDTExample(t *testing.T) {
 
 func TestInfer_AllColumnTypes(t *testing.T) {
 	type Row struct {
-		PK             string                  `json:"pk" astra:"pk"`
-		TextField      string                  `json:"text_field"`
-		AsciiField     string                  `json:"ascii_field" astra:"type=ascii"`
-		IntField       int                     `json:"int_field"`
-		BigIntField    int64                   `json:"bigint_field"`
-		SmallIntField  int16                   `json:"smallint_field"`
-		TinyIntField   int8                    `json:"tinyint_field"`
-		FloatField     float32                 `json:"float_field"`
-		DoubleField    float64                 `json:"double_field"`
-		DecimalField   float64                 `json:"decimal_field" astra:"type=decimal"`
-		BoolField      bool                    `json:"bool_field"`
-		TimestampField time.Time               `json:"timestamp_field"`
-		DateField      time.Time               `json:"date_field" astra:"type=date"`
-		TimeField      time.Time               `json:"time_field" astra:"type=time"`
-		UUIDField      datatypes.UUID          `json:"uuid_field"`
-		BlobField      []byte                  `json:"blob_field"`
-		InetField      net.IP                  `json:"inet_field"`
-		ListField      []string                `json:"list_field"`
-		SetField       []string                `json:"set_field" astra:"type=set"`
-		MapField       map[string]int          `json:"map_field"`
-		VectorField    datatypes.DataAPIVector `json:"vector_field" astra:"dim=3"`
-		PtrField       *string                 `json:"ptr_field"`
+		PK             string           `json:"pk" astra:"pk"`
+		TextField      string           `json:"text_field"`
+		AsciiField     string           `json:"ascii_field" astra:"type=ascii"`
+		IntField       int              `json:"int_field"`
+		BigIntField    int64            `json:"bigint_field"`
+		SmallIntField  int16            `json:"smallint_field"`
+		TinyIntField   int8             `json:"tinyint_field"`
+		FloatField     float32          `json:"float_field"`
+		DoubleField    float64          `json:"double_field"`
+		DecimalField   float64          `json:"decimal_field" astra:"type=decimal"`
+		BoolField      bool             `json:"bool_field"`
+		TimestampField time.Time        `json:"timestamp_field"`
+		DateField      time.Time        `json:"date_field" astra:"type=date"`
+		TimeField      time.Time        `json:"time_field" astra:"type=time"`
+		UUIDField      datatypes.UUID   `json:"uuid_field"`
+		BlobField      []byte           `json:"blob_field"`
+		InetField      net.IP           `json:"inet_field"`
+		ListField      []string         `json:"list_field"`
+		SetField       []string         `json:"set_field" astra:"type=set"`
+		MapField       map[string]int   `json:"map_field"`
+		VectorField    datatypes.Vector `json:"vector_field" astra:"dim=3"`
+		PtrField       *string          `json:"ptr_field"`
 	}
 
 	def, err := Infer[Row]()

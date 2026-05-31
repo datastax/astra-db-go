@@ -732,7 +732,7 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 		return v, err
 
 	case table.TypeVector:
-		var v datatypes.DataAPIVector
+		var v datatypes.Vector
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
 		return v, err
 

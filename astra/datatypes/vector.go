@@ -10,36 +10,36 @@ import (
 	"strings"
 )
 
-// DataAPIVector represents a vector that marshals to the {$binary: "..."} format.
+// Vector represents a vector that marshals to the {$binary: "..."} format.
 // Internally it stores either a []float32 or a base64 string.
-type DataAPIVector struct {
+type Vector struct {
 	floats []float32
 	b64    string
 	isB64  bool
 }
 
-// NewVector creates a DataAPIVector from a []float32 or a base64-encoded string.
+// NewVector creates a Vector from a []float32 or a base64-encoded string.
 // If v is not a supported type, returns zero value vector.
 //
 // Example usage:
 //
 //	v1 := datatypes.NewVector([]float32{0.1, 0.2, 0.3})
 //	v2 := datatypes.NewVector("PaPXCr8euFI+x64U")
-func NewVector(v any) DataAPIVector {
+func NewVector(v any) Vector {
 	switch val := v.(type) {
 	case []float32:
-		return DataAPIVector{floats: val}
+		return Vector{floats: val}
 	case string:
-		return DataAPIVector{b64: val, isB64: true}
-	case DataAPIVector:
+		return Vector{b64: val, isB64: true}
+	case Vector:
 		return val
 	default:
-		return DataAPIVector{}
+		panic(fmt.Sprintf("unsupported type for NewVector: %T", v))
 	}
 }
 
 // Dimension returns the number of float32 elements in the vector.
-func (v DataAPIVector) Dimension() int {
+func (v Vector) Dimension() int {
 	if !v.isB64 {
 		return len(v.floats)
 	}
@@ -48,7 +48,7 @@ func (v DataAPIVector) Dimension() int {
 }
 
 // AsFloatArray returns the vector as a []float32, decoding from base64 if necessary.
-func (v DataAPIVector) AsFloatArray() ([]float32, error) {
+func (v Vector) AsFloatArray() ([]float32, error) {
 	if !v.isB64 {
 		return v.floats, nil
 	}
@@ -69,14 +69,14 @@ func (v DataAPIVector) AsFloatArray() ([]float32, error) {
 
 // AsBase64 returns the vector as a base64-encoded binary string, encoding from
 // floats if necessary.
-func (v DataAPIVector) AsBase64() string {
+func (v Vector) AsBase64() string {
 	if v.isB64 {
 		return v.b64
 	}
 	return string(floatsToBase64(nil, v.floats))
 }
 
-func (v DataAPIVector) AppendBase64(dst []byte) []byte {
+func (v Vector) AppendBase64(dst []byte) []byte {
 	if v.isB64 {
 		return append(dst, v.b64...)
 	}
@@ -94,14 +94,14 @@ func floatsToBase64(dst []byte, floats []float32) []byte {
 
 // MarshalJSON produces the {$binary: "..."} format, using the stored base64
 // directly if available.
-func (v DataAPIVector) MarshalJSON() ([]byte, error) {
+func (v Vector) MarshalJSON() ([]byte, error) {
 	encoded := v.AsBase64()
 	return []byte(fmt.Sprintf(`{"$binary":"%s"}`, encoded)), nil
 }
 
 // UnmarshalJSON parses either {$binary: "..."} (stored as base64) or a raw
 // float array (stored as floats), preserving the original representation.
-func (v *DataAPIVector) UnmarshalJSON(data []byte) error {
+func (v *Vector) UnmarshalJSON(data []byte) error {
 	// Peek at the first non-whitespace byte to determine the format. This is pretty defensive,
 	// but, JSON allows leading spaces so we are trimming them.
 	trimmed := bytes.TrimSpace(data)
@@ -115,7 +115,7 @@ func (v *DataAPIVector) UnmarshalJSON(data []byte) error {
 		// Raw array of floats: [0.1, 0.2, 0.3]
 		var floats []float32
 		if err := json.Unmarshal(trimmed, &floats); err != nil {
-			return fmt.Errorf("unmarshal DataAPIVector float array: %w", err)
+			return fmt.Errorf("unmarshal Vector float array: %w", err)
 		}
 		v.floats = floats
 		// Probably redundant since these are the zero values, but in case something was
@@ -128,13 +128,13 @@ func (v *DataAPIVector) UnmarshalJSON(data []byte) error {
 			Binary string `json:"$binary"`
 		}
 		if err := json.Unmarshal(trimmed, &wrapper); err != nil {
-			return fmt.Errorf("unmarshal DataAPIVector: %w", err)
+			return fmt.Errorf("unmarshal Vector: %w", err)
 		}
 		v.b64 = wrapper.Binary
 		v.isB64 = true
 		v.floats = nil
 	default:
-		return fmt.Errorf("unmarshal DataAPIVector: unexpected format (first byte: %q)", trimmed[0])
+		return fmt.Errorf("unmarshal Vector: unexpected format (first byte: %q)", trimmed[0])
 	}
 	return nil // All good
 }

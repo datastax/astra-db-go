@@ -23,6 +23,7 @@
 //	sort.Asc("rating").Desc("title")
 //	sort.Vector([]float32{0.1, 0.2, 0.3})
 //	sort.Vectorize("find books about space")
+//	sort.Hybrid("search query")
 //
 // Use [S] as a raw map escape hatch when you need full control:
 //
@@ -132,7 +133,7 @@ func By(field string, value any) Sort {
 // Vector creates a Sort for vector similarity search.
 // The vector parameter should be a slice of float32 or float64 values.
 func Vector(v any) Sort {
-	return Sort{clauses: []clause{{field: "$vector", value: v}}}
+	return Sort{clauses: []clause{{field: "$vector", value: datatypes.NewVector(v)}}}
 }
 
 // Vectorize creates a Sort for vectorize text search.
@@ -143,6 +144,37 @@ func Vectorize(text string) Sort {
 // Lexical creates a Sort for lexical text search.
 func Lexical(text string) Sort {
 	return Sort{clauses: []clause{{field: "$lexical", value: text}}}
+}
+
+// HybridSort represents the complex object used with the $hybrid operator.
+type HybridSort struct {
+	Vectorize *string
+	Lexical   *string
+	Vector    any
+}
+
+func (h HybridSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	rep := datatypes.NewLinkedMap[string, any]()
+	if h.Vectorize != nil {
+		rep.Set("$vectorize", *h.Vectorize)
+	}
+	if h.Lexical != nil {
+		rep.Set("$lexical", *h.Lexical)
+	}
+	if h.Vector != nil {
+		rep.Set("$vector", h.Vector)
+	}
+	return rep, nil
+}
+
+// Hybrid creates a Sort for hybrid search using a simple search query.
+func Hybrid(query string) Sort {
+	return Sort{clauses: []clause{{field: "$hybrid", value: query}}}
+}
+
+// HybridBy creates a Sort for hybrid search using a complex HybridSort configuration.
+func HybridBy(h HybridSort) Sort {
+	return Sort{clauses: []clause{{field: "$hybrid", value: h}}}
 }
 
 // Asc appends an ascending clause and returns the extended Sort.

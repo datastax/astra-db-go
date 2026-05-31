@@ -299,7 +299,7 @@ func bigFloatDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 func vectorEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
 		dst = append(dst, '"')
-		dst = (*datatypes.DataAPIVector)(p).AppendBase64(dst)
+		dst = (*datatypes.Vector)(p).AppendBase64(dst)
 		dst = append(dst, '"')
 		return dst, nil
 	})
@@ -313,16 +313,16 @@ func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		src, err := mkSliceDecoder(4, float32SliceType, float32Decoder)(ctx, src, unsafe.Pointer(&arr))
 		if err == nil {
 			vector := datatypes.NewVector(arr)
-			*(*datatypes.DataAPIVector)(p) = vector
+			*(*datatypes.Vector)(p) = vector
 		}
 		return src, err
 	}
 
 	if len(src) != 0 && src[0] == '{' {
-		src, vector, err := parseDollarDatatype(ctx, src, []byte("binary"), func(ctx DecodeCtx, b []byte) ([]byte, datatypes.DataAPIVector, error) {
+		src, vector, err := parseDollarDatatype(ctx, src, []byte("binary"), func(ctx DecodeCtx, b []byte) ([]byte, datatypes.Vector, error) {
 			src, str, isNew, err := parseStringUnquote(ctx, b)
 			if err != nil {
-				return src, datatypes.DataAPIVector{}, err
+				return src, datatypes.Vector{}, err
 			}
 
 			if isNew {
@@ -332,7 +332,7 @@ func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		})
 
 		if err == nil {
-			*(*datatypes.DataAPIVector)(p) = vector
+			*(*datatypes.Vector)(p) = vector
 		}
 		return src, err
 	}

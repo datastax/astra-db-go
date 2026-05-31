@@ -237,7 +237,7 @@ func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOp
 
 	// Parse the full response to get both errors and warnings
 	var resp apiResponse
-	serdes.Deserialize(body, &resp, nil, c.target)
+	serdes.Deserialize(body, &resp, nil, c.target) // TODO handle errors and figure out how to end double-parsing
 
 	// Invoke warning handler for each warning if configured
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {

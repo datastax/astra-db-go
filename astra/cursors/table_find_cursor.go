@@ -1,6 +1,8 @@
 package cursors
 
 import (
+	"encoding/json"
+
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -33,7 +35,7 @@ type TableFindCursor struct {
 }
 
 var _ FindCursor = (*TableFindCursor)(nil)
-var _ findCursorSource = (*TableFindCursor)(nil)
+var _ findCursorSource[json.RawMessage] = (*TableFindCursor)(nil)
 
 // NewTableFindCursor creates a new table find cursor
 //
@@ -50,7 +52,7 @@ func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher find
 }
 
 // mkPayload constructs the request payload for fetching the next page of table results.
-func (c *TableFindCursor) mkPayload(pageState *string) *findPayload {
+func (c *TableFindCursor) mkPayload(pageState *string) any {
 	return &findPayload{
 		Filter:     c.filter,
 		Sort:       c.options.Sort,

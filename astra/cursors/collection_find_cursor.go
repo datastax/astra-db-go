@@ -1,6 +1,8 @@
 package cursors
 
 import (
+	"encoding/json"
+
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -33,7 +35,7 @@ type CollectionFindCursor struct {
 }
 
 var _ FindCursor = (*CollectionFindCursor)(nil)
-var _ findCursorSource = (*CollectionFindCursor)(nil)
+var _ findCursorSource[json.RawMessage] = (*CollectionFindCursor)(nil)
 
 // NewCollectionFindCursor creates a new collection find cursor
 //
@@ -50,7 +52,7 @@ func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fe
 }
 
 // mkPayload constructs the request payload for fetching the next page of collection results.
-func (c *CollectionFindCursor) mkPayload(pageState *string) *findPayload {
+func (c *CollectionFindCursor) mkPayload(pageState *string) any {
 	return &findPayload{
 		Filter:     c.filter,
 		Sort:       c.options.Sort,

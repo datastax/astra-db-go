@@ -478,6 +478,122 @@ func (b *collectionEstimatedDocumentCountOptionsBuilder) SetAPIOptions(v ...Buil
 	return b
 }
 
+// CollectionFindAndRerankOption configures a CollectionFindAndRerank operation.
+// You can use the fluent-style builder or a pointer to [CollectionFindAndRerankOptions] interchangeably.
+//
+// Example using the fluent builder ([CollectionFindAndRerank]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CollectionFindAndRerank().SetLimit(42)
+//
+// Example using a pointer to [CollectionFindAndRerankOptions] without the fluent builder:
+//
+//	opts := &options.CollectionFindAndRerankOptions{Limit: ptr.To(42)}
+type CollectionFindAndRerankOption = Builder[CollectionFindAndRerankOptions]
+
+// Setters implements Builder[CollectionFindAndRerankOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CollectionFindAndRerankOptions].
+func (o *CollectionFindAndRerankOptions) Setters() []func(*CollectionFindAndRerankOptions) {
+	return NoopBuilder(o)
+}
+
+// collectionFindAndRerankOptionsBuilder is a builder for CollectionFindAndRerankOptions.
+type collectionFindAndRerankOptionsBuilder struct {
+	setters []func(*CollectionFindAndRerankOptions)
+}
+
+// CollectionFindAndRerank creates a new builder for [CollectionFindAndRerankOptions].
+func CollectionFindAndRerank() *collectionFindAndRerankOptionsBuilder {
+	return &collectionFindAndRerankOptionsBuilder{}
+}
+
+// Setters implements Builder[CollectionFindAndRerankOptions].
+func (b *collectionFindAndRerankOptionsBuilder) Setters() []func(*CollectionFindAndRerankOptions) {
+	return b.setters
+}
+
+// SetSort sets the Sort option.
+// Sort specifies how to sort the results. For findAndRerank, this is typically a hybrid sort.
+func (b *collectionFindAndRerankOptionsBuilder) SetSort(v sort.Sortable) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.Sort = v
+	})
+	return b
+}
+
+// SetProjection sets the Projection option.
+// Projection controls which fields are included or excluded in the returned documents.
+func (b *collectionFindAndRerankOptionsBuilder) SetProjection(v map[string]any) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.Projection = v
+	})
+	return b
+}
+
+// SetLimit sets the Limit option.
+// Limit limits the total number of documents returned.
+func (b *collectionFindAndRerankOptionsBuilder) SetLimit(v int) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.Limit = &v
+	})
+	return b
+}
+
+// SetIncludeScores sets the IncludeScores option.
+// IncludeScores if true, includes a $scores property in the response.
+func (b *collectionFindAndRerankOptionsBuilder) SetIncludeScores(v bool) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.IncludeScores = &v
+	})
+	return b
+}
+
+// SetIncludeSortVector sets the IncludeSortVector option.
+// IncludeSortVector if true, includes the sort vector in the response.
+func (b *collectionFindAndRerankOptionsBuilder) SetIncludeSortVector(v bool) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.IncludeSortVector = &v
+	})
+	return b
+}
+
+// SetRerankOn sets the RerankOn option.
+// RerankOn specifies the field to rerank on.
+func (b *collectionFindAndRerankOptionsBuilder) SetRerankOn(v string) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.RerankOn = &v
+	})
+	return b
+}
+
+// SetRerankQuery sets the RerankQuery option.
+// RerankQuery provides the query to use for reranking.
+func (b *collectionFindAndRerankOptionsBuilder) SetRerankQuery(v string) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.RerankQuery = &v
+	})
+	return b
+}
+
+// SetInitialPageState sets the InitialPageState option.
+// InitialPageState is used for pagination (if supported by the API in the future).
+func (b *collectionFindAndRerankOptionsBuilder) SetInitialPageState(v string) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.InitialPageState = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command.
+func (b *collectionFindAndRerankOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CollectionFindOneAndDeleteOption configures a CollectionFindOneAndDelete operation.
 // You can use the fluent-style builder or a pointer to [CollectionFindOneAndDeleteOptions] interchangeably.
 //

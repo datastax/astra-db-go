@@ -246,10 +246,61 @@ type CollectionFindOptions struct {
 	APIOptions *APIOptions `json:"-"`
 }
 
-// SetPageState sets the initial page state for pagination.
-func (b *collectionFindOptionsBuilder) SetPageState(pageState string) *collectionFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionFindOptions) { o.InitialPageState = &pageState })
+// CollectionFindAndRerankOptions represents options for finding and reranking documents in a collection.
+type CollectionFindAndRerankOptions struct {
+	// Sort specifies how to sort the results. For findAndRerank, this is typically a hybrid sort.
+	Sort sort.Sortable `json:"sort,omitempty"`
+
+	// Projection controls which fields are included or excluded in the returned documents.
+	Projection map[string]any `json:"projection,omitempty"`
+
+	// Limit limits the total number of documents returned.
+	Limit *int `json:"limit,omitempty"`
+
+	// HybridLimits provides additional limits for hybrid search.
+	// This can be a single number (for both vector and lexical) or a map[string]int.
+	HybridLimits any `json:"hybridLimits,omitempty"`
+
+	// IncludeScores if true, includes a $scores property in the response.
+	IncludeScores *bool `json:"includeScores,omitempty"`
+
+	// IncludeSortVector if true, includes the sort vector in the response.
+	IncludeSortVector *bool `json:"includeSortVector,omitempty"`
+
+	// RerankOn specifies the field to rerank on.
+	RerankOn *string `json:"rerankOn,omitempty"`
+
+	// RerankQuery provides the query to use for reranking.
+	RerankQuery *string `json:"rerankQuery,omitempty"`
+
+	// InitialPageState is used for pagination (if supported by the API in the future).
+	InitialPageState *string `json:"pageState,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command.
+	APIOptions *APIOptions `json:"-"`
+}
+
+// SetHybridLimits sets the HybridLimits option.
+// This can be a single number (for both vector and lexical) or a map[string]int.
+func (b *collectionFindAndRerankOptionsBuilder) SetHybridLimits(v any) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		o.HybridLimits = v
+	})
 	return b
+}
+
+// Validate implements Validator for CollectionFindAndRerankOptions.
+// If HybridLimits is set, it must be either an int or a map[string]int.
+func (o *CollectionFindAndRerankOptions) Validate() error {
+	if o.HybridLimits != nil {
+		switch o.HybridLimits.(type) {
+		case int, map[string]int:
+		default:
+			return fmt.Errorf("HybridLimits must be either an int or a map[string]int")
+		}
+	}
+	return nil
 }
 
 // CollectionUpdateOneOptions represents options for an updateOne operation.
