@@ -21,11 +21,14 @@ import "encoding/json"
 //
 // Example usage with cursors.All:
 //
-//	for item, err := range cursors.All[cursors.RerankedResult[MyDoc]](ctx, cursor) {
+//	for res, err := range cursors.All[cursors.RerankedResult[MyDoc]](ctx, cursor) {
 //	    if err != nil { /* ... */ }
-//	    fmt.Println(item.Document)
-//	    fmt.Println(item.Scores)
+//	    fmt.Println(res.Document)
+//	    fmt.Println(res.Scores)
 //	}
+//
+// Alternatively, FindAndRerankCursor.GetScores may be used to access the scores for
+// the current document without using a RerankedResult wrapper.
 type RerankedResult[T any] struct {
 	// Document is the decoded document.
 	Document T
@@ -34,28 +37,19 @@ type RerankedResult[T any] struct {
 	Scores map[string]float32
 }
 
-// setScores is an internal hook used by findAndRerankCursorImpl to populate
-// the scores on a RerankedResult without exposing the setter publicly.
-func (r *RerankedResult[T]) setScores(scores map[string]float32) {
-	r.Scores = scores
-}
+// rawRerankedResult is used to buffer the documents and their scores before they are decoded into the user's result type.
+type rawRerankedResult = RerankedResult[json.RawMessage]
 
-// documentAddr is an internal hook used by findAndRerankCursorImpl to get
-// the address of the Document field for decoding.
-func (r *RerankedResult[T]) documentAddr() any {
-	return &r.Document
-}
-
-// rerankedResultWrapper is an internal interface used to identify RerankedResult[T]
-// types during decoding without relying on brittle reflection checks.
+// rerankedResultWrapper is used to identify RerankedResult[T] for decoding purposes
 type rerankedResultWrapper interface {
 	setScores(map[string]float32)
 	documentAddr() any
 }
 
-// rawRerankedResult is an internal type used to buffer documents and their
-// scores before they are decoded into the user's result type.
-type rawRerankedResult struct {
-	Document json.RawMessage
-	Scores   map[string]float32
+func (r *RerankedResult[T]) setScores(scores map[string]float32) {
+	r.Scores = scores
+}
+
+func (r *RerankedResult[T]) documentAddr() any {
+	return &r.Document
 }
