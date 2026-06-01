@@ -82,7 +82,7 @@ type insertManyResponse struct {
 	Status struct {
 		InsertedIds []json.RawMessage `json:"insertedIds"`
 	} `json:"status"`
-	Errors []DataAPIError `json:"errors,omitempty"`
+	Errors []results.DataAPIError `json:"errors,omitempty"`
 }
 
 func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
@@ -133,7 +133,7 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 		count += len(batch.InsertedIds)
 
 		if len(apiErrors) > 0 {
-			return nil, &InsertManyError{} // TODO
+			return nil, &results.InsertManyError{} // TODO
 		}
 	}
 
@@ -153,7 +153,7 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	var resultsMu sync.Mutex
 
 	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
-	var allApiErrors DataAPIErrors
+	var allApiErrors results.DataAPIErrors
 	var allWarnings results.Warnings
 	var count int
 
@@ -203,12 +203,12 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	}
 
 	if len(allApiErrors) > 0 {
-		return nil, &InsertManyError{} // TODO
+		return nil, &results.InsertManyError{} // TODO
 	}
 	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }
 
-func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, DataAPIErrors, error) {
+func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, results.DataAPIErrors, error) {
 	cmd := mkCmd("insertMany", map[string]any{
 		"documents": records,
 		"options": map[string]any{
@@ -223,7 +223,7 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertMa
 		TargetCtx:   schema,
 	}
 
-	var apiErr *DataAPIError
+	var apiErr *results.DataAPIError
 	if execErr != nil && !errors.As(execErr, &apiErr) {
 		return batch, warnings, nil, execErr
 	}

@@ -14,25 +14,10 @@
 
 package results
 
-import (
-	"fmt"
-	"strings"
-)
-
-// Warning is duplicated here to avoid circular imports. It shares the same
-// structure as DataAPIError.
-
 // Warning represents a warning returned from the API.
 // Warnings indicate non-fatal conditions that don't prevent the operation
 // from completing, such as missing indexes.
-type Warning struct {
-	Message   string `json:"message"`
-	ErrorCode string `json:"errorCode"`
-	Family    string `json:"family"`
-	Scope     string `json:"scope"`
-	Title     string `json:"title"`
-	ID        string `json:"id"`
-}
+type Warning DataAPIError
 
 // String implements fmt.Stringer for logging convenience.
 func (w *Warning) String() string {
@@ -40,27 +25,22 @@ func (w *Warning) String() string {
 		return "<nil> Warning"
 	}
 
-	msg := w.Message
-	if msg == "" {
-		msg = "unknown warning"
-	}
+	// Cast to DataAPIError to use its Error() method
+	msg := (*DataAPIError)(w).Error()
 
-	var meta []string
-	if w.ErrorCode != "" {
-		meta = append(meta, fmt.Sprintf("code: %s", w.ErrorCode))
-	}
-	if w.Family != "" {
-		meta = append(meta, fmt.Sprintf("family: %s", w.Family))
-	}
-	if w.Scope != "" {
-		meta = append(meta, fmt.Sprintf("scope: %s", w.Scope))
-	}
-
-	if len(meta) > 0 {
-		return fmt.Sprintf("%s (%s)", msg, strings.Join(meta, ", "))
+	// Error() might return "<nil> DataAPIError" if message is empty and no meta,
+	// but DataAPIError.Error() handles empty messages by returning "unknown data api error".
+	// However, Warning should probably say "unknown warning" if it falls through.
+	if msg == "unknown data api error" {
+		return "unknown warning"
 	}
 
 	return msg
+}
+
+// Error implements the error interface for Warning.
+func (w *Warning) Error() string {
+	return w.String()
 }
 
 // Warnings is a slice of warnings returned from API responses.

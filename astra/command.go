@@ -204,7 +204,7 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes
 
 // apiResponse captures both errors and warnings from API responses
 type apiResponse struct {
-	Errors DataAPIErrors `json:"errors"`
+	Errors results.DataAPIErrors `json:"errors"`
 	Status struct {
 		Warnings         results.Warnings `json:"warnings"`
 		PrimaryKeySchema json.RawMessage  `json:"primaryKeySchema"`
@@ -226,7 +226,7 @@ type apiStatus struct {
 func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
-		var transportErr DataAPIError
+		var transportErr results.DataAPIError
 		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone)
 		if len(transportErr.Message) > 0 {
 			return body, nil, nil, errors.New(transportErr.Message)
