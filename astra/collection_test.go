@@ -2,6 +2,7 @@ package astra_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,7 +14,9 @@ import (
 	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/astra/sort"
 	"github.com/datastax/astra-db-go/astra/update"
 )
 
@@ -454,4 +457,62 @@ func TestResolveGeneralMethodTimeoutFromAPIOverride(t *testing.T) {
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Errorf("expected context.DeadlineExceeded, got: %v", err)
 	}
+}
+
+func TestFindAndRerankPayloadSerialization(t *testing.T) {
+	var capturedPayload map[string]any
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewDecoder(r.Body).Decode(&capturedPayload)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"data":{"documents":[], "nextPageState": null}}`))
+	}))
+	defer server.Close()
+
+	client := astra.NewClient(options.API().SetToken("token"))
+	db := client.Database(server.URL)
+	coll := db.Collection("coll")
+
+	t.Run("Simple hybrid query", func(t *testing.T) {
+		coll.FindAndRerank(
+			filter.Gt("price", 10),
+			options.CollectionFindAndRerank().
+				SetSort(sort.Hybrid("search query")).
+				SetLimit(5).
+				SetIncludeScores(true).
+				SetRerankQuery("search query").
+				SetHybridLimits(map[string]int{"vector": 10}),
+		).Next(context.Background())
+
+		fr := capturedPayload["findAndRerank"].(map[string]any)
+		opts := fr["options"].(map[string]any)
+		sortVal := fr["sort"].(map[string]any)
+		if sortVal["$hybrid"].(string) != "search query" {
+			t.Errorf("sort mismatch")
+		}
+		if opts["limit"].(float64) != 5 {
+			t.Errorf("limit mismatch")
+		}
+	})
+
+	t.Run("Complex hybrid sort", func(t *testing.T) {
+		coll.FindAndRerank(
+			filter.F{},
+			options.CollectionFindAndRerank().
+				SetSort(sort.HybridBy(sort.HybridSort{
+					Vectorize: ptr.To("vector query"),
+					Lexical:   ptr.To("lexical query"),
+				})),
+		).Next(context.Background())
+
+		fr := capturedPayload["findAndRerank"].(map[string]any)
+		sortVal := fr["sort"].(map[string]any)
+		hybrid := sortVal["$hybrid"].(map[string]any)
+		if hybrid["$vectorize"].(string) != "vector query" {
+			t.Errorf("vectorize mismatch")
+		}
+		if hybrid["$lexical"].(string) != "lexical query" {
+			t.Errorf("lexical mismatch")
+		}
+	})
 }

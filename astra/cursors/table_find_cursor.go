@@ -1,6 +1,8 @@
 package cursors
 
 import (
+	"encoding/json"
+
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -33,14 +35,14 @@ type TableFindCursor struct {
 }
 
 var _ FindCursor = (*TableFindCursor)(nil)
-var _ findCursorSource = (*TableFindCursor)(nil)
+var _ findLikeCursorSource[json.RawMessage] = (*TableFindCursor)(nil)
 
 // NewTableFindCursor creates a new table find cursor
 //
 // This method is not intended to be called directly by users. Instead, use Table.Find() which will create a TableFindCursor for you.
 //
 // Note that opts must not be nil, or it will panic.
-func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher findCursorFetcher, err error) *TableFindCursor {
+func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher findLikeCursorFetcher, err error) *TableFindCursor {
 	cursor := &TableFindCursor{
 		filter:  filter,
 		options: opts,
@@ -49,8 +51,8 @@ func NewTableFindCursor(filter any, opts *options.TableFindOptions, fetcher find
 	return cursor
 }
 
-// mkPayload constructs the request payload for fetching the next page of table results.
-func (c *TableFindCursor) mkPayload(pageState *string) *findPayload {
+// mkPayload implements findLikeCursorSource.mkPayload
+func (c *TableFindCursor) mkPayload(pageState *string) any {
 	return &findPayload{
 		Filter:     c.filter,
 		Sort:       c.options.Sort,
@@ -65,12 +67,12 @@ func (c *TableFindCursor) mkPayload(pageState *string) *findPayload {
 	}
 }
 
-// includeSortVector returns whether the sort vector should be included in the response.
+// includeSortVector implements findLikeCursorSource.includeSortVector
 func (c *TableFindCursor) includeSortVector() bool {
 	return ptr.From(c.options.IncludeSortVector)
 }
 
-// apiOptions returns the API options to use for the find operation.
+// apiOptions implements findLikeCursorSource.apiOptions
 func (c *TableFindCursor) apiOptions() *options.APIOptions {
 	return c.options.APIOptions
 }

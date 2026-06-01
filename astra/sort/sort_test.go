@@ -91,7 +91,7 @@ func TestVectorSortJSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("serdes.Serialize error: %v", err)
 	}
-	expected := `{"$vector":[0.1,0.2,0.3]}`
+	expected := `{"$vector":{"$binary":"PczMzT5MzM0+mZma"}}`
 	if string(got) != expected {
 		t.Errorf("got %s, want %s", string(got), expected)
 	}

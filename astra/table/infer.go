@@ -28,7 +28,7 @@ import (
 // Well-known reflect types for comparison in type mapping.
 var (
 	reflectUUID      = reflect.TypeFor[datatypes.UUID]()
-	reflectVector    = reflect.TypeFor[datatypes.DataAPIVector]()
+	reflectVector    = reflect.TypeFor[datatypes.Vector]()
 	reflectTime      = reflect.TypeFor[time.Time]()
 	reflectDuration  = reflect.TypeFor[time.Duration]()
 	reflectIP        = reflect.TypeFor[net.IP]()
@@ -207,7 +207,7 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 	case reflectUUID:
 		return UUID(), nil
 	case reflectVector:
-		return Column{}, fmt.Errorf("DataAPIVector requires dim=N in astra tag")
+		return Column{}, fmt.Errorf("Vector requires dim=N in astra tag")
 	case reflectTime:
 		return Timestamp(), nil
 	case reflectDuration:

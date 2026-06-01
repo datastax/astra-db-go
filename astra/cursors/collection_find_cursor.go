@@ -1,6 +1,8 @@
 package cursors
 
 import (
+	"encoding/json"
+
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -33,14 +35,14 @@ type CollectionFindCursor struct {
 }
 
 var _ FindCursor = (*CollectionFindCursor)(nil)
-var _ findCursorSource = (*CollectionFindCursor)(nil)
+var _ findLikeCursorSource[json.RawMessage] = (*CollectionFindCursor)(nil)
 
 // NewCollectionFindCursor creates a new collection find cursor
 //
 // This method is not intended to be called directly by users. Instead, use Collection.Find() which will create a CollectionFindCursor for you.
 //
 // Note that opts must not be nil, or it will panic.
-func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fetcher findCursorFetcher, err error) *CollectionFindCursor {
+func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fetcher findLikeCursorFetcher, err error) *CollectionFindCursor {
 	cursor := &CollectionFindCursor{
 		filter:  filter,
 		options: opts,
@@ -49,8 +51,8 @@ func NewCollectionFindCursor(filter any, opts *options.CollectionFindOptions, fe
 	return cursor
 }
 
-// mkPayload constructs the request payload for fetching the next page of collection results.
-func (c *CollectionFindCursor) mkPayload(pageState *string) *findPayload {
+// mkPayload implements findLikeCursorSource.mkPayload
+func (c *CollectionFindCursor) mkPayload(pageState *string) any {
 	return &findPayload{
 		Filter:     c.filter,
 		Sort:       c.options.Sort,
@@ -65,12 +67,12 @@ func (c *CollectionFindCursor) mkPayload(pageState *string) *findPayload {
 	}
 }
 
-// includeSortVector returns whether the sort vector should be included in the response.
+// includeSortVector implements findLikeCursorSource.includeSortVector
 func (c *CollectionFindCursor) includeSortVector() bool {
 	return ptr.From(c.options.IncludeSortVector)
 }
 
-// apiOptions returns the API options to use for the find operation.
+// apiOptions implements findLikeCursorSource.apiOptions
 func (c *CollectionFindCursor) apiOptions() *options.APIOptions {
 	return c.options.APIOptions
 }

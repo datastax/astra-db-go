@@ -119,7 +119,7 @@ func TestSerdesAny_Collection(t *testing.T) {
 
 	// Prints:
 	// {
-	//   $vector: DataAPIVector{...},
+	//   $vector: Vector{...},
 	//   nested: datatypes.UUID{...},
 	// }
 	t.Logf("deserialized: %#v", dst)

@@ -30,7 +30,7 @@ func TestVector_RoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var v3 datatypes.DataAPIVector
+		var v3 datatypes.Vector
 		if err := json.Unmarshal(data, &v3); err != nil {
 			t.Fatalf("JSON unmarshal failed: %v", err)
 		}
@@ -63,7 +63,7 @@ func TestVector_Dimension(t *testing.T) {
 func TestVector_UnmarshalDifferentFormats(t *testing.T) {
 	// Raw array format
 	input := `[0.1, -0.2, 0.3]`
-	var v datatypes.DataAPIVector
+	var v datatypes.Vector
 	if err := json.Unmarshal([]byte(input), &v); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestVector_UnmarshalDifferentFormats(t *testing.T) {
 
 	// Binary format
 	input2 := `{"$binary": "PczMzb5MzM0+mZma"}`
-	var v2 datatypes.DataAPIVector
+	var v2 datatypes.Vector
 	if err := json.Unmarshal([]byte(input2), &v2); err != nil {
 		t.Fatal(err)
 	}

@@ -79,6 +79,16 @@ func (o *CollectionEstimatedDocumentCountOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for CollectionFindAndRerankOptions.
+// Returns all non-nil Validator fields.
+func (o *CollectionFindAndRerankOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CollectionFindOneAndDeleteOptions.
 // Returns all non-nil Validator fields.
 func (o *CollectionFindOneAndDeleteOptions) Children() []Validator {

@@ -211,6 +211,41 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 	return cursors.NewCollectionFindCursor(f, merged, fetcher, err)
 }
 
+// FindAndRerank returns a cursor for iterating over documents returned by a collection findAndRerank operation.
+//
+// The cursor automatically handles pagination, fetching new pages as needed.
+//
+// Use options to specify sorting, projection, limits, and other behaviors.
+//
+// Example using Next/Decode pattern:
+//
+//	cursor := coll.FindAndRerank(filter.F{"active": true})
+//	defer cursor.Close()
+//
+//	for cursor.Next(ctx) {
+//	    var doc MyDocument
+//	    if err := cursor.Decode(&doc); err != nil {
+//	        return err
+//	    }
+//	    // Process doc
+//	}
+//	if err := cursor.Err(); err != nil {
+//	    return err
+//	}
+//
+// In the unlikely case of an option validation error while creating the cursor,
+// the cursor will be returned in an unclearable errored state.
+func (c *Collection) FindAndRerank(f CollectionFilter, opts ...options.CollectionFindAndRerankOption) cursors.FindAndRerankCursor {
+	merged, err := options.MergeAndValidate(opts...)
+
+	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+		cmd := c.newCmdWithMergedOptions("findAndRerank", payload, merged.APIOptions)
+		return cmd.Execute(ctx)
+	}
+
+	return cursors.NewCollectionFindAndRerankCursor(f, merged, fetcher, err)
+}
+
 // endregion
 
 // region Updates

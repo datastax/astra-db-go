@@ -44,7 +44,7 @@ var (
 	oidType          = reflect.TypeFor[datatypes.ObjectId]()
 	dateOnlyType     = reflect.TypeFor[datatypes.DateOnly]()
 	timeOnlyType     = reflect.TypeFor[datatypes.TimeOnly]()
-	vectorType       = reflect.TypeFor[datatypes.DataAPIVector]()
+	vectorType       = reflect.TypeFor[datatypes.Vector]()
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
 	rawMessageType   = reflect.TypeFor[json.RawMessage]()
