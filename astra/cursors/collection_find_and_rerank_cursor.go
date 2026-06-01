@@ -21,17 +21,41 @@ import (
 )
 
 // CollectionFindAndRerankCursor is a cursor for iterating over documents returned by a collection findAndRerank operation.
+//
+// Example usage:
+//
+//	cursor := collection.FindAndRerank(ctx, filter, opts)
+//	defer cursor.Close()
+//
+//	for cursor.Next(ctx) {
+//	  var doc MyDocument
+//	  if err := cursor.Decode(&doc); err != nil {
+//	    // handle decode error
+//	  }
+//	  // use doc
+//	}
+//
+//	if err := cursor.Err(); err != nil {
+//	  // handle cursor error
+//	}
+//
+// This type is goroutine safe and may be used concurrently across multiple goroutines.
 type CollectionFindAndRerankCursor struct {
 	*findAndRerankCursorImpl
 	filter  any
 	options *options.CollectionFindAndRerankOptions
 }
 
-var _ FindCursor = (*CollectionFindAndRerankCursor)(nil)
-var _ findCursorSource[rawRerankedResult] = (*CollectionFindAndRerankCursor)(nil)
+var _ FindAndRerankCursor = (*CollectionFindAndRerankCursor)(nil)
+var _ findLikeCursorSource[rawRerankedResult] = (*CollectionFindAndRerankCursor)(nil)
 
 // NewCollectionFindAndRerankCursor creates a new collection findAndRerank cursor.
-func NewCollectionFindAndRerankCursor(filter any, opts *options.CollectionFindAndRerankOptions, fetcher findCursorFetcher, err error) *CollectionFindAndRerankCursor {
+//
+// This method is not intended to be called directly by users. Instead, use Collection.FindAndRerank()
+// which will create a CollectionFindAndRerankCursor for you.
+//
+// Note that opts must not be nil, or it will panic.
+func NewCollectionFindAndRerankCursor(filter any, opts *options.CollectionFindAndRerankOptions, fetcher findLikeCursorFetcher, err error) *CollectionFindAndRerankCursor {
 	cursor := &CollectionFindAndRerankCursor{
 		filter:  filter,
 		options: opts,

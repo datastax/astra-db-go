@@ -10,19 +10,19 @@ import (
 	"github.com/datastax/astra-db-go/astra/serdes"
 )
 
-// findPage represents a page of results from a find-like operation.
-type findPage[Raw any] struct {
+// findLikePage represents a page of results from a find-like operation.
+type findLikePage[Raw any] struct {
 	NextPageState *string           `json:"nextPageState"`
 	Results       []Raw             `json:"data"`
 	SortVector    *datatypes.Vector `json:"sortVector,omitempty"`
 	targetCtx     serdes.TargetDecodeCtx
 }
 
-// findCursorFetcher is a function type that fetches a page of results from the server.
-type findCursorFetcher = func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error)
+// findLikeCursorFetcher is a function type that fetches a page of results from the server.
+type findLikeCursorFetcher = func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error)
 
-// findCursorSource holds the "abstract methods" that the findLikeCursorImpl relies on.
-type findCursorSource[Raw any] interface {
+// findLikeCursorSource holds the "abstract methods" that the findLikeCursorImpl relies on.
+type findLikeCursorSource[Raw any] interface {
 	// mkPayload constructs the request payload for fetching the next page of results.
 	mkPayload(pageState *string) any
 	// includeSortVector returns whether the sort vector should be included in the response.
@@ -30,7 +30,7 @@ type findCursorSource[Raw any] interface {
 	// apiOptions returns the API options to use for the find operation.
 	apiOptions() *options.APIOptions
 	// mapPage maps the raw findResponse to the generic buffer and pagination state.
-	mapPage(resp *findResponse, targetCtx serdes.TargetDecodeCtx) *findPage[Raw]
+	mapPage(resp *findResponse, targetCtx serdes.TargetDecodeCtx) *findLikePage[Raw]
 	// decode decodes a raw item into the provided result pointer.
 	decode(raw Raw, result any) error
 }
@@ -38,16 +38,16 @@ type findCursorSource[Raw any] interface {
 // findLikeCursorImpl provides the core implementation for find-like operations.
 type findLikeCursorImpl[Raw any] struct {
 	*abstractCursorImpl[Raw]
-	fcs         findCursorSource[Raw]
-	currentPage *findPage[Raw]
-	initialPage *findPage[Raw]
+	fcs         findLikeCursorSource[Raw]
+	currentPage *findLikePage[Raw]
+	initialPage *findLikePage[Raw]
 	warnings    results.Warnings
-	fetcher     findCursorFetcher
+	fetcher     findLikeCursorFetcher
 	target      serdes.Target
 }
 
 // newFindLikeCursorImpl creates a new findLikeCursorImpl.
-func newFindLikeCursorImpl[Raw any](source findCursorSource[Raw], fetcher findCursorFetcher, target serdes.Target, initPageState *string, err error) *findLikeCursorImpl[Raw] {
+func newFindLikeCursorImpl[Raw any](source findLikeCursorSource[Raw], fetcher findLikeCursorFetcher, target serdes.Target, initPageState *string, err error) *findLikeCursorImpl[Raw] {
 	impl := findLikeCursorImpl[Raw]{
 		fcs:     source,
 		fetcher: fetcher,
@@ -57,7 +57,7 @@ func newFindLikeCursorImpl[Raw any](source findCursorSource[Raw], fetcher findCu
 	impl.abstractCursorImpl = newAbstractCursorImpl[Raw](&impl, err)
 
 	if initPageState != nil {
-		impl.initialPage = &findPage[Raw]{
+		impl.initialPage = &findLikePage[Raw]{
 			NextPageState: initPageState,
 		}
 		impl.currentPage = impl.initialPage
@@ -92,7 +92,6 @@ func (c *findLikeCursorImpl[Raw]) buffer() *[]Raw {
 	return &c.currentPage.Results
 }
 
-// findResponse is the response from the find and findAndRerank commands.
 type findResponse struct {
 	Data struct {
 		Documents     []json.RawMessage `json:"documents"`

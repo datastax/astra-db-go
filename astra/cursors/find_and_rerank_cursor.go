@@ -15,17 +15,77 @@
 package cursors
 
 import (
-	"reflect"
+	"context"
 
+	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/astra/sort"
 )
+
+// FindAndRerankCursor is a lazy iterable over the results of a findAndRerank operation.
+//
+// Example usage:
+//
+//	cursor := collection.FindAndRerank(filter, options.CollectionFindAndRerank().
+//	    SetSort(sort.Hybrid("search query")).
+//	    SetLimit(10).
+//	    SetIncludeScores(true))
+//
+//	for cursor.Next(ctx) {
+//	    var doc MyDocument
+//	    if err := cursor.Decode(&doc); err != nil {
+//	        // handle error
+//	    }
+//
+//	    // Access reranking scores
+//	    scores := cursor.GetScores()
+//	}
+//
+// This type is goroutine safe and may be used concurrently across multiple goroutines.
+type FindAndRerankCursor interface {
+	AbstractCursor
+
+	// GetScores returns the reranking scores for the current document in the cursor.
+	//
+	// Scores are only available if IncludeScores was set to true in the options.
+	// If scores are not available, this method returns nil.
+	GetScores() map[string]float32
+
+	// GetSortVector returns the sort vector used to perform the vector search, if applicable.
+	//
+	// This method will:
+	// 1. Return `nil` if `IncludeSortVector` was not set to `true`
+	// 2. Return the original vector if sort.Vector was used
+	// 3. Return the generated vector if sort.Vectorize was used
+	// 4. Return `nil` if vector search was not used
+	//
+	// If the sort vector is already in memory, it'll return that; otherwise it'll call the server.
+	// If an error occurs while fetching a sort vector, cursor.Err() will be set.
+	//
+	//  vec := cursor.GetSortVector(ctx)
+	//  if vec != nil {
+	//    // use the sort vector
+	//  }
+	GetSortVector(ctx context.Context) *datatypes.Vector
+
+	// Warnings returns all warnings accumulated during cursor operations.
+	//
+	// Warnings are collected from each page fetch and include any non-fatal issues
+	// reported by the server during query execution.
+	//
+	//  if warnings := cursor.warnings(); len(warnings) > 0 {
+	//    // handle warnings
+	//  }
+	Warnings() results.Warnings
+}
 
 // findAndRerankCursorImpl provides the base implementation for findAndRerank operations.
 type findAndRerankCursorImpl struct {
 	*findLikeCursorImpl[rawRerankedResult]
 }
 
-func newFindAndRerankCursorImpl(source findCursorSource[rawRerankedResult], fetcher findCursorFetcher, target serdes.Target, initPageState *string, err error) *findAndRerankCursorImpl {
+func newFindAndRerankCursorImpl(source findLikeCursorSource[rawRerankedResult], fetcher findLikeCursorFetcher, target serdes.Target, initPageState *string, err error) *findAndRerankCursorImpl {
 	impl := &findAndRerankCursorImpl{}
 	impl.findLikeCursorImpl = newFindLikeCursorImpl[rawRerankedResult](source, fetcher, target, initPageState, err)
 	return impl
@@ -40,59 +100,36 @@ func (c *findAndRerankCursorImpl) GetScores() map[string]float32 {
 		return nil
 	}
 
-	// The current document is always at index 0 of the buffer in abstractCursorImpl
 	return c.currentPage.Results[0].Scores
 }
 
-func (c *findAndRerankCursorImpl) mapPage(resp *findResponse, targetCtx serdes.TargetDecodeCtx) *findPage[rawRerankedResult] {
-	results := make([]rawRerankedResult, len(resp.Data.Documents))
+// mapPage implements findLikeCursorSource.mapPage
+func (c *findAndRerankCursorImpl) mapPage(resp *findResponse, targetCtx serdes.TargetDecodeCtx) *findLikePage[rawRerankedResult] {
+	res := make([]rawRerankedResult, len(resp.Data.Documents))
 	for i := range resp.Data.Documents {
-		results[i].Document = resp.Data.Documents[i]
+		res[i].Document = resp.Data.Documents[i]
 		if resp.Status != nil && len(resp.Status.DocumentResponses) > i {
-			results[i].Scores = resp.Status.DocumentResponses[i].Scores
+			res[i].Scores = resp.Status.DocumentResponses[i].Scores
 		}
 	}
 
-	return &findPage[rawRerankedResult]{
+	return &findLikePage[rawRerankedResult]{
 		NextPageState: resp.Data.NextPageState,
-		Results:       results,
+		Results:       res,
 		SortVector:    resp.Data.SortVector,
 		targetCtx:     targetCtx,
 	}
 }
 
+// mapPage implements findLikeCursorSource.decode
 func (c *findAndRerankCursorImpl) decode(raw rawRerankedResult, result any) error {
-	val := reflect.ValueOf(result)
-	if val.Kind() != reflect.Ptr || val.IsNil() {
-		return serdes.Deserialize(raw.Document, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
+	if rr, ok := result.(rerankedResultWrapper); ok {
+		rr.setScores(raw.Scores)
+		return serdes.Deserialize(raw.Document, rr.documentAddr(), c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
 	}
-
-	elem := val.Elem()
-	if elem.Kind() == reflect.Struct {
-		typ := elem.Type()
-		// A RerankedResult[T] always has exactly these two exported fields in this order
-		if typ.NumField() == 2 {
-			f0 := typ.Field(0)
-			f1 := typ.Field(1)
-			if f0.Name == "Document" && f1.Name == "Scores" && f1.Type == reflect.TypeOf(map[string]float32(nil)) {
-				// 1. Set scores
-				scoresField := elem.Field(1)
-				if scoresField.CanSet() {
-					scoresField.Set(reflect.ValueOf(raw.Scores))
-				}
-
-				// 2. Decode the document into the Document field
-				docField := elem.Field(0)
-				return serdes.Deserialize(raw.Document, docField.Addr().Interface(), c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
-			}
-		}
-	}
-
-	// Standard decode into the provided result
 	return serdes.Deserialize(raw.Document, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
 }
 
-// findAndRerankPayload is the payload for the findAndRerank command.
 type findAndRerankPayload struct {
 	Filter     any                   `json:"filter,omitempty"`
 	Sort       sort.Sortable         `json:"sort,omitempty"`
@@ -100,7 +137,6 @@ type findAndRerankPayload struct {
 	Options    *findAndRerankOptions `json:"options,omitempty"`
 }
 
-// findAndRerankOptions contains pagination and result options for findAndRerank operations.
 type findAndRerankOptions struct {
 	Limit             *int    `json:"limit,omitempty"`
 	HybridLimits      any     `json:"hybridLimits,omitempty"`

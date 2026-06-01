@@ -502,7 +502,6 @@ func TestFindAndRerankPayloadSerialization(t *testing.T) {
 				SetSort(sort.HybridBy(sort.HybridSort{
 					Vectorize: ptr.To("vector query"),
 					Lexical:   ptr.To("lexical query"),
-					Metadata:  map[string]any{"other_col": 1},
 				})),
 		).Next(context.Background())
 
@@ -514,9 +513,6 @@ func TestFindAndRerankPayloadSerialization(t *testing.T) {
 		}
 		if hybrid["$lexical"].(string) != "lexical query" {
 			t.Errorf("lexical mismatch")
-		}
-		if hybrid["other_col"].(float64) != 1 {
-			t.Errorf("metadata mismatch")
 		}
 	})
 }

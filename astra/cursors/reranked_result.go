@@ -40,6 +40,19 @@ func (r *RerankedResult[T]) setScores(scores map[string]float32) {
 	r.Scores = scores
 }
 
+// documentAddr is an internal hook used by findAndRerankCursorImpl to get
+// the address of the Document field for decoding.
+func (r *RerankedResult[T]) documentAddr() any {
+	return &r.Document
+}
+
+// rerankedResultWrapper is an internal interface used to identify RerankedResult[T]
+// types during decoding without relying on brittle reflection checks.
+type rerankedResultWrapper interface {
+	setScores(map[string]float32)
+	documentAddr() any
+}
+
 // rawRerankedResult is an internal type used to buffer documents and their
 // scores before they are decoded into the user's result type.
 type rawRerankedResult struct {

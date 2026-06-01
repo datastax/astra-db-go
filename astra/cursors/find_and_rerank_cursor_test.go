@@ -75,13 +75,13 @@ func TestFindAndRerankCursorImpl_GetScores(t *testing.T) {
 	}
 
 	// Test empty page
-	impl.currentPage = &findPage[rawRerankedResult]{Results: []rawRerankedResult{}}
+	impl.currentPage = &findLikePage[rawRerankedResult]{Results: []rawRerankedResult{}}
 	if scores := impl.GetScores(); scores != nil {
 		t.Errorf("expected nil scores for empty page")
 	}
 
 	// Test page with results
-	impl.currentPage = &findPage[rawRerankedResult]{
+	impl.currentPage = &findLikePage[rawRerankedResult]{
 		Results: []rawRerankedResult{
 			{Scores: map[string]float32{"$reranker": 0.95}},
 		},
@@ -96,7 +96,7 @@ func TestFindAndRerankCursorImpl_Decode(t *testing.T) {
 	impl := &findAndRerankCursorImpl{
 		findLikeCursorImpl: &findLikeCursorImpl[rawRerankedResult]{
 			target:      serdes.TargetCollection,
-			currentPage: &findPage[rawRerankedResult]{},
+			currentPage: &findLikePage[rawRerankedResult]{},
 		},
 	}
 
