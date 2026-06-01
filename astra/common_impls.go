@@ -133,7 +133,10 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 		count += len(batch.InsertedIds)
 
 		if len(apiErrors) > 0 {
-			return nil, &results.InsertManyError{} // TODO
+			return nil, &results.InsertManyError{
+				Errors: apiErrors,
+				Result: results.NewInsertManyResult(batches, count, allWarnings, target),
+			}
 		}
 	}
 
@@ -203,7 +206,10 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	}
 
 	if len(allApiErrors) > 0 {
-		return nil, &results.InsertManyError{} // TODO
+		return nil, &results.InsertManyError{
+			Errors: allApiErrors,
+			Result: results.NewInsertManyResult(batches, count, allWarnings, target),
+		}
 	}
 	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
 }

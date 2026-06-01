@@ -114,19 +114,49 @@ type InsertManyError struct {
 	// Errors contains all DataAPIErrors that occurred during the operation
 	Errors DataAPIErrors
 
-	// InsertedIds contains the IDs of documents that were successfully inserted
-	// before the error occurred
-	InsertedIds []any
+	// Result contains the partial results of the operation
+	Result *InsertManyResult
 }
 
 // InsertedCount returns the number of documents that were successfully inserted before the error occurred.
 func (e *InsertManyError) InsertedCount() int {
-	return len(e.InsertedIds)
+	if e.Result == nil {
+		return 0
+	}
+	return e.Result.InsertedCount()
+}
+
+// RawIDs returns the raw inserted IDs as a slice of any.
+func (e *InsertManyError) RawIDs() ([]any, error) {
+	if e.Result == nil {
+		return nil, nil
+	}
+	return e.Result.RawIDs()
+}
+
+// DecodeIDs unmarshalls the inserted IDs into v.
+// v should be a pointer to a slice of the appropriate ID type.
+func (e *InsertManyError) DecodeIDs(v any) error {
+	if e.Result == nil {
+		return nil
+	}
+	return e.Result.DecodeIDs(v)
 }
 
 // Error implements the error interface for InsertManyError.
 func (e *InsertManyError) Error() string {
-	return fmt.Sprintf("insertMany failed after inserting %d documents: %v", e.InsertedCount(), e.Errors)
+	count := e.InsertedCount()
+	if len(e.Errors) == 0 {
+		return fmt.Sprintf("insertMany failed after inserting %d documents", count)
+	}
+
+	// Summarize the first error and add a count of others if they exist
+	msg := e.Errors[0].Error()
+	if len(e.Errors) > 1 {
+		msg = fmt.Sprintf("%s (+ %d more errors)", msg, len(e.Errors)-1)
+	}
+
+	return fmt.Sprintf("insertMany failed after inserting %d documents: %s", count, msg)
 }
 
 // Unwrap allows errors.As and errors.Is to work with the underlying errors.
