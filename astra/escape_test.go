@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package filter_test
+package astra_test
 
 import (
 	"fmt"
 	"slices"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra"
 )
 
 func TestEscapeFieldNames(t *testing.T) {
@@ -44,7 +44,7 @@ func TestEscapeFieldNames(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := filter.EscapeFieldNames(tt.segments...)
+			result := astra.EscapeFieldNames(tt.segments...)
 			if result != tt.expected {
 				t.Errorf("EscapeFieldNames(%v) = %q, want %q", tt.segments, result, tt.expected)
 			}
@@ -78,7 +78,7 @@ func TestUnescapeFieldPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := filter.UnescapeFieldPath(tt.path)
+			result, err := astra.UnescapeFieldPath(tt.path)
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("UnescapeFieldPath(%q) expected error, got nil", tt.path)
@@ -111,11 +111,11 @@ func TestEscapeUnescapeRoundTrip(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			escaped := filter.EscapeFieldNames(tt.segments...)
+			escaped := astra.EscapeFieldNames(tt.segments...)
 			if escaped != tt.expectedEscaped {
 				t.Errorf("EscapeFieldNames(%v) = %q, want %q", tt.segments, escaped, tt.expectedEscaped)
 			}
-			result, err := filter.UnescapeFieldPath(escaped)
+			result, err := astra.UnescapeFieldPath(escaped)
 			if err != nil {
 				t.Fatalf("UnescapeFieldPath(%q) unexpected error: %v", escaped, err)
 			}
@@ -134,8 +134,8 @@ func TestEscapeUnescapeRoundTrip(t *testing.T) {
 }
 
 func ExampleEscapeFieldNames() {
-	fmt.Println(filter.EscapeFieldNames("websites", "www.datastax.com", "visits"))
-	fmt.Println(filter.EscapeFieldNames("shows", "tom&jerry", "episodes", 3, "views"))
+	fmt.Println(astra.EscapeFieldNames("websites", "www.datastax.com", "visits"))
+	fmt.Println(astra.EscapeFieldNames("shows", "tom&jerry", "episodes", 3, "views"))
 	// Output:
 	// websites.www&.datastax&.com.visits
 	// shows.tom&&jerry.episodes.3.views
