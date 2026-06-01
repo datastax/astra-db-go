@@ -118,7 +118,7 @@ type mockUnmarshaler struct {
 	err error
 }
 
-func (m *mockUnmarshaler) UnmarshalAstra(ctx DecodeCtx, value any) error {
+func (m *mockUnmarshaler) UnmarshalAstra(_ DecodeCtx, _ any) error {
 	return m.err
 }
 
