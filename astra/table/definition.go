@@ -81,7 +81,7 @@ func (c Columns) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 
 func (c *Columns) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	var rep datatypes.LinkedMap[string, Column]
-	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target, ctx.Flags); err != nil {
 		return err
 	}
 
@@ -192,7 +192,7 @@ func (s PartitionSort) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
 
 func (s *PartitionSort) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	var rep datatypes.LinkedMap[string, int]
-	if err := serdes.Deserialize(value, &rep, nil, ctx.Target); err != nil {
+	if err := serdes.Deserialize(value, &rep, nil, ctx.Target, ctx.Flags); err != nil {
 		return err
 	}
 
@@ -206,18 +206,18 @@ func (s *PartitionSort) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) er
 func (p PrimaryKey) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	// If single partition key with no clustering columns, marshal as string
 	if len(p.PartitionBy) == 1 && len(p.PartitionSort) == 0 {
-		return serdes.SerializeInto(p.PartitionBy[0], ctx.Target, dst) // TODO is there really a point in special-casing this here
+		return serdes.SerializeInto(p.PartitionBy[0], ctx.Target, dst, ctx.Flags) // TODO is there really a point in special-casing this here
 	}
 
 	// Otherwise marshal as object
 	type pkAlias PrimaryKey
-	return serdes.SerializeInto(pkAlias(p), ctx.Target, dst)
+	return serdes.SerializeInto(pkAlias(p), ctx.Target, dst, ctx.Flags)
 }
 
 func (p *PrimaryKey) UnmarshalAstraRaw(ctx serdes.DecodeCtx, data []byte) error {
 	// Try to unmarshal as string first
 	var singleColumn string
-	if err := serdes.Deserialize(data, &singleColumn, nil, ctx.Target); err == nil {
+	if err := serdes.Deserialize(data, &singleColumn, nil, ctx.Target, ctx.Flags); err == nil {
 		p.PartitionBy = []string{singleColumn}
 		p.PartitionSort = nil
 		return nil
@@ -226,7 +226,7 @@ func (p *PrimaryKey) UnmarshalAstraRaw(ctx serdes.DecodeCtx, data []byte) error 
 	// Otherwise unmarshal as object
 	type pkAlias PrimaryKey
 	var pk pkAlias
-	if err := serdes.Deserialize(data, &pk, nil, ctx.Target); err != nil {
+	if err := serdes.Deserialize(data, &pk, nil, ctx.Target, ctx.Flags); err != nil {
 		return err
 	}
 	*p = PrimaryKey(pk)
@@ -236,7 +236,7 @@ func (p *PrimaryKey) UnmarshalAstraRaw(ctx serdes.DecodeCtx, data []byte) error 
 func (c *Column) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	// Try to unmarshal as a string first (e.g. "text")
 	var typ string
-	if err := serdes.Deserialize(value, &typ, nil, ctx.Target); err == nil {
+	if err := serdes.Deserialize(value, &typ, nil, ctx.Target, ctx.Flags); err == nil {
 		*c = Column{Type: typ}
 		return nil
 	}
@@ -244,7 +244,7 @@ func (c *Column) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	// Otherwise unmarshal as a full Column object (e.g. {"type":"text"})
 	type colAlias Column
 	var col colAlias
-	if err := serdes.Deserialize(value, &col, nil, ctx.Target); err != nil {
+	if err := serdes.Deserialize(value, &col, nil, ctx.Target, ctx.Flags); err != nil {
 		return err
 	}
 	*c = Column(col)
@@ -469,7 +469,7 @@ func (a AddColumns) isAlterOp() {}
 
 func (a AddColumns) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	type alias AddColumns
-	return serdes.SerializeInto(map[string]any{"add": alias(a)}, ctx.Target, dst)
+	return serdes.SerializeInto(map[string]any{"add": alias(a)}, ctx.Target, dst, ctx.Flags)
 }
 
 // DropColumns is the payload for the alterTable "drop" operation.
@@ -481,7 +481,7 @@ func (d DropColumns) isAlterOp() {}
 
 func (d DropColumns) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	type alias DropColumns
-	return serdes.SerializeInto(map[string]any{"drop": alias(d)}, ctx.Target, dst)
+	return serdes.SerializeInto(map[string]any{"drop": alias(d)}, ctx.Target, dst, ctx.Flags)
 }
 
 // AddVectorize is the payload for the alterTable "addVectorize" operation.
@@ -493,7 +493,7 @@ func (v AddVectorize) isAlterOp() {}
 
 func (v AddVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	type alias AddVectorize
-	return serdes.SerializeInto(map[string]any{"addVectorize": alias(v)}, ctx.Target, dst)
+	return serdes.SerializeInto(map[string]any{"addVectorize": alias(v)}, ctx.Target, dst, ctx.Flags)
 }
 
 // DropVectorize is the payload for the alterTable "dropVectorize" operation.
@@ -505,5 +505,5 @@ func (v DropVectorize) isAlterOp() {}
 
 func (v DropVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	type alias DropVectorize
-	return serdes.SerializeInto(map[string]any{"dropVectorize": alias(v)}, ctx.Target, dst)
+	return serdes.SerializeInto(map[string]any{"dropVectorize": alias(v)}, ctx.Target, dst, ctx.Flags)
 }

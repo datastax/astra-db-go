@@ -38,7 +38,7 @@ func TestUpdateManyExample(t *testing.T) {
 			"age": 1,
 		},
 	}
-	j, err := serdes.Serialize(u, serdes.TargetCollection)
+	j, err := serdes.Serialize(u, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}
@@ -50,7 +50,7 @@ func TestUpdateManyExample(t *testing.T) {
 		Set("classes", []string{"biology", "algebra", "swimming"}).
 		Unset("phone").
 		Inc("age", 1)
-	j, err = serdes.Serialize(fluentExample, serdes.TargetCollection)
+	j, err = serdes.Serialize(fluentExample, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("failed to marshal fluent update: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestAdvancedChaining(t *testing.T) {
 	u.Unset("phone")
 	u = u.Unset("email")
 	expected := `{"$unset":{"borrower":"","due_date":"","email":"","phone":""}}`
-	j, err := serdes.Serialize(u, serdes.TargetCollection)
+	j, err := serdes.Serialize(u, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}

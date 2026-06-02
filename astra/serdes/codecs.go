@@ -19,6 +19,7 @@ type decoder func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 type EncodeCtx struct {
 	codecCtx
 	Target   Target
+	Flags    SerFlags
 	ptrDepth int
 	ptrSeen  map[unsafe.Pointer]struct{}
 }
@@ -27,30 +28,31 @@ type DecodeCtx struct {
 	codecCtx
 	Target    Target
 	TargetCtx TargetDecodeCtx
+	Flags     DesFlags
 }
 
 func (c DecodeCtx) syntaxError(src []byte, msg string) error {
-	return &SyntaxError{msg: msg, Snippet: errorSnippet(src)}
+	return &SyntaxError{msg: msg, Snippet: errorSnippet(src, c.Flags)}
 }
 
 func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
-	return &SyntaxError{msg: msg, Snippet: errorSnippet(src), Err: err}
+	return &SyntaxError{msg: msg, Snippet: errorSnippet(src, c.Flags), Err: err}
 }
 
 func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
-	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src)}
+	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src, c.Flags)}
 }
 
 func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
-	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src)}
+	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src, c.Flags)}
 }
 
 func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
-	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src), Err: err}
+	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src, c.Flags), Err: err}
 }
 
 func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {
-	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src), Err: err}
+	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src, c.Flags), Err: err}
 }
 
 type AstraMarshaler interface {
@@ -87,17 +89,27 @@ type codecCtx struct {
 
 type seenStructs = map[reflect.Type]*structInfo
 
-func resolveCodecCaching(ctx codecCtx, t reflect.Type) codec {
+func resolveCodecCaching(ctx codecCtx, t reflect.Type, noCache bool) codec {
 	tid := typePtr(t)
-	cache := cacheLoad()
 
-	if c, ok := cache[tid]; ok {
-		return c
+	if !noCache {
+		cache := cacheLoad()
+		if c, ok := cache[tid]; ok {
+			return c
+		}
 	}
 
 	codec := resolveCodec(ctx, t, seenStructs{}, t.Kind() == reflect.Ptr)
 
-	return cacheSet(cache, t, codec)
+	if inlined(t) {
+		codec.encode = mkInlineEncoder(codec.encode)
+	}
+
+	if !noCache {
+		return cacheSet(cacheLoad(), t, codec)
+	}
+
+	return codec
 }
 
 func cacheLoad() map[unsafe.Pointer]codec {
@@ -120,10 +132,6 @@ func cacheLoad() map[unsafe.Pointer]codec {
 // Anyway, at the risk of cargo-culting, I'm going to follow their lead here and do it this way regardless as
 // the authors of those libraries are highly talented and much more knowledgeable about this kind of thing than I am
 func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
-	if inlined(t) {
-		c.encode = mkInlineEncoder(c.encode)
-	}
-
 	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
 	newCache[typePtr(t)] = c
 	maps.Copy(newCache, oldCache)
@@ -211,6 +219,10 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		c.encode = mkAstraMarshalerEncoder(t, true)
 	case canAddr && ptr.Implements(astraRawMarshalerType):
 		c.encode = mkAstraRawMarshalerEncoder(t, true)
+	case t.Implements(jsonMarshalerType):
+		c.encode = mkJSONMarshalerEncoder(t, false, c.encode)
+	case canAddr && ptr.Implements(jsonMarshalerType):
+		c.encode = mkJSONMarshalerEncoder(t, true, c.encode)
 	}
 
 	switch {
@@ -218,6 +230,8 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		c.decode = mkAstraUnmarshalerDecoder(t)
 	case ptr.Implements(astraRawUnmarshalerType):
 		c.decode = mkAstraRawUnmarshalerDecoder(t)
+	case ptr.Implements(jsonUnmarshalerType):
+		c.decode = mkJSONUnmarshalerDecoder(t, c.decode)
 	}
 
 	return

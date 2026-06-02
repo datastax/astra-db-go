@@ -89,7 +89,7 @@ func TestCache_HeavyContention_Correctness(t *testing.T) {
 				}
 
 				// 1. Resolve
-				c := resolveCodecCaching(ctx, typ)
+				c := resolveCodecCaching(ctx, typ, false)
 				if c.encode == nil || c.decode == nil {
 					t.Errorf("worker %d: nil codec for type %s", workerID, typ)
 					return
@@ -146,7 +146,7 @@ func TestCache_ExactLength_SingleGoroutine(t *testing.T) {
 
 	// 2. Resolve shared types
 	for _, typ := range sharedTypes {
-		resolveCodecCaching(ctx, typ)
+		resolveCodecCaching(ctx, typ, false)
 	}
 
 	// 3. Generate dynamic types (100 unique types)
@@ -158,7 +158,7 @@ func TestCache_ExactLength_SingleGoroutine(t *testing.T) {
 				Type: reflect.TypeOf(0),
 			},
 		})
-		resolveCodecCaching(ctx, typ)
+		resolveCodecCaching(ctx, typ, false)
 	}
 
 	// 4. Calculate expected total
@@ -174,7 +174,7 @@ func TestCache_ExactLength_SingleGoroutine(t *testing.T) {
 
 	// 5. Verify Idempotency (Should not increase count)
 	for _, typ := range sharedTypes {
-		resolveCodecCaching(ctx, typ)
+		resolveCodecCaching(ctx, typ, false)
 	}
 
 	if len(cacheLoad()) != expectedTotal {

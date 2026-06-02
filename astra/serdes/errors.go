@@ -156,13 +156,16 @@ func getValueName(t reflect.Type) string {
 
 func (e *UnmarshalTypeError) Unwrap() error { return e.Err }
 
-func errorSnippet(b []byte) string {
+func errorSnippet(b []byte, flags DesFlags) string {
 	if len(b) == 0 {
 		return ""
 	}
-	const max = 16 // TODO will have a flag for extended error context
-	if len(b) > max {
-		return string(b[:max]) + "..."
+	ctx := 16
+	if flags&ExtendedErrorContext != 0 {
+		ctx = 64
+	}
+	if len(b) > ctx {
+		return string(b[:ctx]) + "..."
 	}
 	return string(b)
 }

@@ -7,7 +7,7 @@ import (
 
 type TargetDecodeCtx interface {
 	UntypedTargetInterface() reflect.Type
-	NewUntypedTarget(p unsafe.Pointer) AstraRawUnmarshaler
+	NewUntypedTarget(ctx DecodeCtx, p unsafe.Pointer) AstraRawUnmarshaler
 }
 
 type typedCodec struct {

@@ -139,13 +139,13 @@ func (c *command) url() (string, error) {
 // But if we don't have a command name, we just marshal the payload directly.
 //
 // [.NET client]: https://github.com/datastax/astra-db-csharp/blob/699ac093494b1a5adbb65c65be57af5b48eb8cc2/src/DataStax.AstraDB.DataApi/Core/Commands/Command.cs#L92
-func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (c command) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
 		data[c.name] = c.payload
-		return serdes.SerializeInto(data, c.target, dst)
+		return serdes.SerializeInto(data, c.target, dst, ctx.Flags)
 	}
-	return serdes.SerializeInto(c.payload, c.target, dst)
+	return serdes.SerializeInto(c.payload, c.target, dst, ctx.Flags)
 }
 
 // Execute a command against the astra DB web API.

@@ -77,7 +77,7 @@ func TestNewDocument_Insertion(t *testing.T) {
 		"tags": []string{"a", "b"},
 	}
 
-	encoded, err := serdes.Serialize(doc, serdes.TargetCollection)
+	encoded, err := serdes.Serialize(doc, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("Serialize() error = %v", err)
 	}
@@ -176,7 +176,7 @@ func TestRow_UnmarshalAstraRaw(t *testing.T) {
 				{Name: "age", Column: table.Column{Type: table.TypeInt}},
 			},
 			jsonData: `{"name": null}`,
-			want:     map[string]any{"name": nil},
+			want:     map[string]any{"name": nil, "age": nil},
 		},
 		{
 			name: "collections",
@@ -569,13 +569,13 @@ func TestProperty_Row(t *testing.T) {
 		schema := genTableColumns().Draw(t, "schema")
 		input := genTableData(schema).Draw(t, "input")
 
-		encoded, err := serdes.Serialize(input, serdes.TargetTable)
+		encoded, err := serdes.Serialize(input, serdes.TargetTable, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("Serialize() error = %v", err)
 		}
 
 		var row Row
-		err = serdes.Deserialize(encoded, &row, NewRowTargetCtx(schema), serdes.TargetTable)
+		err = serdes.Deserialize(encoded, &row, NewRowTargetCtx(schema), serdes.TargetTable, serdes.SparseRows)
 		if err != nil {
 			t.Fatalf("Deserialize() error = %v", err)
 		}
@@ -659,12 +659,12 @@ func TestProperty_NewDocument(t *testing.T) {
 		}
 
 		// Test serialization consistency
-		encodedDoc, err := serdes.Serialize(doc, serdes.TargetCollection)
+		encodedDoc, err := serdes.Serialize(doc, serdes.TargetCollection, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize(doc) error = %v", err)
 		}
 
-		encodedMap, err := serdes.Serialize(input, serdes.TargetCollection)
+		encodedMap, err := serdes.Serialize(input, serdes.TargetCollection, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize(input) error = %v", err)
 		}
@@ -696,12 +696,12 @@ func TestProperty_NewRow(t *testing.T) {
 		}
 
 		// Test serialization consistency
-		encodedRow, err := serdes.Serialize(row, serdes.TargetTable)
+		encodedRow, err := serdes.Serialize(row, serdes.TargetTable, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize(row) error = %v", err)
 		}
 
-		encodedMap, err := serdes.Serialize(input, serdes.TargetTable)
+		encodedMap, err := serdes.Serialize(input, serdes.TargetTable, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize(input) error = %v", err)
 		}

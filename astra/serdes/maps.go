@@ -34,27 +34,20 @@ func mkSetCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 }
 
 func mkMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	mkIter := newMapIterMakerFromMap(t, true) // TODO make trySort an optional flag
-
 	kt := t.Key()
 	vt := t.Elem()
-
-	return mkGenericMapCodec(ctx, t, kt, vt, seen, mkIter, mkNativeMapMaker(t))
+	return mkGenericMapCodec(ctx, t, kt, vt, seen, newMapIterMakerFromMap(t), mkNativeMapMaker(t))
 }
 
 func mkLinkedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
-	mkIter := newMapIterFromLinkedMap
-
 	kt, _ := t.FieldByName("kType")
 	vt, _ := t.FieldByName("vType")
-
-	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, mkIter, mkLinkedMapMaker(t))
+	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, newMapIterFromLinkedMap, mkLinkedMapMaker(t))
 }
 
 func mkSortedMapCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	kt, _ := t.FieldByName("kType")
 	vt, _ := t.FieldByName("vType")
-
 	return mkGenericMapCodec(ctx, t, kt.Type.Elem(), vt.Type.Elem(), seen, newMapIterFromSortedMap, mkSortedMapMaker(t))
 }
 
@@ -147,10 +140,10 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 			return append(dst, "null"...), nil
 		}
 
-		iter := mkIter(m)
+		iter := mkIter(ctx, m)
 
 		if iter.IsEmpty() {
-			return append(dst, "{}"...), nil
+			return append(dst, "{}"...), nil // empty object on purpose, even for assoc arrays b/c of a data api bug
 		}
 
 		start := len(dst)
@@ -301,7 +294,7 @@ func mkNormalMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey,
 
 // Iterator
 
-type mkMapIter = func(m reflect.Value) mapIter
+type mkMapIter = func(ctx EncodeCtx, m reflect.Value) mapIter
 
 type mapIterType int
 
@@ -321,19 +314,16 @@ type mapIter struct {
 	iterType    mapIterType
 }
 
-func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) mapIter {
-	var cmp datatypes.Comparator
-	if trySort {
-		cmp = datatypes.ComparatorFor(t.Key())
-	}
-
-	return func(m reflect.Value) mapIter {
+func newMapIterMakerFromMap(t reflect.Type) mkMapIter {
+	return func(ctx EncodeCtx, m reflect.Value) mapIter {
 		wrapper := mapIter{m: m, index: -1, iterType: mapUnsortedIter}
 
-		if trySort {
+		if ctx.Flags&SortMapKeys != 0 {
 			wrapper.keys = m.MapKeys()
 
 			if len(wrapper.keys) > 1 {
+				cmp := datatypes.ComparatorFor(t.Key())
+
 				sort.Slice(wrapper.keys, func(i, j int) bool {
 					return cmp(valuePtr(wrapper.keys[i]), valuePtr(wrapper.keys[j])) < 0
 				})
@@ -348,7 +338,7 @@ func newMapIterMakerFromMap(t reflect.Type, trySort bool) func(m reflect.Value) 
 	}
 }
 
-func newMapIterFromLinkedMap(m reflect.Value) mapIter {
+func newMapIterFromLinkedMap(_ EncodeCtx, m reflect.Value) mapIter {
 	return mapIter{
 		m:           m,
 		index:       -1,
@@ -357,7 +347,7 @@ func newMapIterFromLinkedMap(m reflect.Value) mapIter {
 	}
 }
 
-func newMapIterFromSortedMap(m reflect.Value) mapIter {
+func newMapIterFromSortedMap(_ EncodeCtx, m reflect.Value) mapIter {
 	// SortedMap.Field(0) is *sortedMap[K,V]
 	// sortedMap fields: 0=kType, 1=vType, 2=cmp, 3=head, 4=len
 	// head is the sentinel; first real node is head.next[0] (node.Field(2).Index(0))

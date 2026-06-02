@@ -273,7 +273,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged))
 
 	var resp collectionUpdateResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, 0); err != nil {
 		return nil, err
 	}
 
@@ -329,7 +329,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 		}
 
 		var resp collectionUpdateResponse
-		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, 0); err != nil {
 			return nil, err
 		}
 
@@ -486,7 +486,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 	}
 
 	var resp collectionDeleteOneResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, 0); err != nil {
 		return nil, err
 	}
 
@@ -545,7 +545,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 		}
 
 		var resp collectionDeleteManyResponse
-		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, 0); err != nil {
 			return nil, err
 		}
 
@@ -607,7 +607,7 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 	}
 
 	var resp collectionCountResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, 0); err != nil {
 		return 0, err
 	}
 
@@ -642,7 +642,7 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 	}
 
 	var resp collectionCountResponse // no "moreData" field in this response, but we can reuse the struct
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, 0); err != nil {
 		return 0, err
 	}
 

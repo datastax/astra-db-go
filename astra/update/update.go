@@ -70,8 +70,9 @@ type CollectionUpdateBuilder struct {
 // dummy implementation to satisfy interface.
 func (*CollectionUpdateBuilder) isCollectionUpdate() {}
 
-func (u *CollectionUpdateBuilder) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
-	return u.ops, nil
+func (u *CollectionUpdateBuilder) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	ctx.Flags |= serdes.SortMapKeys
+	return serdes.SerializeInto(u.ops, ctx.Target, dst, ctx.Flags)
 }
 
 // Coll returns an empty [CollectionUpdateBuilder]. Chain methods like [Set], [Unset], etc. to add operators and fields.
@@ -268,8 +269,9 @@ type TableUpdateBuilder struct {
 
 func (*TableUpdateBuilder) isTableUpdate() {}
 
-func (u *TableUpdateBuilder) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
-	return u.ops, nil
+func (u *TableUpdateBuilder) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	ctx.Flags |= serdes.SortMapKeys
+	return serdes.SerializeInto(u.ops, ctx.Target, dst, ctx.Flags)
 }
 
 // Table returns an empty TableUpdateBuilder.

@@ -19,11 +19,11 @@ func NewTestCmd(name string, payload any) command {
 }
 
 // Check out rationale for this in main astra package.
-func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (c command) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
 		data[c.name] = c.payload
-		return serdes.SerializeInto(data, serdes.TargetNone, dst)
+		return serdes.SerializeInto(data, serdes.TargetNone, dst, ctx.Flags)
 	}
-	return serdes.SerializeInto(c.payload, serdes.TargetNone, dst)
+	return serdes.SerializeInto(c.payload, serdes.TargetNone, dst, ctx.Flags)
 }

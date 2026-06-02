@@ -229,7 +229,7 @@ func (d NewDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, 
 	if ctx.Target != serdes.TargetCollection {
 		return nil, fmt.Errorf("`NewDocument` can only be serialized for collections, got %s", ctx.Target)
 	}
-	return serdes.SerializeInto(map[string]any(d), ctx.Target, dst)
+	return serdes.SerializeInto(map[string]any(d), ctx.Target, dst, ctx.Flags)
 }
 
 func (d NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
@@ -310,7 +310,7 @@ func (r NewRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error
 	if ctx.Target != serdes.TargetTable {
 		return nil, fmt.Errorf("`NewRow` can only be serialized for tables, got %s", ctx.Target)
 	}
-	return serdes.SerializeInto(map[string]any(r), ctx.Target, dst)
+	return serdes.SerializeInto(map[string]any(r), ctx.Target, dst, ctx.Flags)
 }
 
 func (r NewRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
@@ -322,7 +322,8 @@ func (r NewRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 // region serverDocument
 
 type serverDocument struct {
-	data map[string]json.RawMessage
+	data  map[string]json.RawMessage
+	flags serdes.DesFlags
 }
 
 func (d *serverDocument) isDocument() {}
@@ -337,7 +338,7 @@ func (d *serverDocument) ToMap() map[string]any {
 		}
 
 		var val any
-		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetCollection)
+		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetCollection, d.flags)
 		result[name] = val
 	}
 	return result
@@ -355,7 +356,7 @@ func (d *serverDocument) Get(path ...string) (any, bool) {
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.flags); err != nil {
 			return nil, false
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -365,7 +366,7 @@ func (d *serverDocument) Get(path ...string) (any, bool) {
 	}
 
 	var generic any
-	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetCollection, d.flags); err != nil {
 		return nil, false
 	}
 	return generic, true
@@ -387,7 +388,7 @@ func (d *serverDocument) Decode(dest any, path ...string) error {
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.flags); err != nil {
 			return fmt.Errorf("astra: failed to decode intermediate path %q: %w", path[i-1], err)
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -396,19 +397,20 @@ func (d *serverDocument) Decode(dest any, path ...string) error {
 		}
 	}
 
-	return serdes.Deserialize(currentRaw, dest, nil, serdes.TargetCollection)
+	return serdes.Deserialize(currentRaw, dest, nil, serdes.TargetCollection, d.flags)
 }
 
-func (d *serverDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, value []byte) error {
+func (d *serverDocument) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	d.data = make(map[string]json.RawMessage)
-	return serdes.Deserialize(value, &d.data, nil, serdes.TargetCollection)
+	d.flags = ctx.Flags
+	return serdes.Deserialize(value, &d.data, nil, serdes.TargetCollection, d.flags)
 }
 
 func (d *serverDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if ctx.Target != serdes.TargetCollection {
 		return nil, fmt.Errorf("`Document` can only be serialized for collections, got %s", ctx.Target)
 	}
-	return serdes.SerializeInto(d.data, ctx.Target, dst)
+	return serdes.SerializeInto(d.data, ctx.Target, dst, ctx.Flags)
 }
 
 // endregion
@@ -423,8 +425,8 @@ func (documentTargetCtx) UntypedTargetInterface() reflect.Type {
 	return documentInterfaceType
 }
 
-func (documentTargetCtx) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawUnmarshaler {
-	doc := &serverDocument{}
+func (documentTargetCtx) NewUntypedTarget(ctx serdes.DecodeCtx, p unsafe.Pointer) serdes.AstraRawUnmarshaler {
+	doc := &serverDocument{flags: ctx.Flags}
 	*(*Document)(p) = doc
 	return doc
 }
@@ -442,6 +444,7 @@ func NewDocumentTargetCtx() serdes.TargetDecodeCtx {
 type serverRow struct {
 	data   map[string]json.RawMessage
 	schema *lazySchema
+	flags  serdes.DesFlags
 }
 
 func (r *serverRow) isRow() {}
@@ -450,7 +453,7 @@ func (r *serverRow) ToMap() map[string]any {
 	schema := r.schema.Get()
 	result := make(map[string]any, len(r.data))
 
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema}
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema, Flags: r.flags}
 
 	for name, rawValue := range r.data {
 		if string(rawValue) == "null" {
@@ -470,9 +473,18 @@ func (r *serverRow) ToMap() map[string]any {
 
 		// Generic fallback for metadata fields OR schema mismatch
 		var val any
-		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetTable)
+		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetTable, r.flags)
 		result[name] = val
 	}
+
+	if r.flags&serdes.SparseRows == 0 {
+		for _, col := range schema {
+			if _, ok := result[col.Name]; !ok {
+				result[col.Name] = nil
+			}
+		}
+	}
+
 	return result
 }
 
@@ -483,15 +495,20 @@ func (r *serverRow) Get(path ...string) (any, bool) {
 
 	currentRaw, ok := r.data[path[0]]
 	if !ok {
+		if r.flags&serdes.SparseRows == 0 {
+			if _, ok := r.schema.Get().Get(path[0]); ok {
+				return nil, true
+			}
+		}
 		return nil, false
 	}
 
 	currentCol, hasCol := r.schema.Get().Get(path[0])
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema}
+	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema, Flags: r.flags}
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable, r.flags); err != nil {
 			return nil, false
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -514,7 +531,7 @@ func (r *serverRow) Get(path ...string) (any, bool) {
 
 	// Fallback to generic decoding if no column info
 	var generic any
-	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetTable, r.flags); err != nil {
 		return nil, false
 	}
 	return generic, true
@@ -538,7 +555,7 @@ func (r *serverRow) Decode(dest any, path ...string) error {
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable, r.flags); err != nil {
 			return fmt.Errorf("astra: failed to decode intermediate path %q: %w", path[i-1], err)
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -552,7 +569,7 @@ func (r *serverRow) Decode(dest any, path ...string) error {
 	}
 
 	if _, ok := dest.(*any); ok && hasCol {
-		ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema}
+		ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.schema, Flags: r.flags}
 		val, err := deserializeColumn(ctx, currentRaw, currentCol)
 		if err != nil {
 			return err
@@ -566,19 +583,20 @@ func (r *serverRow) Decode(dest any, path ...string) error {
 		targetCtx = &lazySchema{AsCols: currentCol.UDTDefinition.Fields}
 	}
 
-	return serdes.Deserialize(currentRaw, dest, targetCtx, serdes.TargetTable)
+	return serdes.Deserialize(currentRaw, dest, targetCtx, serdes.TargetTable, r.flags)
 }
 
-func (r *serverRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, value []byte) error {
+func (r *serverRow) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	r.data = make(map[string]json.RawMessage)
-	return serdes.Deserialize(value, &r.data, nil, serdes.TargetTable)
+	r.flags = ctx.Flags
+	return serdes.Deserialize(value, &r.data, nil, serdes.TargetTable, r.flags)
 }
 
 func (r *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if ctx.Target != serdes.TargetTable {
 		return nil, fmt.Errorf("`Row` can only be serialized for tables, got %s", ctx.Target)
 	}
-	return serdes.SerializeInto(r.data, ctx.Target, dst)
+	return serdes.SerializeInto(r.data, ctx.Target, dst, ctx.Flags)
 }
 
 // endregion
@@ -615,8 +633,8 @@ func (s *lazySchema) UntypedTargetInterface() reflect.Type {
 	return rowInterfaceType
 }
 
-func (s *lazySchema) NewUntypedTarget(p unsafe.Pointer) serdes.AstraRawUnmarshaler {
-	row := &serverRow{schema: s}
+func (s *lazySchema) NewUntypedTarget(ctx serdes.DecodeCtx, p unsafe.Pointer) serdes.AstraRawUnmarshaler {
+	row := &serverRow{schema: s, flags: ctx.Flags}
 	*(*Row)(p) = row
 	return row
 }
@@ -648,92 +666,92 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 	switch col.Type {
 	case table.TypeInt:
 		var v int
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeBigInt:
 		var v int64
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeSmallInt:
 		var v int16
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeTinyInt:
 		var v int8
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeFloat:
 		var v float32
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeDouble:
 		var v float64
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeVarint:
 		var v big.Int
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeDecimal:
 		var v big.Float
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeText, table.TypeAscii:
 		var v string
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeBoolean:
 		var v bool
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeDate:
 		var v datatypes.DateOnly
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeTime:
 		var v datatypes.TimeOnly
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeTimestamp:
 		var v time.Time
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeDuration:
 		var v string
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeUUID, table.TypeTimeUUID:
 		var v datatypes.UUID
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeBlob:
 		var v []byte
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeInet:
 		var v net.IP
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeVector:
 		var v datatypes.Vector
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeSet, table.TypeList:
@@ -747,14 +765,14 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 
 	default:
 		var v any
-		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable)
+		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 	}
 }
 
 func deserializeListLike(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
 	var rawArray []json.RawMessage
-	if err := serdes.Deserialize(raw, &rawArray, nil, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(raw, &rawArray, nil, serdes.TargetTable, ctx.Flags); err != nil {
 		return nil, err
 	}
 
@@ -772,7 +790,7 @@ func deserializeListLike(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Co
 
 func deserializeMap(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
 	var rawMap map[string]json.RawMessage
-	if err := serdes.Deserialize(raw, &rawMap, nil, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(raw, &rawMap, nil, serdes.TargetTable, ctx.Flags); err != nil {
 		return nil, err
 	}
 
@@ -794,7 +812,7 @@ func deserializeUDT(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column)
 	newCtx := ctx
 	newCtx.TargetCtx = &lazySchema{AsCols: col.UDTDefinition.Fields}
 	var r Row
-	if err := serdes.Deserialize(raw, &r, newCtx.TargetCtx, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(raw, &r, newCtx.TargetCtx, serdes.TargetTable, ctx.Flags); err != nil {
 		return nil, err
 	}
 	return r.ToMap(), nil

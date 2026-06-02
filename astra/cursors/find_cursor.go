@@ -79,7 +79,7 @@ func (c *findCursorImpl) mapPage(resp *findResponse, targetCtx serdes.TargetDeco
 
 // decode implements findLikeCursorSource.decode
 func (c *findCursorImpl) decode(raw json.RawMessage, result any) error {
-	return serdes.Deserialize(raw, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
+	return serdes.Deserialize(raw, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target, 0)
 }
 
 type findPayload struct {

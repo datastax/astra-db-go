@@ -31,6 +31,8 @@ var (
 	astraRawMarshalerType   = reflect.TypeFor[AstraRawMarshaler]()
 	astraUnmarshalerType    = reflect.TypeFor[AstraUnmarshaler]()
 	astraRawUnmarshalerType = reflect.TypeFor[AstraRawUnmarshaler]()
+	jsonMarshalerType       = reflect.TypeFor[json.Marshaler]()
+	jsonUnmarshalerType     = reflect.TypeFor[json.Unmarshaler]()
 )
 
 var (
