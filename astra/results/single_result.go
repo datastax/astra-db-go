@@ -66,7 +66,7 @@ func (sr *SingleResult) Decode(v any) error {
 	}
 	// First unmarshal to get rawmessage in data.document
 	var singleResult singleResultJSON
-	err := serdes.Deserialize(sr.rawResp, &singleResult, nil, sr.target, 0)
+	err := serdes.Deserialize(sr.rawResp, &singleResult, nil, sr.target)
 	if err != nil {
 		return err
 	}
@@ -75,5 +75,5 @@ func (sr *SingleResult) Decode(v any) error {
 		return ErrNoDocuments
 	}
 	// Then return/unmarshal the document
-	return serdes.Deserialize(singleResult.Data.Document, v, sr.targetCtx, sr.target, 0)
+	return serdes.Deserialize(singleResult.Data.Document, v, sr.targetCtx, sr.target)
 }

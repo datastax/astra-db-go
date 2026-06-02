@@ -125,9 +125,9 @@ func (c *findAndRerankCursorImpl) mapPage(resp *findResponse, targetCtx serdes.T
 func (c *findAndRerankCursorImpl) decode(raw rawRerankedResult, result any) error {
 	if rr, ok := result.(rerankedResultWrapper); ok {
 		rr.setScores(raw.Scores)
-		return serdes.Deserialize(raw.Document, rr.documentAddr(), c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target, 0)
+		return serdes.Deserialize(raw.Document, rr.documentAddr(), c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
 	}
-	return serdes.Deserialize(raw.Document, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target, 0)
+	return serdes.Deserialize(raw.Document, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
 }
 
 type findAndRerankPayload struct {

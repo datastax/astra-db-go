@@ -66,7 +66,7 @@ func TestCombineOperatorsAndOrF(t *testing.T) {
 			}},
 		},
 	}
-	got, err := serdes.Serialize(filters, serdes.TargetCollection, 0)
+	got, err := serdes.Serialize(filters, serdes.TargetCollection)
 	if err != nil {
 		t.Error(err)
 	}
@@ -87,7 +87,7 @@ func TestCombineOperatorsAndOrStructured(t *testing.T) {
 			filter.Gte("publication_year", 2002),
 		),
 	)
-	got, err := serdes.Serialize(filters, serdes.TargetCollection, 0)
+	got, err := serdes.Serialize(filters, serdes.TargetCollection)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,7 +100,7 @@ func TestCombineOperatorsAndOrStructured(t *testing.T) {
 func TestEqDefault(t *testing.T) {
 	composedFilters := filter.Eq("num_pages", 300)
 	filters := filter.F{"num_pages": 300}
-	got, err := serdes.Serialize(filters, serdes.TargetCollection, 0)
+	got, err := serdes.Serialize(filters, serdes.TargetCollection)
 	if err != nil {
 		t.Error(err)
 	}
@@ -108,7 +108,7 @@ func TestEqDefault(t *testing.T) {
 	if string(got) != expected {
 		notExpected(t, expected, string(got))
 	}
-	composed, err := serdes.Serialize(composedFilters, serdes.TargetCollection, 0)
+	composed, err := serdes.Serialize(composedFilters, serdes.TargetCollection)
 	if err != nil {
 		t.Error(err)
 	}
@@ -119,7 +119,7 @@ func TestEqDefault(t *testing.T) {
 
 func TestOrSingleChild(t *testing.T) {
 	f := filter.Or(filter.Eq("x", 1))
-	got, err := serdes.Serialize(f, serdes.TargetCollection, 0)
+	got, err := serdes.Serialize(f, serdes.TargetCollection)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestOrSingleChild(t *testing.T) {
 
 func TestEmptyFilterMarshal(t *testing.T) {
 	f := filter.Filter{}
-	got, err := serdes.Serialize(f, serdes.TargetCollection, 0)
+	got, err := serdes.Serialize(f, serdes.TargetCollection)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestEmptyFilterMarshal(t *testing.T) {
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/find-one.html#use-lexicographical-matching-to-find-a-document
 func TestLexicalMatch(t *testing.T) {
 	f := filter.LexicalMatch("tree hill")
-	got, err := serdes.Serialize(f, serdes.TargetCollection, 0)
+	got, err := serdes.Serialize(f, serdes.TargetCollection)
 	if err != nil {
 		t.Fatal(err)
 	}

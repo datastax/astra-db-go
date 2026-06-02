@@ -56,7 +56,7 @@ func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptio
 	}
 
 	var resp insertOneResponse
-	if err := serdes.Deserialize(b, &resp, nil, target, 0); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, target); err != nil {
 		return nil, err
 	}
 
