@@ -1,0 +1,21 @@
+name: Run copyright header checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  copyright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check for copyright headers
+        run: |
+          MISSING=$(find . -name "*.go" -not -path "./examples/*" -exec grep -L "// Copyright IBM Corp." {} +)
+          if [ -n "$MISSING" ]; then
+            echo "The following files are missing the copyright header:"
+            echo "$MISSING"
+            exit 1
+          fi
