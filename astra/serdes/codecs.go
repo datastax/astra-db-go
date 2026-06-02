@@ -186,6 +186,8 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return codec{dateOnlyEncoder, dateOnlyDecoder}
 	case timeOnlyType:
 		return codec{timeOnlyEncoder, timeOnlyDecoder}
+	case durationType:
+		return codec{durationEncoder, durationDecoder}
 	case timeType:
 		return codec{timeEncoder, timeDecoder}
 	}

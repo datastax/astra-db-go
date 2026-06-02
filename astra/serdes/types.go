@@ -60,6 +60,7 @@ var (
 	oidType          = reflect.TypeFor[datatypes.ObjectId]()
 	dateOnlyType     = reflect.TypeFor[datatypes.DateOnly]()
 	timeOnlyType     = reflect.TypeFor[datatypes.TimeOnly]()
+	durationType     = reflect.TypeFor[datatypes.DataAPIDuration]()
 	vectorType       = reflect.TypeFor[datatypes.Vector]()
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
