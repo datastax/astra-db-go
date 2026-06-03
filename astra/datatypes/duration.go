@@ -668,7 +668,6 @@ func (b *DurationBuilder) addNanos(n, nsPerUnit int64, name string) *DurationBui
 	b.nanoseconds += n * nsPerUnit
 	return b
 }
-}
 
 // Build returns the constructed Duration, or an error if any Add* call failed.
 func (b *DurationBuilder) Build() (Duration, error) {
