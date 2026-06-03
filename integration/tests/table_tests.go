@@ -16,6 +16,7 @@ package tests
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -113,8 +114,8 @@ func TableInsertOne(e *harness.TestEnv) error {
 
 	// The API returns insertedIds as an array of primary key values
 	// For a single-column primary key like "title", it returns ["The Great Gatsby"]
-	pkValues, ok := insertedID.([]any)
-	if !ok {
+	var pkValues []any
+	if err := json.Unmarshal(insertedID, &pkValues); err != nil {
 		return fmt.Errorf("expected inserted ID to be []any, got %T", insertedID)
 	}
 	if len(pkValues) != 1 {

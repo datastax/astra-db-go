@@ -15,6 +15,7 @@
 package results
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -127,7 +128,7 @@ func (e *InsertManyError) InsertedCount() int {
 }
 
 // RawIDs returns the raw inserted IDs as a slice of any.
-func (e *InsertManyError) RawIDs() ([]any, error) {
+func (e *InsertManyError) RawIDs() ([]json.RawMessage, error) {
 	if e.Result == nil {
 		return nil, nil
 	}

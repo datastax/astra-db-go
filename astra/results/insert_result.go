@@ -69,15 +69,11 @@ func (r *InsertManyResult) InsertedCount() int {
 }
 
 // RawID returns the raw inserted ID as any.
-func (r *InsertOneResult) RawID() (any, error) {
+func (r *InsertOneResult) RawID() (json.RawMessage, error) {
 	if r.insertedId == nil {
 		return nil, errors.New("no inserted ID available")
 	}
-	var id any
-	if err := serdes.Deserialize(r.insertedId, &id, r.targetCtx, r.target); err != nil {
-		return nil, err
-	}
-	return id, nil
+	return r.insertedId, nil
 }
 
 // DecodeID unmarshalls the inserted ID into v.
@@ -90,15 +86,11 @@ func (r *InsertOneResult) DecodeID(v any) error {
 }
 
 // RawIDs returns the raw inserted IDs as a slice of any.
-func (r *InsertManyResult) RawIDs() ([]any, error) {
-	ids := make([]any, 0, r.count)
+func (r *InsertManyResult) RawIDs() ([]json.RawMessage, error) {
+	ids := make([]json.RawMessage, 0, r.count)
 	for _, batch := range r.batches {
 		for _, rawId := range batch.InsertedIds {
-			var id any
-			if err := serdes.Deserialize(rawId, &id, batch.TargetCtx, r.target); err != nil {
-				return nil, err
-			}
-			ids = append(ids, id)
+			ids = append(ids, rawId)
 		}
 	}
 	return ids, nil

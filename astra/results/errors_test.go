@@ -52,7 +52,7 @@ func TestInsertManyError(t *testing.T) {
 	if len(rawIds) != 2 {
 		t.Errorf("expected 2 raw ids, got %d", len(rawIds))
 	}
-	if rawIds[0] != "id1" || rawIds[1] != "id2" {
+	if string(rawIds[0]) != "\"id1\"" || string(rawIds[1]) != "\"id2\"" {
 		t.Errorf("unexpected raw ids: %v", rawIds)
 	}
 
