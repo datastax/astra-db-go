@@ -37,7 +37,7 @@ func TestInsertManyError(t *testing.T) {
 		},
 	}
 
-	res := NewInsertManyResult(batches, 2, nil, serdes.TargetNone)
+	res := NewInsertManyResult(batches, 2, nil, serdes.TargetNone, 0)
 
 	err := &InsertManyError{
 		Errors: apiErrors,

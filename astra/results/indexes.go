@@ -36,7 +36,7 @@ type IndexDescriptor struct {
 func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	// Try to unmarshal as a string first (names only response)
 	var name string
-	if err := serdes.Deserialize(value, &name, nil, ctx.Target); err == nil {
+	if err := serdes.Deserialize(value, &name, nil, ctx.Target, ctx.Flags); err == nil {
 		d.Name = name
 		return nil
 	}
@@ -44,7 +44,7 @@ func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) 
 	// Otherwise unmarshal as an object (explain=true response)
 	type indexDescriptorAlias IndexDescriptor
 	var alias indexDescriptorAlias
-	if err := serdes.Deserialize(value, &alias, nil, ctx.Target); err != nil {
+	if err := serdes.Deserialize(value, &alias, nil, ctx.Target, ctx.Flags); err != nil {
 		return err
 	}
 	*d = IndexDescriptor(alias)

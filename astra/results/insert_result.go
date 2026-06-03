@@ -28,6 +28,7 @@ type InsertOneResult struct {
 	targetCtx  serdes.TargetDecodeCtx
 	warnings   Warnings
 	target     serdes.Target
+	desFlags   serdes.DesFlags
 }
 
 // InsertManyResult represents the result of an insertMany operation.
@@ -36,6 +37,7 @@ type InsertManyResult struct {
 	count    int
 	warnings Warnings
 	target   serdes.Target
+	desFlags serdes.DesFlags
 }
 
 type InsertManyBatch struct {
@@ -44,13 +46,13 @@ type InsertManyBatch struct {
 }
 
 // NewInsertOneResult creates a new InsertOneResult.
-func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target) *InsertOneResult {
-	return &InsertOneResult{insertedId, targetCtx, warnings, target}
+func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, desFlags serdes.DesFlags) *InsertOneResult {
+	return &InsertOneResult{insertedId, targetCtx, warnings, target, desFlags}
 }
 
 // NewInsertManyResult creates a new InsertManyResult.
-func NewInsertManyResult(batches []InsertManyBatch, count int, warnings Warnings, target serdes.Target) *InsertManyResult {
-	return &InsertManyResult{batches, count, warnings, target}
+func NewInsertManyResult(batches []InsertManyBatch, count int, warnings Warnings, target serdes.Target, desFlags serdes.DesFlags) *InsertManyResult {
+	return &InsertManyResult{batches, count, warnings, target, desFlags}
 }
 
 // Warnings returns any warnings from the API response.
@@ -82,7 +84,7 @@ func (r *InsertOneResult) DecodeID(v any) error {
 	if r.insertedId == nil {
 		return errors.New("no inserted ID available")
 	}
-	return serdes.Deserialize(r.insertedId, v, r.targetCtx, r.target)
+	return serdes.Deserialize(r.insertedId, v, r.targetCtx, r.target, r.desFlags)
 }
 
 // RawIDs returns the raw inserted IDs as a slice of any.
@@ -117,7 +119,7 @@ func (r *InsertManyResult) DecodeIDs(v any) error {
 	for _, batch := range r.batches {
 		for _, rawId := range batch.InsertedIds {
 			targetAddr := sliceVal.Index(idx).Addr().Interface()
-			if err := serdes.Deserialize(rawId, targetAddr, batch.TargetCtx, r.target); err != nil {
+			if err := serdes.Deserialize(rawId, targetAddr, batch.TargetCtx, r.target, r.desFlags); err != nil {
 				sliceVal.SetLen(idx)
 				return err
 			}

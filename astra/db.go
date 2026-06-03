@@ -374,7 +374,7 @@ func listCollections[T any](d *Db, ctx context.Context, explain bool, opts *opti
 		return zero, err
 	}
 	var resp listCollectionsResponse[T]
-	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone)
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone, opts.GetDesFlags())
 	return resp.Status.Collections, err
 }
 
@@ -442,7 +442,7 @@ func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.A
 		return zero, err
 	}
 	var resp listTablesResponse[T]
-	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone)
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone, opts.GetDesFlags())
 	return resp.Status.Tables, err
 }
 

@@ -179,10 +179,11 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.TableFindOneOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err, 0)
 	}
 	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
 }
+
 
 // Find returns a cursor for iterating over rows matching the filter criteria.
 //
@@ -536,7 +537,7 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 	}
 
 	var resp listIndexesResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.resolveOptions().GetDesFlags()); err != nil {
 		return nil, err
 	}
 

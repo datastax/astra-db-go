@@ -227,7 +227,7 @@ func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOp
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr results.DataAPIError
-		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone)
+		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone, opts.GetDesFlags())
 		if len(transportErr.Message) > 0 {
 			return body, nil, nil, errors.New(transportErr.Message)
 		}
@@ -237,7 +237,7 @@ func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOp
 
 	// Parse the full response to get both errors and warnings
 	var resp apiResponse
-	serdes.Deserialize(body, &resp, nil, c.target) // TODO handle errors and figure out how to end double-parsing
+	serdes.Deserialize(body, &resp, nil, c.target, opts.GetDesFlags()) // TODO handle errors and figure out how to end double-parsing
 
 	// Invoke warning handler for each warning if configured
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {

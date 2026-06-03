@@ -134,7 +134,7 @@ func (c *findLikeCursorImpl[Raw]) fetchNextPage(ctx context.Context) (bool, erro
 	c.warnings = append(c.warnings, warnings...)
 
 	var resp findResponse
-	if err := serdes.Deserialize(b, &resp, nil, c.target); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, c.target, c.fcs.apiOptions().GetDesFlags()); err != nil {
 		c.currentPage = nil
 		return false, err
 	}

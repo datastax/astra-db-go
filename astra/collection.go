@@ -16,7 +16,6 @@ package astra
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
@@ -152,7 +151,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
 	return findOne(ctx, f, c.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetCollection)
 }
@@ -273,7 +272,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged))
 
 	var resp collectionUpdateResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 		return nil, err
 	}
 
@@ -329,7 +328,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 		}
 
 		var resp collectionUpdateResponse
-		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 			return nil, err
 		}
 
@@ -359,7 +358,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u CollectionUpdate, opts ...options.CollectionFindOneAndUpdateOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
 
 	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", map[string]any{
@@ -374,7 +373,7 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 	}, merged.APIOptions)
 
 	b, warnings, _, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
 // endregion
@@ -400,7 +399,7 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 	})
 
 	var resp collectionUpdateResponse
-	if err := json.Unmarshal(b, &resp); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 		return nil, err
 	}
 
@@ -427,7 +426,7 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts ...options.CollectionFindOneAndReplaceOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
 
 	b, warnings, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
@@ -438,7 +437,7 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 		APIOptions:     merged.APIOptions,
 	})
 
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
 func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts *options.CollectionFindOneAndReplaceOptions) ([]byte, results.Warnings, error) {
@@ -486,7 +485,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 	}
 
 	var resp collectionDeleteOneResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 		return nil, err
 	}
 
@@ -545,7 +544,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 		}
 
 		var resp collectionDeleteManyResponse
-		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+		if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 			return nil, err
 		}
 
@@ -566,7 +565,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, opts ...options.CollectionFindOneAndDeleteOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, 0)
 	}
 
 	cmd := c.newCmdWithMergedOptions("findOneAndDelete", map[string]any{
@@ -576,7 +575,7 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 	}, merged.APIOptions)
 
 	b, warnings, _, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err)
+	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
 // endregion
@@ -607,7 +606,7 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 	}
 
 	var resp collectionCountResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 		return 0, err
 	}
 
@@ -642,7 +641,7 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 	}
 
 	var resp collectionCountResponse // no "moreData" field in this response, but we can reuse the struct
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
 		return 0, err
 	}
 

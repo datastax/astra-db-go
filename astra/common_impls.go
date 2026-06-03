@@ -56,7 +56,7 @@ func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptio
 	}
 
 	var resp insertOneResponse
-	if err := serdes.Deserialize(b, &resp, nil, target); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, target, opts.APIOptions.GetDesFlags()); err != nil {
 		return nil, err
 	}
 
@@ -64,7 +64,7 @@ func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptio
 		return nil, errors.New("no inserted ID returned from server")
 	}
 
-	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, target), nil
+	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, target, opts.APIOptions.GetDesFlags()), nil
 }
 
 // endregion
@@ -135,12 +135,12 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 		if len(apiErrors) > 0 {
 			return nil, &results.InsertManyError{
 				Errors: apiErrors,
-				Result: results.NewInsertManyResult(batches, count, allWarnings, target),
+				Result: results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()),
 			}
 		}
 	}
 
-	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
+	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()), nil
 }
 
 func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
@@ -204,14 +204,13 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	if err := criticalErr.Load(); err != nil {
 		return nil, *err
 	}
-
 	if len(allApiErrors) > 0 {
 		return nil, &results.InsertManyError{
 			Errors: allApiErrors,
-			Result: results.NewInsertManyResult(batches, count, allWarnings, target),
+			Result: results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()),
 		}
 	}
-	return results.NewInsertManyResult(batches, count, allWarnings, target), nil
+	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()), nil
 }
 
 func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, results.DataAPIErrors, error) {
@@ -234,8 +233,8 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertMa
 		return batch, warnings, nil, execErr
 	}
 
-	var resp *insertManyResponse
-	if unmarshalErr := json.Unmarshal(b, &resp); unmarshalErr != nil {
+	var resp insertManyResponse
+	if unmarshalErr := serdes.Deserialize(b, &resp, nil, serdes.TargetNone, opts.APIOptions.GetDesFlags()); unmarshalErr != nil {
 		return batch, warnings, nil, unmarshalErr
 	}
 
@@ -265,7 +264,7 @@ func findOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts findOne
 	}, opts.APIOptions)
 
 	b, warnings, schema, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, schema, target, err)
+	return results.NewSingleResult(b, warnings, schema, target, err, opts.APIOptions.GetDesFlags())
 }
 
 // endregion

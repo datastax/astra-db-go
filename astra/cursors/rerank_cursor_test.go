@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/serdes"
 )
 
@@ -92,9 +93,22 @@ func TestFindAndRerankCursorImpl_GetScores(t *testing.T) {
 	}
 }
 
+type mockFindLikeCursorSource struct {
+	findLikeCursorSource[rawRerankedResult]
+	opts *options.APIOptions
+}
+
+func (m *mockFindLikeCursorSource) apiOptions() *options.APIOptions {
+	return m.opts
+}
+
 func TestFindAndRerankCursorImpl_Decode(t *testing.T) {
+	mockSource := &mockFindLikeCursorSource{
+		opts: &options.APIOptions{},
+	}
 	impl := &findAndRerankCursorImpl{
 		findLikeCursorImpl: &findLikeCursorImpl[rawRerankedResult]{
+			fcs:         mockSource,
 			target:      serdes.TargetCollection,
 			currentPage: &findLikePage[rawRerankedResult]{},
 		},

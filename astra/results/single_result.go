@@ -27,16 +27,18 @@ type SingleResult struct {
 	warnings  Warnings
 	targetCtx serdes.TargetDecodeCtx
 	target    serdes.Target
+	desFlags  serdes.DesFlags
 }
 
 // NewSingleResult creates a new SingleResult with the given response, warnings, and error.
-func NewSingleResult(rawResp []byte, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, err error) *SingleResult {
+func NewSingleResult(rawResp []byte, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, err error, desFlags serdes.DesFlags) *SingleResult {
 	return &SingleResult{
 		rawResp:   rawResp,
 		warnings:  warnings,
 		targetCtx: targetCtx,
 		target:    target,
 		err:       err,
+		desFlags:  desFlags,
 	}
 }
 
@@ -62,7 +64,7 @@ func (sr *SingleResult) Decode(v any) error {
 	if err != nil {
 		return err
 	}
-	return serdes.Deserialize(raw, v, sr.targetCtx, sr.target)
+	return serdes.Deserialize(raw, v, sr.targetCtx, sr.target, sr.desFlags)
 }
 
 // Raw returns the raw JSON document from the API response.
@@ -76,7 +78,7 @@ func (sr *SingleResult) Raw() (json.RawMessage, error) {
 	}
 
 	var srRaw singleResultJSON
-	if err := serdes.Deserialize(sr.rawResp, &srRaw, nil, sr.target); err != nil {
+	if err := serdes.Deserialize(sr.rawResp, &srRaw, nil, sr.target, sr.desFlags); err != nil {
 		return nil, err
 	}
 
