@@ -215,8 +215,15 @@ func parseISOStandardDuration(s string) (Duration, error) {
 		b.addNanos(n, NSPerSec, "seconds")
 	}
 	if m[7] != "" {
-		frac, _ := strconv.ParseInt(m[7], 10, 64)
-		b.addNanos(int64(float64(frac)*math.Pow10(9-len(m[7]))), 1, "nanoseconds")
+		fracStr := m[7]
+		if len(fracStr) > 9 {
+			fracStr = fracStr[:9] // truncate sub-nanosecond precision
+		}
+		frac, err := strconv.ParseInt(fracStr, 10, 64)
+		if err != nil {
+			return Duration{}, fmt.Errorf("invalid ISO 8601 standard duration string: %q", s)
+		}
+		b.addNanos(frac*int64(math.Pow10(9-len(fracStr))), 1, "nanoseconds")
 	}
 
 	d, err := b.Build()
@@ -650,12 +657,17 @@ func (b *DurationBuilder) addNanos(n, nsPerUnit int64, name string) *DurationBui
 	if b.err != nil {
 		return b
 	}
+	if n < 0 {
+		b.err = fmt.Errorf("invalid duration: cannot add negative %s (%d); use Negate() or SetNegative() instead", name, n)
+		return b
+	}
 	if n > (MaxNanos-b.nanoseconds)/nsPerUnit {
 		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [0, %d] (tried to add %d %s)", MaxNanos, n, name)
 		return b
 	}
 	b.nanoseconds += n * nsPerUnit
 	return b
+}
 }
 
 // Build returns the constructed Duration, or an error if any Add* call failed.

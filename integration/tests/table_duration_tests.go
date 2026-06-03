@@ -41,7 +41,7 @@ type DurationRow struct {
 
 // TableDuration is self-contained: creates a table, exercises insert/find
 // with Duration values, then drops the table.
-func TableDuration(e *harness.TestEnv) error {
+func TableDuration(e *harness.TestEnv) (err error) {
 	ctx := context.Background()
 	db := e.DefaultDb()
 
