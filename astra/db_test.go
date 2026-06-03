@@ -26,7 +26,7 @@ import (
 func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("no options", func(t *testing.T) {
 		var opts *options.CreateCollectionOptions
-		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone)
+		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
@@ -43,7 +43,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 			Metric:    ptr.To("cosine"),
 		})
 
-		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone)
+		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
@@ -64,7 +64,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 			Metric:    ptr.To("cosine"),
 		})
 
-		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone)
+		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
@@ -82,7 +82,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 			},
 		}
 
-		cmdBytes, err := serdes.Serialize(rawOpts, serdes.TargetNone)
+		cmdBytes, err := serdes.Serialize(rawOpts, serdes.TargetNone, serdes.SortMapKeys)
 		if err != nil {
 			t.Fatalf("serdes.Serialize: %v", err)
 		}
@@ -107,8 +107,7 @@ const listCollectionsExplainFalseResp = "{\"status\":{\"collections\":[\"GoTest\
 // be properly json.Unmarshal'd into the internal listCollectionsResponse struct.
 func TestListCollectionsUnmarshal_ExplainTrue(t *testing.T) {
 	var resp listCollectionsResponse[[]results.CollectionDescriptor]
-	err := serdes.Deserialize([]byte(listCollectionsExplainTrueResp), &resp, nil, serdes.TargetNone)
-	if err != nil {
+	if err := serdes.Deserialize([]byte(listCollectionsExplainTrueResp), &resp, nil, serdes.TargetNone); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if len(resp.Status.Collections) != 2 {
@@ -124,8 +123,7 @@ func TestListCollectionsUnmarshal_ExplainTrue(t *testing.T) {
 
 func TestListCollectionsUnmarshal_ExplainFalse(t *testing.T) {
 	var resp listCollectionsResponse[[]string]
-	err := serdes.Deserialize([]byte(listCollectionsExplainFalseResp), &resp, nil, serdes.TargetNone)
-	if err != nil {
+	if err := serdes.Deserialize([]byte(listCollectionsExplainFalseResp), &resp, nil, serdes.TargetNone); err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if len(resp.Status.Collections) != 2 {

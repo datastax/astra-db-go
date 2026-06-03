@@ -16,6 +16,8 @@ package results
 
 import (
 	"encoding/json"
+
+	"github.com/datastax/astra-db-go/astra/serdes"
 )
 
 // MultipleResult represents documents returned from an operation.
@@ -23,14 +25,16 @@ type MultipleResult struct {
 	err      error
 	rawResp  []byte
 	warnings Warnings
+	desFlags serdes.DesFlags
 }
 
 // NewMultipleResult creates a new MultipleResult with the given response, warnings, and error.
-func NewMultipleResult(rawResp []byte, warnings Warnings, err error) *MultipleResult {
+func NewMultipleResult(rawResp []byte, warnings Warnings, err error, desFlags serdes.DesFlags) *MultipleResult {
 	return &MultipleResult{
 		rawResp:  rawResp,
 		warnings: warnings,
 		err:      err,
+		desFlags: desFlags,
 	}
 }
 
@@ -61,7 +65,7 @@ func (mr *MultipleResult) Decode(v any) error {
 	}
 	// First unmarshal to get rawmessage in data.document
 	var result multipleResultJSON
-	err := json.Unmarshal(mr.rawResp, &result)
+	err := serdes.Deserialize(mr.rawResp, &result, nil, serdes.TargetNone, mr.desFlags)
 	if err != nil {
 		return err
 	}
@@ -70,7 +74,7 @@ func (mr *MultipleResult) Decode(v any) error {
 		return ErrNoDocuments
 	}
 	// Then return/unmarshal the document
-	return json.Unmarshal(result.Data.Documents, v)
+	return serdes.Deserialize(result.Data.Documents, v, nil, serdes.TargetNone, mr.desFlags)
 }
 
 // NextPageState returns the pagination state for fetching the next page of results.
@@ -80,7 +84,7 @@ func (mr *MultipleResult) NextPageState() *string {
 		return nil
 	}
 	var result multipleResultJSON
-	err := json.Unmarshal(mr.rawResp, &result)
+	err := serdes.Deserialize(mr.rawResp, &result, nil, serdes.TargetNone, mr.desFlags)
 	if err != nil {
 		return nil
 	}

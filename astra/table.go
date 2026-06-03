@@ -162,7 +162,7 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetCollection)
+	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetTable)
 }
 
 // endregion
@@ -179,7 +179,7 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.TableFindOneOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err)
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err, 0)
 	}
 	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
 }
@@ -536,7 +536,7 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 	}
 
 	var resp listIndexesResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.resolveOptions().GetDesFlags()); err != nil {
 		return nil, err
 	}
 

@@ -2742,6 +2742,16 @@ func (b *rerankOptionsBuilder) Setters() []func(*RerankOptions) {
 }
 
 // SerdesOption configures a Serdes operation.
+// You can use the fluent-style builder or a pointer to [SerdesOptions] interchangeably.
+//
+// Example using the fluent builder ([Serdes]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.Serdes().SetTrustRawMessage(false)
+//
+// Example using a pointer to [SerdesOptions] without the fluent builder:
+//
+//	opts := &options.SerdesOptions{TrustRawMessage: ptr.To(false)}
 type SerdesOption = Builder[SerdesOptions]
 
 // Setters implements Builder[SerdesOptions] allowing the raw struct to be
@@ -2766,6 +2776,80 @@ func Serdes() *serdesOptionsBuilder {
 // Setters implements Builder[SerdesOptions].
 func (b *serdesOptionsBuilder) Setters() []func(*SerdesOptions) {
 	return b.setters
+}
+
+// SetTrustRawMessage sets the TrustRawMessage option.
+// Serialization flags
+func (b *serdesOptionsBuilder) SetTrustRawMessage(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.TrustRawMessage = &v
+	})
+	return b
+}
+
+// SetSortMapKeys sets the SortMapKeys option.
+func (b *serdesOptionsBuilder) SetSortMapKeys(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.SortMapKeys = &v
+	})
+	return b
+}
+
+// SetSerNoCache sets the SerNoCache option.
+func (b *serdesOptionsBuilder) SetSerNoCache(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.SerNoCache = &v
+	})
+	return b
+}
+
+// SetUseJSONMarshal sets the UseJSONMarshal option.
+func (b *serdesOptionsBuilder) SetUseJSONMarshal(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.UseJSONMarshal = &v
+	})
+	return b
+}
+
+// SetSparseRows sets the SparseRows option.
+// Deserialization flags
+func (b *serdesOptionsBuilder) SetSparseRows(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.SparseRows = &v
+	})
+	return b
+}
+
+// SetUseNumber sets the UseNumber option.
+func (b *serdesOptionsBuilder) SetUseNumber(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.UseNumber = &v
+	})
+	return b
+}
+
+// SetDesNoCache sets the DesNoCache option.
+func (b *serdesOptionsBuilder) SetDesNoCache(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.DesNoCache = &v
+	})
+	return b
+}
+
+// SetExtendedErrorContext sets the ExtendedErrorContext option.
+func (b *serdesOptionsBuilder) SetExtendedErrorContext(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.ExtendedErrorContext = &v
+	})
+	return b
+}
+
+// SetUseJSONUnmarshal sets the UseJSONUnmarshal option.
+func (b *serdesOptionsBuilder) SetUseJSONUnmarshal(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.UseJSONUnmarshal = &v
+	})
+	return b
 }
 
 // TableDefinitionOption configures a TableDefinition operation.

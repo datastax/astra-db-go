@@ -123,11 +123,12 @@ func (c *findAndRerankCursorImpl) mapPage(resp *findResponse, targetCtx serdes.T
 
 // mapPage implements findLikeCursorSource.decode
 func (c *findAndRerankCursorImpl) decode(raw rawRerankedResult, result any) error {
+	flags := c.findLikeCursorImpl.fcs.apiOptions().GetDesFlags()
 	if rr, ok := result.(rerankedResultWrapper); ok {
 		rr.setScores(raw.Scores)
-		return serdes.Deserialize(raw.Document, rr.documentAddr(), c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
+		return serdes.Deserialize(raw.Document, rr.documentAddr(), c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target, flags)
 	}
-	return serdes.Deserialize(raw.Document, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target)
+	return serdes.Deserialize(raw.Document, result, c.findLikeCursorImpl.currentPage.targetCtx, c.findLikeCursorImpl.target, flags)
 }
 
 type findAndRerankPayload struct {

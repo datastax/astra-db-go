@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/astra/results"
 )
 
 const sampleRegionsResponse = `[
@@ -245,9 +246,9 @@ func TestExtractDevopsError(t *testing.T) {
 	}
 	// TODO: switch to errors.AsType when it becomes more widely available:
 	// https://go.dev/doc/go1.26#errorspkgerrors
-	var errs DataAPIErrors
+	var errs results.DataAPIErrors
 	if !errors.As(err, &errs) {
-		t.Fatalf("expecting error of type DataAPIErrors. Got %s", err)
+		t.Fatalf("expecting error of type results.DataAPIErrors. Got %s", err)
 	}
 	if len(errs) != 1 {
 		t.Fatalf("expecting len(errs) to = 1. Got %d", len(errs))

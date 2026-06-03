@@ -24,7 +24,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
@@ -194,7 +193,7 @@ func CollectionItemAlreadyExists(e *harness.TestEnv) error {
 	if err == nil {
 		return errors.New("expecting duplicate insert error. Got nil")
 	}
-	var errs *astra.DataAPIErrors
+	var errs *results.DataAPIErrors
 	if errors.As(err, &errs) {
 		expecting := "DOCUMENT_ALREADY_EXISTS"
 		if len(*errs) != 1 {
@@ -205,7 +204,7 @@ func CollectionItemAlreadyExists(e *harness.TestEnv) error {
 			return fmt.Errorf("expecting Code %v. got %v", expecting, apiError.ErrorCode)
 		}
 	} else {
-		return fmt.Errorf("expecting error of type astra.DataAPIError. Got %s", err)
+		return fmt.Errorf("expecting error of type results.DataAPIError. Got %s", err)
 	}
 	return nil
 }

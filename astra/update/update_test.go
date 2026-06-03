@@ -1,3 +1,17 @@
+// Copyright IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package update_test
 
 import (
@@ -38,7 +52,7 @@ func TestUpdateManyExample(t *testing.T) {
 			"age": 1,
 		},
 	}
-	j, err := serdes.Serialize(u, serdes.TargetCollection)
+	j, err := serdes.Serialize(u, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}
@@ -50,7 +64,7 @@ func TestUpdateManyExample(t *testing.T) {
 		Set("classes", []string{"biology", "algebra", "swimming"}).
 		Unset("phone").
 		Inc("age", 1)
-	j, err = serdes.Serialize(fluentExample, serdes.TargetCollection)
+	j, err = serdes.Serialize(fluentExample, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("failed to marshal fluent update: %v", err)
 	}
@@ -195,7 +209,7 @@ func TestAdvancedChaining(t *testing.T) {
 	u.Unset("phone")
 	u = u.Unset("email")
 	expected := `{"$unset":{"borrower":"","due_date":"","email":"","phone":""}}`
-	j, err := serdes.Serialize(u, serdes.TargetCollection)
+	j, err := serdes.Serialize(u, serdes.TargetCollection, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}

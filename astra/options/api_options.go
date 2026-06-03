@@ -21,6 +21,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
+	"github.com/datastax/astra-db-go/astra/serdes"
 )
 
 // APIOptions contains all configurable options that can be set at any level
@@ -91,12 +92,110 @@ func (o *TimeoutOptions) SetDefaults() {
 }
 
 // SerdesOptions contains options for serialization and deserialization behavior.
-// This is a placeholder for future extensibility.
 type SerdesOptions struct {
-	// Future options:
-	// - Custom date/time handling
-	// - Map encoding modes
-	// - Custom type converters
+	// Serialization flags
+	TrustRawMessage *bool
+	SortMapKeys     *bool
+	SerNoCache      *bool
+	UseJSONMarshal  *bool
+
+	// Deserialization flags
+	SparseRows           *bool
+	UseNumber            *bool
+	DesNoCache           *bool
+	ExtendedErrorContext *bool
+	UseJSONUnmarshal     *bool
+}
+
+// GetSerFlags returns the aggregated serialization flags.
+func (o *SerdesOptions) GetSerFlags() serdes.SerFlags {
+	var f serdes.SerFlags
+	o.walkSerFlags(func(flag serdes.SerFlags, field **bool) {
+		if ptr.From(*field) {
+			f |= flag
+		}
+	})
+	return f
+}
+
+// GetDesFlags returns the aggregated deserialization flags.
+func (o *SerdesOptions) GetDesFlags() serdes.DesFlags {
+	var f serdes.DesFlags
+	o.walkDesFlags(func(flag serdes.DesFlags, field **bool) {
+		if ptr.From(*field) {
+			f |= flag
+		}
+	})
+	return f
+}
+
+func (o *SerdesOptions) walkSerFlags(fn func(serdes.SerFlags, **bool)) {
+	if o == nil {
+		return
+	}
+	fn(serdes.TrustRawMessage, &o.TrustRawMessage)
+	fn(serdes.SortMapKeys, &o.SortMapKeys)
+	fn(serdes.SerNoCache, &o.SerNoCache)
+	fn(serdes.UseJSONMarshal, &o.UseJSONMarshal)
+}
+
+func (o *SerdesOptions) walkDesFlags(fn func(serdes.DesFlags, **bool)) {
+	if o == nil {
+		return
+	}
+	fn(serdes.SparseRows, &o.SparseRows)
+	fn(serdes.UseNumber, &o.UseNumber)
+	fn(serdes.DesNoCache, &o.DesNoCache)
+	fn(serdes.ExtendedErrorContext, &o.ExtendedErrorContext)
+	fn(serdes.UseJSONUnmarshal, &o.UseJSONUnmarshal)
+}
+
+// EnableSerFlags sets the provided serialization flags to true.
+func (b *serdesOptionsBuilder) EnableSerFlags(flags serdes.SerFlags) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.walkSerFlags(func(flag serdes.SerFlags, field **bool) {
+			if flags&flag != 0 {
+				*field = ptr.To(true)
+			}
+		})
+	})
+	return b
+}
+
+// DisableSerFlags sets the provided serialization flags to false.
+func (b *serdesOptionsBuilder) DisableSerFlags(flags serdes.SerFlags) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.walkSerFlags(func(flag serdes.SerFlags, field **bool) {
+			if flags&flag != 0 {
+				*field = ptr.To(false)
+			}
+		})
+	})
+	return b
+}
+
+// EnableDesFlags sets the provided deserialization flags to true.
+func (b *serdesOptionsBuilder) EnableDesFlags(flags serdes.DesFlags) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.walkDesFlags(func(flag serdes.DesFlags, field **bool) {
+			if flags&flag != 0 {
+				*field = ptr.To(true)
+			}
+		})
+	})
+	return b
+}
+
+// DisableDesFlags sets the provided deserialization flags to false.
+func (b *serdesOptionsBuilder) DisableDesFlags(flags serdes.DesFlags) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.walkDesFlags(func(flag serdes.DesFlags, field **bool) {
+			if flags&flag != 0 {
+				*field = ptr.To(false)
+			}
+		})
+	})
+	return b
 }
 
 // WarningHandler is a callback function invoked for each warning in API responses.
@@ -187,4 +286,20 @@ func (o *APIOptions) GetGeneralMethodTimeout() *time.Duration {
 		return nil
 	}
 	return o.Timeout.GeneralMethod
+}
+
+// GetSerFlags returns the serialization flags or 0 if not set.
+func (o *APIOptions) GetSerFlags() serdes.SerFlags {
+	if o == nil {
+		return 0
+	}
+	return o.Serdes.GetSerFlags()
+}
+
+// GetDesFlags returns the deserialization flags or 0 if not set.
+func (o *APIOptions) GetDesFlags() serdes.DesFlags {
+	if o == nil {
+		return 0
+	}
+	return o.Serdes.GetDesFlags()
 }

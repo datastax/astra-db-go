@@ -134,7 +134,7 @@ func (f Filter) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error
 		// "$or": [...]
 		filters := make(map[FilterOperator][]Filter)
 		filters[f.op] = f.children
-		return serdes.SerializeInto(filters, ctx.Target, dst)
+		return serdes.SerializeInto(filters, ctx.Target, dst, ctx.Flags)
 	}
 	if len(f.field) > 0 {
 		if len(f.op) == 0 || f.op == OpEqual {
@@ -142,13 +142,13 @@ func (f Filter) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error
 			// "_id": 1
 			filters := make(map[string]any)
 			filters[f.field] = f.value
-			return serdes.SerializeInto(filters, ctx.Target, dst)
+			return serdes.SerializeInto(filters, ctx.Target, dst, ctx.Flags)
 		}
 		// We have another op. Marshal it into something like:
 		// "number_of_pages": { "$lt": 300 }
 		filters := make(map[string]map[FilterOperator]any)
 		filters[f.field] = map[FilterOperator]any{f.op: f.value}
-		return serdes.SerializeInto(filters, ctx.Target, dst)
+		return serdes.SerializeInto(filters, ctx.Target, dst, ctx.Flags)
 	}
 	return append(dst, "null"...), nil
 }

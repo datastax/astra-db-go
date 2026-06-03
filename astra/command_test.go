@@ -75,7 +75,7 @@ func TestMarshalJSONWithName(t *testing.T) {
 		name:    "createCollection",
 		payload: map[string]any{"name": "my_collection"},
 	}
-	got, err := serdes.Serialize(cmd, serdes.TargetNone)
+	got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,7 +89,7 @@ func TestMarshalJSONWithoutName(t *testing.T) {
 	cmd := command{
 		payload: map[string]string{"key": "value"},
 	}
-	got, err := serdes.Serialize(cmd, serdes.TargetNone)
+	got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
 	if err != nil {
 		t.Fatal(err)
 	}

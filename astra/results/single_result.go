@@ -27,16 +27,18 @@ type SingleResult struct {
 	warnings  Warnings
 	targetCtx serdes.TargetDecodeCtx
 	target    serdes.Target
+	desFlags  serdes.DesFlags
 }
 
 // NewSingleResult creates a new SingleResult with the given response, warnings, and error.
-func NewSingleResult(rawResp []byte, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, err error) *SingleResult {
+func NewSingleResult(rawResp []byte, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, err error, desFlags serdes.DesFlags) *SingleResult {
 	return &SingleResult{
 		rawResp:   rawResp,
 		warnings:  warnings,
 		targetCtx: targetCtx,
 		target:    target,
 		err:       err,
+		desFlags:  desFlags,
 	}
 }
 
@@ -58,22 +60,35 @@ type singleResultJSON struct {
 // Decode will unmarshal the document represented by this [SingleResult] into `v`.
 // If no documents are found, returns [ErrNoDocuments].
 func (sr *SingleResult) Decode(v any) error {
-	if sr.err != nil {
-		return sr.err
-	}
-	if len(sr.rawResp) == 0 {
-		return ErrNoDocuments
-	}
-	// First unmarshal to get rawmessage in data.document
-	var singleResult singleResultJSON
-	err := serdes.Deserialize(sr.rawResp, &singleResult, nil, sr.target)
+	raw, err := sr.Raw()
 	if err != nil {
 		return err
 	}
-	// If document is null, that means we found no document
-	if string(singleResult.Data.Document) == "null" {
-		return ErrNoDocuments
+	return serdes.Deserialize(raw, v, sr.targetCtx, sr.target, sr.desFlags)
+}
+
+// Raw returns the raw JSON document from the API response.
+// If no documents are found, returns [ErrNoDocuments].
+func (sr *SingleResult) Raw() (json.RawMessage, error) {
+	if sr.err != nil {
+		return nil, sr.err
 	}
-	// Then return/unmarshal the document
-	return serdes.Deserialize(singleResult.Data.Document, v, sr.targetCtx, sr.target)
+	if len(sr.rawResp) == 0 {
+		return nil, ErrNoDocuments
+	}
+
+	var srRaw singleResultJSON
+	if err := serdes.Deserialize(sr.rawResp, &srRaw, nil, sr.target, sr.desFlags); err != nil {
+		return nil, err
+	}
+
+	if string(srRaw.Data.Document) == "null" {
+		return nil, ErrNoDocuments
+	}
+	return srRaw.Data.Document, nil
+}
+
+// Err returns any error that occurred during the operation that produced this [SingleResult].
+func (sr *SingleResult) Err() error {
+	return sr.err
 }

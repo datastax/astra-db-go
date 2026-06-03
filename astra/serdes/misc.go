@@ -1,7 +1,22 @@
+// Copyright IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package serdes
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"unsafe"
@@ -180,7 +195,6 @@ func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 		if err != nil {
 			return dst, &MarshalerError{Type: t, Err: err}
 		}
-
 		return emptyInterfaceEncoder(ctx, dst, unsafe.Pointer(&res))
 	}
 }
@@ -197,12 +211,44 @@ func mkAstraRawMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 			return append(dst, "null"...), nil
 		}
 
-		return v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx, dst)
+		res, err := v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx, dst)
+		if err != nil {
+			return res, &MarshalerError{Type: t, Err: err}
+		}
+		return res, nil
+	}
+}
+
+func mkJSONMarshalerEncoder(t reflect.Type, isPtr bool, fallback encoder) encoder {
+	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+		if ctx.Flags&UseJSONMarshal != 0 {
+			v := reflect.NewAt(t, p)
+			if !isPtr {
+				v = v.Elem()
+			}
+
+			k := v.Kind()
+			if (k == reflect.Ptr || k == reflect.Interface) && v.IsNil() {
+				return append(dst, "null"...), nil
+			}
+
+			res, err := v.Interface().(json.Marshaler).MarshalJSON()
+			if err != nil {
+				return dst, &MarshalerError{Type: t, Err: err}
+			}
+
+			return append(dst, res...), nil
+		}
+		return fallback(ctx, dst, p)
 	}
 }
 
 func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		if b, ok := consumeNull(src); ok {
+			return b, nil
+		}
+
 		var intermediate any
 		srcAfter, err := emptyInterfaceDecoder(ctx, src, unsafe.Pointer(&intermediate))
 		if err != nil {
@@ -213,7 +259,7 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 
 		err = u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx, intermediate)
 		if err != nil {
-			return srcAfter, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src)}
+			return srcAfter, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src, ctx.Flags)}
 		}
 		return srcAfter, nil
 	}
@@ -221,20 +267,51 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 
 func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
-		u := reflect.NewAt(t, p)
+		if b, ok := consumeNull(src); ok {
+			return b, nil
+		}
 
 		srcAfter, err := skipValue(ctx, src)
 		if err != nil {
 			return src, err
 		}
 
+		u := reflect.NewAt(t, p)
+
 		splitPoint := len(src) - len(srcAfter)
 
 		err = u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx, src[:splitPoint])
 		if err != nil {
-			return srcAfter, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src)}
+			return srcAfter, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src, ctx.Flags)}
 		}
 		return srcAfter, nil
+	}
+}
+
+func mkJSONUnmarshalerDecoder(t reflect.Type, fallback decoder) decoder {
+	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		if ctx.Flags&UseJSONUnmarshal != 0 {
+			if b, ok := consumeNull(src); ok {
+				return b, nil
+			}
+
+			srcAfter, err := skipValue(ctx, src)
+			if err != nil {
+				return src, err
+			}
+
+			splitPoint := len(src) - len(srcAfter)
+
+			u := reflect.NewAt(t, p)
+
+			err = u.Interface().(json.Unmarshaler).UnmarshalJSON(src[:splitPoint])
+			if err != nil {
+				return src, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src, ctx.Flags)}
+			}
+
+			return srcAfter, nil
+		}
+		return fallback(ctx, src, p)
 	}
 }
 
@@ -248,12 +325,12 @@ func mkSomeInterfaceCodec(t reflect.Type) codec {
 }
 
 func emptyInterfaceEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return SerializeInto(*(*any)(p), ctx.Target, dst)
+	return SerializeInto(*(*any)(p), ctx.Target, dst, ctx.Flags)
 }
 
 func mkSomeInterfaceEncoder(t reflect.Type) encoder {
 	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-		return SerializeInto(reflect.NewAt(t, p).Elem().Interface(), ctx.Target, dst)
+		return SerializeInto(reflect.NewAt(t, p).Elem().Interface(), ctx.Target, dst, ctx.Flags)
 	}
 }
 
@@ -324,9 +401,15 @@ func emptyInterfaceDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte,
 
 	default:
 		if src[0] == '-' || (src[0] >= '0' && src[0] <= '9') {
-			var f float64
-			src, err = float64Decoder(ctx, src, unsafe.Pointer(&f)) // TODO figure out better way of handling numbers
-			val = f
+			if ctx.Flags&UseNumber != 0 {
+				var numStr []byte
+				src, numStr, err = parseNumber(ctx, src)
+				val = json.Number(numStr)
+			} else {
+				var f float64
+				src, err = float64Decoder(ctx, src, unsafe.Pointer(&f)) // TODO figure out better way of handling numbers
+				val = f
+			}
 		} else {
 			return src, ctx.syntaxError(src, fmt.Sprintf("unexpected character '%c'", src[0]))
 		}
@@ -356,7 +439,7 @@ func mkSomeInterfaceDecoder(t reflect.Type) decoder {
 			splitPoint := len(src) - len(srcAfter)
 			valueBytes := src[:splitPoint]
 
-			targetInstance := ctx.TargetCtx.NewUntypedTarget(p)
+			targetInstance := ctx.TargetCtx.NewUntypedTarget(ctx, p)
 			if err := targetInstance.UnmarshalAstraRaw(ctx, valueBytes); err != nil {
 				return src, err
 			}
@@ -369,17 +452,19 @@ func mkSomeInterfaceDecoder(t reflect.Type) decoder {
 
 // Raw messages
 
-func rawMessageEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func rawMessageEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	v := *(*[]byte)(p)
 
 	if v == nil {
 		return append(dst, "null"...), nil
 	}
 
-	var throwaway any
-	_, err := emptyInterfaceDecoder(DecodeCtx{}, v, unsafe.Pointer(&throwaway))
-	if err != nil {
-		return dst, &MarshalerError{Type: rawMessageType, Err: err}
+	if ctx.Flags&TrustRawMessage == 0 {
+		var throwaway any
+		_, err := emptyInterfaceDecoder(DecodeCtx{}, v, unsafe.Pointer(&throwaway))
+		if err != nil {
+			return dst, &MarshalerError{Type: rawMessageType, Err: err}
+		}
 	}
 
 	return append(dst, v...), nil

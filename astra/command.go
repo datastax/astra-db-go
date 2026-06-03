@@ -139,13 +139,13 @@ func (c *command) url() (string, error) {
 // But if we don't have a command name, we just marshal the payload directly.
 //
 // [.NET client]: https://github.com/datastax/astra-db-csharp/blob/699ac093494b1a5adbb65c65be57af5b48eb8cc2/src/DataStax.AstraDB.DataApi/Core/Commands/Command.cs#L92
-func (c command) MarshalAstraRaw(_ serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (c command) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.name) > 0 {
 		data := make(map[string]any)
 		data[c.name] = c.payload
-		return serdes.SerializeInto(data, c.target, dst)
+		return serdes.SerializeInto(data, c.target, dst, ctx.Flags)
 	}
-	return serdes.SerializeInto(c.payload, c.target, dst)
+	return serdes.SerializeInto(c.payload, c.target, dst, ctx.Flags)
 }
 
 // Execute a command against the astra DB web API.
@@ -204,7 +204,7 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes
 
 // apiResponse captures both errors and warnings from API responses
 type apiResponse struct {
-	Errors DataAPIErrors `json:"errors"`
+	Errors results.DataAPIErrors `json:"errors"`
 	Status struct {
 		Warnings         results.Warnings `json:"warnings"`
 		PrimaryKeySchema json.RawMessage  `json:"primaryKeySchema"`
@@ -226,8 +226,8 @@ type apiStatus struct {
 func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	if statusCode >= 400 {
 		// We have a transport/server-level error so let's try to extract the message.
-		var transportErr DataAPIError
-		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone)
+		var transportErr results.DataAPIError
+		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone, opts.GetDesFlags())
 		if len(transportErr.Message) > 0 {
 			return body, nil, nil, errors.New(transportErr.Message)
 		}
@@ -237,7 +237,7 @@ func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOp
 
 	// Parse the full response to get both errors and warnings
 	var resp apiResponse
-	serdes.Deserialize(body, &resp, nil, c.target) // TODO handle errors and figure out how to end double-parsing
+	serdes.Deserialize(body, &resp, nil, c.target, opts.GetDesFlags()) // TODO handle errors and figure out how to end double-parsing
 
 	// Invoke warning handler for each warning if configured
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {

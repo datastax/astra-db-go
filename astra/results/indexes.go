@@ -1,3 +1,17 @@
+// Copyright IBM Corp.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package results
 
 import "github.com/datastax/astra-db-go/astra/serdes"
@@ -22,7 +36,7 @@ type IndexDescriptor struct {
 func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
 	// Try to unmarshal as a string first (names only response)
 	var name string
-	if err := serdes.Deserialize(value, &name, nil, ctx.Target); err == nil {
+	if err := serdes.Deserialize(value, &name, nil, ctx.Target, ctx.Flags); err == nil {
 		d.Name = name
 		return nil
 	}
@@ -30,7 +44,7 @@ func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) 
 	// Otherwise unmarshal as an object (explain=true response)
 	type indexDescriptorAlias IndexDescriptor
 	var alias indexDescriptorAlias
-	if err := serdes.Deserialize(value, &alias, nil, ctx.Target); err != nil {
+	if err := serdes.Deserialize(value, &alias, nil, ctx.Target, ctx.Flags); err != nil {
 		return err
 	}
 	*d = IndexDescriptor(alias)
