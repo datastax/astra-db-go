@@ -457,7 +457,7 @@ func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	if ctx.Target == TargetCollection {
 		return src, fmt.Errorf("Duration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
 	}
-	src, str, _, err := parseStringUnquote(src)
+	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
 		return src, fmt.Errorf("invalid duration string: %w", err)
 	}
