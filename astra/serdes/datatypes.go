@@ -444,9 +444,9 @@ func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 
 func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return dst, fmt.Errorf("DataAPIDuration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
+		return dst, fmt.Errorf("Duration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
 	}
-	d := (*datatypes.DataAPIDuration)(p)
+	d := (*datatypes.Duration)(p)
 	dst = append(dst, '"')
 	dst = d.AppendShortString(dst)
 	dst = append(dst, '"')
@@ -455,7 +455,7 @@ func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, fmt.Errorf("DataAPIDuration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
+		return src, fmt.Errorf("Duration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
 	}
 	src, str, _, err := parseStringUnquote(src)
 	if err != nil {
@@ -465,7 +465,7 @@ func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	if err != nil {
 		return src, err
 	}
-	*(*datatypes.DataAPIDuration)(p) = d
+	*(*datatypes.Duration)(p) = d
 	return src, nil
 }
 

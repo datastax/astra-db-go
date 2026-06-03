@@ -27,12 +27,12 @@ import (
 
 // Well-known reflect types for comparison in type mapping.
 var (
-	reflectUUID            = reflect.TypeFor[datatypes.UUID]()
-	reflectVector          = reflect.TypeFor[datatypes.Vector]()
-	reflectTime            = reflect.TypeFor[time.Time]()
-	reflectDataAPIDuration = reflect.TypeFor[datatypes.DataAPIDuration]()
-	reflectIP              = reflect.TypeFor[net.IP]()
-	reflectByteSlice       = reflect.TypeFor[[]byte]()
+	reflectUUID      = reflect.TypeFor[datatypes.UUID]()
+	reflectVector    = reflect.TypeFor[datatypes.Vector]()
+	reflectTime      = reflect.TypeFor[time.Time]()
+	reflectDuration  = reflect.TypeFor[datatypes.Duration]()
+	reflectIP        = reflect.TypeFor[net.IP]()
+	reflectByteSlice = reflect.TypeFor[[]byte]()
 )
 
 // fieldData holds processed metadata about a single struct field.
@@ -210,7 +210,7 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 		return Column{}, fmt.Errorf("Vector requires dim=N in astra tag")
 	case reflectTime:
 		return Timestamp(), nil
-	case reflectDataAPIDuration:
+	case reflectDuration:
 		return Column{Type: "duration"}, nil
 	case reflectIP:
 		return Inet(), nil

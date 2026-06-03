@@ -12,35 +12,35 @@ import (
 func TestParseDuration_Standard(t *testing.T) {
 	tests := []struct {
 		input string
-		want  DataAPIDuration
+		want  Duration
 	}{
-		{"0s", DataAPIDuration{0, 0, 0}},
-		{"1y", DataAPIDuration{12, 0, 0}},
-		{"2mo", DataAPIDuration{2, 0, 0}},
-		{"3w", DataAPIDuration{0, 21, 0}},
-		{"4d", DataAPIDuration{0, 4, 0}},
-		{"5h", DataAPIDuration{0, 0, 5 * NSPerHour}},
-		{"6m", DataAPIDuration{0, 0, 6 * NSPerMin}},
-		{"7s", DataAPIDuration{0, 0, 7 * NSPerSec}},
-		{"8ms", DataAPIDuration{0, 0, 8 * NSPerMS}},
-		{"9us", DataAPIDuration{0, 0, 9 * NSPerUS}},
-		{"9µs", DataAPIDuration{0, 0, 9 * NSPerUS}},
-		{"10ns", DataAPIDuration{0, 0, 10}},
-		{"1y2mo3w4d5h6m7s8ms9us10ns", DataAPIDuration{
+		{"0s", Duration{0, 0, 0}},
+		{"1y", Duration{12, 0, 0}},
+		{"2mo", Duration{2, 0, 0}},
+		{"3w", Duration{0, 21, 0}},
+		{"4d", Duration{0, 4, 0}},
+		{"5h", Duration{0, 0, 5 * NSPerHour}},
+		{"6m", Duration{0, 0, 6 * NSPerMin}},
+		{"7s", Duration{0, 0, 7 * NSPerSec}},
+		{"8ms", Duration{0, 0, 8 * NSPerMS}},
+		{"9us", Duration{0, 0, 9 * NSPerUS}},
+		{"9µs", Duration{0, 0, 9 * NSPerUS}},
+		{"10ns", Duration{0, 0, 10}},
+		{"1y2mo3w4d5h6m7s8ms9us10ns", Duration{
 			Months:      12 + 2,
 			Days:        21 + 4,
 			Nanoseconds: 5*NSPerHour + 6*NSPerMin + 7*NSPerSec + 8*NSPerMS + 9*NSPerUS + 10,
 		}},
 		// case-insensitive
-		{"1Y2MO3W4D5H6M7S8MS9US10NS", DataAPIDuration{
+		{"1Y2MO3W4D5H6M7S8MS9US10NS", Duration{
 			Months:      14,
 			Days:        25,
 			Nanoseconds: 5*NSPerHour + 6*NSPerMin + 7*NSPerSec + 8*NSPerMS + 9*NSPerUS + 10,
 		}},
 		// negative
-		{"-1y", DataAPIDuration{-12, 0, 0}},
-		{"-2w", DataAPIDuration{0, -14, 0}},
-		{"-5h6m", DataAPIDuration{0, 0, -(5*NSPerHour + 6*NSPerMin)}},
+		{"-1y", Duration{-12, 0, 0}},
+		{"-2w", Duration{0, -14, 0}},
+		{"-5h6m", Duration{0, 0, -(5*NSPerHour + 6*NSPerMin)}},
 	}
 
 	for _, tt := range tests {
@@ -83,26 +83,26 @@ func TestParseDuration_Standard_Invalid(t *testing.T) {
 func TestParseDuration_ISOStandard(t *testing.T) {
 	tests := []struct {
 		input string
-		want  DataAPIDuration
+		want  Duration
 	}{
-		{"P1Y", DataAPIDuration{12, 0, 0}},
-		{"P2M", DataAPIDuration{2, 0, 0}},
-		{"P3D", DataAPIDuration{0, 3, 0}},
-		{"PT4H", DataAPIDuration{0, 0, 4 * NSPerHour}},
-		{"PT5M", DataAPIDuration{0, 0, 5 * NSPerMin}},
-		{"PT6S", DataAPIDuration{0, 0, 6 * NSPerSec}},
-		{"PT0S", DataAPIDuration{0, 0, 0}},
-		{"P1Y2M3DT4H5M6S", DataAPIDuration{14, 3, 4*NSPerHour + 5*NSPerMin + 6*NSPerSec}},
+		{"P1Y", Duration{12, 0, 0}},
+		{"P2M", Duration{2, 0, 0}},
+		{"P3D", Duration{0, 3, 0}},
+		{"PT4H", Duration{0, 0, 4 * NSPerHour}},
+		{"PT5M", Duration{0, 0, 5 * NSPerMin}},
+		{"PT6S", Duration{0, 0, 6 * NSPerSec}},
+		{"PT0S", Duration{0, 0, 0}},
+		{"P1Y2M3DT4H5M6S", Duration{14, 3, 4*NSPerHour + 5*NSPerMin + 6*NSPerSec}},
 		// fractional seconds
-		{"PT6.007S", DataAPIDuration{0, 0, 6*NSPerSec + 7*NSPerMS}},
-		{"PT1.000000001S", DataAPIDuration{0, 0, NSPerSec + 1}},
-		{"PT0.5S", DataAPIDuration{0, 0, 500 * NSPerMS}},
+		{"PT6.007S", Duration{0, 0, 6*NSPerSec + 7*NSPerMS}},
+		{"PT1.000000001S", Duration{0, 0, NSPerSec + 1}},
+		{"PT0.5S", Duration{0, 0, 500 * NSPerMS}},
 		// >9 fractional digits: sub-nanosecond precision truncated
-		{"PT1.0000000001S", DataAPIDuration{0, 0, NSPerSec}},
-		{"PT0.9999999999S", DataAPIDuration{0, 0, 999_999_999}},
+		{"PT1.0000000001S", Duration{0, 0, NSPerSec}},
+		{"PT0.9999999999S", Duration{0, 0, 999_999_999}},
 		// negative
-		{"-P7D", DataAPIDuration{0, -7, 0}},
-		{"-P1Y2M3DT4H5M6.007S", DataAPIDuration{
+		{"-P7D", Duration{0, -7, 0}},
+		{"-P1Y2M3DT4H5M6.007S", Duration{
 			Months:      -(12 + 2),
 			Days:        -3,
 			Nanoseconds: -(4*NSPerHour + 5*NSPerMin + 6*NSPerSec + 7*NSPerMS),
@@ -129,12 +129,12 @@ func TestParseDuration_ISOStandard(t *testing.T) {
 func TestParseDuration_ISOWeek(t *testing.T) {
 	tests := []struct {
 		input string
-		want  DataAPIDuration
+		want  Duration
 	}{
-		{"P0W", DataAPIDuration{0, 0, 0}},
-		{"P1W", DataAPIDuration{0, 7, 0}},
-		{"P2W", DataAPIDuration{0, 14, 0}},
-		{"-P2W", DataAPIDuration{0, -14, 0}},
+		{"P0W", Duration{0, 0, 0}},
+		{"P1W", Duration{0, 7, 0}},
+		{"P2W", Duration{0, 14, 0}},
+		{"-P2W", Duration{0, -14, 0}},
 	}
 
 	for _, tt := range tests {
@@ -157,15 +157,15 @@ func TestParseDuration_ISOWeek(t *testing.T) {
 func TestParseDuration_ISOAlternate(t *testing.T) {
 	tests := []struct {
 		input string
-		want  DataAPIDuration
+		want  Duration
 	}{
-		{"P0001-02-03T04:05:06", DataAPIDuration{
+		{"P0001-02-03T04:05:06", Duration{
 			Months:      12 + 2,
 			Days:        3,
 			Nanoseconds: 4*NSPerHour + 5*NSPerMin + 6*NSPerSec,
 		}},
-		{"P0000-00-00T00:00:00", DataAPIDuration{0, 0, 0}},
-		{"-P0001-02-03T04:05:06", DataAPIDuration{
+		{"P0000-00-00T00:00:00", Duration{0, 0, 0}},
+		{"-P0001-02-03T04:05:06", Duration{
 			Months:      -(12 + 2),
 			Days:        -3,
 			Nanoseconds: -(4*NSPerHour + 5*NSPerMin + 6*NSPerSec),
@@ -186,12 +186,12 @@ func TestParseDuration_ISOAlternate(t *testing.T) {
 }
 
 // ================================
-// | NewDataAPIDuration validation
+// | NewDuration validation
 // ================================
 
-func TestNewDataAPIDuration(t *testing.T) {
+func TestNewDuration(t *testing.T) {
 	t.Run("valid positive", func(t *testing.T) {
-		d, err := NewDataAPIDuration(12, 3, NSPerHour)
+		d, err := NewDuration(12, 3, NSPerHour)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,7 +201,7 @@ func TestNewDataAPIDuration(t *testing.T) {
 	})
 
 	t.Run("valid negative", func(t *testing.T) {
-		d, err := NewDataAPIDuration(-12, -3, -NSPerHour)
+		d, err := NewDuration(-12, -3, -NSPerHour)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -211,7 +211,7 @@ func TestNewDataAPIDuration(t *testing.T) {
 	})
 
 	t.Run("valid zero", func(t *testing.T) {
-		d, err := NewDataAPIDuration(0, 0, 0)
+		d, err := NewDuration(0, 0, 0)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -221,14 +221,14 @@ func TestNewDataAPIDuration(t *testing.T) {
 	})
 
 	t.Run("mixed signs rejected", func(t *testing.T) {
-		_, err := NewDataAPIDuration(1, -1, 0)
+		_, err := NewDuration(1, -1, 0)
 		if err == nil {
 			t.Error("expected error for mixed signs")
 		}
 	})
 
 	t.Run("mixed signs rejected 2", func(t *testing.T) {
-		_, err := NewDataAPIDuration(0, 1, -NSPerSec)
+		_, err := NewDuration(0, 1, -NSPerSec)
 		if err == nil {
 			t.Error("expected error for mixed signs")
 		}
@@ -236,14 +236,14 @@ func TestNewDataAPIDuration(t *testing.T) {
 
 	t.Run("months out of range", func(t *testing.T) {
 		// math.MinInt32 = -(MaxMonthsDays+1), one below the valid floor
-		_, err := NewDataAPIDuration(-MaxMonthsDays-1, 0, 0)
+		_, err := NewDuration(-MaxMonthsDays-1, 0, 0)
 		if err == nil {
 			t.Error("expected error for months out of range")
 		}
 	})
 
 	t.Run("days out of range", func(t *testing.T) {
-		_, err := NewDataAPIDuration(0, -MaxMonthsDays-1, 0)
+		_, err := NewDuration(0, -MaxMonthsDays-1, 0)
 		if err == nil {
 			t.Error("expected error for days out of range")
 		}
@@ -251,7 +251,7 @@ func TestNewDataAPIDuration(t *testing.T) {
 
 	t.Run("nanoseconds out of range", func(t *testing.T) {
 		// math.MinInt64 = -(MaxNanos+1), one below the valid floor
-		_, err := NewDataAPIDuration(0, 0, -MaxNanos-1)
+		_, err := NewDuration(0, 0, -MaxNanos-1)
 		if err == nil {
 			t.Error("expected error for nanoseconds out of range")
 		}
@@ -262,7 +262,7 @@ func TestNewDataAPIDuration(t *testing.T) {
 // | Methods
 // ================================
 
-func TestDataAPIDuration_Equals(t *testing.T) {
+func TestDuration_Equals(t *testing.T) {
 	d1 := MustParseDuration("1y2d")
 	d2 := MustParseDuration("P1Y2D")
 	d3 := MustParseDuration("-7d")
@@ -279,7 +279,7 @@ func TestDataAPIDuration_Equals(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_IsNegative(t *testing.T) {
+func TestDuration_IsNegative(t *testing.T) {
 	if MustParseDuration("1y").IsNegative() {
 		t.Error("1y should not be negative")
 	}
@@ -291,7 +291,7 @@ func TestDataAPIDuration_IsNegative(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_IsZero(t *testing.T) {
+func TestDuration_IsZero(t *testing.T) {
 	if !MustParseDuration("0s").IsZero() {
 		t.Error("0s should be zero")
 	}
@@ -303,7 +303,7 @@ func TestDataAPIDuration_IsZero(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_HasDayPrecision(t *testing.T) {
+func TestDuration_HasDayPrecision(t *testing.T) {
 	if !MustParseDuration("1y2d").HasDayPrecision() {
 		t.Error("1y2d has day precision")
 	}
@@ -312,7 +312,7 @@ func TestDataAPIDuration_HasDayPrecision(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_HasMillisecondPrecision(t *testing.T) {
+func TestDuration_HasMillisecondPrecision(t *testing.T) {
 	if !MustParseDuration("1s").HasMillisecondPrecision() {
 		t.Error("1s has millisecond precision")
 	}
@@ -324,14 +324,14 @@ func TestDataAPIDuration_HasMillisecondPrecision(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_Plus(t *testing.T) {
+func TestDuration_Plus(t *testing.T) {
 	a := MustParseDuration("1y")
 	b := MustParseDuration("1mo1s")
 	got, ok := a.Plus(b)
 	if !ok {
 		t.Fatal("Plus returned false for same-sign durations")
 	}
-	want := DataAPIDuration{Months: 13, Days: 0, Nanoseconds: NSPerSec}
+	want := Duration{Months: 13, Days: 0, Nanoseconds: NSPerSec}
 	if got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
@@ -343,7 +343,7 @@ func TestDataAPIDuration_Plus(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_Negate(t *testing.T) {
+func TestDuration_Negate(t *testing.T) {
 	d := MustParseDuration("1y")
 	neg := d.Negate()
 	if !neg.IsNegative() {
@@ -357,7 +357,7 @@ func TestDataAPIDuration_Negate(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_Abs(t *testing.T) {
+func TestDuration_Abs(t *testing.T) {
 	pos := MustParseDuration("1y")
 	neg := MustParseDuration("-1y")
 	if !neg.Abs().Equals(pos) {
@@ -372,7 +372,7 @@ func TestDataAPIDuration_Abs(t *testing.T) {
 // | Conversion methods
 // ================================
 
-func TestDataAPIDuration_Conversions(t *testing.T) {
+func TestDuration_Conversions(t *testing.T) {
 	d := MustParseDuration("15mo")
 	if d.ToYears() != 1 {
 		t.Errorf("15mo.ToYears() = %d, want 1", d.ToYears())
@@ -407,7 +407,7 @@ func TestDataAPIDuration_Conversions(t *testing.T) {
 // | String representation
 // ================================
 
-func TestDataAPIDuration_String(t *testing.T) {
+func TestDuration_String(t *testing.T) {
 	tests := []struct {
 		input string
 		want  string
@@ -432,17 +432,17 @@ func TestDataAPIDuration_String(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_AppendShortString(t *testing.T) {
+func TestDuration_AppendShortString(t *testing.T) {
 	tests := []struct {
-		d    DataAPIDuration
+		d    Duration
 		want string
 	}{
-		{DataAPIDuration{0, 0, 0}, "0s"},
-		{DataAPIDuration{14, 3, 3_600_000_000_000}, "14mo3d3600000000000ns"},
-		{DataAPIDuration{-14, -3, -3_600_000_000_000}, "-14mo3d3600000000000ns"},
-		{DataAPIDuration{12, 0, 0}, "12mo"},
-		{DataAPIDuration{0, 7, 0}, "7d"},
-		{DataAPIDuration{0, 0, 1}, "1ns"},
+		{Duration{0, 0, 0}, "0s"},
+		{Duration{14, 3, 3_600_000_000_000}, "14mo3d3600000000000ns"},
+		{Duration{-14, -3, -3_600_000_000_000}, "-14mo3d3600000000000ns"},
+		{Duration{12, 0, 0}, "12mo"},
+		{Duration{0, 7, 0}, "7d"},
+		{Duration{0, 0, 1}, "1ns"},
 	}
 
 	for _, tt := range tests {
@@ -457,7 +457,7 @@ func TestDataAPIDuration_AppendShortString(t *testing.T) {
 // | JSON round-trip
 // ================================
 
-func TestDataAPIDuration_JSONRoundTrip(t *testing.T) {
+func TestDuration_JSONRoundTrip(t *testing.T) {
 	original := MustParseDuration("1y2mo3w4d5h6m7s8ms9us10ns")
 
 	data, err := json.Marshal(original)
@@ -465,7 +465,7 @@ func TestDataAPIDuration_JSONRoundTrip(t *testing.T) {
 		t.Fatalf("Marshal error: %v", err)
 	}
 
-	var parsed DataAPIDuration
+	var parsed Duration
 	if err := json.Unmarshal(data, &parsed); err != nil {
 		t.Fatalf("Unmarshal error: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestDataAPIDuration_JSONRoundTrip(t *testing.T) {
 	}
 }
 
-func TestDataAPIDuration_JSONInvalid(t *testing.T) {
+func TestDuration_JSONInvalid(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -486,7 +486,7 @@ func TestDataAPIDuration_JSONInvalid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var d DataAPIDuration
+			var d Duration
 			if err := json.Unmarshal([]byte(tt.input), &d); err == nil {
 				t.Errorf("expected error for %q, got nil", tt.input)
 			}
@@ -508,7 +508,7 @@ func TestDurationBuilder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := DataAPIDuration{Months: 12, Days: 3, Nanoseconds: 5 * NSPerSec}
+		want := Duration{Months: 12, Days: 3, Nanoseconds: 5 * NSPerSec}
 		if d != want {
 			t.Errorf("got %+v, want %+v", d, want)
 		}
@@ -530,7 +530,7 @@ func TestDurationBuilder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := DataAPIDuration{Months: 12, Days: 3, Nanoseconds: 0}
+		want := Duration{Months: 12, Days: 3, Nanoseconds: 0}
 		if d != want {
 			t.Errorf("got %+v, want %+v", d, want)
 		}

@@ -23,29 +23,29 @@ const (
 	MaxNanos      = int64(9_223_372_036_854_775_807)
 )
 
-// DataAPIDuration represents a Cassandra duration type stored as months, days, and nanoseconds.
+// Duration represents a Cassandra duration type stored as months, days, and nanoseconds.
 // These three components are not directly convertible to each other (months are calendar months,
 // days are calendar days, and nanoseconds are a fixed-length time unit).
 // All three components must share the same sign.
-type DataAPIDuration struct {
+type Duration struct {
 	Months      int32
 	Days        int32
 	Nanoseconds int64
 }
 
-// NewDataAPIDuration creates a DataAPIDuration from months, days, and nanoseconds.
+// NewDuration creates a Duration from months, days, and nanoseconds.
 // All components must share the same sign and be within valid ranges:
 // months and days in [-2147483647, 2147483647], nanoseconds in [-9223372036854775807, 9223372036854775807].
-func NewDataAPIDuration(months int32, days int32, nanoseconds int64) (DataAPIDuration, error) {
+func NewDuration(months int32, days int32, nanoseconds int64) (Duration, error) {
 	if err := validateDuration(months, days, nanoseconds); err != nil {
-		return DataAPIDuration{}, err
+		return Duration{}, err
 	}
-	return DataAPIDuration{Months: months, Days: days, Nanoseconds: nanoseconds}, nil
+	return Duration{Months: months, Days: days, Nanoseconds: nanoseconds}, nil
 }
 
 // MustParseDuration parses a duration string and panics on error.
 // Intended for use in tests and with known-valid inputs.
-func MustParseDuration(s string) DataAPIDuration {
+func MustParseDuration(s string) Duration {
 	d, err := ParseDuration(s)
 	if err != nil {
 		panic(fmt.Sprintf("MustParseDuration(%q): %v", s, err))
@@ -67,9 +67,9 @@ func MustParseDuration(s string) DataAPIDuration {
 //
 //   - ISO 8601 alternate: -?PYYYY-MM-DDThh:mm:ss
 //     Example: "P0001-02-03T04:05:06"
-func ParseDuration(s string) (DataAPIDuration, error) {
+func ParseDuration(s string) (Duration, error) {
 	if s == "" {
-		return DataAPIDuration{}, fmt.Errorf("invalid duration: empty string")
+		return Duration{}, fmt.Errorf("invalid duration: empty string")
 	}
 
 	negative := s[0] == '-'
@@ -79,10 +79,10 @@ func ParseDuration(s string) (DataAPIDuration, error) {
 	}
 
 	if rest == "" {
-		return DataAPIDuration{}, fmt.Errorf("invalid duration: empty after sign")
+		return Duration{}, fmt.Errorf("invalid duration: empty after sign")
 	}
 
-	var d DataAPIDuration
+	var d Duration
 	var err error
 
 	if rest[0] == 'P' {
@@ -99,7 +99,7 @@ func ParseDuration(s string) (DataAPIDuration, error) {
 	}
 
 	if err != nil {
-		return DataAPIDuration{}, err
+		return Duration{}, err
 	}
 
 	if negative {
@@ -117,7 +117,7 @@ var basicUnitOrderIndex = map[string]int{
 	"h": 4, "m": 5, "s": 6, "ms": 7, "us": 8, "µs": 8, "ns": 9,
 }
 
-func parseBasicDuration(s, original string) (DataAPIDuration, error) {
+func parseBasicDuration(s, original string) (Duration, error) {
 	lower := strings.ToLower(s)
 	b := NewDurationBuilder()
 	lastIdx := -1
@@ -126,19 +126,19 @@ func parseBasicDuration(s, original string) (DataAPIDuration, error) {
 	for i := 0; i < len(lower); {
 		m := basicDurationPartRe.FindStringSubmatch(lower[i:])
 		if m == nil {
-			return DataAPIDuration{}, fmt.Errorf("invalid standard duration string: %q", original)
+			return Duration{}, fmt.Errorf("invalid standard duration string: %q", original)
 		}
 
 		num, err := strconv.ParseInt(m[1], 10, 64)
 		if err != nil {
-			return DataAPIDuration{}, fmt.Errorf("invalid duration number in %q: %w", original, err)
+			return Duration{}, fmt.Errorf("invalid duration number in %q: %w", original, err)
 		}
 
 		unit := m[2]
 		idx := basicUnitOrderIndex[unit]
 
 		if idx <= lastIdx {
-			return DataAPIDuration{}, fmt.Errorf("invalid standard duration string %q: units must appear in order and at most once", original)
+			return Duration{}, fmt.Errorf("invalid standard duration string %q: units must appear in order and at most once", original)
 		}
 		lastIdx = idx
 
@@ -170,12 +170,12 @@ func parseBasicDuration(s, original string) (DataAPIDuration, error) {
 	}
 
 	if !hasAny {
-		return DataAPIDuration{}, fmt.Errorf("invalid standard duration string: %q", original)
+		return Duration{}, fmt.Errorf("invalid standard duration string: %q", original)
 	}
 
 	d, err := b.Build()
 	if err != nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid duration %q: %w", original, err)
+		return Duration{}, fmt.Errorf("invalid duration %q: %w", original, err)
 	}
 	return d, nil
 }
@@ -183,10 +183,10 @@ func parseBasicDuration(s, original string) (DataAPIDuration, error) {
 // isoStandardDurationRe matches ISO 8601 standard duration: P[nY][nM][nD][T[nH][nM][n[.f]S]]
 var isoStandardDurationRe = regexp.MustCompile(`^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.(\d+))?S)?)?$`)
 
-func parseISOStandardDuration(s string) (DataAPIDuration, error) {
+func parseISOStandardDuration(s string) (Duration, error) {
 	m := isoStandardDurationRe.FindStringSubmatch(s)
 	if m == nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 standard duration string: %q", s)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 standard duration string: %q", s)
 	}
 
 	b := NewDurationBuilder()
@@ -221,7 +221,7 @@ func parseISOStandardDuration(s string) (DataAPIDuration, error) {
 
 	d, err := b.Build()
 	if err != nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: %w", s, err)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 duration %q: %w", s, err)
 	}
 	return d, nil
 }
@@ -229,10 +229,10 @@ func parseISOStandardDuration(s string) (DataAPIDuration, error) {
 // isoWeekDurationRe matches ISO 8601 week duration: PnW
 var isoWeekDurationRe = regexp.MustCompile(`^P(\d+)W$`)
 
-func parseISOWeekDuration(s string) (DataAPIDuration, error) {
+func parseISOWeekDuration(s string) (Duration, error) {
 	m := isoWeekDurationRe.FindStringSubmatch(s)
 	if m == nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 week duration string: %q", s)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 week duration string: %q", s)
 	}
 
 	weeks, _ := strconv.ParseInt(m[1], 10, 64)
@@ -241,7 +241,7 @@ func parseISOWeekDuration(s string) (DataAPIDuration, error) {
 
 	d, err := b.Build()
 	if err != nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 week duration %q: %w", s, err)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 week duration %q: %w", s, err)
 	}
 	return d, nil
 }
@@ -249,10 +249,10 @@ func parseISOWeekDuration(s string) (DataAPIDuration, error) {
 // isoAlternateDurationRe matches ISO 8601 alternate duration: PYYYY-MM-DDThh:mm:ss
 var isoAlternateDurationRe = regexp.MustCompile(`^P(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$`)
 
-func parseISOAlternateDuration(s string) (DataAPIDuration, error) {
+func parseISOAlternateDuration(s string) (Duration, error) {
 	m := isoAlternateDurationRe.FindStringSubmatch(s)
 	if m == nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 alternate duration string: %q", s)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 alternate duration string: %q", s)
 	}
 
 	years, _ := strconv.ParseInt(m[1], 10, 64)
@@ -270,7 +270,7 @@ func parseISOAlternateDuration(s string) (DataAPIDuration, error) {
 
 	d, err := b.Build()
 	if err != nil {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: %w", s, err)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: %w", s, err)
 	}
 	return d, nil
 }
@@ -294,50 +294,50 @@ func validateDuration(months int32, days int32, nanoseconds int64) error {
 }
 
 // Equals returns true if both durations have identical component values.
-func (d DataAPIDuration) Equals(other DataAPIDuration) bool {
+func (d Duration) Equals(other Duration) bool {
 	return d.Months == other.Months && d.Days == other.Days && d.Nanoseconds == other.Nanoseconds
 }
 
 // HasDayPrecision returns true if the nanoseconds component is zero (no sub-day precision).
-func (d DataAPIDuration) HasDayPrecision() bool {
+func (d Duration) HasDayPrecision() bool {
 	return d.Nanoseconds == 0
 }
 
 // HasMillisecondPrecision returns true if the nanoseconds component is a multiple of 1,000,000.
-func (d DataAPIDuration) HasMillisecondPrecision() bool {
+func (d Duration) HasMillisecondPrecision() bool {
 	return d.Nanoseconds%NSPerMS == 0
 }
 
 // IsNegative returns true if any component is negative.
-func (d DataAPIDuration) IsNegative() bool {
+func (d Duration) IsNegative() bool {
 	return d.Months < 0 || d.Days < 0 || d.Nanoseconds < 0
 }
 
 // IsZero returns true if all components are zero.
-func (d DataAPIDuration) IsZero() bool {
+func (d Duration) IsZero() bool {
 	return d.Months == 0 && d.Days == 0 && d.Nanoseconds == 0
 }
 
 // Plus returns the component-wise sum of two durations.
 // Returns (result, true) on success, or (zero, false) if the durations have opposite signs.
-func (d DataAPIDuration) Plus(other DataAPIDuration) (DataAPIDuration, bool) {
+func (d Duration) Plus(other Duration) (Duration, bool) {
 	if d.IsNegative() != other.IsNegative() {
-		return DataAPIDuration{}, false
+		return Duration{}, false
 	}
-	return DataAPIDuration{
+	return Duration{
 		Months:      d.Months + other.Months,
 		Days:        d.Days + other.Days,
 		Nanoseconds: d.Nanoseconds + other.Nanoseconds,
 	}, true
 }
 
-// Negate returns a new DataAPIDuration with all components negated.
-func (d DataAPIDuration) Negate() DataAPIDuration {
-	return DataAPIDuration{Months: -d.Months, Days: -d.Days, Nanoseconds: -d.Nanoseconds}
+// Negate returns a new Duration with all components negated.
+func (d Duration) Negate() Duration {
+	return Duration{Months: -d.Months, Days: -d.Days, Nanoseconds: -d.Nanoseconds}
 }
 
 // Abs returns the duration with a positive sign, negating if needed.
-func (d DataAPIDuration) Abs() DataAPIDuration {
+func (d Duration) Abs() Duration {
 	if d.IsNegative() {
 		return d.Negate()
 	}
@@ -345,44 +345,44 @@ func (d DataAPIDuration) Abs() DataAPIDuration {
 }
 
 // ToYears returns the number of whole years derived from the months component only.
-func (d DataAPIDuration) ToYears() int32 {
+func (d Duration) ToYears() int32 {
 	return d.Months / 12
 }
 
 // ToHours returns the number of whole hours derived from the nanoseconds component only.
-func (d DataAPIDuration) ToHours() int64 {
+func (d Duration) ToHours() int64 {
 	return d.Nanoseconds / NSPerHour
 }
 
 // ToMinutes returns the number of whole minutes derived from the nanoseconds component only.
-func (d DataAPIDuration) ToMinutes() int64 {
+func (d Duration) ToMinutes() int64 {
 	return d.Nanoseconds / NSPerMin
 }
 
 // ToSeconds returns the number of whole seconds derived from the nanoseconds component only.
-func (d DataAPIDuration) ToSeconds() int64 {
+func (d Duration) ToSeconds() int64 {
 	return d.Nanoseconds / NSPerSec
 }
 
 // ToMillis returns the number of whole milliseconds derived from the nanoseconds component only.
-func (d DataAPIDuration) ToMillis() int64 {
+func (d Duration) ToMillis() int64 {
 	return d.Nanoseconds / NSPerMS
 }
 
 // ToMicros returns the number of whole microseconds derived from the nanoseconds component only.
-func (d DataAPIDuration) ToMicros() int64 {
+func (d Duration) ToMicros() int64 {
 	return d.Nanoseconds / NSPerUS
 }
 
 // String returns the human-readable long-form representation (e.g. "1y3mo25d5h6m7s8ms9us10ns").
-func (d DataAPIDuration) String() string {
+func (d Duration) String() string {
 	return durationToLongString(d)
 }
 
 // AppendShortString appends the compact API wire format to dst.
 // Months, days, and nanoseconds are each expressed as a raw count with a single unit suffix.
-// Example: DataAPIDuration{14, 3, 3_600_000_000_000} → "14mo3d3600000000000ns"
-func (d DataAPIDuration) AppendShortString(dst []byte) []byte {
+// Example: Duration{14, 3, 3_600_000_000_000} → "14mo3d3600000000000ns"
+func (d Duration) AppendShortString(dst []byte) []byte {
 	if d.IsZero() {
 		return append(dst, "0s"...)
 	}
@@ -421,7 +421,7 @@ func (d DataAPIDuration) AppendShortString(dst []byte) []byte {
 	return dst
 }
 
-func durationToLongString(d DataAPIDuration) string {
+func durationToLongString(d Duration) string {
 	if d.IsZero() {
 		return "0s"
 	}
@@ -482,13 +482,13 @@ func appendNanoUnit(sb *strings.Builder, value, unitSize int64, unit string) int
 }
 
 // MarshalJSON implements json.Marshaler using the compact string wire format.
-func (d DataAPIDuration) MarshalJSON() ([]byte, error) {
+func (d Duration) MarshalJSON() ([]byte, error) {
 	s := string(d.AppendShortString(nil))
 	return json.Marshal(s)
 }
 
 // UnmarshalJSON implements json.Unmarshaler, parsing the duration from a string.
-func (d *DataAPIDuration) UnmarshalJSON(data []byte) error {
+func (d *Duration) UnmarshalJSON(data []byte) error {
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return fmt.Errorf("datatypes: invalid duration JSON: %w", err)
@@ -505,7 +505,7 @@ func (d *DataAPIDuration) UnmarshalJSON(data []byte) error {
 // | DurationBuilder
 // ================================
 
-// DurationBuilder builds a DataAPIDuration incrementally.
+// DurationBuilder builds a Duration incrementally.
 // Use NewDurationBuilder or NewDurationBuilderFrom to create one.
 // Errors from Add* methods accumulate and are returned on Build.
 type DurationBuilder struct {
@@ -521,8 +521,8 @@ func NewDurationBuilder() *DurationBuilder {
 	return &DurationBuilder{}
 }
 
-// NewDurationBuilderFrom returns a DurationBuilder initialized from an existing DataAPIDuration.
-func NewDurationBuilderFrom(base DataAPIDuration) *DurationBuilder {
+// NewDurationBuilderFrom returns a DurationBuilder initialized from an existing Duration.
+func NewDurationBuilderFrom(base Duration) *DurationBuilder {
 	abs := base.Abs()
 	return &DurationBuilder{
 		months:      abs.Months,
@@ -658,13 +658,13 @@ func (b *DurationBuilder) addNanos(n, nsPerUnit int64, name string) *DurationBui
 	return b
 }
 
-// Build returns the constructed DataAPIDuration, or an error if any Add* call failed.
-func (b *DurationBuilder) Build() (DataAPIDuration, error) {
+// Build returns the constructed Duration, or an error if any Add* call failed.
+func (b *DurationBuilder) Build() (Duration, error) {
 	if b.err != nil {
-		return DataAPIDuration{}, b.err
+		return Duration{}, b.err
 	}
 	if b.negative {
-		return DataAPIDuration{Months: -b.months, Days: -b.days, Nanoseconds: -b.nanoseconds}, nil
+		return Duration{Months: -b.months, Days: -b.days, Nanoseconds: -b.nanoseconds}, nil
 	}
-	return DataAPIDuration{Months: b.months, Days: b.days, Nanoseconds: b.nanoseconds}, nil
+	return Duration{Months: b.months, Days: b.days, Nanoseconds: b.nanoseconds}, nil
 }

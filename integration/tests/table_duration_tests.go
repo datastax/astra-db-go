@@ -34,13 +34,13 @@ func init() {
 const durationTableName = "go_test_duration"
 
 type DurationRow struct {
-	ID       string                    `json:"id"`
-	Label    string                    `json:"label"`
-	Duration datatypes.DataAPIDuration `json:"duration"`
+	ID       string             `json:"id"`
+	Label    string             `json:"label"`
+	Duration datatypes.Duration `json:"duration"`
 }
 
 // TableDuration is self-contained: creates a table, exercises insert/find
-// with DataAPIDuration values, then drops the table.
+// with Duration values, then drops the table.
 func TableDuration(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
