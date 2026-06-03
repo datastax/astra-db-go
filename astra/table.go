@@ -184,7 +184,6 @@ func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.Tabl
 	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
 }
 
-
 // Find returns a cursor for iterating over rows matching the filter criteria.
 //
 // The cursor automatically handles pagination, fetching new pages as needed.
