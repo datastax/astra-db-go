@@ -114,14 +114,6 @@ func TestFlags_UseNumber(t *testing.T) {
 	}
 }
 
-func TestFlags_RecognizeJSON(t *testing.T) {
-	type Custom struct {
-		Value string
-	}
-
-	// astra interfaces should take precedence if we had them, but let's just test JSON for now
-}
-
 type JSONCustom struct {
 	Value string
 }
