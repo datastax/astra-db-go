@@ -537,7 +537,7 @@ func TestDurationBuilder(t *testing.T) {
 	})
 
 	t.Run("overflow months", func(t *testing.T) {
-		_, err := NewDurationBuilder().AddMonths(MaxMonthsDays).AddYears(1).Build()
+		_, err := NewDurationBuilder().AddMonths(int(MaxMonthsDays)).AddYears(1).Build()
 		if err == nil {
 			t.Error("expected overflow error")
 		}

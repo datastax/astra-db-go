@@ -119,9 +119,7 @@ var basicUnitOrderIndex = map[string]int{
 
 func parseBasicDuration(s, original string) (DataAPIDuration, error) {
 	lower := strings.ToLower(s)
-	var months int32
-	var days int32
-	var nanos int64
+	b := NewDurationBuilder()
 	lastIdx := -1
 	hasAny := false
 
@@ -146,57 +144,25 @@ func parseBasicDuration(s, original string) (DataAPIDuration, error) {
 
 		switch unit {
 		case "y":
-			if num > int64(MaxMonthsDays)/12 {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: months component out of range", original)
-			}
-			months += int32(num * 12)
+			b.addYears(num)
 		case "mo":
-			v := int64(months) + num
-			if v > int64(MaxMonthsDays) {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: months component out of range", original)
-			}
-			months = int32(v)
+			b.addMonths(num)
 		case "w":
-			if num > int64(MaxMonthsDays)/7 {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: days component out of range", original)
-			}
-			days += int32(num * 7)
+			b.addWeeks(num)
 		case "d":
-			v := int64(days) + num
-			if v > int64(MaxMonthsDays) {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: days component out of range", original)
-			}
-			days = int32(v)
+			b.addDays(num)
 		case "h":
-			if num > (MaxNanos-nanos)/NSPerHour {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: nanoseconds component out of range", original)
-			}
-			nanos += num * NSPerHour
+			b.addNanos(num, NSPerHour, "hours")
 		case "m":
-			if num > (MaxNanos-nanos)/NSPerMin {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: nanoseconds component out of range", original)
-			}
-			nanos += num * NSPerMin
+			b.addNanos(num, NSPerMin, "minutes")
 		case "s":
-			if num > (MaxNanos-nanos)/NSPerSec {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: nanoseconds component out of range", original)
-			}
-			nanos += num * NSPerSec
+			b.addNanos(num, NSPerSec, "seconds")
 		case "ms":
-			if num > (MaxNanos-nanos)/NSPerMS {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: nanoseconds component out of range", original)
-			}
-			nanos += num * NSPerMS
+			b.addNanos(num, NSPerMS, "milliseconds")
 		case "us", "µs":
-			if num > (MaxNanos-nanos)/NSPerUS {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: nanoseconds component out of range", original)
-			}
-			nanos += num * NSPerUS
+			b.addNanos(num, NSPerUS, "microseconds")
 		case "ns":
-			if num > MaxNanos-nanos {
-				return DataAPIDuration{}, fmt.Errorf("invalid duration %q: nanoseconds component out of range", original)
-			}
-			nanos += num
+			b.addNanos(num, 1, "nanoseconds")
 		}
 
 		hasAny = true
@@ -207,7 +173,11 @@ func parseBasicDuration(s, original string) (DataAPIDuration, error) {
 		return DataAPIDuration{}, fmt.Errorf("invalid standard duration string: %q", original)
 	}
 
-	return DataAPIDuration{Months: months, Days: days, Nanoseconds: nanos}, nil
+	d, err := b.Build()
+	if err != nil {
+		return DataAPIDuration{}, fmt.Errorf("invalid duration %q: %w", original, err)
+	}
+	return d, nil
 }
 
 // isoStandardDurationRe matches ISO 8601 standard duration: P[nY][nM][nD][T[nH][nM][n[.f]S]]
@@ -219,60 +189,41 @@ func parseISOStandardDuration(s string) (DataAPIDuration, error) {
 		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 standard duration string: %q", s)
 	}
 
-	var months int32
-	var days int32
-	var nanos int64
-
+	b := NewDurationBuilder()
 	if m[1] != "" {
 		n, _ := strconv.ParseInt(m[1], 10, 64)
-		if n > int64(MaxMonthsDays)/12 {
-			return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: months out of range", s)
-		}
-		months += int32(n * 12)
+		b.addYears(n)
 	}
 	if m[2] != "" {
 		n, _ := strconv.ParseInt(m[2], 10, 64)
-		v := int64(months) + n
-		if v > int64(MaxMonthsDays) {
-			return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: months out of range", s)
-		}
-		months = int32(v)
+		b.addMonths(n)
 	}
 	if m[3] != "" {
 		n, _ := strconv.ParseInt(m[3], 10, 64)
-		v := int64(days) + n
-		if v > int64(MaxMonthsDays) {
-			return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: days out of range", s)
-		}
-		days = int32(v)
+		b.addDays(n)
 	}
 	if m[4] != "" {
 		n, _ := strconv.ParseInt(m[4], 10, 64)
-		if n > (MaxNanos-nanos)/NSPerHour {
-			return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: nanoseconds out of range", s)
-		}
-		nanos += n * NSPerHour
+		b.addNanos(n, NSPerHour, "hours")
 	}
 	if m[5] != "" {
 		n, _ := strconv.ParseInt(m[5], 10, 64)
-		if n > (MaxNanos-nanos)/NSPerMin {
-			return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: nanoseconds out of range", s)
-		}
-		nanos += n * NSPerMin
+		b.addNanos(n, NSPerMin, "minutes")
 	}
 	if m[6] != "" {
 		n, _ := strconv.ParseInt(m[6], 10, 64)
-		if n > (MaxNanos-nanos)/NSPerSec {
-			return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: nanoseconds out of range", s)
-		}
-		nanos += n * NSPerSec
+		b.addNanos(n, NSPerSec, "seconds")
 	}
 	if m[7] != "" {
 		frac, _ := strconv.ParseInt(m[7], 10, 64)
-		nanos += int64(float64(frac) * math.Pow10(9-len(m[7])))
+		b.addNanos(int64(float64(frac)*math.Pow10(9-len(m[7]))), 1, "nanoseconds")
 	}
 
-	return DataAPIDuration{Months: months, Days: days, Nanoseconds: nanos}, nil
+	d, err := b.Build()
+	if err != nil {
+		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 duration %q: %w", s, err)
+	}
+	return d, nil
 }
 
 // isoWeekDurationRe matches ISO 8601 week duration: PnW
@@ -285,11 +236,14 @@ func parseISOWeekDuration(s string) (DataAPIDuration, error) {
 	}
 
 	weeks, _ := strconv.ParseInt(m[1], 10, 64)
-	if weeks > int64(MaxMonthsDays)/7 {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 week duration %q: days out of range", s)
-	}
+	b := NewDurationBuilder()
+	b.addWeeks(weeks)
 
-	return DataAPIDuration{Days: int32(weeks * 7)}, nil
+	d, err := b.Build()
+	if err != nil {
+		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 week duration %q: %w", s, err)
+	}
+	return d, nil
 }
 
 // isoAlternateDurationRe matches ISO 8601 alternate duration: PYYYY-MM-DDThh:mm:ss
@@ -308,23 +262,17 @@ func parseISOAlternateDuration(s string) (DataAPIDuration, error) {
 	mins, _ := strconv.ParseInt(m[5], 10, 64)
 	secs, _ := strconv.ParseInt(m[6], 10, 64)
 
-	totalMonths := years*12 + mons
-	if years > int64(MaxMonthsDays)/12 || totalMonths > int64(MaxMonthsDays) {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: months out of range", s)
-	}
-	if days > int64(MaxMonthsDays) {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: days out of range", s)
-	}
-	totalNanos := hours*NSPerHour + mins*NSPerMin + secs*NSPerSec
-	if totalNanos > MaxNanos {
-		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: nanoseconds out of range", s)
-	}
+	b := NewDurationBuilder()
+	b.addYears(years).addMonths(mons).addDays(days).
+		addNanos(hours, NSPerHour, "hours").
+		addNanos(mins, NSPerMin, "minutes").
+		addNanos(secs, NSPerSec, "seconds")
 
-	return DataAPIDuration{
-		Months:      int32(totalMonths),
-		Days:        int32(days),
-		Nanoseconds: totalNanos,
-	}, nil
+	d, err := b.Build()
+	if err != nil {
+		return DataAPIDuration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: %w", s, err)
+	}
+	return d, nil
 }
 
 func validateDuration(months int32, days int32, nanoseconds int64) error {
@@ -597,26 +545,31 @@ func (b *DurationBuilder) SetNegative(negative bool) *DurationBuilder {
 }
 
 // AddYears adds n years (converted to months: 1 year = 12 months).
-func (b *DurationBuilder) AddYears(n int32) *DurationBuilder {
-	if b.err != nil {
-		return b
-	}
-	v := int64(b.months) + int64(n)*12
-	if v > int64(MaxMonthsDays) || v < 0 {
-		b.err = fmt.Errorf("invalid duration: total months %d out of range [0, %d]", v, MaxMonthsDays)
-		return b
-	}
-	b.months = int32(v)
-	return b
+func (b *DurationBuilder) AddYears(n int) *DurationBuilder {
+	return b.addYears(int64(n))
 }
 
 // AddMonths adds n months.
-func (b *DurationBuilder) AddMonths(n int32) *DurationBuilder {
+func (b *DurationBuilder) AddMonths(n int) *DurationBuilder {
+	return b.addMonths(int64(n))
+}
+
+// AddWeeks adds n weeks (converted to days: 1 week = 7 days).
+func (b *DurationBuilder) AddWeeks(n int) *DurationBuilder {
+	return b.addWeeks(int64(n))
+}
+
+// AddDays adds n days.
+func (b *DurationBuilder) AddDays(n int) *DurationBuilder {
+	return b.addDays(int64(n))
+}
+
+func (b *DurationBuilder) addYears(n int64) *DurationBuilder {
 	if b.err != nil {
 		return b
 	}
-	v := int64(b.months) + int64(n)
-	if v > int64(MaxMonthsDays) || v < 0 {
+	v := int64(b.months) + n*12
+	if n > int64(MaxMonthsDays)/12 || v > int64(MaxMonthsDays) || v < 0 {
 		b.err = fmt.Errorf("invalid duration: total months %d out of range [0, %d]", v, MaxMonthsDays)
 		return b
 	}
@@ -624,13 +577,25 @@ func (b *DurationBuilder) AddMonths(n int32) *DurationBuilder {
 	return b
 }
 
-// AddWeeks adds n weeks (converted to days: 1 week = 7 days).
-func (b *DurationBuilder) AddWeeks(n int32) *DurationBuilder {
+func (b *DurationBuilder) addMonths(n int64) *DurationBuilder {
 	if b.err != nil {
 		return b
 	}
-	v := int64(b.days) + int64(n)*7
-	if v > int64(MaxMonthsDays) || v < 0 {
+	v := int64(b.months) + n
+	if n > int64(MaxMonthsDays) || v > int64(MaxMonthsDays) || v < 0 {
+		b.err = fmt.Errorf("invalid duration: total months %d out of range [0, %d]", v, MaxMonthsDays)
+		return b
+	}
+	b.months = int32(v)
+	return b
+}
+
+func (b *DurationBuilder) addWeeks(n int64) *DurationBuilder {
+	if b.err != nil {
+		return b
+	}
+	v := int64(b.days) + n*7
+	if n > int64(MaxMonthsDays)/7 || v > int64(MaxMonthsDays) || v < 0 {
 		b.err = fmt.Errorf("invalid duration: total days %d out of range [0, %d]", v, MaxMonthsDays)
 		return b
 	}
@@ -638,13 +603,12 @@ func (b *DurationBuilder) AddWeeks(n int32) *DurationBuilder {
 	return b
 }
 
-// AddDays adds n days.
-func (b *DurationBuilder) AddDays(n int32) *DurationBuilder {
+func (b *DurationBuilder) addDays(n int64) *DurationBuilder {
 	if b.err != nil {
 		return b
 	}
-	v := int64(b.days) + int64(n)
-	if v > int64(MaxMonthsDays) || v < 0 {
+	v := int64(b.days) + n
+	if n > int64(MaxMonthsDays) || v > int64(MaxMonthsDays) || v < 0 {
 		b.err = fmt.Errorf("invalid duration: total days %d out of range [0, %d]", v, MaxMonthsDays)
 		return b
 	}
@@ -653,45 +617,44 @@ func (b *DurationBuilder) AddDays(n int32) *DurationBuilder {
 }
 
 // AddHours adds n hours (converted to nanoseconds).
-func (b *DurationBuilder) AddHours(n int64) *DurationBuilder {
-	return b.addNanos(n, NSPerHour, "hours")
+func (b *DurationBuilder) AddHours(n int) *DurationBuilder {
+	return b.addNanos(int64(n), NSPerHour, "hours")
 }
 
 // AddMinutes adds n minutes (converted to nanoseconds).
-func (b *DurationBuilder) AddMinutes(n int64) *DurationBuilder {
-	return b.addNanos(n, NSPerMin, "minutes")
+func (b *DurationBuilder) AddMinutes(n int) *DurationBuilder {
+	return b.addNanos(int64(n), NSPerMin, "minutes")
 }
 
 // AddSeconds adds n seconds (converted to nanoseconds).
-func (b *DurationBuilder) AddSeconds(n int64) *DurationBuilder {
-	return b.addNanos(n, NSPerSec, "seconds")
+func (b *DurationBuilder) AddSeconds(n int) *DurationBuilder {
+	return b.addNanos(int64(n), NSPerSec, "seconds")
 }
 
 // AddMillis adds n milliseconds (converted to nanoseconds).
-func (b *DurationBuilder) AddMillis(n int64) *DurationBuilder {
-	return b.addNanos(n, NSPerMS, "milliseconds")
+func (b *DurationBuilder) AddMillis(n int) *DurationBuilder {
+	return b.addNanos(int64(n), NSPerMS, "milliseconds")
 }
 
 // AddMicros adds n microseconds (converted to nanoseconds).
-func (b *DurationBuilder) AddMicros(n int64) *DurationBuilder {
-	return b.addNanos(n, NSPerUS, "microseconds")
+func (b *DurationBuilder) AddMicros(n int) *DurationBuilder {
+	return b.addNanos(int64(n), NSPerUS, "microseconds")
 }
 
 // AddNanos adds n nanoseconds.
-func (b *DurationBuilder) AddNanos(n int64) *DurationBuilder {
-	return b.addNanos(n, 1, "nanoseconds")
+func (b *DurationBuilder) AddNanos(n int) *DurationBuilder {
+	return b.addNanos(int64(n), 1, "nanoseconds")
 }
 
 func (b *DurationBuilder) addNanos(n, nsPerUnit int64, name string) *DurationBuilder {
 	if b.err != nil {
 		return b
 	}
-	v := b.nanoseconds + n*nsPerUnit
-	if v > MaxNanos || v < 0 {
-		b.err = fmt.Errorf("invalid duration: total nanoseconds %d out of range [0, %d] (tried to add %d %s)", v, MaxNanos, n, name)
+	if n > (MaxNanos-b.nanoseconds)/nsPerUnit {
+		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [0, %d] (tried to add %d %s)", MaxNanos, n, name)
 		return b
 	}
-	b.nanoseconds = v
+	b.nanoseconds += n * nsPerUnit
 	return b
 }
 

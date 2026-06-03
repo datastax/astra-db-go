@@ -169,7 +169,7 @@ var durationGen = rapid.Custom(func(t *rapid.T) datatypes.DataAPIDuration {
 	months := int32(rapid.Int64Range(0, int64(datatypes.MaxMonthsDays)).Draw(t, "months"))
 	days := int32(rapid.Int64Range(0, int64(datatypes.MaxMonthsDays)).Draw(t, "days"))
 	nanos := rapid.Int64Range(0, datatypes.MaxNanos).Draw(t, "nanos")
-	if negative && (months != 0 || days != 0 || nanos != 0) {
+	if negative {
 		months = -months
 		days = -days
 		nanos = -nanos
