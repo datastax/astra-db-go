@@ -439,6 +439,37 @@ func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 }
 
 // ================================
+// | Duration - encoded as a plain quoted string in table context; not allowed in collections
+// ================================
+
+func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return nil, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
+	}
+	d := (*datatypes.Duration)(p)
+	dst = append(dst, '"')
+	dst = d.AppendShortString(dst)
+	dst = append(dst, '"')
+	return dst, nil
+}
+
+func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return src, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
+	}
+	src, str, _, err := parseStringUnquote(ctx, src)
+	if err != nil {
+		return src, fmt.Errorf("invalid duration string: %w", err)
+	}
+	d, err := datatypes.ParseDuration(unsafeString(str))
+	if err != nil {
+		return src, err
+	}
+	*(*datatypes.Duration)(p) = d
+	return src, nil
+}
+
+// ================================
 // | Helpers
 // ================================
 

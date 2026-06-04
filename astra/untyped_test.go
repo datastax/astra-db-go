@@ -250,6 +250,24 @@ func TestRow_UnmarshalAstraRaw(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "duration",
+			schema: table.Columns{
+				{Name: "dur", Column: table.Column{Type: table.TypeDuration}},
+			},
+			jsonData: `{"dur": "1y2mo"}`,
+			validate: func(t *testing.T, row Row) {
+				data := row.ToMap()
+				dur, ok := data["dur"].(datatypes.Duration)
+				if !ok {
+					t.Fatalf("expected datatypes.Duration, got %T", data["dur"])
+				}
+				want := datatypes.MustParseDuration("1y2mo")
+				if !dur.Equals(want) {
+					t.Errorf("got %v, want %v", dur, want)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -518,9 +536,10 @@ func TestProperty_Document(t *testing.T) {
 
 		cmpOpts := []cmp.Option{
 			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
 			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
 			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
 			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
@@ -600,9 +619,10 @@ func TestProperty_Row(t *testing.T) {
 		// (like datatypes.UUID, net.IP, etc.)
 		cmpOpts := []cmp.Option{
 			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
 			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
 			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
 			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
@@ -661,9 +681,10 @@ func TestProperty_NewDocument(t *testing.T) {
 
 		cmpOpts := []cmp.Option{
 			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
 			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
 			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
 			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
@@ -698,9 +719,10 @@ func TestProperty_NewRow(t *testing.T) {
 		// When comparing, we need to handle special types
 		cmpOpts := []cmp.Option{
 			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, time.Time{}),
+			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
 			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
 			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
+			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
 			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 		}
 
@@ -914,7 +936,7 @@ func genValueForColumn(col table.Column) *rapid.Generator[any] {
 			}
 			return datatypes.NewVector(rapid.SliceOfN(rapid.Float32(), dim, dim).Draw(t, "vector"))
 		case table.TypeDuration:
-			return rapid.StringMatching(`[0-9]+[smhdw]`).Draw(t, "duration")
+			return datatypes.MustParseDuration(rapid.StringMatching(`[0-9]+[smhdw]`).Draw(t, "duration"))
 		case table.TypeList, table.TypeSet:
 			slice := rapid.SliceOf(genValueForColumn(*col.ValueType)).Draw(t, "slice")
 			if slice == nil {

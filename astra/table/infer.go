@@ -30,7 +30,7 @@ var (
 	reflectUUID      = reflect.TypeFor[datatypes.UUID]()
 	reflectVector    = reflect.TypeFor[datatypes.Vector]()
 	reflectTime      = reflect.TypeFor[time.Time]()
-	reflectDuration  = reflect.TypeFor[time.Duration]()
+	reflectDuration  = reflect.TypeFor[datatypes.Duration]()
 	reflectIP        = reflect.TypeFor[net.IP]()
 	reflectByteSlice = reflect.TypeFor[[]byte]()
 )

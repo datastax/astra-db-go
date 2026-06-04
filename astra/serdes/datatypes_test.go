@@ -158,3 +158,88 @@ func TestObjectIds_Untyped_Collection(t *testing.T) {
 		testutils.FailIf(t, decoded != oidAny, "mismatch after serdes: original %v, decoded %v", oidAny, decoded)
 	})
 }
+
+// ================================
+// | Duration
+// ================================
+
+// durationGen generates valid Duration values (all components share a sign).
+var durationGen = rapid.Custom(func(t *rapid.T) datatypes.Duration {
+	negative := rapid.Bool().Draw(t, "negative")
+	months := int32(rapid.Int64Range(0, int64(datatypes.DurationMaxMonthsDays)).Draw(t, "months"))
+	days := int32(rapid.Int64Range(0, int64(datatypes.DurationMaxMonthsDays)).Draw(t, "days"))
+	nanos := rapid.Int64Range(0, datatypes.DurationMaxNanos).Draw(t, "nanos")
+	if negative {
+		months = -months
+		days = -days
+		nanos = -nanos
+	}
+	d, _ := datatypes.NewDuration(months, days, nanos)
+	return d
+})
+
+func TestSerdesDuration_Typed_Table(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		d := durationGen.Draw(t, "duration")
+
+		encoded, err := serdes.Serialize(d, serdes.TargetTable)
+		testutils.FailIfErr(t, err, "failed to serialize Duration")
+
+		var decoded datatypes.Duration
+		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetTable)
+		testutils.FailIfErr(t, err, "failed to deserialize Duration")
+
+		testutils.FailIf(t, !d.Equals(decoded), "round-trip mismatch: original %+v, decoded %+v", d, decoded)
+	})
+}
+
+func TestSerdesDuration_Typed_None(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		d := durationGen.Draw(t, "duration")
+
+		encoded, err := serdes.Serialize(d, serdes.TargetNone)
+		testutils.FailIfErr(t, err, "failed to serialize Duration with TargetNone")
+
+		var decoded datatypes.Duration
+		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetNone)
+		testutils.FailIfErr(t, err, "failed to deserialize Duration with TargetNone")
+
+		testutils.FailIf(t, !d.Equals(decoded), "round-trip mismatch: original %+v, decoded %+v", d, decoded)
+	})
+}
+
+func TestSerdesDuration_Collection_Encode_Error(t *testing.T) {
+	d := datatypes.MustParseDuration("1y2mo")
+	_, err := serdes.Serialize(d, serdes.TargetCollection)
+	testutils.FailIf(t, err == nil, "expected error encoding Duration for TargetCollection")
+}
+
+func TestSerdesDuration_Collection_Decode_Error(t *testing.T) {
+	encoded, err := serdes.Serialize(datatypes.MustParseDuration("1y2mo"), serdes.TargetTable)
+	testutils.FailIfErr(t, err, "failed to pre-encode Duration")
+
+	var decoded datatypes.Duration
+	err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
+	testutils.FailIf(t, err == nil, "expected error decoding Duration for TargetCollection")
+}
+
+func TestSerdesDuration_Struct_Table(t *testing.T) {
+	rapid.Check(t, func(t *rapid.T) {
+		type row struct {
+			ID       string             `json:"id"`
+			Duration datatypes.Duration `json:"duration"`
+		}
+
+		want := row{ID: "x", Duration: durationGen.Draw(t, "duration")}
+
+		encoded, err := serdes.Serialize(want, serdes.TargetTable)
+		testutils.FailIfErr(t, err, "failed to serialize row")
+
+		var got row
+		err = serdes.Deserialize(encoded, &got, nil, serdes.TargetTable)
+		testutils.FailIfErr(t, err, "failed to deserialize row")
+
+		testutils.FailIf(t, got.ID != want.ID || !got.Duration.Equals(want.Duration),
+			"round-trip mismatch: original %+v, decoded %+v", want, got)
+	})
+}
