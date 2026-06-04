@@ -33,8 +33,8 @@ const (
 )
 
 const (
-	DurationMaxMonthsDays = int32(2_147_483_647)
-	DurationMaxNanos      = int64(9_223_372_036_854_775_807)
+	DurationMaxMonthsDays = int32(math.MaxInt32)
+	DurationMaxNanos      = int64(math.MaxInt64)
 )
 
 // Duration represents a Cassandra duration type stored as months, days, and nanoseconds.
@@ -290,13 +290,13 @@ func parseISODuration(s string, typ *isoDurationType) (Duration, error) {
 }
 
 func validateDuration(months int32, days int32, nanoseconds int64) error {
-	if months < -DurationMaxMonthsDays || months > DurationMaxMonthsDays {
+	if months < -DurationMaxMonthsDays {
 		return fmt.Errorf("invalid duration months %d: out of range [-%d, %d]", months, DurationMaxMonthsDays, DurationMaxMonthsDays)
 	}
-	if days < -DurationMaxMonthsDays || days > DurationMaxMonthsDays {
+	if days < -DurationMaxMonthsDays {
 		return fmt.Errorf("invalid duration days %d: out of range [-%d, %d]", days, DurationMaxMonthsDays, DurationMaxMonthsDays)
 	}
-	if nanoseconds < -DurationMaxNanos || nanoseconds > DurationMaxNanos {
+	if nanoseconds < -DurationMaxNanos {
 		return fmt.Errorf("invalid duration nanoseconds %d: out of range [-%d, %d]", nanoseconds, DurationMaxNanos, DurationMaxNanos)
 	}
 
