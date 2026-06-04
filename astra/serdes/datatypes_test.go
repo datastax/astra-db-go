@@ -174,7 +174,8 @@ var durationGen = rapid.Custom(func(t *rapid.T) datatypes.Duration {
 		days = -days
 		nanos = -nanos
 	}
-	return datatypes.Duration{Months: months, Days: days, Nanoseconds: nanos}
+	d, _ := datatypes.NewDuration(months, days, nanos)
+	return d
 })
 
 func TestSerdesDuration_Typed_Table(t *testing.T) {

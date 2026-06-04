@@ -444,7 +444,7 @@ func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 
 func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return dst, fmt.Errorf("Duration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
+		return nil, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
 	}
 	d := (*datatypes.Duration)(p)
 	dst = append(dst, '"')
@@ -455,7 +455,7 @@ func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, fmt.Errorf("Duration cannot be used in collections; use a string or {months, days, nanoseconds} object instead")
+		return src, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
 	}
 	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {

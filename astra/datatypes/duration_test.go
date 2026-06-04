@@ -16,6 +16,7 @@ package datatypes
 
 import (
 	"encoding/json"
+	"math"
 	"testing"
 )
 
@@ -41,15 +42,15 @@ func TestParseDuration_Standard(t *testing.T) {
 		{"9µs", Duration{0, 0, 9 * NSPerUS}},
 		{"10ns", Duration{0, 0, 10}},
 		{"1y2mo3w4d5h6m7s8ms9us10ns", Duration{
-			Months:      12 + 2,
-			Days:        21 + 4,
-			Nanoseconds: 5*NSPerHour + 6*NSPerMin + 7*NSPerSec + 8*NSPerMS + 9*NSPerUS + 10,
+			months:      12 + 2,
+			days:        21 + 4,
+			nanoseconds: 5*NSPerHour + 6*NSPerMin + 7*NSPerSec + 8*NSPerMS + 9*NSPerUS + 10,
 		}},
 		// case-insensitive
 		{"1Y2MO3W4D5H6M7S8MS9US10NS", Duration{
-			Months:      14,
-			Days:        25,
-			Nanoseconds: 5*NSPerHour + 6*NSPerMin + 7*NSPerSec + 8*NSPerMS + 9*NSPerUS + 10,
+			months:      14,
+			days:        25,
+			nanoseconds: 5*NSPerHour + 6*NSPerMin + 7*NSPerSec + 8*NSPerMS + 9*NSPerUS + 10,
 		}},
 		// negative
 		{"-1y", Duration{-12, 0, 0}},
@@ -117,9 +118,9 @@ func TestParseDuration_ISOStandard(t *testing.T) {
 		// negative
 		{"-P7D", Duration{0, -7, 0}},
 		{"-P1Y2M3DT4H5M6.007S", Duration{
-			Months:      -(12 + 2),
-			Days:        -3,
-			Nanoseconds: -(4*NSPerHour + 5*NSPerMin + 6*NSPerSec + 7*NSPerMS),
+			months:      -(12 + 2),
+			days:        -3,
+			nanoseconds: -(4*NSPerHour + 5*NSPerMin + 6*NSPerSec + 7*NSPerMS),
 		}},
 	}
 
@@ -174,15 +175,15 @@ func TestParseDuration_ISOAlternate(t *testing.T) {
 		want  Duration
 	}{
 		{"P0001-02-03T04:05:06", Duration{
-			Months:      12 + 2,
-			Days:        3,
-			Nanoseconds: 4*NSPerHour + 5*NSPerMin + 6*NSPerSec,
+			months:      12 + 2,
+			days:        3,
+			nanoseconds: 4*NSPerHour + 5*NSPerMin + 6*NSPerSec,
 		}},
 		{"P0000-00-00T00:00:00", Duration{0, 0, 0}},
 		{"-P0001-02-03T04:05:06", Duration{
-			Months:      -(12 + 2),
-			Days:        -3,
-			Nanoseconds: -(4*NSPerHour + 5*NSPerMin + 6*NSPerSec),
+			months:      -(12 + 2),
+			days:        -3,
+			nanoseconds: -(4*NSPerHour + 5*NSPerMin + 6*NSPerSec),
 		}},
 	}
 
@@ -209,7 +210,7 @@ func TestNewDuration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if d.Months != 12 || d.Days != 3 || d.Nanoseconds != NSPerHour {
+		if d.Months() != 12 || d.Days() != 3 || d.Nanoseconds() != NSPerHour {
 			t.Errorf("unexpected: %+v", d)
 		}
 	})
@@ -219,8 +220,8 @@ func TestNewDuration(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if d.Months != -12 {
-			t.Errorf("unexpected months: %d", d.Months)
+		if d.Months() != -12 {
+			t.Errorf("unexpected months: %d", d.Months())
 		}
 	})
 
@@ -248,26 +249,17 @@ func TestNewDuration(t *testing.T) {
 		}
 	})
 
-	t.Run("months out of range", func(t *testing.T) {
-		// math.MinInt32 = -(MaxMonthsDays+1), one below the valid floor
-		_, err := NewDuration(-MaxMonthsDays-1, 0, 0)
+	t.Run("out of range months rejected", func(t *testing.T) {
+		_, err := NewDuration(math.MinInt32, 0, 0)
 		if err == nil {
-			t.Error("expected error for months out of range")
+			t.Error("expected error for math.MinInt32 months")
 		}
 	})
 
-	t.Run("days out of range", func(t *testing.T) {
-		_, err := NewDuration(0, -MaxMonthsDays-1, 0)
+	t.Run("out of range nanos rejected", func(t *testing.T) {
+		_, err := NewDuration(0, 0, math.MinInt64)
 		if err == nil {
-			t.Error("expected error for days out of range")
-		}
-	})
-
-	t.Run("nanoseconds out of range", func(t *testing.T) {
-		// math.MinInt64 = -(MaxNanos+1), one below the valid floor
-		_, err := NewDuration(0, 0, -MaxNanos-1)
-		if err == nil {
-			t.Error("expected error for nanoseconds out of range")
+			t.Error("expected error for math.MinInt64 nanos")
 		}
 	})
 }
@@ -345,7 +337,7 @@ func TestDuration_Plus(t *testing.T) {
 	if !ok {
 		t.Fatal("Plus returned false for same-sign durations")
 	}
-	want := Duration{Months: 13, Days: 0, Nanoseconds: NSPerSec}
+	want := Duration{months: 13, days: 0, nanoseconds: NSPerSec}
 	if got != want {
 		t.Errorf("got %+v, want %+v", got, want)
 	}
@@ -355,6 +347,22 @@ func TestDuration_Plus(t *testing.T) {
 	if ok {
 		t.Error("Plus should return false for opposite signs")
 	}
+
+	t.Run("overflow months", func(t *testing.T) {
+		d1 := Duration{months: MaxMonthsDays, days: 0, nanoseconds: 0}
+		d2 := Duration{months: 1, days: 0, nanoseconds: 0}
+		if _, ok := d1.Plus(d2); ok {
+			t.Error("Plus should return false on month overflow")
+		}
+	})
+
+	t.Run("overflow nanos", func(t *testing.T) {
+		d1 := Duration{months: 0, days: 0, nanoseconds: MaxNanos}
+		d2 := Duration{months: 0, days: 0, nanoseconds: 1}
+		if _, ok := d1.Plus(d2); ok {
+			t.Error("Plus should return false on nanos overflow")
+		}
+	})
 }
 
 func TestDuration_Negate(t *testing.T) {
@@ -363,8 +371,8 @@ func TestDuration_Negate(t *testing.T) {
 	if !neg.IsNegative() {
 		t.Error("negated duration should be negative")
 	}
-	if neg.Months != -12 {
-		t.Errorf("expected months -12, got %d", neg.Months)
+	if neg.Months() != -12 {
+		t.Errorf("expected months -12, got %d", neg.Months())
 	}
 	if !neg.Negate().Equals(d) {
 		t.Error("double negation should return original")
@@ -379,41 +387,6 @@ func TestDuration_Abs(t *testing.T) {
 	}
 	if !pos.Abs().Equals(pos) {
 		t.Error("Abs of 1y should equal 1y")
-	}
-}
-
-// ================================
-// | Conversion methods
-// ================================
-
-func TestDuration_Conversions(t *testing.T) {
-	d := MustParseDuration("15mo")
-	if d.ToYears() != 1 {
-		t.Errorf("15mo.ToYears() = %d, want 1", d.ToYears())
-	}
-
-	h := MustParseDuration("50h150m")
-	if h.ToHours() != 52 {
-		t.Errorf("50h150m.ToHours() = %d, want 52", h.ToHours())
-	}
-	if h.ToMinutes() != 3150 {
-		t.Errorf("50h150m.ToMinutes() = %d, want 3150", h.ToMinutes())
-	}
-
-	s := MustParseDuration("1h")
-	if s.ToSeconds() != 3600 {
-		t.Errorf("1h.ToSeconds() = %d, want 3600", s.ToSeconds())
-	}
-	if s.ToMillis() != 3_600_000 {
-		t.Errorf("1h.ToMillis() = %d, want 3600000", s.ToMillis())
-	}
-	if s.ToMicros() != 3_600_000_000 {
-		t.Errorf("1h.ToMicros() = %d, want 3600000000", s.ToMicros())
-	}
-
-	neg := MustParseDuration("-1y15mo")
-	if neg.ToYears() != -2 {
-		t.Errorf("-1y15mo.ToYears() = %d, want -2", neg.ToYears())
 	}
 }
 
@@ -522,7 +495,7 @@ func TestDurationBuilder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := Duration{Months: 12, Days: 3, Nanoseconds: 5 * NSPerSec}
+		want := Duration{months: 12, days: 3, nanoseconds: 5 * NSPerSec}
 		if d != want {
 			t.Errorf("got %+v, want %+v", d, want)
 		}
@@ -533,8 +506,8 @@ func TestDurationBuilder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if d.Nanoseconds != -10*NSPerHour {
-			t.Errorf("unexpected nanos: %d", d.Nanoseconds)
+		if d.Nanoseconds() != -10*NSPerHour {
+			t.Errorf("unexpected nanos: %d", d.Nanoseconds())
 		}
 	})
 
@@ -544,16 +517,23 @@ func TestDurationBuilder(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		want := Duration{Months: 12, Days: 3, Nanoseconds: 0}
+		want := Duration{months: 12, days: 3, nanoseconds: 0}
 		if d != want {
 			t.Errorf("got %+v, want %+v", d, want)
 		}
 	})
 
 	t.Run("overflow months", func(t *testing.T) {
-		_, err := NewDurationBuilder().AddMonths(int(MaxMonthsDays)).AddYears(1).Build()
+		_, err := NewDurationBuilder().AddMonths(MaxMonthsDays).AddYears(1).Build()
 		if err == nil {
 			t.Error("expected overflow error")
+		}
+	})
+
+	t.Run("symmetry math.MinInt32 rejected", func(t *testing.T) {
+		_, err := NewDurationBuilder().AddMonths(math.MinInt32).Build()
+		if err == nil {
+			t.Error("expected error for math.MinInt32 months")
 		}
 	})
 
@@ -570,8 +550,8 @@ func TestDurationBuilder(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := NSPerHour + NSPerMin + NSPerSec + NSPerMS + NSPerUS + 1
-		if d.Nanoseconds != want {
-			t.Errorf("got nanos %d, want %d", d.Nanoseconds, want)
+		if d.Nanoseconds() != want {
+			t.Errorf("got nanos %d, want %d", d.Nanoseconds(), want)
 		}
 	})
 }

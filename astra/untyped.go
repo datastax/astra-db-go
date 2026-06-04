@@ -744,7 +744,7 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 		return v, err
 
 	case table.TypeDuration:
-		var v string
+		var v datatypes.Duration
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 

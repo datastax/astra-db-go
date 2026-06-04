@@ -42,9 +42,9 @@ const (
 // days are calendar days, and nanoseconds are a fixed-length time unit).
 // All three components must share the same sign.
 type Duration struct {
-	Months      int32
-	Days        int32
-	Nanoseconds int64
+	months      int32
+	days        int32
+	nanoseconds int64
 }
 
 // NewDuration creates a Duration from months, days, and nanoseconds.
@@ -54,7 +54,22 @@ func NewDuration(months int32, days int32, nanoseconds int64) (Duration, error) 
 	if err := validateDuration(months, days, nanoseconds); err != nil {
 		return Duration{}, err
 	}
-	return Duration{Months: months, Days: days, Nanoseconds: nanoseconds}, nil
+	return Duration{months, days, nanoseconds}, nil
+}
+
+// Months returns the months component of the duration.
+func (d Duration) Months() int32 {
+	return d.months
+}
+
+// Days returns the days component of the duration.
+func (d Duration) Days() int32 {
+	return d.days
+}
+
+// Nanoseconds returns the nanoseconds component of the duration.
+func (d Duration) Nanoseconds() int64 {
+	return d.nanoseconds
 }
 
 // MustParseDuration parses a duration string and panics on error.
@@ -158,25 +173,25 @@ func parseBasicDuration(s, original string) (Duration, error) {
 
 		switch unit {
 		case "y":
-			b.addYears(num)
+			b.AddYears(int32(num))
 		case "mo":
-			b.addMonths(num)
+			b.AddMonths(int32(num))
 		case "w":
-			b.addWeeks(num)
+			b.AddWeeks(int32(num))
 		case "d":
-			b.addDays(num)
+			b.AddDays(int32(num))
 		case "h":
-			b.addNanos(num, NSPerHour, "hours")
+			b.AddHours(num)
 		case "m":
-			b.addNanos(num, NSPerMin, "minutes")
+			b.AddMinutes(num)
 		case "s":
-			b.addNanos(num, NSPerSec, "seconds")
+			b.AddSeconds(num)
 		case "ms":
-			b.addNanos(num, NSPerMS, "milliseconds")
+			b.AddMillis(num)
 		case "us", "µs":
-			b.addNanos(num, NSPerUS, "microseconds")
+			b.AddMicros(num)
 		case "ns":
-			b.addNanos(num, 1, "nanoseconds")
+			b.AddNanos(num)
 		}
 
 		hasAny = true
@@ -205,39 +220,37 @@ func parseISOStandardDuration(s string) (Duration, error) {
 
 	b := NewDurationBuilder()
 	if m[1] != "" {
-		n, _ := strconv.ParseInt(m[1], 10, 64)
-		b.addYears(n)
+		n, _ := strconv.ParseInt(m[1], 10, 32)
+		b.AddYears(int32(n))
 	}
 	if m[2] != "" {
-		n, _ := strconv.ParseInt(m[2], 10, 64)
-		b.addMonths(n)
+		n, _ := strconv.ParseInt(m[2], 10, 32)
+		b.AddMonths(int32(n))
 	}
 	if m[3] != "" {
-		n, _ := strconv.ParseInt(m[3], 10, 64)
-		b.addDays(n)
+		n, _ := strconv.ParseInt(m[3], 10, 32)
+		b.AddDays(int32(n))
 	}
+
 	if m[4] != "" {
 		n, _ := strconv.ParseInt(m[4], 10, 64)
-		b.addNanos(n, NSPerHour, "hours")
+		b.AddHours(n)
 	}
 	if m[5] != "" {
 		n, _ := strconv.ParseInt(m[5], 10, 64)
-		b.addNanos(n, NSPerMin, "minutes")
+		b.AddMinutes(n)
 	}
 	if m[6] != "" {
 		n, _ := strconv.ParseInt(m[6], 10, 64)
-		b.addNanos(n, NSPerSec, "seconds")
+		b.AddSeconds(n)
 	}
 	if m[7] != "" {
 		fracStr := m[7]
 		if len(fracStr) > 9 {
-			fracStr = fracStr[:9] // truncate sub-nanosecond precision
+			fracStr = fracStr[:9]
 		}
-		frac, err := strconv.ParseInt(fracStr, 10, 64)
-		if err != nil {
-			return Duration{}, fmt.Errorf("invalid ISO 8601 standard duration string: %q", s)
-		}
-		b.addNanos(frac*int64(math.Pow10(9-len(fracStr))), 1, "nanoseconds")
+		frac, _ := strconv.ParseInt(fracStr, 10, 32)
+		b.AddNanos(frac * int64(math.Pow10(9-len(fracStr))))
 	}
 
 	d, err := b.Build()
@@ -256,9 +269,9 @@ func parseISOWeekDuration(s string) (Duration, error) {
 		return Duration{}, fmt.Errorf("invalid ISO 8601 week duration string: %q", s)
 	}
 
-	weeks, _ := strconv.ParseInt(m[1], 10, 64)
+	weeks, _ := strconv.ParseInt(m[1], 10, 32)
 	b := NewDurationBuilder()
-	b.addWeeks(weeks)
+	b.AddWeeks(int32(weeks))
 
 	d, err := b.Build()
 	if err != nil {
@@ -276,18 +289,18 @@ func parseISOAlternateDuration(s string) (Duration, error) {
 		return Duration{}, fmt.Errorf("invalid ISO 8601 alternate duration string: %q", s)
 	}
 
-	years, _ := strconv.ParseInt(m[1], 10, 64)
-	mons, _ := strconv.ParseInt(m[2], 10, 64)
-	days, _ := strconv.ParseInt(m[3], 10, 64)
+	years, _ := strconv.ParseInt(m[1], 10, 32)
+	mons, _ := strconv.ParseInt(m[2], 10, 32)
+	days, _ := strconv.ParseInt(m[3], 10, 32)
 	hours, _ := strconv.ParseInt(m[4], 10, 64)
 	mins, _ := strconv.ParseInt(m[5], 10, 64)
 	secs, _ := strconv.ParseInt(m[6], 10, 64)
 
 	b := NewDurationBuilder()
-	b.addYears(years).addMonths(mons).addDays(days).
-		addNanos(hours, NSPerHour, "hours").
-		addNanos(mins, NSPerMin, "minutes").
-		addNanos(secs, NSPerSec, "seconds")
+	b.AddYears(int32(years)).AddMonths(int32(mons)).AddDays(int32(days)).
+		AddHours(hours).
+		AddMinutes(mins).
+		AddSeconds(secs)
 
 	d, err := b.Build()
 	if err != nil {
@@ -297,64 +310,87 @@ func parseISOAlternateDuration(s string) (Duration, error) {
 }
 
 func validateDuration(months int32, days int32, nanoseconds int64) error {
+	if months < -MaxMonthsDays || months > MaxMonthsDays {
+		return fmt.Errorf("invalid duration months %d: out of range [-%d, %d]", months, MaxMonthsDays, MaxMonthsDays)
+	}
+	if days < -MaxMonthsDays || days > MaxMonthsDays {
+		return fmt.Errorf("invalid duration days %d: out of range [-%d, %d]", days, MaxMonthsDays, MaxMonthsDays)
+	}
+	if nanoseconds < -MaxNanos || nanoseconds > MaxNanos {
+		return fmt.Errorf("invalid duration nanoseconds %d: out of range [-%d, %d]", nanoseconds, MaxNanos, MaxNanos)
+	}
+
 	allNonNeg := months >= 0 && days >= 0 && nanoseconds >= 0
 	allNonPos := months <= 0 && days <= 0 && nanoseconds <= 0
 	if !allNonNeg && !allNonPos {
 		return fmt.Errorf("invalid duration (%d, %d, %d): all components must share the same sign", months, days, nanoseconds)
-	}
-	if months < -MaxMonthsDays || months > MaxMonthsDays {
-		return fmt.Errorf("invalid duration: months %d out of range [%d, %d]", months, -MaxMonthsDays, MaxMonthsDays)
-	}
-	if days < -MaxMonthsDays || days > MaxMonthsDays {
-		return fmt.Errorf("invalid duration: days %d out of range [%d, %d]", days, -MaxMonthsDays, MaxMonthsDays)
-	}
-	if nanoseconds < -MaxNanos || nanoseconds > MaxNanos {
-		return fmt.Errorf("invalid duration: nanoseconds %d out of range [%d, %d]", nanoseconds, -MaxNanos, MaxNanos)
 	}
 	return nil
 }
 
 // Equals returns true if both durations have identical component values.
 func (d Duration) Equals(other Duration) bool {
-	return d.Months == other.Months && d.Days == other.Days && d.Nanoseconds == other.Nanoseconds
+	return d.months == other.months && d.days == other.days && d.nanoseconds == other.nanoseconds
 }
 
 // HasDayPrecision returns true if the nanoseconds component is zero (no sub-day precision).
 func (d Duration) HasDayPrecision() bool {
-	return d.Nanoseconds == 0
+	return d.nanoseconds == 0
 }
 
 // HasMillisecondPrecision returns true if the nanoseconds component is a multiple of 1,000,000.
 func (d Duration) HasMillisecondPrecision() bool {
-	return d.Nanoseconds%NSPerMS == 0
+	return d.nanoseconds%NSPerMS == 0
 }
 
 // IsNegative returns true if any component is negative.
 func (d Duration) IsNegative() bool {
-	return d.Months < 0 || d.Days < 0 || d.Nanoseconds < 0
+	return d.months < 0 || d.days < 0 || d.nanoseconds < 0
 }
 
 // IsZero returns true if all components are zero.
 func (d Duration) IsZero() bool {
-	return d.Months == 0 && d.Days == 0 && d.Nanoseconds == 0
+	return d.months == 0 && d.days == 0 && d.nanoseconds == 0
 }
 
 // Plus returns the component-wise sum of two durations.
-// Returns (result, true) on success, or (zero, false) if the durations have opposite signs.
+// Returns (result, true) on success, or (zero, false) if the durations have opposite signs or the result is invalid (e.g. overflow).
 func (d Duration) Plus(other Duration) (Duration, bool) {
+	if d.IsZero() {
+		return other, true
+	}
+	if other.IsZero() {
+		return d, true
+	}
 	if d.IsNegative() != other.IsNegative() {
 		return Duration{}, false
 	}
+
+	resMonths := d.months + other.months
+	resDays := d.days + other.days
+	resNanos := d.nanoseconds + other.nanoseconds
+
+	// Overflow check: if operands have same sign, result must have same sign (or be zero)
+	isNeg := d.IsNegative()
+	if (isNeg && (resMonths > 0 || resDays > 0 || resNanos > 0)) ||
+		(!isNeg && (resMonths < 0 || resDays < 0 || resNanos < 0)) {
+		return Duration{}, false
+	}
+
+	if err := validateDuration(resMonths, resDays, resNanos); err != nil {
+		return Duration{}, false
+	}
+
 	return Duration{
-		Months:      d.Months + other.Months,
-		Days:        d.Days + other.Days,
-		Nanoseconds: d.Nanoseconds + other.Nanoseconds,
+		months:      resMonths,
+		days:        resDays,
+		nanoseconds: resNanos,
 	}, true
 }
 
 // Negate returns a new Duration with all components negated.
 func (d Duration) Negate() Duration {
-	return Duration{Months: -d.Months, Days: -d.Days, Nanoseconds: -d.Nanoseconds}
+	return Duration{months: -d.months, days: -d.days, nanoseconds: -d.nanoseconds}
 }
 
 // Abs returns the duration with a positive sign, negating if needed.
@@ -363,36 +399,6 @@ func (d Duration) Abs() Duration {
 		return d.Negate()
 	}
 	return d
-}
-
-// ToYears returns the number of whole years derived from the months component only.
-func (d Duration) ToYears() int32 {
-	return d.Months / 12
-}
-
-// ToHours returns the number of whole hours derived from the nanoseconds component only.
-func (d Duration) ToHours() int64 {
-	return d.Nanoseconds / NSPerHour
-}
-
-// ToMinutes returns the number of whole minutes derived from the nanoseconds component only.
-func (d Duration) ToMinutes() int64 {
-	return d.Nanoseconds / NSPerMin
-}
-
-// ToSeconds returns the number of whole seconds derived from the nanoseconds component only.
-func (d Duration) ToSeconds() int64 {
-	return d.Nanoseconds / NSPerSec
-}
-
-// ToMillis returns the number of whole milliseconds derived from the nanoseconds component only.
-func (d Duration) ToMillis() int64 {
-	return d.Nanoseconds / NSPerMS
-}
-
-// ToMicros returns the number of whole microseconds derived from the nanoseconds component only.
-func (d Duration) ToMicros() int64 {
-	return d.Nanoseconds / NSPerUS
 }
 
 // String returns the human-readable long-form representation (e.g. "1y3mo25d5h6m7s8ms9us10ns").
@@ -412,7 +418,7 @@ func (d Duration) AppendShortString(dst []byte) []byte {
 		dst = append(dst, '-')
 	}
 
-	m := d.Months
+	m := d.months
 	if m < 0 {
 		m = -m
 	}
@@ -421,7 +427,7 @@ func (d Duration) AppendShortString(dst []byte) []byte {
 		dst = append(dst, "mo"...)
 	}
 
-	dy := d.Days
+	dy := d.days
 	if dy < 0 {
 		dy = -dy
 	}
@@ -430,7 +436,7 @@ func (d Duration) AppendShortString(dst []byte) []byte {
 		dst = append(dst, 'd')
 	}
 
-	ns := d.Nanoseconds
+	ns := d.nanoseconds
 	if ns < 0 {
 		ns = -ns
 	}
@@ -453,7 +459,7 @@ func durationToLongString(d Duration) string {
 		sb.WriteByte('-')
 	}
 
-	months := d.Months
+	months := d.months
 	if months < 0 {
 		months = -months
 	}
@@ -468,7 +474,7 @@ func durationToLongString(d Duration) string {
 		}
 	}
 
-	days := d.Days
+	days := d.days
 	if days < 0 {
 		days = -days
 	}
@@ -477,7 +483,7 @@ func durationToLongString(d Duration) string {
 		sb.WriteByte('d')
 	}
 
-	nanos := d.Nanoseconds
+	nanos := d.nanoseconds
 	if nanos < 0 {
 		nanos = -nanos
 	}
@@ -546,9 +552,9 @@ func NewDurationBuilder() *DurationBuilder {
 func NewDurationBuilderFrom(base Duration) *DurationBuilder {
 	abs := base.Abs()
 	return &DurationBuilder{
-		months:      abs.Months,
-		days:        abs.Days,
-		nanoseconds: abs.Nanoseconds,
+		months:      abs.months,
+		days:        abs.days,
+		nanoseconds: abs.nanoseconds,
 		negative:    base.IsNegative(),
 	}
 }
@@ -565,120 +571,92 @@ func (b *DurationBuilder) SetNegative(negative bool) *DurationBuilder {
 	return b
 }
 
-// AddYears adds n years (converted to months: 1 year = 12 months).
-func (b *DurationBuilder) AddYears(n int) *DurationBuilder {
-	return b.addYears(int64(n))
+func (b *DurationBuilder) AddYears(n int32) *DurationBuilder {
+	return b.addMonths(n, 12, "years")
 }
 
-// AddMonths adds n months.
-func (b *DurationBuilder) AddMonths(n int) *DurationBuilder {
-	return b.addMonths(int64(n))
+func (b *DurationBuilder) AddMonths(n int32) *DurationBuilder {
+	return b.addMonths(n, 1, "months")
 }
 
-// AddWeeks adds n weeks (converted to days: 1 week = 7 days).
-func (b *DurationBuilder) AddWeeks(n int) *DurationBuilder {
-	return b.addWeeks(int64(n))
+func (b *DurationBuilder) AddWeeks(n int32) *DurationBuilder {
+	return b.addDays(n, 7, "weeks")
 }
 
-// AddDays adds n days.
-func (b *DurationBuilder) AddDays(n int) *DurationBuilder {
-	return b.addDays(int64(n))
-}
-
-func (b *DurationBuilder) addYears(n int64) *DurationBuilder {
-	if b.err != nil {
-		return b
-	}
-	v := int64(b.months) + n*12
-	if n > int64(MaxMonthsDays)/12 || v > int64(MaxMonthsDays) || v < 0 {
-		b.err = fmt.Errorf("invalid duration: total months %d out of range [0, %d]", v, MaxMonthsDays)
-		return b
-	}
-	b.months = int32(v)
-	return b
-}
-
-func (b *DurationBuilder) addMonths(n int64) *DurationBuilder {
-	if b.err != nil {
-		return b
-	}
-	v := int64(b.months) + n
-	if n > int64(MaxMonthsDays) || v > int64(MaxMonthsDays) || v < 0 {
-		b.err = fmt.Errorf("invalid duration: total months %d out of range [0, %d]", v, MaxMonthsDays)
-		return b
-	}
-	b.months = int32(v)
-	return b
-}
-
-func (b *DurationBuilder) addWeeks(n int64) *DurationBuilder {
-	if b.err != nil {
-		return b
-	}
-	v := int64(b.days) + n*7
-	if n > int64(MaxMonthsDays)/7 || v > int64(MaxMonthsDays) || v < 0 {
-		b.err = fmt.Errorf("invalid duration: total days %d out of range [0, %d]", v, MaxMonthsDays)
-		return b
-	}
-	b.days = int32(v)
-	return b
-}
-
-func (b *DurationBuilder) addDays(n int64) *DurationBuilder {
-	if b.err != nil {
-		return b
-	}
-	v := int64(b.days) + n
-	if n > int64(MaxMonthsDays) || v > int64(MaxMonthsDays) || v < 0 {
-		b.err = fmt.Errorf("invalid duration: total days %d out of range [0, %d]", v, MaxMonthsDays)
-		return b
-	}
-	b.days = int32(v)
-	return b
+func (b *DurationBuilder) AddDays(n int32) *DurationBuilder {
+	return b.addDays(n, 1, "days")
 }
 
 // AddHours adds n hours (converted to nanoseconds).
-func (b *DurationBuilder) AddHours(n int) *DurationBuilder {
-	return b.addNanos(int64(n), NSPerHour, "hours")
+func (b *DurationBuilder) AddHours(n int64) *DurationBuilder {
+	return b.addNanos(n, NSPerHour, "hours")
 }
 
 // AddMinutes adds n minutes (converted to nanoseconds).
-func (b *DurationBuilder) AddMinutes(n int) *DurationBuilder {
-	return b.addNanos(int64(n), NSPerMin, "minutes")
+func (b *DurationBuilder) AddMinutes(n int64) *DurationBuilder {
+	return b.addNanos(n, NSPerMin, "minutes")
 }
 
 // AddSeconds adds n seconds (converted to nanoseconds).
-func (b *DurationBuilder) AddSeconds(n int) *DurationBuilder {
-	return b.addNanos(int64(n), NSPerSec, "seconds")
+func (b *DurationBuilder) AddSeconds(n int64) *DurationBuilder {
+	return b.addNanos(n, NSPerSec, "seconds")
 }
 
 // AddMillis adds n milliseconds (converted to nanoseconds).
-func (b *DurationBuilder) AddMillis(n int) *DurationBuilder {
-	return b.addNanos(int64(n), NSPerMS, "milliseconds")
+func (b *DurationBuilder) AddMillis(n int64) *DurationBuilder {
+	return b.addNanos(n, NSPerMS, "milliseconds")
 }
 
 // AddMicros adds n microseconds (converted to nanoseconds).
-func (b *DurationBuilder) AddMicros(n int) *DurationBuilder {
-	return b.addNanos(int64(n), NSPerUS, "microseconds")
+func (b *DurationBuilder) AddMicros(n int64) *DurationBuilder {
+	return b.addNanos(n, NSPerUS, "microseconds")
 }
 
 // AddNanos adds n nanoseconds.
-func (b *DurationBuilder) AddNanos(n int) *DurationBuilder {
-	return b.addNanos(int64(n), 1, "nanoseconds")
+func (b *DurationBuilder) AddNanos(n int64) *DurationBuilder {
+	return b.addNanos(n, 1, "nanoseconds")
+}
+
+func (b *DurationBuilder) addMonths(n int32, monthsPerUnit int64, name string) *DurationBuilder {
+	if b.err != nil {
+		return b
+	}
+	v := int64(b.months) + int64(n)*monthsPerUnit
+	if v < -int64(MaxMonthsDays) || int64(MaxMonthsDays) < v {
+		b.err = fmt.Errorf("invalid duration: total months %d out of range [-%d, %d] (tried to add %d %s)", v, MaxMonthsDays, MaxMonthsDays, n, name)
+		return b
+	}
+	b.months = int32(v)
+	return b
+}
+
+func (b *DurationBuilder) addDays(n int32, daysPerUnit int64, name string) *DurationBuilder {
+	if b.err != nil {
+		return b
+	}
+	v := int64(b.days) + int64(n)*daysPerUnit
+	if v < -int64(MaxMonthsDays) || int64(MaxMonthsDays) < v {
+		b.err = fmt.Errorf("invalid duration: total days %d out of range [-%d, %d] (tried to add %d %s)", v, MaxMonthsDays, MaxMonthsDays, n, name)
+		return b
+	}
+	b.days = int32(v)
+	return b
 }
 
 func (b *DurationBuilder) addNanos(n, nsPerUnit int64, name string) *DurationBuilder {
 	if b.err != nil {
 		return b
 	}
-	if n < 0 {
-		b.err = fmt.Errorf("invalid duration: cannot add negative %s (%d); use Negate() or SetNegative() instead", name, n)
+
+	if n > 0 && n > (MaxNanos-b.nanoseconds)/nsPerUnit {
+		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [-%d, %d] (tried to add %d %s)", MaxNanos, MaxNanos, n, name)
 		return b
 	}
-	if n > (MaxNanos-b.nanoseconds)/nsPerUnit {
-		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [0, %d] (tried to add %d %s)", MaxNanos, n, name)
+	if n < 0 && n < (-MaxNanos-b.nanoseconds)/nsPerUnit {
+		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [-%d, %d] (tried to add %d %s)", MaxNanos, MaxNanos, n, name)
 		return b
 	}
+
 	b.nanoseconds += n * nsPerUnit
 	return b
 }
@@ -688,8 +666,15 @@ func (b *DurationBuilder) Build() (Duration, error) {
 	if b.err != nil {
 		return Duration{}, b.err
 	}
+
+	months, days, nanos := b.months, b.days, b.nanoseconds
 	if b.negative {
-		return Duration{Months: -b.months, Days: -b.days, Nanoseconds: -b.nanoseconds}, nil
+		months, days, nanos = -months, -days, -nanos
 	}
-	return Duration{Months: b.months, Days: b.days, Nanoseconds: b.nanoseconds}, nil
+
+	if err := validateDuration(months, days, nanos); err != nil {
+		return Duration{}, err
+	}
+
+	return Duration{months, days, nanos}, nil
 }
