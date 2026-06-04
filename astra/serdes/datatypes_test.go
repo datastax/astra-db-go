@@ -166,9 +166,9 @@ func TestObjectIds_Untyped_Collection(t *testing.T) {
 // durationGen generates valid Duration values (all components share a sign).
 var durationGen = rapid.Custom(func(t *rapid.T) datatypes.Duration {
 	negative := rapid.Bool().Draw(t, "negative")
-	months := int32(rapid.Int64Range(0, int64(datatypes.MaxMonthsDays)).Draw(t, "months"))
-	days := int32(rapid.Int64Range(0, int64(datatypes.MaxMonthsDays)).Draw(t, "days"))
-	nanos := rapid.Int64Range(0, datatypes.MaxNanos).Draw(t, "nanos")
+	months := int32(rapid.Int64Range(0, int64(datatypes.DurationMaxMonthsDays)).Draw(t, "months"))
+	days := int32(rapid.Int64Range(0, int64(datatypes.DurationMaxMonthsDays)).Draw(t, "days"))
+	nanos := rapid.Int64Range(0, datatypes.DurationMaxNanos).Draw(t, "nanos")
 	if negative {
 		months = -months
 		days = -days

@@ -349,7 +349,7 @@ func TestDuration_Plus(t *testing.T) {
 	}
 
 	t.Run("overflow months", func(t *testing.T) {
-		d1 := Duration{months: MaxMonthsDays, days: 0, nanoseconds: 0}
+		d1 := Duration{months: DurationMaxMonthsDays, days: 0, nanoseconds: 0}
 		d2 := Duration{months: 1, days: 0, nanoseconds: 0}
 		if _, ok := d1.Plus(d2); ok {
 			t.Error("Plus should return false on month overflow")
@@ -357,7 +357,7 @@ func TestDuration_Plus(t *testing.T) {
 	})
 
 	t.Run("overflow nanos", func(t *testing.T) {
-		d1 := Duration{months: 0, days: 0, nanoseconds: MaxNanos}
+		d1 := Duration{months: 0, days: 0, nanoseconds: DurationMaxNanos}
 		d2 := Duration{months: 0, days: 0, nanoseconds: 1}
 		if _, ok := d1.Plus(d2); ok {
 			t.Error("Plus should return false on nanos overflow")
@@ -524,7 +524,7 @@ func TestDurationBuilder(t *testing.T) {
 	})
 
 	t.Run("overflow months", func(t *testing.T) {
-		_, err := NewDurationBuilder().AddMonths(MaxMonthsDays).AddYears(1).Build()
+		_, err := NewDurationBuilder().AddMonths(DurationMaxMonthsDays).AddYears(1).Build()
 		if err == nil {
 			t.Error("expected overflow error")
 		}

@@ -33,8 +33,8 @@ const (
 )
 
 const (
-	MaxMonthsDays = int32(2_147_483_647)
-	MaxNanos      = int64(9_223_372_036_854_775_807)
+	DurationMaxMonthsDays = int32(2_147_483_647)
+	DurationMaxNanos      = int64(9_223_372_036_854_775_807)
 )
 
 // Duration represents a Cassandra duration type stored as months, days, and nanoseconds.
@@ -119,9 +119,9 @@ func ParseDuration(s string) (Duration, error) {
 		case strings.HasSuffix(rest, "W"):
 			d, err = parseISOWeekDuration(rest)
 		case strings.Contains(rest, "-"):
-			d, err = parseISOAlternateDuration(rest)
+			d, err = parseISODuration(rest, isoTypeAlternate)
 		default:
-			d, err = parseISOStandardDuration(rest)
+			d, err = parseISODuration(rest, isoTypeStandard)
 		}
 	} else {
 		d, err = parseBasicDuration(rest, s)
@@ -158,11 +158,7 @@ func parseBasicDuration(s, original string) (Duration, error) {
 			return Duration{}, fmt.Errorf("invalid standard duration string: %q", original)
 		}
 
-		num, err := strconv.ParseInt(m[1], 10, 64)
-		if err != nil {
-			return Duration{}, fmt.Errorf("invalid duration number in %q: %w", original, err)
-		}
-
+		num := b.parseInt(m[1], 64)
 		unit := m[2]
 		idx := basicUnitOrderIndex[unit]
 
@@ -196,66 +192,18 @@ func parseBasicDuration(s, original string) (Duration, error) {
 
 		hasAny = true
 		i += len(m[0])
+		if b.err != nil {
+			break
+		}
 	}
 
-	if !hasAny {
+	if !hasAny && b.err == nil {
 		return Duration{}, fmt.Errorf("invalid standard duration string: %q", original)
 	}
 
 	d, err := b.Build()
 	if err != nil {
 		return Duration{}, fmt.Errorf("invalid duration %q: %w", original, err)
-	}
-	return d, nil
-}
-
-// isoStandardDurationRe matches ISO 8601 standard duration: P[nY][nM][nD][T[nH][nM][n[.f]S]]
-var isoStandardDurationRe = regexp.MustCompile(`^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.(\d+))?S)?)?$`)
-
-func parseISOStandardDuration(s string) (Duration, error) {
-	m := isoStandardDurationRe.FindStringSubmatch(s)
-	if m == nil {
-		return Duration{}, fmt.Errorf("invalid ISO 8601 standard duration string: %q", s)
-	}
-
-	b := NewDurationBuilder()
-	if m[1] != "" {
-		n, _ := strconv.ParseInt(m[1], 10, 32)
-		b.AddYears(int32(n))
-	}
-	if m[2] != "" {
-		n, _ := strconv.ParseInt(m[2], 10, 32)
-		b.AddMonths(int32(n))
-	}
-	if m[3] != "" {
-		n, _ := strconv.ParseInt(m[3], 10, 32)
-		b.AddDays(int32(n))
-	}
-
-	if m[4] != "" {
-		n, _ := strconv.ParseInt(m[4], 10, 64)
-		b.AddHours(n)
-	}
-	if m[5] != "" {
-		n, _ := strconv.ParseInt(m[5], 10, 64)
-		b.AddMinutes(n)
-	}
-	if m[6] != "" {
-		n, _ := strconv.ParseInt(m[6], 10, 64)
-		b.AddSeconds(n)
-	}
-	if m[7] != "" {
-		fracStr := m[7]
-		if len(fracStr) > 9 {
-			fracStr = fracStr[:9]
-		}
-		frac, _ := strconv.ParseInt(fracStr, 10, 32)
-		b.AddNanos(frac * int64(math.Pow10(9-len(fracStr))))
-	}
-
-	d, err := b.Build()
-	if err != nil {
-		return Duration{}, fmt.Errorf("invalid ISO 8601 duration %q: %w", s, err)
 	}
 	return d, nil
 }
@@ -269,9 +217,10 @@ func parseISOWeekDuration(s string) (Duration, error) {
 		return Duration{}, fmt.Errorf("invalid ISO 8601 week duration string: %q", s)
 	}
 
-	weeks, _ := strconv.ParseInt(m[1], 10, 32)
 	b := NewDurationBuilder()
-	b.AddWeeks(int32(weeks))
+	if weeks := b.parseInt(m[1], 32); weeks != 0 {
+		b.AddWeeks(int32(weeks))
+	}
 
 	d, err := b.Build()
 	if err != nil {
@@ -280,44 +229,75 @@ func parseISOWeekDuration(s string) (Duration, error) {
 	return d, nil
 }
 
+// isoStandardDurationRe matches ISO 8601 standard duration: P[nY][nM][nD][T[nH][nM][n[.f]S]]
+var isoStandardDurationRe = regexp.MustCompile(`^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)(?:\.(\d+))?S)?)?$`)
+
 // isoAlternateDurationRe matches ISO 8601 alternate duration: PYYYY-MM-DDThh:mm:ss
 var isoAlternateDurationRe = regexp.MustCompile(`^P(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})$`)
 
-func parseISOAlternateDuration(s string) (Duration, error) {
-	m := isoAlternateDurationRe.FindStringSubmatch(s)
+type isoDurationType struct {
+	name   string
+	regexp *regexp.Regexp
+}
+
+var (
+	isoTypeStandard  = &isoDurationType{"standard", isoStandardDurationRe}
+	isoTypeAlternate = &isoDurationType{"alternate", isoAlternateDurationRe}
+)
+
+func parseISODuration(s string, typ *isoDurationType) (Duration, error) {
+	m := typ.regexp.FindStringSubmatch(s)
 	if m == nil {
-		return Duration{}, fmt.Errorf("invalid ISO 8601 alternate duration string: %q", s)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 %s duration string: %q", typ.name, s)
 	}
 
-	years, _ := strconv.ParseInt(m[1], 10, 32)
-	mons, _ := strconv.ParseInt(m[2], 10, 32)
-	days, _ := strconv.ParseInt(m[3], 10, 32)
-	hours, _ := strconv.ParseInt(m[4], 10, 64)
-	mins, _ := strconv.ParseInt(m[5], 10, 64)
-	secs, _ := strconv.ParseInt(m[6], 10, 64)
-
 	b := NewDurationBuilder()
-	b.AddYears(int32(years)).AddMonths(int32(mons)).AddDays(int32(days)).
-		AddHours(hours).
-		AddMinutes(mins).
-		AddSeconds(secs)
+	if years := b.parseInt(m[1], 32); years != 0 {
+		b.AddYears(int32(years))
+	}
+	if mons := b.parseInt(m[2], 32); mons != 0 {
+		b.AddMonths(int32(mons))
+	}
+	if days := b.parseInt(m[3], 32); days != 0 {
+		b.AddDays(int32(days))
+	}
+
+	if hours := b.parseInt(m[4], 64); hours != 0 {
+		b.AddHours(hours)
+	}
+	if mins := b.parseInt(m[5], 64); mins != 0 {
+		b.AddMinutes(mins)
+	}
+	if secs := b.parseInt(m[6], 64); secs != 0 {
+		b.AddSeconds(secs)
+	}
+
+	if typ == isoTypeStandard && m[7] != "" {
+		fracStr := m[7]
+		if len(fracStr) > 9 {
+			fracStr = fracStr[:9]
+		}
+		if frac := b.parseInt(fracStr, 32); frac != 0 {
+			b.AddNanos(frac * int64(math.Pow10(9-len(fracStr))))
+		}
+	}
 
 	d, err := b.Build()
 	if err != nil {
-		return Duration{}, fmt.Errorf("invalid ISO 8601 alternate duration %q: %w", s, err)
+		return Duration{}, fmt.Errorf("invalid ISO 8601 %s duration %q: %w", typ.name, s, err)
 	}
 	return d, nil
 }
 
 func validateDuration(months int32, days int32, nanoseconds int64) error {
-	if months < -MaxMonthsDays || months > MaxMonthsDays {
-		return fmt.Errorf("invalid duration months %d: out of range [-%d, %d]", months, MaxMonthsDays, MaxMonthsDays)
+	if months < -DurationMaxMonthsDays || months > DurationMaxMonthsDays {
+		return fmt.Errorf("invalid duration months %d: out of range [-%d, %d]", months, DurationMaxMonthsDays, DurationMaxMonthsDays)
 	}
-	if days < -MaxMonthsDays || days > MaxMonthsDays {
-		return fmt.Errorf("invalid duration days %d: out of range [-%d, %d]", days, MaxMonthsDays, MaxMonthsDays)
+	if days < -DurationMaxMonthsDays || days > DurationMaxMonthsDays {
+		return fmt.Errorf("invalid duration days %d: out of range [-%d, %d]", days, DurationMaxMonthsDays, DurationMaxMonthsDays)
 	}
-	if nanoseconds < -MaxNanos || nanoseconds > MaxNanos {
-		return fmt.Errorf("invalid duration nanoseconds %d: out of range [-%d, %d]", nanoseconds, MaxNanos, MaxNanos)
+	if nanoseconds < -DurationMaxNanos || nanoseconds > DurationMaxNanos {
+		return fmt.Errorf("invalid duration nanoseconds %d: out of range [-%d, %d]", nanoseconds, DurationMaxNanos, DurationMaxNanos)
 	}
 
 	allNonNeg := months >= 0 && days >= 0 && nanoseconds >= 0
@@ -622,8 +602,8 @@ func (b *DurationBuilder) addMonths(n int32, monthsPerUnit int64, name string) *
 		return b
 	}
 	v := int64(b.months) + int64(n)*monthsPerUnit
-	if v < -int64(MaxMonthsDays) || int64(MaxMonthsDays) < v {
-		b.err = fmt.Errorf("invalid duration: total months %d out of range [-%d, %d] (tried to add %d %s)", v, MaxMonthsDays, MaxMonthsDays, n, name)
+	if v < -int64(DurationMaxMonthsDays) || int64(DurationMaxMonthsDays) < v {
+		b.err = fmt.Errorf("invalid duration: total months %d out of range [-%d, %d] (tried to add %d %s)", v, DurationMaxMonthsDays, DurationMaxMonthsDays, n, name)
 		return b
 	}
 	b.months = int32(v)
@@ -635,8 +615,8 @@ func (b *DurationBuilder) addDays(n int32, daysPerUnit int64, name string) *Dura
 		return b
 	}
 	v := int64(b.days) + int64(n)*daysPerUnit
-	if v < -int64(MaxMonthsDays) || int64(MaxMonthsDays) < v {
-		b.err = fmt.Errorf("invalid duration: total days %d out of range [-%d, %d] (tried to add %d %s)", v, MaxMonthsDays, MaxMonthsDays, n, name)
+	if v < -int64(DurationMaxMonthsDays) || int64(DurationMaxMonthsDays) < v {
+		b.err = fmt.Errorf("invalid duration: total days %d out of range [-%d, %d] (tried to add %d %s)", v, DurationMaxMonthsDays, DurationMaxMonthsDays, n, name)
 		return b
 	}
 	b.days = int32(v)
@@ -648,17 +628,29 @@ func (b *DurationBuilder) addNanos(n, nsPerUnit int64, name string) *DurationBui
 		return b
 	}
 
-	if n > 0 && n > (MaxNanos-b.nanoseconds)/nsPerUnit {
-		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [-%d, %d] (tried to add %d %s)", MaxNanos, MaxNanos, n, name)
+	if n > 0 && n > (DurationMaxNanos-b.nanoseconds)/nsPerUnit {
+		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [-%d, %d] (tried to add %d %s)", DurationMaxNanos, DurationMaxNanos, n, name)
 		return b
 	}
-	if n < 0 && n < (-MaxNanos-b.nanoseconds)/nsPerUnit {
-		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [-%d, %d] (tried to add %d %s)", MaxNanos, MaxNanos, n, name)
+	if n < 0 && n < (-DurationMaxNanos-b.nanoseconds)/nsPerUnit {
+		b.err = fmt.Errorf("invalid duration: total nanoseconds out of range [-%d, %d] (tried to add %d %s)", DurationMaxNanos, DurationMaxNanos, n, name)
 		return b
 	}
 
 	b.nanoseconds += n * nsPerUnit
 	return b
+}
+
+func (b *DurationBuilder) parseInt(s string, bits int) int64 {
+	if b.err != nil || s == "" {
+		return 0
+	}
+	v, err := strconv.ParseInt(s, 10, bits)
+	if err != nil {
+		b.err = fmt.Errorf("invalid int%d '%q': %w", bits, s, err)
+		return 0
+	}
+	return v
 }
 
 // Build returns the constructed Duration, or an error if any Add* call failed.
