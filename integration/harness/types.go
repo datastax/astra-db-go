@@ -24,8 +24,8 @@ import (
 )
 
 type EverythingDoc struct {
-	ID     datatypes.UUID   `json:"_id,omitempty"`
-	Vector datatypes.Vector `json:"$vector,omitempty"`
+	ID     datatypes.UUID     `json:"_id,omitempty"`
+	Vector datatypes.Vector   `json:"$vector,omitempty"`
 	Nested EverythingDocInner `json:"nested"`
 }
 

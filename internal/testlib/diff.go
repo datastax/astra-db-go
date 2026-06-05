@@ -33,6 +33,7 @@ var cmpOpts = []cmp.Option{
 	cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
 }
 
-func Diff(a, b any, opts ...cmp.Option) string {
+func Diff(t HasFatal, a, b any, opts ...cmp.Option) string {
+	t.Helper()
 	return cmp.Diff(a, b, append(cmpOpts, opts...)...)
 }

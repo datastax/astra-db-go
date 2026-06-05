@@ -23,6 +23,7 @@ import (
 	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/datatypes"
 	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/integration/harness"
 	"github.com/datastax/astra-db-go/internal/testlib"
@@ -96,7 +97,7 @@ func init() {
 		t.NoDiff(id, doc.ID)
 
 		var got harness.EverythingDoc
-		err = t.Collection.FindOne(t.Ctx, filter.Eq("_id", doc.ID)).Decode(&got)
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("_id", doc.ID), options.CollectionFindOne().SetProjection(map[string]any{"*": 1})).Decode(&got)
 		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
 		t.NoDiff(doc, got)
 	})

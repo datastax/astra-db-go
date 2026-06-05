@@ -68,7 +68,7 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 		t.Fatalf("Decode(meta) error = %v", err)
 	}
 	expectedMeta := map[string]any{"score": 0.95}
-	if diff := testlib.Diff(expectedMeta, m); diff != "" {
+	if diff := testlib.Diff(t, expectedMeta, m); diff != "" {
 		t.Errorf("Decode(meta) mismatch (-want +got):\n%s", diff)
 	}
 
@@ -79,7 +79,7 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 		"name": "Alice",
 		"meta": map[string]any{"score": 0.95},
 	}
-	if diff := testlib.Diff(expectedFullMap, fullMap); diff != "" {
+	if diff := testlib.Diff(t, expectedFullMap, fullMap); diff != "" {
 		t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -278,7 +278,7 @@ func TestRow_UnmarshalAstraRaw(t *testing.T) {
 			}
 
 			if tt.want != nil {
-				if diff := testlib.Diff(tt.want, row.ToMap()); diff != "" {
+				if diff := testlib.Diff(t, tt.want, row.ToMap()); diff != "" {
 					t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -539,7 +539,7 @@ func TestProperty_Document(t *testing.T) {
 			t.Fatalf("serdes.Deserialize() error = %v", err)
 		}
 
-		if diff := testlib.Diff(expected, got); diff != "" {
+		if diff := testlib.Diff(t, expected, got); diff != "" {
 			t.Errorf("Document.ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
@@ -558,13 +558,13 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string)
 			t.Errorf("Get(%v) failed", fullPath)
 			continue
 		}
-		if diff := testlib.Diff(v, gotVal); diff != "" {
+		if diff := testlib.Diff(t, v, gotVal); diff != "" {
 			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
 		// MustGet
 		mustGotVal := doc.MustGet(fullPath...)
-		if diff := testlib.Diff(v, mustGotVal); diff != "" {
+		if diff := testlib.Diff(t, v, mustGotVal); diff != "" {
 			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
@@ -574,7 +574,7 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string)
 			if err := doc.Decode(&decoded, fullPath...); err != nil {
 				t.Errorf("Decode(%v) error = %v", fullPath, err)
 			} else {
-				if diff := testlib.Diff(v, decoded); diff != "" {
+				if diff := testlib.Diff(t, v, decoded); diff != "" {
 					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
 				}
 			}
@@ -605,7 +605,7 @@ func TestProperty_Row(t *testing.T) {
 
 		got := row.ToMap()
 
-		if diff := testlib.Diff(input, got); diff != "" {
+		if diff := testlib.Diff(t, input, got); diff != "" {
 			t.Errorf("Row.ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
@@ -624,13 +624,13 @@ func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string) {
 			t.Errorf("Get(%v) failed", fullPath)
 			continue
 		}
-		if diff := testlib.Diff(v, gotVal); diff != "" {
+		if diff := testlib.Diff(t, v, gotVal); diff != "" {
 			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
 		// MustGet
 		mustGotVal := row.MustGet(fullPath...)
-		if diff := testlib.Diff(v, mustGotVal); diff != "" {
+		if diff := testlib.Diff(t, v, mustGotVal); diff != "" {
 			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
@@ -640,7 +640,7 @@ func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string) {
 			if err := row.Decode(&decoded, fullPath...); err != nil {
 				t.Errorf("Decode(%v) error = %v", fullPath, err)
 			} else {
-				if diff := testlib.Diff(v, decoded); diff != "" {
+				if diff := testlib.Diff(t, v, decoded); diff != "" {
 					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
 				}
 			}
@@ -659,7 +659,7 @@ func TestProperty_NewDocument(t *testing.T) {
 		doc := NewDocument(input)
 
 		// Test ToMap
-		if diff := testlib.Diff(input, doc.ToMap()); diff != "" {
+		if diff := testlib.Diff(t, input, doc.ToMap()); diff != "" {
 			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
@@ -687,7 +687,7 @@ func TestProperty_NewRow(t *testing.T) {
 		row := NewRow(input)
 
 		// Test ToMap
-		if diff := testlib.Diff(input, row.ToMap()); diff != "" {
+		if diff := testlib.Diff(t, input, row.ToMap()); diff != "" {
 			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 		}
 

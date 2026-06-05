@@ -58,7 +58,7 @@ func FprintlnNestedChecklist(w io.Writer, msg string) {
 
 	msg = strings.TrimRight(msg, "\n")
 	if !strings.Contains(msg, "\n") {
-		_, _ = fmt.Fprintf(w, "%s%s%s\n", pipe, prefix, faint.Sprintf(msg))
+		_, _ = fmt.Fprintf(w, "%s%s%s\n", pipe, prefix, faint.Sprint(msg))
 		return
 	}
 
@@ -67,7 +67,7 @@ func FprintlnNestedChecklist(w io.Writer, msg string) {
 		if i != 0 {
 			prefix = "    "
 		}
-		lines[i] = fmt.Sprintf("%s%s%s%s", pipe, prefix, faint.Sprintf("│ "), faint.Sprintf(line))
+		lines[i] = fmt.Sprintf("%s%s%s%s", pipe, prefix, faint.Sprint("│ "), faint.Sprint(line))
 	}
 	_, _ = fmt.Fprintln(w, strings.Join(lines, "\n"))
 }

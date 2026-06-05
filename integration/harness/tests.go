@@ -19,6 +19,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -31,19 +33,38 @@ import (
 // T contains all test-spec data and utilities, similar to testing.T
 type T struct {
 	*TestObjects
-	Name string
-	Ctx  context.Context
-	logs strings.Builder
+	Name    string
+	Ctx     context.Context
+	logs    strings.Builder
+	mu      sync.RWMutex
+	helpers map[string]bool
 }
 
 // failSignal is used internally to differentiate between a true panic, and an intentional test failure (via t.Fatalf).
 // Is this abuse of control flow? Maybe. Do I care? no.
 type failSignal struct {
-	msg string
+	msg  string
+	file string
+	line int
 }
 
-// Helper is just used for interface compatability w/ testlib.HasFatal, and doesn't really have a reason to exist otherwise
-func (t *T) Helper() {}
+// Helper marks the calling function as a test helper function.
+// When printing file and line information, that function will be skipped.
+func (t *T) Helper() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	var pcs [1]uintptr
+	n := runtime.Callers(2, pcs[:])
+	if n == 0 {
+		return
+	}
+
+	frames := runtime.CallersFrames(pcs[:n])
+	frame, _ := frames.Next()
+
+	t.helpers[frame.Function] = true
+}
 
 func (t *T) Log(format string) {
 	_, _ = fmt.Fprintln(&t.logs, format)
@@ -54,11 +75,45 @@ func (t *T) Logf(format string, args ...any) {
 }
 
 func (t *T) Fatalf(format string, args ...any) {
-	panic(failSignal{msg: fmt.Sprintf(format, args...)})
+	var file string
+	var line int
+
+	var pcs [50]uintptr
+	n := runtime.Callers(2, pcs[:])
+	if n > 0 {
+		t.mu.RLock()
+		defer t.mu.RUnlock()
+
+		frames := runtime.CallersFrames(pcs[:n])
+		for {
+			frame, more := frames.Next()
+			if !t.helpers[frame.Function] {
+				file = frame.File
+				line = frame.Line
+				break
+			}
+			if !more {
+				break
+			}
+		}
+	}
+
+	if cwd, err := os.Getwd(); err == nil {
+		if rel, err := filepath.Rel(cwd, file); err == nil {
+			file = rel
+		}
+	}
+
+	panic(failSignal{
+		msg:  fmt.Sprintf(format, args...),
+		file: file,
+		line: line,
+	})
 }
 
 func (t *T) NoDiff(want, got any) {
-	if diff := testlib.Diff(want, got); diff != "" {
+	t.Helper()
+	if diff := testlib.Diff(t, want, got); diff != "" {
 		t.Fatalf("mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -194,7 +249,7 @@ func executeTest(w io.Writer, suiteName string, tst test) {
 			if fs, ok := r.(failSignal); ok {
 				printRes(color.RedString("✘"))
 				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
-					testName: tst.name,
+					testName: tst.name + fmt.Sprintf(" (%s:%d)", fs.file, fs.line),
 					message:  fs.msg,
 				})
 			} else {
@@ -222,5 +277,8 @@ func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) 
 }
 
 func mkT(t test) T {
-	return T{NewTestObjects(), t.name, context.Background(), strings.Builder{}}
+	return T{
+		NewTestObjects(), t.name, context.Background(),
+		strings.Builder{}, sync.RWMutex{}, make(map[string]bool),
+	}
 }
