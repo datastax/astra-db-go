@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -225,6 +226,7 @@ type apiStatus struct {
 // Will call WarningHandler if appropriate.
 func (c *command) extractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	if statusCode >= 400 {
+		fmt.Printf("API returned error status code %d. Using backend %s", statusCode, opts.GetDataAPIBackend())
 		// We have a transport/server-level error so let's try to extract the message.
 		var transportErr results.DataAPIError
 		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone, opts.GetDesFlags())

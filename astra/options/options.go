@@ -145,21 +145,21 @@ func MergeAndValidate[T any](opts ...Builder[T]) (*T, error) {
 
 // MergeInto merges multiple Builder options into an existing options struct.
 // It initializes the target if it is nil and applies each option's setters
-// sequentially. This function does NOT apply defaults unless it is creating
-// a new struct, in which case it calls SetDefaults() if available.
+// sequentially. This function does NOT apply defaults unless it is a
+// Replace operation, ensuring hierarchical merging remains sparse.
 func MergeInto[T any](target **T, opts ...Builder[T]) {
 	for _, opt := range opts {
 		if opt == nil || reflect.ValueOf(opt).IsNil() {
 			continue
 		}
 		if isReplace(opt) {
-			*target = nil
-		}
-		if *target == nil {
 			*target = new(T)
 			if d, ok := any(*target).(Defaulter); ok {
 				d.SetDefaults()
 			}
+		}
+		if *target == nil {
+			*target = new(T)
 		}
 		for _, setter := range opt.Setters() {
 			setter(*target)
