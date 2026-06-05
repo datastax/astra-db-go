@@ -17,6 +17,7 @@ package harness
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	"github.com/DeanPDX/dotconfig"
 	"github.com/datastax/astra-db-go/astra/options"
@@ -29,10 +30,24 @@ const (
 	DefaultUDTName        = "example_udt"
 )
 
+// stringSlice is necessary to support multiple -f and -F flags for test filtering
+type stringSlice []string
+
+func (i *stringSlice) String() string {
+	return strings.Join(*i, ",")
+}
+
+func (i *stringSlice) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
 type config struct {
 	// flags
 	local       bool
 	skipPrelude bool
+	include     stringSlice
+	exclude     stringSlice
 
 	// env
 	apiEndpoint      string `env:"API_ENDPOINT,optional"`
@@ -51,6 +66,8 @@ func Init() {
 
 	flag.BoolVar(&c.local, "local", false, "run tests against a local HCD/DSE instance")
 	flag.BoolVar(&c.skipPrelude, "P", false, "skip the prelude (setup) step")
+	flag.Var(&c.include, "f", "filter tests by name (must include)")
+	flag.Var(&c.exclude, "F", "filter tests by name (must not include)")
 	flag.Parse()
 
 	if c.local {
@@ -86,4 +103,26 @@ func ApplicationToken() string {
 
 func Backend() options.DataAPIBackend {
 	return options.DataAPIBackend(cfg.backend) // should probably add validation but eh whatever
+}
+
+func ShouldRun(suiteName, testName string) bool {
+	if len(cfg.include) == 0 && len(cfg.exclude) == 0 {
+		return true
+	}
+
+	fullName := suiteName + "/" + testName
+
+	for _, inc := range cfg.include {
+		if !strings.Contains(fullName, inc) {
+			return false
+		}
+	}
+
+	for _, exc := range cfg.exclude {
+		if strings.Contains(fullName, exc) {
+			return false
+		}
+	}
+
+	return true
 }

@@ -202,10 +202,23 @@ func Run() int {
 	var suiteWg sync.WaitGroup
 
 	for _, t := range backgroundTests {
-		runTestParallel(&bgOut, "{Background}", t, &bgWg)
+		if ShouldRun("{Background}", t.name) {
+			runTestParallel(&bgOut, "{Background}", t, &bgWg)
+		}
 	}
 
 	for i, t := range suites {
+		var testsToRun []test
+		for _, test := range t.tests {
+			if ShouldRun(t.Name, test.name) {
+				testsToRun = append(testsToRun, test)
+			}
+		}
+
+		if len(testsToRun) == 0 {
+			continue
+		}
+
 		fmt.Printf("\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i+1))), Bold(t.Name))
 
 		beforeSucceeded := true
@@ -214,7 +227,7 @@ func Run() int {
 		}
 
 		if beforeSucceeded {
-			for _, test := range t.tests {
+			for _, test := range testsToRun {
 				if t.Parallel {
 					runTestParallel(os.Stdout, t.Name, test, &suiteWg)
 				} else {
