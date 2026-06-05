@@ -12,27 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package collection_test
 
 import (
-	"os"
-
+	"github.com/datastax/astra-db-go/astra"
+	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/integration/harness"
-	"github.com/datastax/astra-db-go/integration/old"
-
-	_ "github.com/datastax/astra-db-go/integration/tests/collection"
-	_ "github.com/datastax/astra-db-go/integration/tests/table"
+	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
-func main() {
-	harness.Init()
-	exitCode := harness.Run()
+func init() {
+	s := harness.ParallelSuite()
 
-	if exitCode != 0 {
-		os.Exit(exitCode)
+	s.Run("should fail to insert a document into a table", func(t *harness.T) {
+		_, err := t.Table.InsertOne(t.Ctx, astra.NewDocument{})
+		testlib.FailIf(t, err == nil, "expected InsertOne to fail when inserting a document into a table")
+	})
+}
+
+func insertOneDecodeAny(res *results.InsertOneResult) any {
+	var id any
+	if err := res.DecodeID(&id); err != nil {
+		panic("failed to decode inserted ID: " + err.Error())
 	}
-
-	harness.PrintlnBold(harness.Highlight("...Running legacy integration tests...\n"))
-
-	old.Run() // temporary (obviously)
+	return id
 }

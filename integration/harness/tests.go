@@ -136,16 +136,24 @@ type S struct {
 	tests    []test
 }
 
-func Suite(name string) *S {
-	s := &S{Name: name}
+func ParallelSuite() *S {
+	s := &S{Name: suiteName(1), Parallel: true}
 	suites = append(suites, s)
 	return s
 }
 
-func ParallelSuite(name string) *S {
-	s := &S{Name: name, Parallel: true}
+func SequentialSuite() *S {
+	s := &S{Name: suiteName(1)}
 	suites = append(suites, s)
 	return s
+}
+
+func suiteName(skip int) string {
+	res, err := filepath.Rel(TestsDirectory, callerPath(1+skip))
+	if err != nil {
+		panic(fmt.Sprintf("failed to get suite name: %v", err))
+	}
+	return res
 }
 
 func (s *S) Run(name string, fn func(*T)) *S {
@@ -214,7 +222,7 @@ func printFailures() int {
 	i := 1
 	for _, suiteName := range suiteNames {
 		for _, f := range suiteFailures[suiteName] {
-			fmt.Printf("  %d) %s %s:\n", i, suiteName, f.testName)
+			fmt.Printf("  %s – %s\n", Bold(fmt.Sprintf("%d) %s", i, suiteName)), f.testName)
 			lines := strings.Split(f.message, "\n")
 			for _, line := range lines {
 				if f.isPanic {
@@ -249,7 +257,7 @@ func executeTest(w io.Writer, suiteName string, tst test) {
 			if fs, ok := r.(failSignal); ok {
 				printRes(color.RedString("✘"))
 				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
-					testName: tst.name + fmt.Sprintf(" (%s:%d)", fs.file, fs.line),
+					testName: tst.name + Faint(fmt.Sprintf(" (%s:%d)", fs.file, fs.line)),
 					message:  fs.msg,
 				})
 			} else {

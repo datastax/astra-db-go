@@ -114,6 +114,8 @@ type HasFatal interface {
 }
 
 func AwaitAll[T any, R any](t HasFatal, xs []T, fn func(T) (R, error)) []R {
+	t.Helper()
+
 	var wg sync.WaitGroup
 	var errAtomic atomic.Value
 	results := make([]R, len(xs))
@@ -135,7 +137,7 @@ func AwaitAll[T any, R any](t HasFatal, xs []T, fn func(T) (R, error)) []R {
 	wg.Wait()
 
 	if err := errAtomic.Load(); err != nil {
-		t.Fatalf("error in AwaitAll: %v", err.(error))
+		t.Fatalf("AwaitAll: %v", err.(error))
 	}
 
 	return results

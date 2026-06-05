@@ -20,6 +20,7 @@ import (
 
 	"github.com/DeanPDX/dotconfig"
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/fatih/color"
 )
 
 const (
@@ -49,7 +50,7 @@ func Init() {
 	}
 
 	flag.BoolVar(&c.local, "local", false, "run tests against a local HCD/DSE instance")
-	flag.BoolVar(&c.skipPrelude, "skip-prelude", false, "skip the prelude (setup) step")
+	flag.BoolVar(&c.skipPrelude, "P", false, "skip the prelude (setup) step")
 	flag.Parse()
 
 	if c.local {
@@ -71,7 +72,7 @@ func Init() {
 	if !cfg.skipPrelude {
 		prelude()
 	} else {
-		PrintlnBold("Skipping prelude...")
+		PrintlnBold(color.YellowString("⚠️  Skipping prelude"))
 	}
 }
 

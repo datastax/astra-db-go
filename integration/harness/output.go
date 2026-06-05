@@ -26,12 +26,20 @@ import (
 // Don't have a great way of making this file look nice or have consistent functions
 // I'm just adding what I need to add at that very moment ¯\_(ツ)_/¯
 
+var bold = color.New(color.Bold)
+var faint = color.New(color.Faint)
+var highlight = color.RGB(111, 190, 245)
+
 func Bold(msg string) string {
-	return color.New(color.Bold).Sprint(msg)
+	return bold.Sprint(msg)
+}
+
+func Faint(msg string) string {
+	return faint.Sprint(msg)
 }
 
 func Highlight(msg string) string {
-	return color.RGB(111, 190, 245).Sprint(msg)
+	return highlight.Sprint(msg)
 }
 
 func PrintlnBold(msg string) {
@@ -53,12 +61,11 @@ func PrintlnNestedChecklist(msg string) {
 
 func FprintlnNestedChecklist(w io.Writer, msg string) {
 	pipe := Highlight("│")
-	faint := color.New(color.Faint)
-	prefix := faint.Sprint(Highlight("└─> "))
+	prefix := Faint(Highlight("└─> "))
 
 	msg = strings.TrimRight(msg, "\n")
 	if !strings.Contains(msg, "\n") {
-		_, _ = fmt.Fprintf(w, "%s%s%s\n", pipe, prefix, faint.Sprint(msg))
+		_, _ = fmt.Fprintf(w, "%s%s%s\n", pipe, prefix, Faint(msg))
 		return
 	}
 
@@ -67,7 +74,7 @@ func FprintlnNestedChecklist(w io.Writer, msg string) {
 		if i != 0 {
 			prefix = "    "
 		}
-		lines[i] = fmt.Sprintf("%s%s%s%s", pipe, prefix, faint.Sprint("│ "), faint.Sprint(line))
+		lines[i] = fmt.Sprintf("%s%s%s%s", pipe, prefix, Faint("│ "), Faint(line))
 	}
 	_, _ = fmt.Fprintln(w, strings.Join(lines, "\n"))
 }

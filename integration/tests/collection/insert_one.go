@@ -30,7 +30,7 @@ import (
 )
 
 func init() {
-	s := harness.ParallelSuite("collection.insert-one")
+	s := harness.ParallelSuite()
 
 	s.Run("should insert an untyped document with IDs of all kinds", func(t *harness.T) {
 		ids := []any{
