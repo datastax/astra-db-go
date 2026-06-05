@@ -23,6 +23,7 @@ import (
 
 func init() {
 	s := harness.ParallelSuite()
+	s.Truncate(harness.SelectCollections, harness.SelectBefore)
 
 	s.Run("should fail to insert a document into a table", func(t *harness.T) {
 		_, err := t.Table.InsertOne(t.Ctx, astra.NewDocument{})

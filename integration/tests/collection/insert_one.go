@@ -31,6 +31,7 @@ import (
 
 func init() {
 	s := harness.ParallelSuite()
+	s.Truncate(harness.SelectCollections, harness.SelectBefore)
 
 	s.Run("should insert an untyped document with IDs of all kinds", func(t *harness.T) {
 		ids := []any{

@@ -139,23 +139,23 @@ type S struct {
 }
 
 func ParallelSuite() *S {
-	s := &S{Name: suiteName(1), Parallel: true}
+	s := mkSuite(1, true)
 	suites = append(suites, s)
 	return s
 }
 
 func SequentialSuite() *S {
-	s := &S{Name: suiteName(1)}
+	s := mkSuite(1, false)
 	suites = append(suites, s)
 	return s
 }
 
-func suiteName(skip int) string {
-	res, err := filepath.Rel(TestsDirectory, callerPath(1+skip))
+func mkSuite(skip int, parallel bool) *S {
+	name, err := filepath.Rel(TestsDirectory, callerPath(1+skip))
 	if err != nil {
 		panic(fmt.Sprintf("failed to get suite name: %v", err))
 	}
-	return res
+	return &S{Name: name, Parallel: parallel}
 }
 
 func (s *S) Run(name string, fn func(*T)) *S {
@@ -276,7 +276,7 @@ func printFailures() int {
 
 func executeTest(w io.Writer, suiteName string, tst test, silent bool) (success bool) {
 	success = true
-	t := mkT(tst)
+	t := mkT(tst, NewTestObjects())
 
 	printRes := func(symbol string) {
 		if silent && symbol == color.GreenString("✓") && t.logs.Len() == 0 {
@@ -326,9 +326,9 @@ func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) 
 	}()
 }
 
-func mkT(t test) T {
+func mkT(t test, fixtures *TestObjects) T {
 	return T{
-		NewTestObjects(), t.name, context.Background(),
+		fixtures, t.name, context.Background(),
 		strings.Builder{}, sync.RWMutex{}, make(map[string]bool),
 	}
 }
