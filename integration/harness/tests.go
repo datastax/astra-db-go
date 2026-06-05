@@ -88,7 +88,7 @@ func Run() int {
 	var suiteWg sync.WaitGroup
 
 	for _, t := range backgroundTests {
-		runTestParallel(&bgOut, "(Background)", t, &bgWg)
+		runTestParallel(&bgOut, "{Background}", t, &bgWg)
 	}
 
 	for i, t := range suites {

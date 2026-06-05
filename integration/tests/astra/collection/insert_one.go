@@ -2,6 +2,8 @@ package collection_test
 
 import (
 	"fmt"
+	"reflect"
+	"time"
 
 	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/datatypes"
@@ -13,11 +15,11 @@ import (
 func init() {
 	s := harness.ParallelSuite("collection.insert-one")
 
-	s.Run("should insert a document with IDs of all kinds", func(t harness.T) {
+	s.Run("should insert an untyped document with IDs of all kinds", func(t harness.T) {
 		ids := []any{
 			"hi",
 			nil,
-			3,
+			3.14,
 			datatypes.NewObjectId(),
 			datatypes.NewUUIDv4(),
 			datatypes.NewUUIDv7(),
@@ -32,6 +34,34 @@ func init() {
 		})
 
 		t.NoDiff(ids, got)
+	})
+
+	s.Run("should insert an untyped document with datatypes", func(t harness.T) {
+		doc := astra.NewDocument{
+			"oid":     datatypes.NewObjectId(),
+			"u4":      datatypes.NewUUIDv4(),
+			"u7":      datatypes.NewUUIDv7(),
+			"date":    time.Now(),
+			"$vector": datatypes.NewVector([]float32{1, 2, 3, 4, 5}),
+			"nested_doc": astra.NewDocument{
+				"u4": datatypes.NewUUIDv4(),
+			},
+			"nested_map": map[string]any{
+				"u4": datatypes.NewUUIDv4(),
+			},
+		}
+
+		res, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
+
+		if reflect.TypeOf(insertOneDecodeAny(res)) != reflect.TypeFor[string]() {
+			t.Fatalf("expected InsertOne result to be of type string, got %T", res)
+		}
+	})
+
+	s.Run("should fail to insert a row into a collection", func(t harness.T) {
+		_, err := t.Collection.InsertOne(t.Ctx, astra.NewRow{})
+		testlib.FailIf(t, err == nil, "expected InsertOne to fail when inserting a row into a collection")
 	})
 }
 

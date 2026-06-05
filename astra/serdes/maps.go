@@ -178,9 +178,11 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 				dst = append(dst, open)
 			}
 
-			if dst, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
+			var next []byte
+			if next, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
 				return dst[:start], wrapPath(err, "key")
 			}
+			dst = next
 
 			if encodeValue != nil {
 				dst = append(dst, sep)
@@ -189,9 +191,10 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 					ctx.fieldHint = extractFieldHint(iter.Key().String())
 				}
 
-				if dst, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
+				if next, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
 					return dst[:start], wrapPath(err, fmt.Sprintf("[%v]", iter.Key().Interface()))
 				}
+				dst = next
 			}
 
 			if toArray {
