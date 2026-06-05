@@ -143,7 +143,7 @@ func newCreateTableCmd(tableName string, definition any) any {
 		Name       string `json:"name"`
 		Definition any    `json:"definition"`
 	}
-	return testutils.NewTestCmd("createTable", createTable{
+	return testlib.NewTestCmd("createTable", createTable{
 		Name:       tableName,
 		Definition: definition,
 	})
@@ -238,7 +238,7 @@ func TestInferDocsSingleColumnExample(t *testing.T) {
 	inferCmd := newCreateTableCmd("example_table", def)
 	structBasedCmd := newCreateTableCmd("example_table", structBased)
 
-	testutils.AssertJSONEqual(t, singleColumnPKJSON, structBasedCmd, inferCmd, builderCmd)
+	testlib.AssertJSONEqual(t, singleColumnPKJSON, structBasedCmd, inferCmd, builderCmd)
 }
 
 // Docs example for composite key:
@@ -333,7 +333,7 @@ func TestInferDocsCompositeKeyExample(t *testing.T) {
 	inferCmd := newCreateTableCmd("example_table", def)
 	structBasedCmd := newCreateTableCmd("example_table", structBased)
 
-	testutils.AssertJSONEqual(t, compositeKeyJSON, structBasedCmd, inferCmd, builderCmd)
+	testlib.AssertJSONEqual(t, compositeKeyJSON, structBasedCmd, inferCmd, builderCmd)
 }
 
 // Docs example for compound key:
@@ -403,7 +403,7 @@ func TestInferDocsCompoundKeyExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	inferCmd := newCreateTableCmd("example_table", def)
-	testutils.AssertJSONEqual(t, compoundKeyJSON, inferCmd)
+	testlib.AssertJSONEqual(t, compoundKeyJSON, inferCmd)
 }
 
 // Docs example for vector column:
@@ -436,7 +436,7 @@ func TestInferDocsVectorColumnExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	inferCmd := newCreateTableCmd("example_table", def)
-	testutils.AssertJSONEqual(t, vectorColumnJSON, inferCmd)
+	testlib.AssertJSONEqual(t, vectorColumnJSON, inferCmd)
 }
 
 // Docs example:
@@ -473,7 +473,7 @@ func TestInferDocsVectorizeExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	inferCmd := newCreateTableCmd("TABLE_NAME", def)
-	testutils.AssertJSONEqual(t, vectorizeExampleJSON, inferCmd)
+	testlib.AssertJSONEqual(t, vectorizeExampleJSON, inferCmd)
 }
 
 // From docs:
@@ -533,7 +533,7 @@ func TestInferDocsUDTExample(t *testing.T) {
 		t.Fatal(err)
 	}
 	inferCmd := newCreateTableCmd("example_table", def)
-	testutils.AssertJSONEqual(t, udtExampleJSON, inferCmd)
+	testlib.AssertJSONEqual(t, udtExampleJSON, inferCmd)
 }
 
 func TestInfer_AllColumnTypes(t *testing.T) {

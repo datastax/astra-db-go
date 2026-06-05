@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/integration/harness"
+	"github.com/datastax/astra-db-go/integration_old/harness"
 	// This import triggers the init() functions in tests. If you put tests
 	// in other packages, be sure to side-effect import them.
-	_ "github.com/datastax/astra-db-go/integration/tests"
+	_ "github.com/datastax/astra-db-go/integration_old/tests"
 )
 
 // Get the test environment as well as all tests, then run them.

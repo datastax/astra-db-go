@@ -33,7 +33,7 @@ var _ sort.Sortable = sort.Clauses{}
 //	curl ... --data '{ "find": { "sort": {"rating": 1} } }'
 //	curl ... --data '{ "find": { "sort": {"title": -1} } }'
 func TestAscDescJSON(t *testing.T) {
-	tests := []testutils.JSONTestCase{{
+	tests := []testlib.JSONTestCase{{
 		Name:     "ascending",
 		Expected: `{"rating":1}`,
 		Args: []any{
@@ -48,14 +48,14 @@ func TestAscDescJSON(t *testing.T) {
 			sort.S{"title": -1}, // raw map
 		},
 	}}
-	testutils.RunJSONTestCases(t, tests)
+	testlib.RunJSONTestCases(t, tests)
 }
 
 // TestMultiFieldOrderPreservation verifies that multi-field sorts preserve
 // insertion order, which is critical because JSON object key order matters
 // for the Data API sort specification.
 func TestMultiFieldOrderPreservation(t *testing.T) {
-	tests := []testutils.JSONTestCase{{
+	tests := []testlib.JSONTestCase{{
 		Name:     "test from github discussion",
 		Expected: `{"field1":1,"field2":-1}`,
 		Args: []any{
@@ -79,7 +79,7 @@ func TestMultiFieldOrderPreservation(t *testing.T) {
 			sort.Clauses{sort.S{"title": 1}, sort.S{"rating": -1}}, // also test raw slice/map
 		},
 	}}
-	testutils.RunJSONTestCases(t, tests)
+	testlib.RunJSONTestCases(t, tests)
 }
 
 // TestVectorSortJSON verifies vector sort JSON parity with the docs:

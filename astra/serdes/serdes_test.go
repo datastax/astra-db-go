@@ -25,11 +25,11 @@ import (
 func TestSerdesLinkedMap(t *testing.T) {
 	var om datatypes.LinkedMap[int, any]
 	b, err := serdes.Serialize(om, serdes.TargetCollection)
-	testutils.FailIfErr(t, err, "failed to serialize nil ordered map")
+	testlib.FailIfErr(t, err, "failed to serialize nil ordered map")
 	t.Logf("serialized nil ordered map: %s", b)
 
 	b, err = serdes.Serialize(datatypes.NewLinkedMap[int, any](), serdes.TargetCollection)
-	testutils.FailIfErr(t, err, "failed to serialize empty ordered map")
+	testlib.FailIfErr(t, err, "failed to serialize empty ordered map")
 	t.Logf("serialized empty ordered map: %s", b)
 
 	om = datatypes.NewLinkedMap[int, any]()
@@ -38,7 +38,7 @@ func TestSerdesLinkedMap(t *testing.T) {
 	om.Set(2, 3)
 
 	b, err = serdes.Serialize(om, serdes.TargetTable)
-	testutils.FailIfErr(t, err, "failed to serialize ordered map")
+	testlib.FailIfErr(t, err, "failed to serialize ordered map")
 	t.Logf("serialized ordered map: %s", b)
 
 	var dst datatypes.LinkedMap[int, any]
@@ -84,7 +84,7 @@ func TestSerdesSet(t *testing.T) {
 	s.Add("three")
 
 	b, err := serdes.Serialize(s, serdes.TargetCollection)
-	testutils.FailIfErr(t, err, "failed to serialize set")
+	testlib.FailIfErr(t, err, "failed to serialize set")
 	t.Logf("serialized set: %s", b)
 
 	var dst datatypes.Set[string]

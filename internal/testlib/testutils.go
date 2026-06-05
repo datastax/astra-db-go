@@ -14,7 +14,7 @@
 
 // Package testutil provides utilities for testing. As more patterns
 // emerge, we can add more helpers.
-package testutils
+package testlib
 
 import (
 	"fmt"
@@ -122,6 +122,18 @@ func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("%s: %v", fmt.Sprintf(msg, args...), err)
+	}
+}
+
+func PanicIf(pred bool, msg string, args ...any) {
+	if pred {
+		panic(fmt.Sprintf(msg, args...))
+	}
+}
+
+func PanicIfErr(err error, msg string, args ...any) {
+	if err != nil {
+		panic(fmt.Sprintf("%s: %v", fmt.Sprintf(msg, args...), err))
 	}
 }
 

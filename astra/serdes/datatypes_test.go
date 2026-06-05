@@ -42,19 +42,19 @@ func TestSerdesUUIDS_Typed(t *testing.T) {
 		target := targetsGen.Draw(t, "Target")
 
 		encoded, err := serdes.Serialize(uuid, target)
-		testutils.FailIfErr(t, err, "failed to serialize UUID")
+		testlib.FailIfErr(t, err, "failed to serialize UUID")
 
 		expected := `"` + uuid.String() + `"`
 		if target == serdes.TargetCollection {
 			expected = `{"$uuid":` + expected + `}`
 		}
-		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
+		testlib.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded datatypes.UUID
 		err = serdes.Deserialize(encoded, &decoded, nil, target)
-		testutils.FailIfErr(t, err, "failed to deserialize UUID")
+		testlib.FailIfErr(t, err, "failed to deserialize UUID")
 
-		testutils.FailIf(t, uuid != decoded, "mismatch after serdes: original %s, decoded %s", uuid, decoded)
+		testlib.FailIf(t, uuid != decoded, "mismatch after serdes: original %s, decoded %s", uuid, decoded)
 	})
 }
 
@@ -65,16 +65,16 @@ func TestSerdesUUIDS_Untyped_Collection(t *testing.T) {
 		var uuidAny any = uuid
 
 		encoded, err := serdes.Serialize(uuidAny, serdes.TargetCollection)
-		testutils.FailIfErr(t, err, "failed to serialize UUID")
+		testlib.FailIfErr(t, err, "failed to serialize UUID")
 
 		expected := `{"$uuid":"` + uuid.String() + `"}`
-		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
+		testlib.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded any
 		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
-		testutils.FailIfErr(t, err, "failed to deserialize UUID")
+		testlib.FailIfErr(t, err, "failed to deserialize UUID")
 
-		testutils.FailIf(t, decoded != uuidAny, "mismatch after serdes: original %s, decoded %v", uuid, decoded)
+		testlib.FailIf(t, decoded != uuidAny, "mismatch after serdes: original %s, decoded %v", uuid, decoded)
 	})
 }
 
@@ -86,18 +86,18 @@ func TestSerdesUUIDS_Untyped_Table(t *testing.T) {
 		targetCtx := astra.NewRowTargetCtx(table.Columns{{"id", table.UUID()}})
 
 		encoded, err := serdes.Serialize(row, serdes.TargetTable)
-		testutils.FailIfErr(t, err, "failed to serialize Row with UUID")
+		testlib.FailIfErr(t, err, "failed to serialize Row with UUID")
 
 		expected := `{"id":"` + uuid.String() + `"}`
-		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
+		testlib.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded astra.Row
 		err = serdes.Deserialize(encoded, &decoded, targetCtx, serdes.TargetTable)
-		testutils.FailIfErr(t, err, "failed to deserialize Row with UUID")
+		testlib.FailIfErr(t, err, "failed to deserialize Row with UUID")
 
 		decodedVal, ok := decoded.ToMap()["id"]
-		testutils.FailIf(t, !ok, "missing 'id' field after deserialization")
-		testutils.FailIf(t, decodedVal != uuid, "mismatch after serdes: original %s, decoded %v", uuid, decodedVal)
+		testlib.FailIf(t, !ok, "missing 'id' field after deserialization")
+		testlib.FailIf(t, decodedVal != uuid, "mismatch after serdes: original %s, decoded %v", uuid, decodedVal)
 	})
 }
 
@@ -114,16 +114,16 @@ func TestObjectIds_Typed_Collection(t *testing.T) {
 		oid := oidGen.Draw(t, "oid")
 
 		encoded, err := serdes.Serialize(oid, serdes.TargetCollection)
-		testutils.FailIfErr(t, err, "failed to serialize ObjectId")
+		testlib.FailIfErr(t, err, "failed to serialize ObjectId")
 
 		expected := `{"$objectId":"` + oid.String() + `"}`
-		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
+		testlib.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded datatypes.ObjectId
 		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
-		testutils.FailIfErr(t, err, "failed to deserialize ObjectId")
+		testlib.FailIfErr(t, err, "failed to deserialize ObjectId")
 
-		testutils.FailIf(t, oid != decoded, "mismatch after serdes: original %s, decoded %s", oid, decoded)
+		testlib.FailIf(t, oid != decoded, "mismatch after serdes: original %s, decoded %s", oid, decoded)
 	})
 }
 
@@ -133,10 +133,10 @@ func TestObjectIds_Typed_NonCollection(t *testing.T) {
 		target := targetsGen.Filter(func(t serdes.Target) bool { return t != serdes.TargetCollection }).Draw(t, "Target")
 
 		_, err := serdes.Serialize(oid, target)
-		testutils.FailIf(t, err == nil, "expected error encoding ObjectId for non-collection Target")
+		testlib.FailIf(t, err == nil, "expected error encoding ObjectId for non-collection Target")
 
 		expectedErrPrefix := "serdes: unsupported value: ObjectId is only supported for collections"
-		testutils.FailIf(t, !strings.HasPrefix(err.Error(), expectedErrPrefix), "unexpected error message: %v", err)
+		testlib.FailIf(t, !strings.HasPrefix(err.Error(), expectedErrPrefix), "unexpected error message: %v", err)
 	})
 }
 
@@ -146,16 +146,16 @@ func TestObjectIds_Untyped_Collection(t *testing.T) {
 		var oidAny any = oid
 
 		encoded, err := serdes.Serialize(oidAny, serdes.TargetCollection)
-		testutils.FailIfErr(t, err, "failed to serialize ObjectId via any")
+		testlib.FailIfErr(t, err, "failed to serialize ObjectId via any")
 
 		expected := `{"$objectId":"` + oid.String() + `"}`
-		testutils.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
+		testlib.FailIf(t, string(encoded) != expected, "unexpected serialized form: got %s, expected %s", encoded, expected)
 
 		var decoded any
 		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
-		testutils.FailIfErr(t, err, "failed to deserialize ObjectId via any")
+		testlib.FailIfErr(t, err, "failed to deserialize ObjectId via any")
 
-		testutils.FailIf(t, decoded != oidAny, "mismatch after serdes: original %v, decoded %v", oidAny, decoded)
+		testlib.FailIf(t, decoded != oidAny, "mismatch after serdes: original %v, decoded %v", oidAny, decoded)
 	})
 }
 
@@ -183,13 +183,13 @@ func TestSerdesDuration_Typed_Table(t *testing.T) {
 		d := durationGen.Draw(t, "duration")
 
 		encoded, err := serdes.Serialize(d, serdes.TargetTable)
-		testutils.FailIfErr(t, err, "failed to serialize Duration")
+		testlib.FailIfErr(t, err, "failed to serialize Duration")
 
 		var decoded datatypes.Duration
 		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetTable)
-		testutils.FailIfErr(t, err, "failed to deserialize Duration")
+		testlib.FailIfErr(t, err, "failed to deserialize Duration")
 
-		testutils.FailIf(t, !d.Equals(decoded), "round-trip mismatch: original %+v, decoded %+v", d, decoded)
+		testlib.FailIf(t, !d.Equals(decoded), "round-trip mismatch: original %+v, decoded %+v", d, decoded)
 	})
 }
 
@@ -198,29 +198,29 @@ func TestSerdesDuration_Typed_None(t *testing.T) {
 		d := durationGen.Draw(t, "duration")
 
 		encoded, err := serdes.Serialize(d, serdes.TargetNone)
-		testutils.FailIfErr(t, err, "failed to serialize Duration with TargetNone")
+		testlib.FailIfErr(t, err, "failed to serialize Duration with TargetNone")
 
 		var decoded datatypes.Duration
 		err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetNone)
-		testutils.FailIfErr(t, err, "failed to deserialize Duration with TargetNone")
+		testlib.FailIfErr(t, err, "failed to deserialize Duration with TargetNone")
 
-		testutils.FailIf(t, !d.Equals(decoded), "round-trip mismatch: original %+v, decoded %+v", d, decoded)
+		testlib.FailIf(t, !d.Equals(decoded), "round-trip mismatch: original %+v, decoded %+v", d, decoded)
 	})
 }
 
 func TestSerdesDuration_Collection_Encode_Error(t *testing.T) {
 	d := datatypes.MustParseDuration("1y2mo")
 	_, err := serdes.Serialize(d, serdes.TargetCollection)
-	testutils.FailIf(t, err == nil, "expected error encoding Duration for TargetCollection")
+	testlib.FailIf(t, err == nil, "expected error encoding Duration for TargetCollection")
 }
 
 func TestSerdesDuration_Collection_Decode_Error(t *testing.T) {
 	encoded, err := serdes.Serialize(datatypes.MustParseDuration("1y2mo"), serdes.TargetTable)
-	testutils.FailIfErr(t, err, "failed to pre-encode Duration")
+	testlib.FailIfErr(t, err, "failed to pre-encode Duration")
 
 	var decoded datatypes.Duration
 	err = serdes.Deserialize(encoded, &decoded, nil, serdes.TargetCollection)
-	testutils.FailIf(t, err == nil, "expected error decoding Duration for TargetCollection")
+	testlib.FailIf(t, err == nil, "expected error decoding Duration for TargetCollection")
 }
 
 func TestSerdesDuration_Struct_Table(t *testing.T) {
@@ -233,13 +233,13 @@ func TestSerdesDuration_Struct_Table(t *testing.T) {
 		want := row{ID: "x", Duration: durationGen.Draw(t, "duration")}
 
 		encoded, err := serdes.Serialize(want, serdes.TargetTable)
-		testutils.FailIfErr(t, err, "failed to serialize row")
+		testlib.FailIfErr(t, err, "failed to serialize row")
 
 		var got row
 		err = serdes.Deserialize(encoded, &got, nil, serdes.TargetTable)
-		testutils.FailIfErr(t, err, "failed to deserialize row")
+		testlib.FailIfErr(t, err, "failed to deserialize row")
 
-		testutils.FailIf(t, got.ID != want.ID || !got.Duration.Equals(want.Duration),
+		testlib.FailIf(t, got.ID != want.ID || !got.Duration.Equals(want.Duration),
 			"round-trip mismatch: original %+v, decoded %+v", want, got)
 	})
 }
