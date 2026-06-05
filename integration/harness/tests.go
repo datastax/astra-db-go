@@ -66,8 +66,8 @@ func (t *T) Helper() {
 	t.helpers[frame.Function] = true
 }
 
-func (t *T) Log(format string) {
-	_, _ = fmt.Fprintln(&t.logs, format)
+func (t *T) Log(items ...any) {
+	_, _ = fmt.Fprintln(&t.logs, items...)
 }
 
 func (t *T) Logf(format string, args ...any) {
@@ -134,6 +134,8 @@ type S struct {
 	Name     string
 	Parallel bool
 	tests    []test
+	before   func(*T)
+	after    func(*T)
 }
 
 func ParallelSuite() *S {
@@ -161,6 +163,28 @@ func (s *S) Run(name string, fn func(*T)) *S {
 	return s
 }
 
+func (s *S) Before(fn func(*T)) *S {
+	old := s.before
+	s.before = func(t *T) {
+		if old != nil {
+			old(t)
+		}
+		fn(t)
+	}
+	return s
+}
+
+func (s *S) After(fn func(*T)) *S {
+	old := s.after
+	s.after = func(t *T) {
+		fn(t)
+		if old != nil {
+			old(t)
+		}
+	}
+	return s
+}
+
 type failure struct {
 	testName string
 	message  string
@@ -184,14 +208,25 @@ func Run() int {
 	for i, t := range suites {
 		fmt.Printf("\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i+1))), Bold(t.Name))
 
-		for _, test := range t.tests {
-			if t.Parallel {
-				runTestParallel(os.Stdout, t.Name, test, &suiteWg)
-			} else {
-				executeTest(os.Stdout, t.Name, test)
-			}
+		beforeSucceeded := true
+		if t.before != nil {
+			beforeSucceeded = executeTest(os.Stdout, t.Name, test{"{Setup}", t.before}, true)
 		}
-		suiteWg.Wait()
+
+		if beforeSucceeded {
+			for _, test := range t.tests {
+				if t.Parallel {
+					runTestParallel(os.Stdout, t.Name, test, &suiteWg)
+				} else {
+					executeTest(os.Stdout, t.Name, test, false)
+				}
+			}
+			suiteWg.Wait()
+		}
+
+		if t.after != nil {
+			executeTest(os.Stdout, t.Name, test{"{Teardown}", t.after}, true)
+		}
 	}
 
 	bgWg.Wait()
@@ -239,10 +274,15 @@ func printFailures() int {
 	return 1
 }
 
-func executeTest(w io.Writer, suiteName string, tst test) {
+func executeTest(w io.Writer, suiteName string, tst test, silent bool) (success bool) {
+	success = true
 	t := mkT(tst)
 
 	printRes := func(symbol string) {
+		if silent && symbol == color.GreenString("✓") && t.logs.Len() == 0 {
+			return
+		}
+
 		FprintlnChecklist(w, fmt.Sprintf("%s %s", symbol, tst.name))
 		if t.logs.Len() > 0 {
 			FprintlnNestedChecklist(w, t.logs.String())
@@ -251,6 +291,7 @@ func executeTest(w io.Writer, suiteName string, tst test) {
 
 	defer func() {
 		if r := recover(); r != nil {
+			success = false
 			failuresMu.Lock()
 			defer failuresMu.Unlock()
 
@@ -274,13 +315,14 @@ func executeTest(w io.Writer, suiteName string, tst test) {
 	tst.run(&t)
 
 	printRes(color.GreenString("✓"))
+	return
 }
 
 func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		executeTest(w, suiteName, t)
+		executeTest(w, suiteName, t, false)
 	}()
 }
 
