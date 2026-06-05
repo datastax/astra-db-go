@@ -36,9 +36,9 @@ type TestObjects struct {
 	Admin       *astra.AstraAdmin
 }
 
-var GlobalFixtures TestObjects
+var GlobalFixtures *TestObjects
 
-func InitTestObjects() TestObjects {
+func NewTestObjects() *TestObjects {
 	client := astra.NewClient(
 		options.API().
 			SetToken(ApplicationToken()).
@@ -53,7 +53,7 @@ func InitTestObjects() TestObjects {
 
 	admin, _ := client.Admin()
 
-	return TestObjects{
+	return &TestObjects{
 		Client:      client,
 		Db:          db,
 		Collection:  db.Collection(DefaultCollectionName),

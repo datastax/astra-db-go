@@ -24,6 +24,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/fatih/color"
 )
 
 var (
@@ -52,7 +53,7 @@ func prelude() {
 
 	awaitCollectionTableSetup()
 
-	PrintlnBold("\n✓ Prelude finished.\n")
+	PrintlnBold(color.GreenString("\n✓ Prelude finished."))
 }
 
 func awaitKeyspacesSetup(dbAdmin astra.DatabaseAdmin) {
@@ -69,7 +70,7 @@ func awaitKeyspacesSetup(dbAdmin astra.DatabaseAdmin) {
 	for _, keyspace := range TestKeyspaces {
 		if !slices.Contains(allKeyspaces, keyspace) {
 			PrintlnNestedChecklist(fmt.Sprintf("Creating keyspace '%s'", keyspace))
-			testlib.PanicIfErr(dbAdmin.CreateKeyspace(Ctx, keyspace), fmt.Sprintf("failed to create keyspace '%s' during prelude", keyspace))
+			testlib.PanicIfErr(dbAdmin.CreateKeyspace(Ctx, keyspace), "failed to create keyspace '%s' during prelude", keyspace)
 		}
 	}
 
@@ -101,10 +102,10 @@ func startCreateCollections(db *astra.Db) {
 			}
 
 			coll, err := db.CreateCollection(Ctx, DefaultCollectionName, builder)
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to create collection %s in keyspace %s", DefaultCollectionName, ks))
+			testlib.PanicIfErr(err, "failed to create collection %s in keyspace %s", DefaultCollectionName, ks)
 
 			_, err = coll.DeleteMany(Ctx, filter.F{}, options.CollectionDeleteMany().SetAPIOptions(options.API().SetKeyspace(ks)))
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to clear collection %s in keyspace %s", DefaultCollectionName, ks))
+			testlib.PanicIfErr(err, "failed to clear collection %s in keyspace %s", DefaultCollectionName, ks)
 		}(keyspace)
 	}
 
@@ -125,18 +126,18 @@ func startCreateTables(db *astra.Db) {
 			}
 
 			tbl, err := db.CreateTable(Ctx, DefaultTableName, schema, options.CreateTable().SetIfNotExists(true).SetKeyspace(ks))
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to create table %s in keyspace %s", DefaultTableName, ks))
+			testlib.PanicIfErr(err, "failed to create table %s in keyspace %s", DefaultTableName, ks)
 
 			err = tbl.DeleteMany(Ctx, filter.F{}, options.TableDeleteMany().SetAPIOptions(options.API().SetKeyspace(ks)))
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to clear table %s in keyspace %s", DefaultTableName, ks))
+			testlib.PanicIfErr(err, "failed to clear table %s in keyspace %s", DefaultTableName, ks)
 
 			if ks == TestKeyspaces[0] {
 				err = tbl.CreateVectorIndex(Ctx, fmt.Sprintf("vector_idx_%s", ks), "vector", options.CreateVectorIndex().SetMetric(options.MetricDotProduct).SetIfNotExists(true).SetAPIOptions(options.API().SetKeyspace(ks)))
-				testlib.PanicIfErr(err, fmt.Sprintf("failed to create vector index in keyspace %s", ks))
+				testlib.PanicIfErr(err, "failed to create vector index in keyspace %s", ks)
 			}
 
 			err = tbl.CreateIndex(Ctx, fmt.Sprintf("bigint_idx_%s", ks), "bigint", options.CreateIndex().SetIfNotExists(true).SetAPIOptions(options.API().SetKeyspace(ks)))
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to create bigint index in keyspace %s", ks))
+			testlib.PanicIfErr(err, "failed to create bigint index in keyspace %s", ks)
 		}(keyspace)
 	}
 
@@ -151,7 +152,7 @@ func startListingCollections(db *astra.Db) {
 		go func(ks string) {
 			defer listWG.Done()
 			names, err := db.ListCollectionNames(Ctx, options.ListCollectionNames().SetKeyspace(ks))
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to list collections in keyspace %s", ks))
+			testlib.PanicIfErr(err, "failed to list collections in keyspace %s", ks)
 			collectionsToDelete.Store(ks, names)
 		}(keyspace)
 	}
@@ -167,7 +168,7 @@ func startListingTables(db *astra.Db) {
 		go func(ks string) {
 			defer listWG.Done()
 			names, err := db.ListTableNames(Ctx, options.ListTableNames().SetKeyspace(ks))
-			testlib.PanicIfErr(err, fmt.Sprintf("failed to list tables in keyspace %s", ks))
+			testlib.PanicIfErr(err, "failed to list tables in keyspace %s", ks)
 			tablesToDelete.Store(ks, names)
 		}(keyspace)
 	}
@@ -198,7 +199,7 @@ func startDeletingCollections(db *astra.Db) {
 				go func(ks, name string) {
 					defer deleteWG.Done()
 					err := db.DropCollection(Ctx, name, options.DropCollection().SetKeyspace(ks))
-					testlib.PanicIfErr(err, fmt.Sprintf("failed to drop collection '%s.%s' during prelude cleanup", ks, name))
+					testlib.PanicIfErr(err, "failed to drop collection '%s.%s' during prelude cleanup", ks, name)
 				}(ks, name)
 			}
 			return true
@@ -231,7 +232,7 @@ func startDeletingTables(db *astra.Db) {
 				go func(ks, name string) {
 					defer deleteWG.Done()
 					err := db.DropTable(Ctx, name, options.DropTable().SetIfExists(true).SetKeyspace(ks))
-					testlib.PanicIfErr(err, fmt.Sprintf("failed to drop table '%s.%s' during prelude cleanup", ks, name))
+					testlib.PanicIfErr(err, "failed to drop table '%s.%s' during prelude cleanup", ks, name)
 				}(ks, name)
 			}
 			return true

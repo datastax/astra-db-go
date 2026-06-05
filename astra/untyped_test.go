@@ -25,8 +25,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/datatypes"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/datastax/astra-db-go/internal/testlib"
 	"pgregory.net/rapid"
 )
 
@@ -69,7 +68,7 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 		t.Fatalf("Decode(meta) error = %v", err)
 	}
 	expectedMeta := map[string]any{"score": 0.95}
-	if diff := cmp.Diff(expectedMeta, m); diff != "" {
+	if diff := testlib.Diff(expectedMeta, m); diff != "" {
 		t.Errorf("Decode(meta) mismatch (-want +got):\n%s", diff)
 	}
 
@@ -80,7 +79,7 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 		"name": "Alice",
 		"meta": map[string]any{"score": 0.95},
 	}
-	if diff := cmp.Diff(expectedFullMap, fullMap); diff != "" {
+	if diff := testlib.Diff(expectedFullMap, fullMap); diff != "" {
 		t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 	}
 }
@@ -113,7 +112,7 @@ func TestDocument_NullHandling(t *testing.T) {
 	jsonData := `{"id": "123", "optional": null}`
 
 	var doc Document
-	serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
+	_ = serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
 
 	val, ok := doc.Get("optional")
 	if !ok || val != nil {
@@ -130,7 +129,7 @@ func TestDocument_DeepPathNotFound(t *testing.T) {
 	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
 
 	var doc Document
-	serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
+	_ = serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
 
 	_, ok := doc.Get("meta", "missing")
 	if ok {
@@ -279,7 +278,7 @@ func TestRow_UnmarshalAstraRaw(t *testing.T) {
 			}
 
 			if tt.want != nil {
-				if diff := cmp.Diff(tt.want, row.ToMap()); diff != "" {
+				if diff := testlib.Diff(tt.want, row.ToMap()); diff != "" {
 					t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -534,31 +533,22 @@ func TestProperty_Document(t *testing.T) {
 
 		got := doc.ToMap()
 
-		cmpOpts := []cmp.Option{
-			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
-			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
-			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
-		}
-
 		var expected map[string]any
 		err = serdes.Deserialize(encoded, &expected, nil, serdes.TargetCollection)
 		if err != nil {
 			t.Fatalf("serdes.Deserialize() error = %v", err)
 		}
 
-		if diff := cmp.Diff(expected, got, cmpOpts...); diff != "" {
+		if diff := testlib.Diff(expected, got); diff != "" {
 			t.Errorf("Document.ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
 		// Test Get/MustGet/Decode for some paths
-		testPaths(t, doc, expected, nil, cmpOpts)
+		testPaths(t, doc, expected, nil)
 	})
 }
 
-func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string, cmpOpts []cmp.Option) {
+func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string) {
 	for k, v := range expected {
 		fullPath := append(path, k)
 
@@ -568,13 +558,13 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string,
 			t.Errorf("Get(%v) failed", fullPath)
 			continue
 		}
-		if diff := cmp.Diff(v, gotVal, cmpOpts...); diff != "" {
+		if diff := testlib.Diff(v, gotVal); diff != "" {
 			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
 		// MustGet
 		mustGotVal := doc.MustGet(fullPath...)
-		if diff := cmp.Diff(v, mustGotVal, cmpOpts...); diff != "" {
+		if diff := testlib.Diff(v, mustGotVal); diff != "" {
 			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
@@ -584,7 +574,7 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string,
 			if err := doc.Decode(&decoded, fullPath...); err != nil {
 				t.Errorf("Decode(%v) error = %v", fullPath, err)
 			} else {
-				if diff := cmp.Diff(v, decoded, cmpOpts...); diff != "" {
+				if diff := testlib.Diff(v, decoded); diff != "" {
 					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
 				}
 			}
@@ -592,7 +582,7 @@ func testPaths(t *rapid.T, doc Document, expected map[string]any, path []string,
 
 		// Recurse into maps
 		if nextMap, ok := v.(map[string]any); ok {
-			testPaths(t, doc, nextMap, fullPath, cmpOpts)
+			testPaths(t, doc, nextMap, fullPath)
 		}
 	}
 }
@@ -615,27 +605,16 @@ func TestProperty_Row(t *testing.T) {
 
 		got := row.ToMap()
 
-		// When comparing, we need to handle special types that Row decodes into
-		// (like datatypes.UUID, net.IP, etc.)
-		cmpOpts := []cmp.Option{
-			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
-			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
-			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
-		}
-
-		if diff := cmp.Diff(input, got, cmpOpts...); diff != "" {
+		if diff := testlib.Diff(input, got); diff != "" {
 			t.Errorf("Row.ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
 		// Test Get/MustGet/Decode for columns and nested UDT/Map fields
-		testRowPaths(t, row, input, nil, cmpOpts)
+		testRowPaths(t, row, input, nil)
 	})
 }
 
-func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string, cmpOpts []cmp.Option) {
+func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string) {
 	for k, v := range expected {
 		fullPath := append(path, k)
 
@@ -645,13 +624,13 @@ func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string, c
 			t.Errorf("Get(%v) failed", fullPath)
 			continue
 		}
-		if diff := cmp.Diff(v, gotVal, cmpOpts...); diff != "" {
+		if diff := testlib.Diff(v, gotVal); diff != "" {
 			t.Errorf("Get(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
 		// MustGet
 		mustGotVal := row.MustGet(fullPath...)
-		if diff := cmp.Diff(v, mustGotVal, cmpOpts...); diff != "" {
+		if diff := testlib.Diff(v, mustGotVal); diff != "" {
 			t.Errorf("MustGet(%v) mismatch (-want +got):\n%s", fullPath, diff)
 		}
 
@@ -661,7 +640,7 @@ func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string, c
 			if err := row.Decode(&decoded, fullPath...); err != nil {
 				t.Errorf("Decode(%v) error = %v", fullPath, err)
 			} else {
-				if diff := cmp.Diff(v, decoded, cmpOpts...); diff != "" {
+				if diff := testlib.Diff(v, decoded); diff != "" {
 					t.Errorf("Decode(%v) mismatch (-want +got):\n%s", fullPath, diff)
 				}
 			}
@@ -669,7 +648,7 @@ func testRowPaths(t *rapid.T, row Row, expected map[string]any, path []string, c
 
 		// Recurse into nested structures
 		if nextMap, ok := v.(map[string]any); ok {
-			testRowPaths(t, row, nextMap, fullPath, cmpOpts)
+			testRowPaths(t, row, nextMap, fullPath)
 		}
 	}
 }
@@ -679,17 +658,8 @@ func TestProperty_NewDocument(t *testing.T) {
 		input := genJSONMap(0).Draw(t, "input")
 		doc := NewDocument(input)
 
-		cmpOpts := []cmp.Option{
-			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
-			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
-			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
-		}
-
 		// Test ToMap
-		if diff := cmp.Diff(map[string]any(input), doc.ToMap(), cmpOpts...); diff != "" {
+		if diff := testlib.Diff(input, doc.ToMap()); diff != "" {
 			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 		}
 
@@ -716,18 +686,8 @@ func TestProperty_NewRow(t *testing.T) {
 		input := genTableData(schema).Draw(t, "input")
 		row := NewRow(input)
 
-		// When comparing, we need to handle special types
-		cmpOpts := []cmp.Option{
-			cmpopts.EquateEmpty(),
-			cmp.AllowUnexported(big.Int{}, big.Float{}, datatypes.UUID{}, datatypes.ObjectId{}, datatypes.Duration{}, time.Time{}),
-			cmp.Comparer(func(x, y big.Int) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y big.Float) bool { return x.Cmp(&y) == 0 }),
-			cmp.Comparer(func(x, y datatypes.Duration) bool { return x.Equals(y) }),
-			cmp.Comparer(func(x, y time.Time) bool { return x.Equal(y) }),
-		}
-
 		// Test ToMap
-		if diff := cmp.Diff(map[string]any(input), row.ToMap(), cmpOpts...); diff != "" {
+		if diff := testlib.Diff(input, row.ToMap()); diff != "" {
 			t.Errorf("ToMap() mismatch (-want +got):\n%s", diff)
 		}
 

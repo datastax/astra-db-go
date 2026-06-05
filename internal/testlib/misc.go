@@ -19,6 +19,8 @@ package testlib
 import (
 	"fmt"
 	"regexp"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -109,6 +111,34 @@ func RunJSONTestCases(t *testing.T, cases []JSONTestCase) {
 type HasFatal interface {
 	Helper()
 	Fatalf(format string, args ...any)
+}
+
+func AwaitAll[T any, R any](t HasFatal, xs []T, fn func(T) (R, error)) []R {
+	var wg sync.WaitGroup
+	var errAtomic atomic.Value
+	results := make([]R, len(xs))
+
+	for i, x := range xs {
+		wg.Add(1)
+		go func(index int, item T) {
+			defer wg.Done()
+
+			res, err := fn(item)
+			if err != nil {
+				errAtomic.Store(err)
+				return
+			}
+			results[index] = res
+		}(i, x)
+	}
+
+	wg.Wait()
+
+	if err := errAtomic.Load(); err != nil {
+		t.Fatalf("error in AwaitAll: %v", err.(error))
+	}
+
+	return results
 }
 
 func FailIf(t HasFatal, pred bool, msg string, args ...any) {

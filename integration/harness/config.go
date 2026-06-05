@@ -69,7 +69,7 @@ func Init() {
 	}
 
 	cfg = c
-	GlobalFixtures = InitTestObjects()
+	GlobalFixtures = NewTestObjects()
 
 	if !cfg.skipPrelude {
 		prelude()

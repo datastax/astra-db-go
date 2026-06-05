@@ -12,26 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package integration
+package main
 
 import (
 	"os"
-	"testing"
 
 	"github.com/datastax/astra-db-go/integration/harness"
+
+	_ "github.com/datastax/astra-db-go/integration/tests/astra/collection"
 )
 
-func TestMain(m *testing.M) {
+func main() {
 	harness.Init()
-
-	bgDone := make(chan bool)
-	go func() {
-		bgDone <- true
-	}()
-
-	exitCode := m.Run()
-
-	<-bgDone
-
+	exitCode := harness.Run()
 	os.Exit(exitCode)
 }
