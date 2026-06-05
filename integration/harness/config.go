@@ -20,7 +20,6 @@ import (
 
 	"github.com/DeanPDX/dotconfig"
 	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/fatih/color"
 )
 
 const (
@@ -30,10 +29,11 @@ const (
 )
 
 type config struct {
+	// flags
 	local       bool
 	skipPrelude bool
-	noColor     bool
 
+	// env
 	apiEndpoint      string `env:"API_ENDPOINT,optional"`
 	applicationToken string `env:"APPLICATION_TOKEN,optional"`
 	backend          string `env:"BACKEND" default:"astra"`
@@ -50,10 +50,7 @@ func Init() {
 
 	flag.BoolVar(&c.local, "local", false, "run tests against a local HCD/DSE instance")
 	flag.BoolVar(&c.skipPrelude, "skip-prelude", false, "skip the prelude (setup) step")
-	flag.BoolVar(&c.noColor, "no-color", false, "disable colored output")
 	flag.Parse()
-
-	color.NoColor = c.noColor
 
 	if c.local {
 		c.backend = "hcd"
@@ -87,5 +84,5 @@ func ApplicationToken() string {
 }
 
 func Backend() options.DataAPIBackend {
-	return options.DataAPIBackend(cfg.backend)
+	return options.DataAPIBackend(cfg.backend) // should probably add validation but eh whatever
 }

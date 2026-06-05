@@ -30,7 +30,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/sort"
 	"github.com/datastax/astra-db-go/astra/update"
-	"github.com/datastax/astra-db-go/integration_old/harness"
+	"github.com/datastax/astra-db-go/integration/old/harness"
 )
 
 func init() {

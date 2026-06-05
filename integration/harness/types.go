@@ -23,7 +23,20 @@ import (
 	"github.com/datastax/astra-db-go/astra/table"
 )
 
-type EverythingTable struct {
+type EverythingDoc struct {
+	ID     datatypes.UUID   `json:"_id,omitempty"`
+	Vector datatypes.Vector `json:"$vector,omitempty"`
+	Nested EverythingDocInner `json:"nested"`
+}
+
+type EverythingDocInner struct {
+	UUID     datatypes.UUID     `json:"uuid"`
+	ObjectId datatypes.ObjectId `json:"objectid"`
+	Date     time.Time          `json:"date"`
+	Big      big.Int            `json:"big"`
+}
+
+type EverythingRow struct {
 	Ascii     string             `json:"ascii" astra:"type=ascii"`
 	BigInt    int64              `json:"bigint"`
 	Blob      []byte             `json:"blob"`
@@ -46,7 +59,7 @@ type EverythingTable struct {
 	UDT       any                `json:"udt" astra:"type=udt[example_udt]"`
 }
 
-type EverythingTableWithVectorize struct {
+type EverythingRowWithVectorize struct {
 	Ascii     string             `json:"ascii" astra:"type=ascii"`
 	BigInt    int64              `json:"bigint"`
 	Blob      []byte             `json:"blob"`
@@ -70,9 +83,9 @@ type EverythingTableWithVectorize struct {
 	UDT       any                `json:"udt" astra:"type=udt[example_udt]"`
 }
 
-var EverythingTableSchema = must(table.Infer[EverythingTable]())
+var EverythingTableSchema = must(table.Infer[EverythingRow]())
 
-var EverythingTableSchemaWithVectorize = must(table.Infer[EverythingTableWithVectorize]())
+var EverythingTableSchemaWithVectorize = must(table.Infer[EverythingRowWithVectorize]())
 
 func must[T any](v T, err error) T {
 	if err != nil {

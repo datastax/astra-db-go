@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package old
 
 import (
 	"io"
@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/integration_old/harness"
+	"github.com/datastax/astra-db-go/integration/old/harness"
 	// This import triggers the init() functions in tests. If you put tests
 	// in other packages, be sure to side-effect import them.
-	_ "github.com/datastax/astra-db-go/integration_old/tests"
+	_ "github.com/datastax/astra-db-go/integration/old/tests"
 )
 
 // Get the test environment as well as all tests, then run them.
@@ -49,7 +49,7 @@ import (
 //		}
 //		harness.Register(t...)
 //	 }
-func main() {
+func Run() {
 	// Create a file to log to and ensure we close it on exit
 	logFile := createLogFile()
 	defer logFile.Close()

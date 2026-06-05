@@ -28,23 +28,36 @@ import (
 	"github.com/fatih/color"
 )
 
+// T contains all test-spec data and utilities, similar to testing.T
 type T struct {
 	*TestObjects
 	Name string
 	Ctx  context.Context
+	logs strings.Builder
 }
 
+// failSignal is used internally to differentiate between a true panic, and an intentional test failure (via t.Fatalf).
+// Is this abuse of control flow? Maybe. Do I care? no.
 type failSignal struct {
 	msg string
 }
 
-func (t T) Helper() {}
+// Helper is just used for interface compatability w/ testlib.HasFatal, and doesn't really have a reason to exist otherwise
+func (t *T) Helper() {}
 
-func (t T) Fatalf(format string, args ...any) {
+func (t *T) Log(format string) {
+	_, _ = fmt.Fprintln(&t.logs, format)
+}
+
+func (t *T) Logf(format string, args ...any) {
+	_, _ = fmt.Fprintf(&t.logs, format, args...)
+}
+
+func (t *T) Fatalf(format string, args ...any) {
 	panic(failSignal{msg: fmt.Sprintf(format, args...)})
 }
 
-func (t T) NoDiff(want, got any) {
+func (t *T) NoDiff(want, got any) {
 	if diff := testlib.Diff(want, got); diff != "" {
 		t.Fatalf("mismatch (-want +got):\n%s", diff)
 	}
@@ -52,13 +65,13 @@ func (t T) NoDiff(want, got any) {
 
 type test struct {
 	name string
-	run  func(T)
+	run  func(*T)
 }
 
 var suites []*S
 var backgroundTests []test
 
-func BackgroundTest(name string, fn func(T)) {
+func BackgroundTest(name string, fn func(*T)) {
 	backgroundTests = append(backgroundTests, test{name, fn})
 }
 
@@ -80,7 +93,7 @@ func ParallelSuite(name string) *S {
 	return s
 }
 
-func (s *S) Run(name string, fn func(T)) *S {
+func (s *S) Run(name string, fn func(*T)) *S {
 	s.tests = append(s.tests, test{name, fn})
 	return s
 }
@@ -163,22 +176,31 @@ func printFailures() int {
 	return 1
 }
 
-func executeTest(w io.Writer, suiteName string, t test) {
+func executeTest(w io.Writer, suiteName string, tst test) {
+	t := mkT(tst)
+
+	printRes := func(symbol string) {
+		FprintlnChecklist(w, fmt.Sprintf("%s %s", symbol, tst.name))
+		if t.logs.Len() > 0 {
+			FprintlnNestedChecklist(w, t.logs.String())
+		}
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
 			failuresMu.Lock()
 			defer failuresMu.Unlock()
 
 			if fs, ok := r.(failSignal); ok {
-				FprintlnChecklist(w, fmt.Sprintf("%s %s", color.RedString("✘"), t.name))
+				printRes(color.RedString("✘"))
 				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
-					testName: t.name,
+					testName: tst.name,
 					message:  fs.msg,
 				})
 			} else {
-				FprintlnChecklist(w, fmt.Sprintf("%s %s", color.YellowString("!"), t.name))
+				printRes(color.YellowString("!"))
 				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
-					testName: t.name,
+					testName: tst.name,
 					message:  fmt.Sprintf("%v\n%s", r, debug.Stack()),
 					isPanic:  true,
 				})
@@ -186,9 +208,9 @@ func executeTest(w io.Writer, suiteName string, t test) {
 		}
 	}()
 
-	t.run(mkT(t))
+	tst.run(&t)
 
-	FprintlnChecklist(w, fmt.Sprintf("%s %s", color.GreenString("✓"), t.name))
+	printRes(color.GreenString("✓"))
 }
 
 func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) {
@@ -200,5 +222,5 @@ func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) 
 }
 
 func mkT(t test) T {
-	return T{NewTestObjects(), t.name, context.Background()}
+	return T{NewTestObjects(), t.name, context.Background(), strings.Builder{}}
 }

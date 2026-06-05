@@ -18,6 +18,7 @@ import (
 	"os"
 
 	"github.com/datastax/astra-db-go/integration/harness"
+	"github.com/datastax/astra-db-go/integration/old"
 
 	_ "github.com/datastax/astra-db-go/integration/tests/astra/collection"
 )
@@ -25,5 +26,12 @@ import (
 func main() {
 	harness.Init()
 	exitCode := harness.Run()
-	os.Exit(exitCode)
+
+	if exitCode != 0 {
+		os.Exit(exitCode)
+	}
+
+	harness.PrintlnBold(harness.Highlight("...Running legacy integration tests...\n"))
+
+	old.Run() // temporary (obviously)
 }

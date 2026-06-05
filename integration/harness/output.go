@@ -18,16 +18,20 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/fatih/color"
 )
+
+// Don't have a great way of making this file look nice or have consistent functions
+// I'm just adding what I need to add at that very moment ¯\_(ツ)_/¯
 
 func Bold(msg string) string {
 	return color.New(color.Bold).Sprint(msg)
 }
 
 func Highlight(msg string) string {
-	return color.RGB(121, 200, 255).Sprint(msg)
+	return color.RGB(111, 190, 245).Sprint(msg)
 }
 
 func PrintlnBold(msg string) {
@@ -44,8 +48,26 @@ func FprintlnChecklist(w io.Writer, msg string) {
 }
 
 func PrintlnNestedChecklist(msg string) {
+	FprintlnNestedChecklist(os.Stdout, msg)
+}
+
+func FprintlnNestedChecklist(w io.Writer, msg string) {
 	pipe := Highlight("│")
-	prefix := color.New(color.Faint).Sprint(Highlight("└─> "))
-	text := color.New(color.Faint).Sprintln(msg)
-	fmt.Printf("%s%s%s", pipe, prefix, text)
+	faint := color.New(color.Faint)
+	prefix := faint.Sprint(Highlight("└─> "))
+
+	msg = strings.TrimRight(msg, "\n")
+	if !strings.Contains(msg, "\n") {
+		_, _ = fmt.Fprintf(w, "%s%s%s\n", pipe, prefix, faint.Sprintf(msg))
+		return
+	}
+
+	lines := strings.Split(msg, "\n")
+	for i, line := range lines {
+		if i != 0 {
+			prefix = "    "
+		}
+		lines[i] = fmt.Sprintf("%s%s%s%s", pipe, prefix, faint.Sprintf("│ "), faint.Sprintf(line))
+	}
+	_, _ = fmt.Fprintln(w, strings.Join(lines, "\n"))
 }

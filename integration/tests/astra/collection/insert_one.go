@@ -16,11 +16,13 @@ package collection_test
 
 import (
 	"fmt"
+	"math/big"
 	"reflect"
 	"time"
 
 	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/integration/harness"
 	"github.com/datastax/astra-db-go/internal/testlib"
@@ -29,7 +31,7 @@ import (
 func init() {
 	s := harness.ParallelSuite("collection.insert-one")
 
-	s.Run("should insert an untyped document with IDs of all kinds", func(t harness.T) {
+	s.Run("should insert an untyped document with IDs of all kinds", func(t *harness.T) {
 		ids := []any{
 			"hi",
 			nil,
@@ -50,7 +52,7 @@ func init() {
 		t.NoDiff(ids, got)
 	})
 
-	s.Run("should insert an untyped document with datatypes", func(t harness.T) {
+	s.Run("should insert an untyped document with datatypes", func(t *harness.T) {
 		doc := astra.NewDocument{
 			"oid":     datatypes.NewObjectId(),
 			"u4":      datatypes.NewUUIDv4(),
@@ -73,7 +75,33 @@ func init() {
 		}
 	})
 
-	s.Run("should fail to insert a row into a collection", func(t harness.T) {
+	s.Run("should insert a typed document with datatypes", func(t *harness.T) {
+		doc := harness.EverythingDoc{
+			ID:     datatypes.NewUUIDv7(),
+			Vector: datatypes.NewVector([]float32{1, 2, 3, 4, 5}),
+			Nested: harness.EverythingDocInner{
+				UUID:     datatypes.NewUUIDv4(),
+				ObjectId: datatypes.NewObjectId(),
+				Date:     time.Now().Truncate(time.Millisecond),
+				Big:      *big.NewInt(123),
+			},
+		}
+
+		res, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
+
+		var id datatypes.UUID
+		err = res.DecodeID(&id)
+		testlib.FailIfErr(t, err, "DecodeID failed: %v", err)
+		t.NoDiff(id, doc.ID)
+
+		var got harness.EverythingDoc
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("_id", doc.ID)).Decode(&got)
+		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
+		t.NoDiff(doc, got)
+	})
+
+	s.Run("should fail to insert a row into a collection", func(t *harness.T) {
 		_, err := t.Collection.InsertOne(t.Ctx, astra.NewRow{})
 		testlib.FailIf(t, err == nil, "expected InsertOne to fail when inserting a row into a collection")
 	})

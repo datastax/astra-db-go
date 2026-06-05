@@ -42,7 +42,7 @@ func NewTestObjects() *TestObjects {
 	client := astra.NewClient(
 		options.API().
 			SetToken(ApplicationToken()).
-			SetDataAPIBackend(Backend()),
+			SetDataAPIBackend(Backend()), // need to check if we need any more options here
 	)
 	db := client.Database(APIEndpoint())
 

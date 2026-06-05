@@ -22,7 +22,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/table"
-	"github.com/datastax/astra-db-go/integration_old/harness"
+	"github.com/datastax/astra-db-go/integration/old/harness"
 )
 
 func init() {

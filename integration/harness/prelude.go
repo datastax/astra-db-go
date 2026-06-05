@@ -42,9 +42,9 @@ func prelude() {
 
 	PrintlnBold("Running prelude...")
 
-	awaitKeyspacesSetup(dbAdmin)
+	awaitKeyspacesSetup(dbAdmin) // creates necessary keyspaces; deletes the 'slania' keyspace for keyspace lifecycle tests
 
-	startCreateCollections(db)
+	startCreateCollections(db) // sets up tables/collections in parallel
 	startCreateTables(db)
 	startListingCollections(db)
 	startListingTables(db)
@@ -55,6 +55,9 @@ func prelude() {
 
 	PrintlnBold(color.GreenString("\n✓ Prelude finished."))
 }
+
+// obscenity warning: the rest of the code under this comment is not very pleasant to the eyes
+// if you're just reading to get a gist of the file, you can just trust the imperative steps of prelude()
 
 func awaitKeyspacesSetup(dbAdmin astra.DatabaseAdmin) {
 	PrintlnChecklist("Setting up keyspaces")
