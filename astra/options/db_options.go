@@ -102,6 +102,10 @@ type DropCollectionOptions struct {
 // DropTableOptions represents options for dropping a table.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type DropTableOptions struct {
+	// IfExists if true, the command will silently succeed even if a table
+	// with the given name does not exist.
+	IfExists *bool
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `optlift:"Keyspace"`
@@ -110,6 +114,10 @@ type DropTableOptions struct {
 // DropTableIndexOptions represents options for dropping a table index.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type DropTableIndexOptions struct {
+	// IfExists if true, the command will silently succeed even if an index
+	// with the given name does not exist.
+	IfExists *bool
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `optlift:"Keyspace"`

@@ -19,7 +19,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/sort"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
 // Compile-time interface checks

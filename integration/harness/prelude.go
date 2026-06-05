@@ -230,7 +230,7 @@ func startDeletingTables(db *astra.Db) {
 				deleteWG.Add(1)
 				go func(ks, name string) {
 					defer deleteWG.Done()
-					err := db.DropTable(Ctx, name, options.DropTable().SetKeyspace(ks))
+					err := db.DropTable(Ctx, name, options.DropTable().SetIfExists(true).SetKeyspace(ks))
 					testlib.PanicIfErr(err, fmt.Sprintf("failed to drop table '%s.%s' during prelude cleanup", ks, name))
 				}(ks, name)
 			}

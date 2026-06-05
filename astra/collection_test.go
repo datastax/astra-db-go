@@ -152,7 +152,7 @@ func TestDeleteOneResponseDeserialization(t *testing.T) {
 //	  ]}
 //	}
 func TestDeleteManyPayloadSerialization(t *testing.T) {
-	// TODO: could probably make this work with testutils helpers. But - it's just different
+	// TODO: could probably make this work with testlib helpers. But - it's just different
 	// enough with the wrapper, etc., that leaving it separate for now.
 	tests := []struct {
 		name     string

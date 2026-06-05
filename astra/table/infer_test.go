@@ -23,7 +23,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/datatypes"
 	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
 func TestGoTypeToColumn(t *testing.T) {

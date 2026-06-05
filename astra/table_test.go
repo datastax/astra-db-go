@@ -33,7 +33,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/sort"
 	"github.com/datastax/astra-db-go/astra/table"
 	"github.com/datastax/astra-db-go/astra/update"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
 func TestTableDefinitionMarshal(t *testing.T) {

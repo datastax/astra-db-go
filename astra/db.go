@@ -276,6 +276,9 @@ func (d *Db) DropTable(ctx context.Context, name string, opts ...options.DropTab
 	}
 	cmd := d.newCmdWithMergedOptions("dropTable", map[string]any{
 		"name": name,
+		"options": map[string]any{
+			"ifExists": merged.IfExists,
+		},
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err
@@ -295,6 +298,9 @@ func (d *Db) DropTableIndex(ctx context.Context, name string, opts ...options.Dr
 	}
 	cmd := d.newCmdWithMergedOptions("dropIndex", map[string]any{
 		"name": name,
+		"options": map[string]any{
+			"ifExists": merged.IfExists,
+		},
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err

@@ -16,6 +16,7 @@ package table
 
 import (
 	"fmt"
+	"math/big"
 	"net"
 	"reflect"
 	"sort"
@@ -33,6 +34,10 @@ var (
 	reflectDuration  = reflect.TypeFor[datatypes.Duration]()
 	reflectIP        = reflect.TypeFor[net.IP]()
 	reflectByteSlice = reflect.TypeFor[[]byte]()
+	reflectDateOnly  = reflect.TypeFor[datatypes.DateOnly]()
+	reflectTimeOnly  = reflect.TypeFor[datatypes.TimeOnly]()
+	reflectBigInt    = reflect.TypeFor[big.Int]()
+	reflectBigFloat  = reflect.TypeFor[big.Float]()
 )
 
 // fieldData holds processed metadata about a single struct field.
@@ -216,6 +221,14 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 		return Inet(), nil
 	case reflectByteSlice:
 		return Blob(), nil
+	case reflectDateOnly:
+		return Date(), nil
+	case reflectTimeOnly:
+		return Time(), nil
+	case reflectBigInt:
+		return Varint(), nil
+	case reflectBigFloat:
+		return Decimal(), nil
 	}
 
 	// Kind-based mapping

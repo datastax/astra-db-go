@@ -50,7 +50,7 @@ func cleanString(s string) string {
 //	}
 //	for _, tt := range tests {
 //		t.Run(tt.expectedJSON, func(t *testing.T) {
-//			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+//			testlib.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 //		})
 //	}
 func AssertJSONEqual(t *testing.T, expected string, args ...any) {
@@ -73,7 +73,7 @@ func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 //
 // Example usage:
 //
-//	tests := []testutils.JSONTestCase{{
+//	tests := []testlib.JSONTestCase{{
 //		Name:     "ascending",
 //		Expected: `{"rating":1}`,
 //		SerArgs: []any{
@@ -89,7 +89,7 @@ func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 //		},
 //	}}
 //	// Run the tests
-//	testutils.RunJSONTestCases(t, tests)
+//	testlib.RunJSONTestCases(t, tests)
 type JSONTestCase struct {
 	Name     string
 	Expected string

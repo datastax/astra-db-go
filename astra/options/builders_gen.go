@@ -2025,11 +2025,11 @@ func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeysp
 // Example using the fluent builder ([DropTableIndex]):
 //
 //	// No need to use pointer for builder; the builder handles that for you.
-//	opts := options.DropTableIndex().SetKeyspace("value")
+//	opts := options.DropTableIndex().SetIfExists(false)
 //
 // Example using a pointer to [DropTableIndexOptions] without the fluent builder:
 //
-//	opts := &options.DropTableIndexOptions{Keyspace: ptr.To("value")}
+//	opts := &options.DropTableIndexOptions{IfExists: ptr.To(false)}
 type DropTableIndexOption = Builder[DropTableIndexOptions]
 
 // Setters implements Builder[DropTableIndexOptions] allowing the raw struct to be
@@ -2054,6 +2054,16 @@ func DropTableIndex() *dropTableIndexOptionsBuilder {
 // Setters implements Builder[DropTableIndexOptions].
 func (b *dropTableIndexOptionsBuilder) Setters() []func(*DropTableIndexOptions) {
 	return b.setters
+}
+
+// SetIfExists sets the IfExists option.
+// IfExists if true, the command will silently succeed even if an index
+// with the given name does not exist.
+func (b *dropTableIndexOptionsBuilder) SetIfExists(v bool) *dropTableIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTableIndexOptions) {
+		o.IfExists = &v
+	})
+	return b
 }
 
 // SetKeyspace sets the Keyspace option.
@@ -2084,11 +2094,11 @@ func (b *dropTableIndexOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *
 // Example using the fluent builder ([DropTable]):
 //
 //	// No need to use pointer for builder; the builder handles that for you.
-//	opts := options.DropTable().SetKeyspace("value")
+//	opts := options.DropTable().SetIfExists(false)
 //
 // Example using a pointer to [DropTableOptions] without the fluent builder:
 //
-//	opts := &options.DropTableOptions{Keyspace: ptr.To("value")}
+//	opts := &options.DropTableOptions{IfExists: ptr.To(false)}
 type DropTableOption = Builder[DropTableOptions]
 
 // Setters implements Builder[DropTableOptions] allowing the raw struct to be
@@ -2113,6 +2123,16 @@ func DropTable() *dropTableOptionsBuilder {
 // Setters implements Builder[DropTableOptions].
 func (b *dropTableOptionsBuilder) Setters() []func(*DropTableOptions) {
 	return b.setters
+}
+
+// SetIfExists sets the IfExists option.
+// IfExists if true, the command will silently succeed even if a table
+// with the given name does not exist.
+func (b *dropTableOptionsBuilder) SetIfExists(v bool) *dropTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTableOptions) {
+		o.IfExists = &v
+	})
+	return b
 }
 
 // SetKeyspace sets the Keyspace option.
