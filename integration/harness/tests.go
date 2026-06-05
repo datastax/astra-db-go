@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime/debug"
+	"sort"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/datastax/astra-db-go/internal/testlib"
 	"github.com/fatih/color"
@@ -70,14 +71,24 @@ func (s *S) Run(name string, fn func(T)) *S {
 	return s
 }
 
+type failure struct {
+	testName string
+	message  string
+	isPanic  bool
+}
+
+var (
+	failuresMu    sync.Mutex
+	suiteFailures = make(map[string][]failure)
+)
+
 func Run() int {
 	var bgWg sync.WaitGroup
 	var bgOut strings.Builder
 	var suiteWg sync.WaitGroup
-	var failures int32
 
 	for _, t := range backgroundTests {
-		runTestParallel(&bgOut, t, &bgWg, &failures)
+		runTestParallel(&bgOut, "(Background)", t, &bgWg)
 	}
 
 	for i, t := range suites {
@@ -85,9 +96,9 @@ func Run() int {
 
 		for _, test := range t.tests {
 			if t.Parallel {
-				runTestParallel(os.Stdout, test, &suiteWg, &failures)
+				runTestParallel(os.Stdout, t.Name, test, &suiteWg)
 			} else {
-				executeTest(nil, test, &failures)
+				executeTest(os.Stdout, t.Name, test)
 			}
 		}
 		suiteWg.Wait()
@@ -95,27 +106,69 @@ func Run() int {
 
 	bgWg.Wait()
 
-	if atomic.LoadInt32(&failures) != 0 {
-		PrintlnBold(color.RedString("\n✘ %d test(s) failed.\n", failures))
-		return 1
-	}
-
-	PrintlnBold(color.GreenString("\n✓ All tests passed.\n"))
-	return 0
+	return printFailures()
 }
 
-func executeTest(w io.Writer, t test, failed *int32) {
+func printFailures() int {
+	failuresMu.Lock()
+	defer failuresMu.Unlock()
+
+	if len(suiteFailures) == 0 {
+		PrintlnBold(color.GreenString("\n✓ All tests passed.\n"))
+		return 0
+	}
+
+	totalFailures := 0
+	var suiteNames []string
+	for name, fs := range suiteFailures {
+		totalFailures += len(fs)
+		suiteNames = append(suiteNames, name)
+	}
+
+	sort.Strings(suiteNames)
+
+	PrintlnBold(color.RedString("\n✘ %d test(s) failed:\n", totalFailures))
+
+	i := 1
+	for _, suiteName := range suiteNames {
+		for _, f := range suiteFailures[suiteName] {
+			fmt.Printf("  %d) %s %s:\n", i, suiteName, f.testName)
+			lines := strings.Split(f.message, "\n")
+			for _, line := range lines {
+				if f.isPanic {
+					fmt.Printf("     %s\n", color.YellowString(line))
+				} else {
+					fmt.Printf("     %s\n", color.RedString(line))
+				}
+			}
+			fmt.Println()
+			i++
+		}
+	}
+
+	return 1
+}
+
+func executeTest(w io.Writer, suiteName string, t test) {
 	defer func() {
 		if r := recover(); r != nil {
-			if _, ok := r.(failSignal); ok {
+			failuresMu.Lock()
+			defer failuresMu.Unlock()
+
+			if fs, ok := r.(failSignal); ok {
 				FprintlnChecklist(w, fmt.Sprintf("%s %s", color.RedString("✘"), t.name))
-				//fmt.Printf("  %s\n\n", fs.msg)
+				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
+					testName: t.name,
+					message:  fs.msg,
+				})
 			} else {
 				FprintlnChecklist(w, fmt.Sprintf("%s %s", color.YellowString("!"), t.name))
-				//fmt.Printf("  %v\n\n", r)
-				//debug.PrintStack()
+				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
+					testName: t.name,
+					message:  fmt.Sprintf("%v\n%s", r, debug.Stack()),
+					isPanic:  true,
+				})
 			}
-			atomic.AddInt32(failed, 1)
 		}
 	}()
 
@@ -124,11 +177,11 @@ func executeTest(w io.Writer, t test, failed *int32) {
 	FprintlnChecklist(w, fmt.Sprintf("%s %s", color.GreenString("✓"), t.name))
 }
 
-func runTestParallel(w io.Writer, t test, wg *sync.WaitGroup, failed *int32) {
+func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		executeTest(w, t, failed)
+		executeTest(w, suiteName, t)
 	}()
 }
 
