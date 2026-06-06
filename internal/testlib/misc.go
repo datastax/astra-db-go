@@ -177,7 +177,8 @@ func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 
 func ErrMustBe[E error](t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
-	if _, ok := errors.AsType[E](err); !ok {
+	var target E
+	if !errors.As(err, &target) {
 		t.Fatalf("%s: expected error of type %T but got %T", fmt.Sprintf(msg, args...), (*E)(nil), err)
 	}
 }
