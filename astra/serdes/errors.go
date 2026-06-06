@@ -103,7 +103,7 @@ func (e *SyntaxError) diagnostic() string {
 	return msg
 }
 
-func (e SyntaxError) Error() string {
+func (e *SyntaxError) Error() string {
 	msg := "serdes: syntax error"
 	if path := e.formatPath(); path != "" {
 		msg += path
@@ -131,7 +131,7 @@ func (e *UnmarshalTypeError) diagnostic() string {
 	return ""
 }
 
-func (e UnmarshalTypeError) Error() string {
+func (e *UnmarshalTypeError) Error() string {
 	msg := "serdes: cannot unmarshal " + e.Value
 	path := e.fullPath()
 	if path != "" && path != e.Type.String() && path != e.Type.Name() {
@@ -217,7 +217,7 @@ func (e *MarshalerError) diagnostic() string {
 	return displayError(e.Err)
 }
 
-func (e MarshalerError) Error() string {
+func (e *MarshalerError) Error() string {
 	msg := "serdes: error calling MarshalAstra"
 	path := e.fullPath()
 	if path != "" && path != e.Type.String() && path != e.Type.Name() {
@@ -243,7 +243,7 @@ func (e *UnmarshalerError) diagnostic() string {
 	return displayError(e.Err)
 }
 
-func (e UnmarshalerError) Error() string {
+func (e *UnmarshalerError) Error() string {
 	msg := "serdes: error calling UnmarshalAstra"
 	path := e.fullPath()
 	if path != "" && path != e.Type.String() && path != e.Type.Name() {
@@ -265,7 +265,7 @@ type UnsupportedValueError struct {
 	Msg   string
 }
 
-func (e UnsupportedValueError) Error() string {
+func (e *UnsupportedValueError) Error() string {
 	msg := "serdes: unsupported value"
 	if e.Msg != "" {
 		msg += ": " + e.Msg
@@ -280,7 +280,7 @@ type UnsupportedTypeError struct {
 	Type reflect.Type
 }
 
-func (e UnsupportedTypeError) Error() string {
+func (e *UnsupportedTypeError) Error() string {
 	return "serdes: unsupported type: " + e.Type.String() + e.formatPath()
 }
 
@@ -317,7 +317,7 @@ type InvalidUnmarshalError struct {
 	Type reflect.Type
 }
 
-func (e InvalidUnmarshalError) Error() string {
+func (e *InvalidUnmarshalError) Error() string {
 	if e.Type == nil {
 		return "serdes: Deserialize(nil)"
 	}

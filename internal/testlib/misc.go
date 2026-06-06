@@ -158,7 +158,7 @@ func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 	}
 }
 
-func ErrMustBe[T error](t HasFatal, err error, msg string, args ...any) {
+func ErrMustBe[T any](t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
 	var as T
 	if !errors.As(err, &as) {
