@@ -39,7 +39,7 @@ func (w *Warning) String() string {
 }
 
 // Error implements the error interface for Warning.
-func (w *Warning) Error() string {
+func (w Warning) Error() string {
 	return w.String()
 }
 

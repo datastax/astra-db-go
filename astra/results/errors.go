@@ -145,7 +145,7 @@ func (e *InsertManyError) DecodeIDs(v any) error {
 }
 
 // Error implements the error interface for InsertManyError.
-func (e *InsertManyError) Error() string {
+func (e InsertManyError) Error() string {
 	count := e.InsertedCount()
 	if len(e.Errors) == 0 {
 		return fmt.Sprintf("insertMany failed after inserting %d documents", count)

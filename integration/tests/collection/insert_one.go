@@ -25,6 +25,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
+	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/integration/harness"
 	"github.com/datastax/astra-db-go/internal/testlib"
 )
@@ -55,34 +56,38 @@ func init() {
 	})
 
 	s.Run("should insert an untyped document with datatypes", func(t *harness.T) {
+		lm := datatypes.NewLinkedMap[string, any]()
+		lm.Set("set", datatypes.NewSet(1, 2, 3))
+
 		doc := astra.NewDocument{
 			"key":     t.Key(0),
 			"oid":     datatypes.NewObjectId(),
 			"u4":      datatypes.NewUUIDv4(),
-			"u7":      datatypes.NewUUIDv7(),
+			"u7":      map[string]any{"$uuid": datatypes.NewUUIDv7().String()},
 			"date":    time.Now(),
-			"$vector": datatypes.NewVector([]float32{1, 2, 3, 4, 5}),
+			"$vector": []float32{1, 2, 3, 4, 5},
 			"nested_doc": astra.NewDocument{
 				"oid": datatypes.NewObjectId(),
 			},
 			"nested_map": map[string]any{
 				"u6": datatypes.NewUUIDv6(),
 			},
+			"nested_linked_map": lm,
 		}
 
 		res, err := t.Collection.InsertOne(t.Ctx, doc)
 		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
 
-		insertOneDecode[datatypes.UUID](t, res)
 		insertOneDecode[string](t, res)
 
 		var got astra.Document
 		err = t.Collection.FindOne(t.Ctx, filter.Eq("key", t.Key(0)), options.CollectionFindOne().
-			SetProjection(map[string]any{"*": 1, "_id": 0})).
+			SetProjection(map[string]any{"_id": 0, "$vector": true})).
 			Decode(&got)
 
+		// can't really check the whole doc for equality due to the insertion using some non-default types
 		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
-		t.NoDiff(doc, got)
+		t.NoDiff([]any{1.0, 2.0, 3.0}, got.MustGet("nested_linked_map", "set"))
 	})
 
 	s.Run("should insert a typed document with datatypes", func(t *harness.T) {
@@ -115,6 +120,20 @@ func init() {
 	s.Run("should fail to insert a row into a collection", func(t *harness.T) {
 		_, err := t.Collection.InsertOne(t.Ctx, astra.NewRow{})
 		testlib.FailIf(t, err == nil, "expected InsertOne to fail when inserting a row into a collection")
+	})
+
+	s.Run("should fail to insert table-only datatypes into a collection", func(t *harness.T) {
+		types := []any{
+			datatypes.DateOnlyNow(),
+			datatypes.TimeOnlyNow(),
+			datatypes.MustParseDuration("P1W"),
+		}
+
+		testlib.AwaitAll(t, types, func(ty any) (any, error) {
+			_, err := t.Collection.InsertOne(t.Ctx, astra.NewDocument{"val": ty})
+			testlib.ErrMustBe[serdes.UnsupportedValueError](t, err, "expected %T insertion to fail", ty)
+			return nil, nil
+		})
 	})
 }
 

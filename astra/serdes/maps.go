@@ -157,11 +157,14 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 		iter := mkIter(ctx, m)
 
 		if iter.IsEmpty() {
+			if open == '[' && encodeValue == nil {
+				return append(dst, "[]"...), nil
+			}
 			return append(dst, "{}"...), nil // empty object on purpose, even for assoc arrays b/c of a data api bug
 		}
 
 		start := len(dst)
-		toArray := open == '[' // && close == ']'
+		toArray := open == '[' && encodeValue != nil
 
 		first := true
 		var err error
@@ -230,7 +233,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 		v := reflect.New(vt).Elem()
 		kptr, vptr := valuePtr(k), valuePtr(v)
 
-		fromArray := open == '[' // && close == ']'
+		fromArray := open == '[' && decodeValue != nil
 
 		src = src[1:]
 		for i := 0; ; i++ {

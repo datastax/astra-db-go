@@ -17,6 +17,7 @@
 package testlib
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"sync"
@@ -154,6 +155,14 @@ func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("%s: %v", fmt.Sprintf(msg, args...), err)
+	}
+}
+
+func ErrMustBe[T error](t HasFatal, err error, msg string, args ...any) {
+	t.Helper()
+	var as T
+	if !errors.As(err, &as) {
+		t.Fatalf("%s: expected error of type %T but got %v", fmt.Sprintf(msg, args...), as, err)
 	}
 }
 
