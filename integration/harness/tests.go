@@ -19,14 +19,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
+	"regexp"
 	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
 
-	"github.com/datastax/astra-db-go/internal/testlib"
 	"github.com/fatih/color"
 )
 
@@ -38,14 +37,6 @@ type T struct {
 	logs    strings.Builder
 	mu      sync.RWMutex
 	helpers map[string]bool
-}
-
-// failSignal is used internally to differentiate between a true panic, and an intentional test failure (via t.Fatalf).
-// Is this abuse of control flow? Maybe. Do I care? no.
-type failSignal struct {
-	msg  string
-	file string
-	line int
 }
 
 // Helper marks the calling function as a test helper function.
@@ -74,35 +65,16 @@ func (t *T) Logf(format string, args ...any) {
 	_, _ = fmt.Fprintf(&t.logs, format, args...)
 }
 
+// failSignal is used internally to differentiate between a true panic, and an intentional test failure (via t.Fatalf).
+// Is this abuse of control flow? Maybe. Do I care? no.
+type failSignal struct {
+	msg  string
+	file string
+	line int
+}
+
 func (t *T) Fatalf(format string, args ...any) {
-	var file string
-	var line int
-
-	var pcs [50]uintptr
-	n := runtime.Callers(2, pcs[:])
-	if n > 0 {
-		t.mu.RLock()
-		defer t.mu.RUnlock()
-
-		frames := runtime.CallersFrames(pcs[:n])
-		for {
-			frame, more := frames.Next()
-			if !t.helpers[frame.Function] {
-				file = frame.File
-				line = frame.Line
-				break
-			}
-			if !more {
-				break
-			}
-		}
-	}
-
-	if cwd, err := os.Getwd(); err == nil {
-		if rel, err := filepath.Rel(cwd, file); err == nil {
-			file = rel
-		}
-	}
+	file, line := lowestNonHelperCallerInfo(&t.mu, t.helpers)
 
 	panic(failSignal{
 		msg:  fmt.Sprintf(format, args...),
@@ -111,51 +83,52 @@ func (t *T) Fatalf(format string, args ...any) {
 	})
 }
 
-func (t *T) NoDiff(want, got any) {
-	t.Helper()
-	if diff := testlib.Diff(t, want, got); diff != "" {
-		t.Fatalf("mismatch (-want +got):\n%s", diff)
-	}
+var suites = []*S{
+	{Name: "{Background}", Type: suiteBackground},
 }
+
+type S struct {
+	Name   string
+	Type   suiteType
+	tests  []test
+	before func(*T)
+	after  func(*T)
+}
+
+type suiteType int
+
+const (
+	suiteParallel suiteType = iota
+	suiteSequential
+	suiteBackground
+)
 
 type test struct {
 	name string
 	run  func(*T)
 }
 
-var suites []*S
-var backgroundTests []test
-
-func BackgroundTest(name string, fn func(*T)) {
-	backgroundTests = append(backgroundTests, test{name, fn})
+func ParallelSuite(name string) *S {
+	return appendSuite(name, suiteParallel)
 }
 
-type S struct {
-	Name     string
-	Parallel bool
-	tests    []test
-	before   func(*T)
-	after    func(*T)
+func SequentialSuite(name string) *S {
+	return appendSuite(name, suiteSequential)
 }
 
-func ParallelSuite() *S {
-	s := mkSuite(1, true)
-	suites = append(suites, s)
-	return s
+func BackgroundSuite() *S {
+	return suites[0]
 }
 
-func SequentialSuite() *S {
-	s := mkSuite(1, false)
-	suites = append(suites, s)
-	return s
-}
+var kebabRegex = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 
-func mkSuite(skip int, parallel bool) *S {
-	name, err := filepath.Rel(TestsDirectory, callerPath(1+skip))
-	if err != nil {
-		panic(fmt.Sprintf("failed to get suite name: %v", err))
+func appendSuite(name string, typ suiteType) *S {
+	if !kebabRegex.MatchString(name) {
+		panic(fmt.Sprintf("suite name '%s' is not in kebab-case", name))
 	}
-	return &S{Name: name, Parallel: parallel}
+	s := &S{Name: name, Type: typ}
+	suites = append(suites, s)
+	return s
 }
 
 func (s *S) Run(name string, fn func(*T)) *S {
@@ -185,6 +158,69 @@ func (s *S) After(fn func(*T)) *S {
 	return s
 }
 
+func Run() int {
+	suitesToRun, testsRun := filterTests()
+
+	var bgWg sync.WaitGroup
+	var bgOut strings.Builder
+	var suiteWg sync.WaitGroup
+
+	if len(suitesToRun) > 0 && suitesToRun[0].Type == suiteBackground {
+		executeSuite(&bgOut, &bgWg, suitesToRun[0], len(suitesToRun))
+		suitesToRun = suitesToRun[1:]
+	}
+
+	for i, s := range suitesToRun {
+		executeSuite(os.Stdout, &suiteWg, s, i+1)
+	}
+
+	bgWg.Wait()
+	fmt.Print(bgOut.String())
+
+	return printResults(testsRun)
+}
+
+func filterTests() (suitesToRun []*S, testsRun int) {
+	for _, s := range suites {
+		var tests []test
+		for _, t := range s.tests {
+			if ShouldRun(s.Name, t.name) {
+				tests = append(tests, t)
+			}
+		}
+		if len(tests) > 0 {
+			s.tests = tests
+			suitesToRun = append(suitesToRun, s)
+			testsRun += len(tests)
+		}
+	}
+	return
+}
+
+func executeSuite(w io.Writer, wg *sync.WaitGroup, s *S, i int) {
+	_, _ = fmt.Fprintf(w, "\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i))), Bold(s.Name))
+
+	beforeSucceeded := true
+	if s.before != nil {
+		beforeSucceeded = executeTestSync(w, s.Name, test{"{Before}", s.before}, true)
+	}
+
+	if beforeSucceeded {
+		for _, test := range s.tests {
+			if s.Type == suiteSequential {
+				executeTestSync(w, s.Name, test, false)
+			} else {
+				executeTestAsync(w, s.Name, test, wg)
+			}
+		}
+		wg.Wait()
+	}
+
+	if s.after != nil {
+		executeTestSync(w, s.Name, test{"{After}", s.after}, true)
+	}
+}
+
 type failure struct {
 	testName string
 	message  string
@@ -196,98 +232,7 @@ var (
 	suiteFailures = make(map[string][]failure)
 )
 
-func Run() int {
-	var bgWg sync.WaitGroup
-	var bgOut strings.Builder
-	var suiteWg sync.WaitGroup
-
-	for _, t := range backgroundTests {
-		if ShouldRun("{Background}", t.name) {
-			runTestParallel(&bgOut, "{Background}", t, &bgWg)
-		}
-	}
-
-	for i, t := range suites {
-		var testsToRun []test
-		for _, test := range t.tests {
-			if ShouldRun(t.Name, test.name) {
-				testsToRun = append(testsToRun, test)
-			}
-		}
-
-		if len(testsToRun) == 0 {
-			continue
-		}
-
-		fmt.Printf("\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i+1))), Bold(t.Name))
-
-		beforeSucceeded := true
-		if t.before != nil {
-			beforeSucceeded = executeTest(os.Stdout, t.Name, test{"{Setup}", t.before}, true)
-		}
-
-		if beforeSucceeded {
-			for _, test := range testsToRun {
-				if t.Parallel {
-					runTestParallel(os.Stdout, t.Name, test, &suiteWg)
-				} else {
-					executeTest(os.Stdout, t.Name, test, false)
-				}
-			}
-			suiteWg.Wait()
-		}
-
-		if t.after != nil {
-			executeTest(os.Stdout, t.Name, test{"{Teardown}", t.after}, true)
-		}
-	}
-
-	bgWg.Wait()
-
-	return printFailures()
-}
-
-func printFailures() int {
-	failuresMu.Lock()
-	defer failuresMu.Unlock()
-
-	if len(suiteFailures) == 0 {
-		PrintlnBold(color.GreenString("\n✓ All tests passed.\n"))
-		return 0
-	}
-
-	totalFailures := 0
-	var suiteNames []string
-	for name, fs := range suiteFailures {
-		totalFailures += len(fs)
-		suiteNames = append(suiteNames, name)
-	}
-
-	sort.Strings(suiteNames)
-
-	PrintlnBold(color.RedString("\n✘ %d test(s) failed:\n", totalFailures))
-
-	i := 1
-	for _, suiteName := range suiteNames {
-		for _, f := range suiteFailures[suiteName] {
-			fmt.Printf("  %s – %s\n", Bold(fmt.Sprintf("%d) %s", i, suiteName)), f.testName)
-			lines := strings.Split(f.message, "\n")
-			for _, line := range lines {
-				if f.isPanic {
-					fmt.Printf("     %s\n", color.YellowString(line))
-				} else {
-					fmt.Printf("     %s\n", color.RedString(line))
-				}
-			}
-			fmt.Println()
-			i++
-		}
-	}
-
-	return 1
-}
-
-func executeTest(w io.Writer, suiteName string, tst test, silent bool) (success bool) {
+func executeTestSync(w io.Writer, suiteName string, tst test, silent bool) (success bool) {
 	success = true
 	t := mkT(tst, NewTestObjects())
 
@@ -331,11 +276,11 @@ func executeTest(w io.Writer, suiteName string, tst test, silent bool) (success 
 	return
 }
 
-func runTestParallel(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) {
+func executeTestAsync(w io.Writer, suiteName string, t test, wg *sync.WaitGroup) {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		executeTest(w, suiteName, t, false)
+		executeTestSync(w, suiteName, t, false)
 	}()
 }
 
@@ -344,4 +289,49 @@ func mkT(t test, fixtures *TestObjects) T {
 		fixtures, t.name, context.Background(),
 		strings.Builder{}, sync.RWMutex{}, make(map[string]bool),
 	}
+}
+
+func printResults(testsRun int) int {
+	failuresMu.Lock()
+	defer failuresMu.Unlock()
+
+	if testsRun == 0 {
+		PrintlnBold(color.YellowString("\n! No tests were run.\n"))
+		return 0
+	}
+
+	if len(suiteFailures) == 0 {
+		PrintlnBold(color.GreenString("\n✓ All tests passed.\n"))
+		return 0
+	}
+
+	totalFailures := 0
+	var suiteNames []string
+	for name, fs := range suiteFailures {
+		totalFailures += len(fs)
+		suiteNames = append(suiteNames, name)
+	}
+
+	sort.Strings(suiteNames)
+
+	PrintlnBold(color.RedString("\n✘ %d test(s) failed:\n", totalFailures))
+
+	i := 1
+	for _, suiteName := range suiteNames {
+		for _, f := range suiteFailures[suiteName] {
+			fmt.Printf("  %s – %s\n", Bold(fmt.Sprintf("%d) %s", i, suiteName)), f.testName)
+			lines := strings.Split(f.message, "\n")
+			for _, line := range lines {
+				if f.isPanic {
+					fmt.Printf("     %s\n", color.YellowString(line))
+				} else {
+					fmt.Printf("     %s\n", color.RedString(line))
+				}
+			}
+			fmt.Println()
+			i++
+		}
+	}
+
+	return 1
 }

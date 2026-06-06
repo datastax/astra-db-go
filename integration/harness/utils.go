@@ -6,6 +6,13 @@ import (
 	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
+func (t *T) NoDiff(want, got any) {
+	t.Helper()
+	if diff := testlib.Diff(t, want, got); diff != "" {
+		t.Fatalf("mismatch (-want +got):\n%s", diff)
+	}
+}
+
 type tOrCSelect int
 type bOrASelect int
 

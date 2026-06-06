@@ -22,7 +22,7 @@ import (
 )
 
 func init() {
-	s := harness.ParallelSuite()
+	s := harness.ParallelSuite("insert-one")
 	s.Truncate(harness.SelectCollections, harness.SelectBefore)
 
 	s.Run("should fail to insert a document into a table", func(t *harness.T) {
