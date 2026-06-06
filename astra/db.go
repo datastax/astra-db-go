@@ -151,7 +151,7 @@ func (d *Db) Table(name string, opts ...options.APIOption) *Table {
 
 // endregion
 
-// region Table/Collection Creation
+// region Table/Collection/Type Creation
 
 // CreateCollection creates a collection in the database.
 //
@@ -244,9 +244,37 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	}, nil
 }
 
+// CreateType creates a new user-defined type (UDT) in the database.
+//
+// Example usage:
+//
+//	definition := table.UDTDefinition{
+//		Fields: table.Columns{
+//			{Name: "street", Column: table.Text()},
+//			{Name: "city", Column: table.Text()},
+//			{Name: "zip_code", Column: table.Int()},
+//		},
+//	}
+//	err := db.CreateType(ctx, "address", definition)
+func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDefinition, opts ...options.CreateTypeOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+
+	cmd := d.newCmdWithMergedOptions("createType", map[string]any{
+		"name":       name,
+		"definition": definition,
+		"options":    merged,
+	}, merged.APIOptions)
+
+	_, _, _, err = cmd.Execute(ctx)
+	return err
+}
+
 // endregion
 
-// region Table/Collection/Index Deletion
+// region Table/Collection/Index/Type Deletion
 
 // DropCollection drops a collection from the database.
 // Note: warnings are accessible via the WarningHandler option callback only.
@@ -306,9 +334,29 @@ func (d *Db) DropTableIndex(ctx context.Context, name string, opts ...options.Dr
 	return err
 }
 
+// DropType drops (deletes) a user-defined type (UDT) from the database.
+//
+// Example usage:
+//
+//	err := db.DropType(ctx, "address")
+func (d *Db) DropType(ctx context.Context, name string, opts ...options.DropTypeOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+	cmd := d.newCmdWithMergedOptions("dropType", map[string]any{
+		"name": name,
+		"options": map[string]any{
+			"ifExists": merged.IfExists,
+		},
+	}, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
+	return err
+}
+
 // endregion
 
-// region Table/Collection Listing
+// region Table/Collection/Type Listing
 
 // ListCollections lists all collections in the database with their full definitions.
 //
@@ -450,54 +498,6 @@ func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.A
 	var resp listTablesResponse[T]
 	err = serdes.Deserialize(b, &resp, nil, serdes.TargetNone, opts.GetDesFlags())
 	return resp.Status.Tables, err
-}
-
-// CreateType creates a new user-defined type (UDT) in the database.
-//
-// Example usage:
-//
-//	definition := table.UDTDefinition{
-//		Fields: table.Columns{
-//			{Name: "street", Column: table.Text()},
-//			{Name: "city", Column: table.Text()},
-//			{Name: "zip_code", Column: table.Int()},
-//		},
-//	}
-//	err := db.CreateType(ctx, "address", definition)
-func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDefinition, opts ...options.CreateTypeOption) error {
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return err
-	}
-
-	cmd := d.newCmdWithMergedOptions("createType", map[string]any{
-		"name":       name,
-		"definition": definition,
-		"options":    merged,
-	}, merged.APIOptions)
-
-	_, _, _, err = cmd.Execute(ctx)
-	return err
-}
-
-// DropType drops (deletes) a user-defined type (UDT) from the database.
-//
-// Example usage:
-//
-//	err := db.DropType(ctx, "address")
-func (d *Db) DropType(ctx context.Context, name string, opts ...options.DropTypeOption) error {
-	merged, err := options.MergeAndValidate(opts...)
-	if err != nil {
-		return err
-	}
-	cmd := d.newCmdWithMergedOptions("dropType", map[string]any{
-		"name": name,
-		"options": map[string]any{
-			"ifExists": merged.IfExists,
-		},
-	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
-	return err
 }
 
 // ListTypes lists all user-defined types (UDTs) in the database with their full definitions.
