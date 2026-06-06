@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package old
+package legacy
 
 import (
 	"io"
@@ -22,10 +22,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/integration/old/harness"
+	"github.com/datastax/astra-db-go/integration/legacy/harness"
 	// This import triggers the init() functions in tests. If you put tests
 	// in other packages, be sure to side-effect import them.
-	_ "github.com/datastax/astra-db-go/integration/old/tests"
+	_ "github.com/datastax/astra-db-go/integration/legacy/tests"
 )
 
 // Get the test environment as well as all tests, then run them.

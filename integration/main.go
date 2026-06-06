@@ -18,7 +18,7 @@ import (
 	"os"
 
 	"github.com/datastax/astra-db-go/integration/harness"
-	"github.com/datastax/astra-db-go/integration/old"
+	"github.com/datastax/astra-db-go/integration/legacy"
 
 	_ "github.com/datastax/astra-db-go/integration/tests/collection"
 	_ "github.com/datastax/astra-db-go/integration/tests/table"
@@ -34,5 +34,5 @@ func main() {
 
 	harness.PrintlnBold(harness.Highlight("...Running legacy integration tests...\n"))
 
-	old.Run() // temporary (obviously)
+	legacy.Run() // temporary (obviously)
 }
