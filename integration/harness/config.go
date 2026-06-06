@@ -58,8 +58,10 @@ type config struct {
 var cfg config
 
 func Init() {
-	c, err := dotconfig.FromFileName[config]("../integration/.env")
-
+	c, err := dotconfig.FromFileName[config](".env")
+	if err != nil {
+		c, err = dotconfig.FromFileName[config]("./integration/.env")
+	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
 	}

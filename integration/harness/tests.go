@@ -171,15 +171,18 @@ func Run() int {
 
 	var bgWg sync.WaitGroup
 	var bgOut strings.Builder
-	var suiteWg sync.WaitGroup
 
 	if len(suitesToRun) > 0 && suitesToRun[0].Type == suiteBackground {
-		executeSuite(&bgOut, &bgWg, suitesToRun[0], len(suitesToRun))
+		bgWg.Add(1)
+		go func() {
+			defer bgWg.Done()
+			executeSuite(&bgOut, suitesToRun[0], len(suitesToRun))
+		}()
 		suitesToRun = suitesToRun[1:]
 	}
 
 	for i, s := range suitesToRun {
-		executeSuite(os.Stdout, &suiteWg, s, i+1)
+		executeSuite(os.Stdout, s, i+1)
 	}
 
 	bgWg.Wait()
@@ -205,7 +208,7 @@ func filterTests() (suitesToRun []*S, testsRun int) {
 	return
 }
 
-func executeSuite(w io.Writer, wg *sync.WaitGroup, s *S, i int) {
+func executeSuite(w io.Writer, s *S, i int) {
 	_, _ = fmt.Fprintf(w, "\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i))), Bold(filepath.Base(s.dir)+"/"+s.Name))
 
 	beforeSucceeded := true
@@ -214,14 +217,15 @@ func executeSuite(w io.Writer, wg *sync.WaitGroup, s *S, i int) {
 	}
 
 	if beforeSucceeded {
+		var internalWg sync.WaitGroup
 		for _, test := range s.tests {
 			if s.Type == suiteSequential {
 				executeTestSync(w, s.Name, test, false)
 			} else {
-				executeTestAsync(w, s.Name, test, wg)
+				executeTestAsync(w, s.Name, test, &internalWg)
 			}
 		}
-		wg.Wait()
+		internalWg.Wait()
 	}
 
 	if s.after != nil {
@@ -236,7 +240,7 @@ type failure struct {
 }
 
 var (
-	failuresMu    sync.Mutex
+	resultsMu     sync.Mutex
 	suiteFailures = make(map[string][]failure)
 )
 
@@ -249,6 +253,9 @@ func executeTestSync(w io.Writer, suiteName string, tst test, silent bool) (succ
 			return
 		}
 
+		resultsMu.Lock()
+		defer resultsMu.Unlock()
+
 		FprintlnChecklist(w, fmt.Sprintf("%s %s", symbol, tst.name))
 		if t.logs.Len() > 0 {
 			FprintlnNestedChecklist(w, t.logs.String())
@@ -258,23 +265,26 @@ func executeTestSync(w io.Writer, suiteName string, tst test, silent bool) (succ
 	defer func() {
 		if r := recover(); r != nil {
 			success = false
-			failuresMu.Lock()
-			defer failuresMu.Unlock()
 
+			var f failure
 			if fs, ok := r.(failSignal); ok {
 				printRes(color.RedString("✘"))
-				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
+				f = failure{
 					testName: tst.name + Faint(fmt.Sprintf(" (%s:%d)", fs.file, fs.line)),
 					message:  fs.msg,
-				})
+				}
 			} else {
 				printRes(color.YellowString("!"))
-				suiteFailures[suiteName] = append(suiteFailures[suiteName], failure{
+				f = failure{
 					testName: tst.name,
 					message:  fmt.Sprintf("%v\n%s", r, debug.Stack()),
 					isPanic:  true,
-				})
+				}
 			}
+
+			resultsMu.Lock()
+			suiteFailures[suiteName] = append(suiteFailures[suiteName], f)
+			resultsMu.Unlock()
 		}
 	}()
 
@@ -300,9 +310,6 @@ func mkT(t test, fixtures *TestObjects) T {
 }
 
 func printResults(testsRun int) int {
-	failuresMu.Lock()
-	defer failuresMu.Unlock()
-
 	if testsRun == 0 {
 		PrintlnBold(color.YellowString("\n! No tests were run.\n"))
 		return 0

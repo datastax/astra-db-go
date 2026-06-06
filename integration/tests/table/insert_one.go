@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collection_test
+package table_tests
 
 import (
 	"github.com/datastax/astra-db-go/astra"
@@ -25,7 +25,7 @@ import (
 
 func init() {
 	s := harness.ParallelSuite("insert-one")
-	s.Truncate(harness.SelectCollections, harness.SelectBefore)
+	s.Truncate(harness.SelectTables, harness.SelectBefore)
 
 	s.Run("should fail to insert a document into a table", func(t *harness.T) {
 		_, err := t.Table.InsertOne(t.Ctx, astra.NewDocument{})
