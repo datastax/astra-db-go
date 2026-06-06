@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
@@ -205,7 +206,7 @@ func filterTests() (suitesToRun []*S, testsRun int) {
 }
 
 func executeSuite(w io.Writer, wg *sync.WaitGroup, s *S, i int) {
-	_, _ = fmt.Fprintf(w, "\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i))), Bold(s.Name))
+	_, _ = fmt.Fprintf(w, "\n%s %s\n", Bold(Highlight(fmt.Sprintf("%d)", i))), Bold(filepath.Base(s.dir)+"/"+s.Name))
 
 	beforeSucceeded := true
 	if s.before != nil {

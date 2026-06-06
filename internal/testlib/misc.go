@@ -115,16 +115,25 @@ type HasFatal interface {
 }
 
 func AwaitAll[T any, R any](t HasFatal, xs []T, fn func(T) (R, error)) []R {
-	t.Helper()
+	if t != nil {
+		t.Helper()
+	}
 
 	var wg sync.WaitGroup
 	var errAtomic atomic.Value
+	var panicAtomic atomic.Value
+
 	results := make([]R, len(xs))
 
 	for i, x := range xs {
 		wg.Add(1)
 		go func(index int, item T) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					panicAtomic.Store(r)
+				}
+			}()
 
 			res, err := fn(item)
 			if err != nil {
@@ -137,8 +146,16 @@ func AwaitAll[T any, R any](t HasFatal, xs []T, fn func(T) (R, error)) []R {
 
 	wg.Wait()
 
+	if p := panicAtomic.Load(); p != nil {
+		panic(p)
+	}
+
 	if err := errAtomic.Load(); err != nil {
-		t.Fatalf("AwaitAll: %v", err.(error))
+		if t != nil {
+			t.Fatalf("AwaitAll: %v", err.(error))
+		} else {
+			panic(fmt.Sprintf("AwaitAll: %v", err))
+		}
 	}
 
 	return results
@@ -158,11 +175,10 @@ func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 	}
 }
 
-func ErrMustBe[T any](t HasFatal, err error, msg string, args ...any) {
+func ErrMustBe[E error](t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
-	var as T
-	if !errors.As(err, &as) {
-		t.Fatalf("%s: expected error of type %T but got %v", fmt.Sprintf(msg, args...), as, err)
+	if _, ok := errors.AsType[E](err); !ok {
+		t.Fatalf("%s: expected error of type %T but got %T", fmt.Sprintf(msg, args...), (*E)(nil), err)
 	}
 }
 

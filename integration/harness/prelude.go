@@ -28,13 +28,8 @@ import (
 )
 
 var (
-	createTCWG  sync.WaitGroup
-	createUDTWG sync.WaitGroup
-	listTCWG    sync.WaitGroup
-	deleteTCWG  sync.WaitGroup
-
-	collectionsToDelete sync.Map // map[string][]string
-	tablesToDelete      sync.Map // map[string][]string
+	createTCWG sync.WaitGroup
+	deleteTCWG sync.WaitGroup
 )
 
 func prelude() {
@@ -45,16 +40,16 @@ func prelude() {
 
 	awaitKeyspacesSetup(dbAdmin) // creates necessary keyspaces; deletes the 'slania' keyspace for keyspace lifecycle tests
 
-	startCreateUDTs(db) // sets up UDTS/tables/collections in parallel
-	startCreateCollections(db)
-	startCreateTables(db)
-	startListingCollections(db)
-	startListingTables(db)
-	startDeletingCollections(db)
-	startDeletingTables(db)
+	awaitUDTCreation(db) // sets up UDTS (must be done before creating tables which use them)
 
-	awaitUDTSetup()
-	awaitCollectionTableSetup()
+	startCreateCollections(db) // creates up tables/collections in parallel
+	startCreateTables(db)
+
+	startPruningCollections(db) // deletes leftover tables/collections/udts in parallel
+	startPruningTables(db)
+	startPruningUDTs(db)
+
+	awaitCollectionTableUDTSetup()
 
 	PrintlnBold(color.GreenString("\n✓ Prelude finished."))
 }
@@ -63,7 +58,7 @@ func prelude() {
 // if you're just reading to get a gist of the file, you can just trust the imperative steps of prelude()
 
 func awaitKeyspacesSetup(dbAdmin astra.DatabaseAdmin) {
-	PrintlnChecklist("Setting up keyspaces")
+	PrintlnChecklist("Creating keyspaces")
 
 	allKeyspaces, err := dbAdmin.ListKeyspaces(Ctx)
 	testlib.PanicIfErr(err, "failed to list keyspaces during prelude")
@@ -83,17 +78,14 @@ func awaitKeyspacesSetup(dbAdmin astra.DatabaseAdmin) {
 	PrintlnNestedChecklist("Done!")
 }
 
-func startCreateUDTs(db *astra.Db) {
-	PrintlnChecklist("Started creating UDTs")
+func awaitUDTCreation(db *astra.Db) {
+	PrintlnChecklist("Creating UDTs")
 
-	for _, keyspace := range TestKeyspaces {
-		createUDTWG.Add(1)
-		go func(ks string) {
-			defer createUDTWG.Done()
-			err := db.CreateType(Ctx, "example_udt", ExampleUDTSchema, options.CreateType().SetIfNotExists(true).SetKeyspace(ks))
-			testlib.PanicIfErr(err, "failed to create UDT in keyspace %s during prelude", ks)
-		}(keyspace)
-	}
+	testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
+		return nil, db.CreateType(Ctx, DefaultUDTName, ExampleUDTSchema, options.CreateType().SetIfNotExists(true).SetKeyspace(ks))
+	})
+
+	PrintlnNestedChecklist("Done!")
 }
 
 func startCreateCollections(db *astra.Db) {
@@ -157,114 +149,88 @@ func startCreateTables(db *astra.Db) {
 	}
 }
 
-func startListingCollections(db *astra.Db) {
-	PrintlnChecklist("Started listing collections")
-
-	for _, keyspace := range TestKeyspaces {
-		listTCWG.Add(1)
-		go func(ks string) {
-			defer listTCWG.Done()
-			names, err := db.ListCollectionNames(Ctx, options.ListCollectionNames().SetKeyspace(ks))
-			testlib.PanicIfErr(err, "failed to list collections in keyspace %s", ks)
-			collectionsToDelete.Store(ks, names)
-		}(keyspace)
-	}
-}
-
-func startListingTables(db *astra.Db) {
-	PrintlnChecklist("Started listing tables")
-
-	for _, keyspace := range TestKeyspaces {
-		listTCWG.Add(1)
-		go func(ks string) {
-			defer listTCWG.Done()
-			names, err := db.ListTableNames(Ctx, options.ListTableNames().SetKeyspace(ks))
-			testlib.PanicIfErr(err, "failed to list tables in keyspace %s", ks)
-			tablesToDelete.Store(ks, names)
-		}(keyspace)
-	}
-}
-
-func startDeletingCollections(db *astra.Db) {
-	PrintlnChecklist("Started deleting collections")
+func startPruningCollections(db *astra.Db) {
+	PrintlnChecklist("Started pruning collections")
 
 	deleteTCWG.Add(1)
 	go func() {
 		defer deleteTCWG.Done()
-		listTCWG.Wait()
 
-		collectionsToDelete.Range(func(key, value any) bool {
-			ks := key.(string)
-			names := value.([]string)
+		testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
+			names, err := db.ListCollectionNames(Ctx, options.ListCollectionNames().SetKeyspace(ks))
+			if err != nil {
+				return nil, err
+			}
 
-			for _, name := range names {
-				if slices.Contains(TestKeyspaces, ks) && name == DefaultCollectionName {
-					continue
+			return testlib.AwaitAll(nil, names, func(name string) (any, error) {
+				if name == DefaultCollectionName {
+					return nil, nil
 				}
 
 				PrintlnNestedChecklist(fmt.Sprintf("Deleting collection '%s.%s'", ks, name))
-
-				deleteTCWG.Add(1)
-				go func(ks, name string) {
-					defer deleteTCWG.Done()
-					err := db.DropCollection(Ctx, name, options.DropCollection().SetKeyspace(ks))
-					testlib.PanicIfErr(err, "failed to drop collection '%s.%s' during prelude cleanup", ks, name)
-				}(ks, name)
-			}
-			return true
+				return nil, db.DropCollection(Ctx, name, options.DropCollection().SetKeyspace(ks))
+			}), nil
 		})
 	}()
 }
 
-func startDeletingTables(db *astra.Db) {
-	PrintlnChecklist("Started deleting tables")
+func startPruningTables(db *astra.Db) {
+	PrintlnChecklist("Started pruning tables")
 
 	deleteTCWG.Add(1)
 	go func() {
 		defer deleteTCWG.Done()
-		listTCWG.Wait()
 
-		tablesToDelete.Range(func(key, value any) bool {
-			ks := key.(string)
-			names := value.([]string)
+		testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
+			names, err := db.ListTableNames(Ctx, options.ListTableNames().SetKeyspace(ks))
+			if err != nil {
+				return nil, err
+			}
 
-			for _, name := range names {
-				if slices.Contains(TestKeyspaces, ks) && name == DefaultTableName {
-					continue
+			return testlib.AwaitAll(nil, names, func(name string) (any, error) {
+				if name == DefaultTableName {
+					return nil, nil
 				}
 
 				PrintlnNestedChecklist(fmt.Sprintf("Deleting table '%s.%s'", ks, name))
-
-				deleteTCWG.Add(1)
-				go func(ks, name string) {
-					defer deleteTCWG.Done()
-					err := db.DropTable(Ctx, name, options.DropTable().SetIfExists(true).SetKeyspace(ks))
-					testlib.PanicIfErr(err, "failed to drop table '%s.%s' during prelude cleanup", ks, name)
-				}(ks, name)
-			}
-			return true
+				return nil, db.DropTable(Ctx, name, options.DropTable().SetKeyspace(ks).SetIfExists(true))
+			}), nil
 		})
 	}()
 }
 
-func awaitUDTSetup() {
-	PrintlnChecklist("Waiting for UDT creation to complete")
+func startPruningUDTs(db *astra.Db) {
+	PrintlnChecklist("Started pruning UDTs")
 
-	createUDTWG.Wait()
-	PrintlnNestedChecklist("Finished creation")
-	PrintlnNestedChecklist("Done!")
+	deleteTCWG.Add(1)
+	go func() {
+		defer deleteTCWG.Done()
+
+		testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
+			names, err := db.ListTypeNames(Ctx, options.ListTypeNames().SetKeyspace(ks))
+			if err != nil {
+				return nil, err
+			}
+
+			return testlib.AwaitAll(nil, names, func(name string) (any, error) {
+				if name == DefaultUDTName {
+					return nil, nil
+				}
+
+				PrintlnNestedChecklist(fmt.Sprintf("Deleting UDT '%s.%s'", ks, name))
+				return nil, db.DropType(Ctx, name, options.DropType().SetKeyspace(ks).SetIfExists(true))
+			}), nil
+		})
+	}()
 }
 
-func awaitCollectionTableSetup() {
+func awaitCollectionTableUDTSetup() {
 	PrintlnChecklist("Waiting for collection/table setup to complete")
+
+	deleteTCWG.Wait()
+	PrintlnNestedChecklist("Finished pruning")
 
 	createTCWG.Wait()
 	PrintlnNestedChecklist("Finished creation")
-
-	listTCWG.Wait()
-	PrintlnNestedChecklist("Finished listing")
-
-	deleteTCWG.Wait()
-	PrintlnNestedChecklist("Finished deletion")
 	PrintlnNestedChecklist("Done!")
 }

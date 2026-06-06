@@ -131,7 +131,7 @@ func init() {
 
 		testlib.AwaitAll(t, types, func(ty any) (any, error) {
 			_, err := t.Collection.InsertOne(t.Ctx, astra.NewDocument{"val": ty})
-			testlib.ErrMustBe[serdes.UnsupportedValueError](t, err, "expected %T insertion to fail", ty)
+			testlib.ErrMustBe[*serdes.UnsupportedValueError](t, err, "expected %T insertion to fail", ty)
 			return nil, nil
 		})
 	})
