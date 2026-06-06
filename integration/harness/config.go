@@ -105,12 +105,12 @@ func Backend() options.DataAPIBackend {
 	return options.DataAPIBackend(cfg.backend) // should probably add validation but eh whatever
 }
 
-func ShouldRun(suiteName, testName string) bool {
+func ShouldRun(s *S, testName string) bool {
 	if len(cfg.include) == 0 && len(cfg.exclude) == 0 {
 		return true
 	}
 
-	fullName := suiteName + "/" + testName
+	fullName := s.dir + "/" + s.Name + "/" + testName
 
 	for _, inc := range cfg.include {
 		if !strings.Contains(fullName, inc) {

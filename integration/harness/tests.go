@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/datastax/astra-db-go/astra/datatypes"
 	"github.com/fatih/color"
 )
 
@@ -37,6 +38,7 @@ type T struct {
 	logs    strings.Builder
 	mu      sync.RWMutex
 	helpers map[string]bool
+	key     string
 }
 
 // Helper marks the calling function as a test helper function.
@@ -83,6 +85,10 @@ func (t *T) Fatalf(format string, args ...any) {
 	})
 }
 
+func (t *T) Key(seed int) string {
+	return fmt.Sprintf("k_%d", seed)
+}
+
 var suites = []*S{
 	{Name: "{Background}", Type: suiteBackground},
 }
@@ -90,6 +96,7 @@ var suites = []*S{
 type S struct {
 	Name   string
 	Type   suiteType
+	dir    string
 	tests  []test
 	before func(*T)
 	after  func(*T)
@@ -126,7 +133,7 @@ func appendSuite(name string, typ suiteType) *S {
 	if !kebabRegex.MatchString(name) {
 		panic(fmt.Sprintf("suite name '%s' is not in kebab-case", name))
 	}
-	s := &S{Name: name, Type: typ}
+	s := &S{Name: name, Type: typ, dir: callerDir(2)}
 	suites = append(suites, s)
 	return s
 }
@@ -184,7 +191,7 @@ func filterTests() (suitesToRun []*S, testsRun int) {
 	for _, s := range suites {
 		var tests []test
 		for _, t := range s.tests {
-			if ShouldRun(s.Name, t.name) {
+			if ShouldRun(s, t.name) {
 				tests = append(tests, t)
 			}
 		}
@@ -286,8 +293,8 @@ func executeTestAsync(w io.Writer, suiteName string, t test, wg *sync.WaitGroup)
 
 func mkT(t test, fixtures *TestObjects) T {
 	return T{
-		fixtures, t.name, context.Background(),
-		strings.Builder{}, sync.RWMutex{}, make(map[string]bool),
+		fixtures, t.name, context.Background(), strings.Builder{},
+		sync.RWMutex{}, make(map[string]bool), datatypes.NewObjectId().String(),
 	}
 }
 

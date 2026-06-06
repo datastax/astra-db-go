@@ -48,7 +48,7 @@ func init() {
 			if err != nil {
 				return nil, fmt.Errorf("InsertOne failed for id %v: %v", id, err)
 			}
-			return insertOneDecodeAny(res), nil
+			return insertOneDecode[any](t, res), nil
 		})
 
 		t.NoDiff(ids, got)
@@ -56,25 +56,33 @@ func init() {
 
 	s.Run("should insert an untyped document with datatypes", func(t *harness.T) {
 		doc := astra.NewDocument{
+			"key":     t.Key(0),
 			"oid":     datatypes.NewObjectId(),
 			"u4":      datatypes.NewUUIDv4(),
 			"u7":      datatypes.NewUUIDv7(),
 			"date":    time.Now(),
 			"$vector": datatypes.NewVector([]float32{1, 2, 3, 4, 5}),
 			"nested_doc": astra.NewDocument{
-				"u4": datatypes.NewUUIDv4(),
+				"oid": datatypes.NewObjectId(),
 			},
 			"nested_map": map[string]any{
-				"u4": datatypes.NewUUIDv4(),
+				"u6": datatypes.NewUUIDv6(),
 			},
 		}
 
 		res, err := t.Collection.InsertOne(t.Ctx, doc)
 		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
 
-		if reflect.TypeOf(insertOneDecodeAny(res)) != reflect.TypeFor[string]() {
-			t.Fatalf("expected InsertOne result to be of type string, got %T", res)
-		}
+		insertOneDecode[datatypes.UUID](t, res)
+		insertOneDecode[string](t, res)
+
+		var got astra.Document
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("key", t.Key(0)), options.CollectionFindOne().
+			SetProjection(map[string]any{"*": 1, "_id": 0})).
+			Decode(&got)
+
+		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
+		t.NoDiff(doc, got)
 	})
 
 	s.Run("should insert a typed document with datatypes", func(t *harness.T) {
@@ -92,13 +100,14 @@ func init() {
 		res, err := t.Collection.InsertOne(t.Ctx, doc)
 		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
 
-		var id datatypes.UUID
-		err = res.DecodeID(&id)
-		testlib.FailIfErr(t, err, "DecodeID failed: %v", err)
+		id := insertOneDecode[datatypes.UUID](t, res)
 		t.NoDiff(id, doc.ID)
 
 		var got harness.EverythingDoc
-		err = t.Collection.FindOne(t.Ctx, filter.Eq("_id", doc.ID), options.CollectionFindOne().SetProjection(map[string]any{"*": 1})).Decode(&got)
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("_id", doc.ID), options.CollectionFindOne().
+			SetProjection(map[string]any{"*": 1})).
+			Decode(&got)
+
 		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
 		t.NoDiff(doc, got)
 	})
@@ -109,10 +118,11 @@ func init() {
 	})
 }
 
-func insertOneDecodeAny(res *results.InsertOneResult) any {
-	var id any
+func insertOneDecode[T any](t *harness.T, res *results.InsertOneResult) T {
+	t.Helper()
+	var id T
 	if err := res.DecodeID(&id); err != nil {
-		panic("failed to decode inserted ID: " + err.Error())
+		t.Fatalf("failed to decode inserted ID as %s: %v", reflect.TypeFor[T]().String(), err)
 	}
 	return id
 }
