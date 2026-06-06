@@ -122,3 +122,39 @@ type DropTableIndexOptions struct {
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `optlift:"Keyspace"`
 }
+
+// CreateTypeOptions represents options for creating a user-defined type.
+type CreateTypeOptions struct {
+	// IfNotExists if true, the command will silently succeed even if a type
+	// with the given name already exists. This only checks type names, not schemas.
+	IfNotExists *bool `json:"ifNotExists,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+}
+
+// DropTypeOptions represents options for dropping a user-defined type.
+type DropTypeOptions struct {
+	// IfExists if true, the command will silently succeed even if a type
+	// with the given name does not exist.
+	IfExists *bool `json:"ifExists,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+}
+
+// ListTypesOptions represents options for listing user-defined types in a database.
+type ListTypesOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+}
+
+// ListTypeNamesOptions represents options for listing user-defined type names in a database.
+type ListTypeNamesOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+}

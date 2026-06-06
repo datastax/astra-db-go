@@ -244,6 +244,16 @@ func (o *CreateTableOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for CreateTypeOptions.
+// Returns all non-nil Validator fields.
+func (o *CreateTypeOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CreateVectorIndexOptions.
 // Returns all non-nil Validator fields.
 func (o *CreateVectorIndexOptions) Children() []Validator {
@@ -277,6 +287,16 @@ func (o *DropTableIndexOptions) Children() []Validator {
 // Children implements ChildValidator for DropTableOptions.
 // Returns all non-nil Validator fields.
 func (o *DropTableOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for DropTypeOptions.
+// Returns all non-nil Validator fields.
+func (o *DropTypeOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)
@@ -337,6 +357,26 @@ func (o *ListTableNamesOptions) Children() []Validator {
 // Children implements ChildValidator for ListTablesOptions.
 // Returns all non-nil Validator fields.
 func (o *ListTablesOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for ListTypeNamesOptions.
+// Returns all non-nil Validator fields.
+func (o *ListTypeNamesOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for ListTypesOptions.
+// Returns all non-nil Validator fields.
+func (o *ListTypesOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)

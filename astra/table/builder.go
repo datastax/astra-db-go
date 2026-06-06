@@ -14,48 +14,141 @@
 
 package table
 
+// columnAdder is a private interface used for F-bounded polymorphism in builders.
+type columnAdder[B any] interface {
+	AddColumn(name string, columnType Column) B
+}
+
+// scalarBuilder provides shared scalar column addition methods for table and UDT builders.
+type scalarBuilder[B columnAdder[B]] struct {
+	builder B
+}
+
+// AddTextColumn adds a text column or field.
+func (s scalarBuilder[B]) AddTextColumn(name string) B {
+	return s.builder.AddColumn(name, Text())
+}
+
+// AddIntColumn adds an int column or field.
+func (s scalarBuilder[B]) AddIntColumn(name string) B {
+	return s.builder.AddColumn(name, Int())
+}
+
+// AddBigIntColumn adds a bigint column or field.
+func (s scalarBuilder[B]) AddBigIntColumn(name string) B {
+	return s.builder.AddColumn(name, BigInt())
+}
+
+// AddSmallIntColumn adds a smallint column or field.
+func (s scalarBuilder[B]) AddSmallIntColumn(name string) B {
+	return s.builder.AddColumn(name, SmallInt())
+}
+
+// AddTinyIntColumn adds a tinyint column or field.
+func (s scalarBuilder[B]) AddTinyIntColumn(name string) B {
+	return s.builder.AddColumn(name, TinyInt())
+}
+
+// AddFloatColumn adds a float column or field.
+func (s scalarBuilder[B]) AddFloatColumn(name string) B {
+	return s.builder.AddColumn(name, Float())
+}
+
+// AddDoubleColumn adds a double column or field.
+func (s scalarBuilder[B]) AddDoubleColumn(name string) B {
+	return s.builder.AddColumn(name, Double())
+}
+
+// AddDecimalColumn adds a decimal column or field.
+func (s scalarBuilder[B]) AddDecimalColumn(name string) B {
+	return s.builder.AddColumn(name, Decimal())
+}
+
+// AddBooleanColumn adds a boolean column or field.
+func (s scalarBuilder[B]) AddBooleanColumn(name string) B {
+	return s.builder.AddColumn(name, Boolean())
+}
+
+// AddDateColumn adds a date column or field.
+func (s scalarBuilder[B]) AddDateColumn(name string) B {
+	return s.builder.AddColumn(name, Date())
+}
+
+// AddTimeColumn adds a time column or field.
+func (s scalarBuilder[B]) AddTimeColumn(name string) B {
+	return s.builder.AddColumn(name, Time())
+}
+
+// AddTimestampColumn adds a timestamp column or field.
+func (s scalarBuilder[B]) AddTimestampColumn(name string) B {
+	return s.builder.AddColumn(name, Timestamp())
+}
+
+// AddUUIDColumn adds a UUID column or field.
+func (s scalarBuilder[B]) AddUUIDColumn(name string) B {
+	return s.builder.AddColumn(name, UUID())
+}
+
+// AddTimeUUIDColumn adds a TimeUUID column or field.
+func (s scalarBuilder[B]) AddTimeUUIDColumn(name string) B {
+	return s.builder.AddColumn(name, TimeUUID())
+}
+
+// AddBlobColumn adds a blob column or field.
+func (s scalarBuilder[B]) AddBlobColumn(name string) B {
+	return s.builder.AddColumn(name, Blob())
+}
+
+// AddVarintColumn adds a varint column or field.
+func (s scalarBuilder[B]) AddVarintColumn(name string) B {
+	return s.builder.AddColumn(name, Varint())
+}
+
+// AddInetColumn adds an inet column or field.
+func (s scalarBuilder[B]) AddInetColumn(name string) B {
+	return s.builder.AddColumn(name, Inet())
+}
+
+// AddAsciiColumn adds an ascii column or field.
+func (s scalarBuilder[B]) AddAsciiColumn(name string) B {
+	return s.builder.AddColumn(name, Ascii())
+}
+
+// AddDurationColumn adds a duration column or field.
+func (s scalarBuilder[B]) AddDurationColumn(name string) B {
+	return s.builder.AddColumn(name, Duration())
+}
+
 // DefinitionBuilder provides a fluent API for constructing table definitions.
 //
 // Example using the builder pattern:
 //
 //	definition := table.NewDefinition().
 //		AddColumn("id", table.UUID()).
-//		AddColumn("title", table.Text()).
-//		AddColumn("rating", table.Float()).
+//		AddTextColumn("title").
+//		AddFloatColumn("rating").
 //		AddListColumn("genres", table.Text()).
 //		AddVectorColumn("embeddings", 1536).
 //		SetPartitionBy("id").
 //		Build()
-//
-// This is equivalent to the struct-based approach:
-//
-//	definition := table.Definition{
-//		Columns: table.Columns{
-//			{"id", table.UUID()},
-//			{"title", table.Text()},
-//			{"rating", table.Float()},
-//			{"genres", table.List(table.Text())},
-//			{"embeddings", table.Vector(1536)},
-//		},
-//		PrimaryKey: table.PrimaryKey{
-//			PartitionBy: []string{"id"},
-//		},
-//	}
 type DefinitionBuilder struct {
 	columns         Columns
-	columnIdx       map[string]int
+	columnIdx       map[string]int // TODO potentially just use a LinkedMap instead
 	partitionBy     []string
 	partitionSort   PartitionSort
 	partitionSortIx map[string]int
+	scalarBuilder[*DefinitionBuilder]
 }
 
 // NewDefinition creates a new DefinitionBuilder for fluent table definition construction.
 func NewDefinition() *DefinitionBuilder {
-	return &DefinitionBuilder{
+	b := &DefinitionBuilder{
 		columnIdx:       make(map[string]int),
 		partitionBy:     []string{},
 		partitionSortIx: make(map[string]int),
 	}
+	b.builder = b
+	return b
 }
 
 // AddColumn adds a column with the specified name and type. If a column with
@@ -68,96 +161,6 @@ func (b *DefinitionBuilder) AddColumn(name string, columnType Column) *Definitio
 	b.columnIdx[name] = len(b.columns)
 	b.columns = append(b.columns, NamedColumn{Name: name, Column: columnType})
 	return b
-}
-
-// AddTextColumn adds a text column.
-func (b *DefinitionBuilder) AddTextColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Text())
-}
-
-// AddIntColumn adds an int column.
-func (b *DefinitionBuilder) AddIntColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Int())
-}
-
-// AddBigIntColumn adds a bigint column.
-func (b *DefinitionBuilder) AddBigIntColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, BigInt())
-}
-
-// AddSmallIntColumn adds a smallint column.
-func (b *DefinitionBuilder) AddSmallIntColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, SmallInt())
-}
-
-// AddTinyIntColumn adds a tinyint column.
-func (b *DefinitionBuilder) AddTinyIntColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, TinyInt())
-}
-
-// AddFloatColumn adds a float column.
-func (b *DefinitionBuilder) AddFloatColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Float())
-}
-
-// AddDoubleColumn adds a double column.
-func (b *DefinitionBuilder) AddDoubleColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Double())
-}
-
-// AddDecimalColumn adds a decimal column.
-func (b *DefinitionBuilder) AddDecimalColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Decimal())
-}
-
-// AddBooleanColumn adds a boolean column.
-func (b *DefinitionBuilder) AddBooleanColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Boolean())
-}
-
-// AddDateColumn adds a date column.
-func (b *DefinitionBuilder) AddDateColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Date())
-}
-
-// AddTimeColumn adds a time column.
-func (b *DefinitionBuilder) AddTimeColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Time())
-}
-
-// AddTimestampColumn adds a timestamp column.
-func (b *DefinitionBuilder) AddTimestampColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Timestamp())
-}
-
-// AddUUIDColumn adds a UUID column.
-func (b *DefinitionBuilder) AddUUIDColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, UUID())
-}
-
-// AddTimeUUIDColumn adds a TimeUUID column.
-func (b *DefinitionBuilder) AddTimeUUIDColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, TimeUUID())
-}
-
-// AddBlobColumn adds a blob column.
-func (b *DefinitionBuilder) AddBlobColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Blob())
-}
-
-// AddVarintColumn adds a varint column.
-func (b *DefinitionBuilder) AddVarintColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Varint())
-}
-
-// AddInetColumn adds an inet column.
-func (b *DefinitionBuilder) AddInetColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Inet())
-}
-
-// AddAsciiColumn adds an ascii column.
-func (b *DefinitionBuilder) AddAsciiColumn(name string) *DefinitionBuilder {
-	return b.AddColumn(name, Ascii())
 }
 
 // AddVectorColumn adds a vector column with the specified dimension.
@@ -185,9 +188,9 @@ func (b *DefinitionBuilder) AddMapColumn(name string, keyType string, valueType 
 	return b.AddColumn(name, Map(keyType, valueType))
 }
 
-// AddUDTColumn adds a user-defined type column.
-func (b *DefinitionBuilder) AddUDTColumn(name string, udtName string) *DefinitionBuilder {
-	return b.AddColumn(name, UDT(udtName))
+// AddUDTColumn adds a user-defined type column or field.
+func (s *DefinitionBuilder) AddUDTColumn(name string, udtName string) *DefinitionBuilder {
+	return s.builder.AddColumn(name, UDT(udtName))
 }
 
 // SetPartitionBy sets the partition key columns.
@@ -239,5 +242,40 @@ func (b *DefinitionBuilder) Build() Definition {
 	return Definition{
 		Columns:    b.columns,
 		PrimaryKey: pk,
+	}
+}
+
+// UDTDefinitionBuilder provides a fluent API for constructing UDT definitions.
+type UDTDefinitionBuilder struct {
+	columns   Columns
+	columnIdx map[string]int
+	scalarBuilder[*UDTDefinitionBuilder]
+}
+
+// NewUDTDefinition creates a new UDTDefinitionBuilder for fluent UDT definition construction.
+func NewUDTDefinition() *UDTDefinitionBuilder {
+	b := &UDTDefinitionBuilder{
+		columnIdx: make(map[string]int),
+	}
+	b.builder = b
+	return b
+}
+
+// AddColumn adds a field with the specified name and type to the UDT. If a field with
+// the same name already exists, its type is replaced but its position is kept.
+func (b *UDTDefinitionBuilder) AddColumn(name string, columnType Column) *UDTDefinitionBuilder {
+	if i, ok := b.columnIdx[name]; ok {
+		b.columns[i].Column = columnType
+		return b
+	}
+	b.columnIdx[name] = len(b.columns)
+	b.columns = append(b.columns, NamedColumn{Name: name, Column: columnType})
+	return b
+}
+
+// Build constructs the final UDTDefinition from the builder.
+func (b *UDTDefinitionBuilder) Build() UDTDefinition {
+	return UDTDefinition{
+		Fields: b.columns,
 	}
 }

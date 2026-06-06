@@ -36,6 +36,12 @@ type EverythingDocInner struct {
 	Big      big.Int            `json:"big"`
 }
 
+type ExampleUDT struct {
+	Name string         `json:"name"`
+	Age  big.Int        `json:"age"`
+	ID   datatypes.UUID `json:"id"`
+}
+
 type EverythingRow struct {
 	Ascii     string             `json:"ascii" astra:"type=ascii"`
 	BigInt    int64              `json:"bigint"`
@@ -82,6 +88,8 @@ type EverythingRowWithVectorize struct {
 	Vector2   string             `json:"vector2" astra:"vectorize,provider=openai,model=text-embedding-3-small,dim=5"`
 	UDT       any                `json:"udt" astra:"type=udt[example_udt]"`
 }
+
+var ExampleUDTSchema = must(table.InferUDT[ExampleUDT]())
 
 var EverythingTableSchema = must(table.Infer[EverythingRow]())
 

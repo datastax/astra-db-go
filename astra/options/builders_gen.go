@@ -1764,6 +1764,75 @@ func (b *createTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *cre
 	return b
 }
 
+// CreateTypeOption configures a CreateType operation.
+// You can use the fluent-style builder or a pointer to [CreateTypeOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateType]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateType().SetIfNotExists(false)
+//
+// Example using a pointer to [CreateTypeOptions] without the fluent builder:
+//
+//	opts := &options.CreateTypeOptions{IfNotExists: ptr.To(false)}
+type CreateTypeOption = Builder[CreateTypeOptions]
+
+// Setters implements Builder[CreateTypeOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CreateTypeOptions].
+func (o *CreateTypeOptions) Setters() []func(*CreateTypeOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CreateTypeOptions.
+func (o *CreateTypeOptions) Validate() error { return nil }
+
+// createTypeOptionsBuilder is a builder for CreateTypeOptions.
+type createTypeOptionsBuilder struct {
+	setters []func(*CreateTypeOptions)
+}
+
+// CreateType creates a new builder for [CreateTypeOptions].
+func CreateType() *createTypeOptionsBuilder {
+	return &createTypeOptionsBuilder{}
+}
+
+// Setters implements Builder[CreateTypeOptions].
+func (b *createTypeOptionsBuilder) Setters() []func(*CreateTypeOptions) {
+	return b.setters
+}
+
+// SetIfNotExists sets the IfNotExists option.
+// IfNotExists if true, the command will silently succeed even if a type
+// with the given name already exists. This only checks type names, not schemas.
+func (b *createTypeOptionsBuilder) SetIfNotExists(v bool) *createTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTypeOptions) {
+		o.IfNotExists = &v
+	})
+	return b
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *createTypeOptionsBuilder) SetKeyspace(v string) *createTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTypeOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *createTypeOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTypeOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CreateVectorIndexOption configures a CreateVectorIndex operation.
 // You can use the fluent-style builder or a pointer to [CreateVectorIndexOptions] interchangeably.
 //
@@ -2152,6 +2221,75 @@ func (b *dropTableOptionsBuilder) SetKeyspace(v string) *dropTableOptionsBuilder
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *dropTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropTableOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// DropTypeOption configures a DropType operation.
+// You can use the fluent-style builder or a pointer to [DropTypeOptions] interchangeably.
+//
+// Example using the fluent builder ([DropType]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.DropType().SetIfExists(false)
+//
+// Example using a pointer to [DropTypeOptions] without the fluent builder:
+//
+//	opts := &options.DropTypeOptions{IfExists: ptr.To(false)}
+type DropTypeOption = Builder[DropTypeOptions]
+
+// Setters implements Builder[DropTypeOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[DropTypeOptions].
+func (o *DropTypeOptions) Setters() []func(*DropTypeOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for DropTypeOptions.
+func (o *DropTypeOptions) Validate() error { return nil }
+
+// dropTypeOptionsBuilder is a builder for DropTypeOptions.
+type dropTypeOptionsBuilder struct {
+	setters []func(*DropTypeOptions)
+}
+
+// DropType creates a new builder for [DropTypeOptions].
+func DropType() *dropTypeOptionsBuilder {
+	return &dropTypeOptionsBuilder{}
+}
+
+// Setters implements Builder[DropTypeOptions].
+func (b *dropTypeOptionsBuilder) Setters() []func(*DropTypeOptions) {
+	return b.setters
+}
+
+// SetIfExists sets the IfExists option.
+// IfExists if true, the command will silently succeed even if a type
+// with the given name does not exist.
+func (b *dropTypeOptionsBuilder) SetIfExists(v bool) *dropTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTypeOptions) {
+		o.IfExists = &v
+	})
+	return b
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *dropTypeOptionsBuilder) SetKeyspace(v string) *dropTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTypeOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *dropTypeOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropTypeOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
 	return b
@@ -2729,6 +2867,124 @@ func (b *listTablesOptionsBuilder) SetKeyspace(v string) *listTablesOptionsBuild
 // for this command. These are merged into the Client→DB→Command hierarchy.
 func (b *listTablesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTablesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListTablesOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// ListTypeNamesOption configures a ListTypeNames operation.
+// You can use the fluent-style builder or a pointer to [ListTypeNamesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListTypeNames]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListTypeNames().SetKeyspace("value")
+//
+// Example using a pointer to [ListTypeNamesOptions] without the fluent builder:
+//
+//	opts := &options.ListTypeNamesOptions{Keyspace: ptr.To("value")}
+type ListTypeNamesOption = Builder[ListTypeNamesOptions]
+
+// Setters implements Builder[ListTypeNamesOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListTypeNamesOptions].
+func (o *ListTypeNamesOptions) Setters() []func(*ListTypeNamesOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListTypeNamesOptions.
+func (o *ListTypeNamesOptions) Validate() error { return nil }
+
+// listTypeNamesOptionsBuilder is a builder for ListTypeNamesOptions.
+type listTypeNamesOptionsBuilder struct {
+	setters []func(*ListTypeNamesOptions)
+}
+
+// ListTypeNames creates a new builder for [ListTypeNamesOptions].
+func ListTypeNames() *listTypeNamesOptionsBuilder {
+	return &listTypeNamesOptionsBuilder{}
+}
+
+// Setters implements Builder[ListTypeNamesOptions].
+func (b *listTypeNamesOptionsBuilder) Setters() []func(*ListTypeNamesOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *listTypeNamesOptionsBuilder) SetKeyspace(v string) *listTypeNamesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTypeNamesOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *listTypeNamesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTypeNamesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTypeNamesOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// ListTypesOption configures a ListTypes operation.
+// You can use the fluent-style builder or a pointer to [ListTypesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListTypes]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListTypes().SetKeyspace("value")
+//
+// Example using a pointer to [ListTypesOptions] without the fluent builder:
+//
+//	opts := &options.ListTypesOptions{Keyspace: ptr.To("value")}
+type ListTypesOption = Builder[ListTypesOptions]
+
+// Setters implements Builder[ListTypesOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListTypesOptions].
+func (o *ListTypesOptions) Setters() []func(*ListTypesOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListTypesOptions.
+func (o *ListTypesOptions) Validate() error { return nil }
+
+// listTypesOptionsBuilder is a builder for ListTypesOptions.
+type listTypesOptionsBuilder struct {
+	setters []func(*ListTypesOptions)
+}
+
+// ListTypes creates a new builder for [ListTypesOptions].
+func ListTypes() *listTypesOptionsBuilder {
+	return &listTypesOptionsBuilder{}
+}
+
+// Setters implements Builder[ListTypesOptions].
+func (b *listTypesOptionsBuilder) Setters() []func(*ListTypesOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *listTypesOptionsBuilder) SetKeyspace(v string) *listTypesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTypesOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *listTypesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listTypesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListTypesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
 	return b

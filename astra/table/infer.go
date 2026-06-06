@@ -520,3 +520,44 @@ func Infer[T any]() (Definition, error) {
 		PrimaryKey: primaryKey,
 	}, nil
 }
+
+// InferUDT generates a [UDTDefinition] from a Go struct's type information.
+//
+// Field names are taken from json tags (falling back to field names).
+// Type overrides come from astra tags.
+//
+// See [Infer] for details on the astra tag grammar.
+//
+// Example:
+//
+//	type Address struct {
+//	    Street string `json:"street"`
+//	    City   string `json:"city"`
+//	}
+//
+//	def, err := table.InferUDT[Address]()
+//	err := db.CreateType(ctx, "address", def)
+func InferUDT[T any]() (UDTDefinition, error) { // TODO somehow try to check if people are using the right Infer... maybe use pk tags to detect misuse?
+	t := reflect.TypeFor[T]()
+
+	fields, err := collectFields(t)
+	if err != nil {
+		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: %w", t.Name(), err)
+	}
+	if len(fields) == 0 {
+		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: no fields found", t.Name())
+	}
+
+	columns := make(Columns, 0, len(fields))
+	for _, fd := range fields {
+		col, err := goTypeToColumn(fd.goType, fd.tag)
+		if err != nil {
+			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.columnName, err)
+		}
+		columns = append(columns, NamedColumn{Name: fd.columnName, Column: col})
+	}
+
+	return UDTDefinition{
+		Fields: columns,
+	}, nil
+}
