@@ -28,9 +28,10 @@ import (
 )
 
 var (
-	createWG sync.WaitGroup
-	listWG   sync.WaitGroup
-	deleteWG sync.WaitGroup
+	createTCWG  sync.WaitGroup
+	createUDTWG sync.WaitGroup
+	listTCWG    sync.WaitGroup
+	deleteTCWG  sync.WaitGroup
 
 	collectionsToDelete sync.Map // map[string][]string
 	tablesToDelete      sync.Map // map[string][]string
@@ -44,13 +45,15 @@ func prelude() {
 
 	awaitKeyspacesSetup(dbAdmin) // creates necessary keyspaces; deletes the 'slania' keyspace for keyspace lifecycle tests
 
-	startCreateCollections(db) // sets up tables/collections in parallel
+	startCreateUDTs(db) // sets up UDTS/tables/collections in parallel
+	startCreateCollections(db)
 	startCreateTables(db)
 	startListingCollections(db)
 	startListingTables(db)
 	startDeletingCollections(db)
 	startDeletingTables(db)
 
+	awaitUDTSetup()
 	awaitCollectionTableSetup()
 
 	PrintlnBold(color.GreenString("\n✓ Prelude finished."))
@@ -80,13 +83,24 @@ func awaitKeyspacesSetup(dbAdmin astra.DatabaseAdmin) {
 	PrintlnNestedChecklist("Done!")
 }
 
-func startCreateCollections(db *astra.Db) {
-	PrintlnChecklist("Creating collections")
+func startCreateUDTs(db *astra.Db) {
+	PrintlnChecklist("Started creating UDTs")
 
 	for _, keyspace := range TestKeyspaces {
-		createWG.Add(1)
+		createUDTWG.Add(1)
 		go func(ks string) {
-			defer createWG.Done()
+			defer createUDTWG.Done()
+			err := db.CreateType(Ctx, "example_udt", ExampleUDTSchema, options.CreateType().SetIfNotExists(true).SetKeyspace(ks))
+			testlib.PanicIfErr(err, "failed to create UDT in keyspace %s during prelude", ks)
+		}(keyspace)
+	}
+}
+
+func startCreateCollections(db *astra.Db) {
+	for _, keyspace := range TestKeyspaces {
+		createTCWG.Add(1)
+		go func(ks string) {
+			defer createTCWG.Done()
 
 			builder := options.CreateCollection().SetKeyspace(ks)
 			if ks == TestKeyspaces[0] {
@@ -111,17 +125,15 @@ func startCreateCollections(db *astra.Db) {
 			testlib.PanicIfErr(err, "failed to clear collection %s in keyspace %s", DefaultCollectionName, ks)
 		}(keyspace)
 	}
-
-	PrintlnNestedChecklist("Moved to background...")
 }
 
 func startCreateTables(db *astra.Db) {
-	PrintlnChecklist("Creating tables")
+	PrintlnChecklist("Started creating tables")
 
 	for _, keyspace := range TestKeyspaces {
-		createWG.Add(1)
+		createTCWG.Add(1)
 		go func(ks string) {
-			defer createWG.Done()
+			defer createTCWG.Done()
 
 			schema := EverythingTableSchema
 			if ks != TestKeyspaces[0] {
@@ -143,49 +155,43 @@ func startCreateTables(db *astra.Db) {
 			testlib.PanicIfErr(err, "failed to create bigint index in keyspace %s", ks)
 		}(keyspace)
 	}
-
-	PrintlnNestedChecklist("Moved to background...")
 }
 
 func startListingCollections(db *astra.Db) {
-	PrintlnChecklist("Listing collections")
+	PrintlnChecklist("Started listing collections")
 
 	for _, keyspace := range TestKeyspaces {
-		listWG.Add(1)
+		listTCWG.Add(1)
 		go func(ks string) {
-			defer listWG.Done()
+			defer listTCWG.Done()
 			names, err := db.ListCollectionNames(Ctx, options.ListCollectionNames().SetKeyspace(ks))
 			testlib.PanicIfErr(err, "failed to list collections in keyspace %s", ks)
 			collectionsToDelete.Store(ks, names)
 		}(keyspace)
 	}
-
-	PrintlnNestedChecklist("Moved to background...")
 }
 
 func startListingTables(db *astra.Db) {
-	PrintlnChecklist("Listing tables")
+	PrintlnChecklist("Started listing tables")
 
 	for _, keyspace := range TestKeyspaces {
-		listWG.Add(1)
+		listTCWG.Add(1)
 		go func(ks string) {
-			defer listWG.Done()
+			defer listTCWG.Done()
 			names, err := db.ListTableNames(Ctx, options.ListTableNames().SetKeyspace(ks))
 			testlib.PanicIfErr(err, "failed to list tables in keyspace %s", ks)
 			tablesToDelete.Store(ks, names)
 		}(keyspace)
 	}
-
-	PrintlnNestedChecklist("Moved to background...")
 }
 
 func startDeletingCollections(db *astra.Db) {
-	PrintlnChecklist("Deleting collections")
+	PrintlnChecklist("Started deleting collections")
 
-	deleteWG.Add(1)
+	deleteTCWG.Add(1)
 	go func() {
-		defer deleteWG.Done()
-		listWG.Wait()
+		defer deleteTCWG.Done()
+		listTCWG.Wait()
 
 		collectionsToDelete.Range(func(key, value any) bool {
 			ks := key.(string)
@@ -198,9 +204,9 @@ func startDeletingCollections(db *astra.Db) {
 
 				PrintlnNestedChecklist(fmt.Sprintf("Deleting collection '%s.%s'", ks, name))
 
-				deleteWG.Add(1)
+				deleteTCWG.Add(1)
 				go func(ks, name string) {
-					defer deleteWG.Done()
+					defer deleteTCWG.Done()
 					err := db.DropCollection(Ctx, name, options.DropCollection().SetKeyspace(ks))
 					testlib.PanicIfErr(err, "failed to drop collection '%s.%s' during prelude cleanup", ks, name)
 				}(ks, name)
@@ -208,17 +214,15 @@ func startDeletingCollections(db *astra.Db) {
 			return true
 		})
 	}()
-
-	PrintlnNestedChecklist("Moved to background...")
 }
 
 func startDeletingTables(db *astra.Db) {
-	PrintlnChecklist("Deleting tables")
+	PrintlnChecklist("Started deleting tables")
 
-	deleteWG.Add(1)
+	deleteTCWG.Add(1)
 	go func() {
-		defer deleteWG.Done()
-		listWG.Wait()
+		defer deleteTCWG.Done()
+		listTCWG.Wait()
 
 		tablesToDelete.Range(func(key, value any) bool {
 			ks := key.(string)
@@ -231,9 +235,9 @@ func startDeletingTables(db *astra.Db) {
 
 				PrintlnNestedChecklist(fmt.Sprintf("Deleting table '%s.%s'", ks, name))
 
-				deleteWG.Add(1)
+				deleteTCWG.Add(1)
 				go func(ks, name string) {
-					defer deleteWG.Done()
+					defer deleteTCWG.Done()
 					err := db.DropTable(Ctx, name, options.DropTable().SetIfExists(true).SetKeyspace(ks))
 					testlib.PanicIfErr(err, "failed to drop table '%s.%s' during prelude cleanup", ks, name)
 				}(ks, name)
@@ -241,20 +245,26 @@ func startDeletingTables(db *astra.Db) {
 			return true
 		})
 	}()
+}
 
-	PrintlnNestedChecklist("Moved to background...")
+func awaitUDTSetup() {
+	PrintlnChecklist("Waiting for UDT creation to complete")
+
+	createUDTWG.Wait()
+	PrintlnNestedChecklist("Finished creation")
+	PrintlnNestedChecklist("Done!")
 }
 
 func awaitCollectionTableSetup() {
 	PrintlnChecklist("Waiting for collection/table setup to complete")
 
-	createWG.Wait()
+	createTCWG.Wait()
 	PrintlnNestedChecklist("Finished creation")
 
-	listWG.Wait()
+	listTCWG.Wait()
 	PrintlnNestedChecklist("Finished listing")
 
-	deleteWG.Wait()
+	deleteTCWG.Wait()
 	PrintlnNestedChecklist("Finished deletion")
 	PrintlnNestedChecklist("Done!")
 }
