@@ -30,10 +30,10 @@ import (
 )
 
 type DevOpsAPI struct {
-	url         string
-	method      string
-	payload     any
-	apiOptions  *options.APIOptions
+	url        string
+	method     string
+	payload    any
+	apiOptions *options.APIOptions
 }
 
 func NewDevOpsAPICommand(endpoint, apiVersion, path, method string, payload any, params url.Values, opts *options.APIOptions) *DevOpsAPI {
