@@ -59,8 +59,8 @@ func (ac *DevOpsAPI) WithQueryParam(key, value string) *DevOpsAPI {
 	return ac
 }
 
-// AdminResponse holds the response from an admin command execution.
-type AdminResponse struct {
+// DevOpsResponse holds the response from an admin command execution.
+type DevOpsResponse struct {
 	Body       []byte
 	Headers    http.Header
 	StatusCode int
@@ -83,7 +83,7 @@ func extractHeaders(h http.Header) slog.Attr {
 	}
 }
 
-func (ac *DevOpsAPI) Execute(ctx context.Context) (*AdminResponse, error) {
+func (ac *DevOpsAPI) Execute(ctx context.Context) (*DevOpsResponse, error) {
 	// Build URL with query params
 	reqURL := ac.URL()
 
@@ -163,14 +163,14 @@ func (ac *DevOpsAPI) Execute(ctx context.Context) (*AdminResponse, error) {
 
 	// Handle error responses
 	if resp.StatusCode >= 400 {
-		return &AdminResponse{
+		return &DevOpsResponse{
 			Body:       body,
 			Headers:    resp.Header,
 			StatusCode: resp.StatusCode,
 		}, ExtractDevOpsError(resp.StatusCode, body)
 	}
 
-	return &AdminResponse{
+	return &DevOpsResponse{
 		Body:       body,
 		Headers:    resp.Header,
 		StatusCode: resp.StatusCode,
