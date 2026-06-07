@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (do not create tag or release)'
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from code
+        id: get_version
+        run: |
+          VERSION=$(grep -E 'const LibVersion = "[0-9]+\.[0-9]+\.[0-9]+"' astra/version.go | cut -d'"' -f2)
+          if [ -z "$VERSION" ]; then
+            echo "Error: Could not find valid LibVersion in astra/version.go"
+            exit 1
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if tag already exists
+        run: |
+          VERSION=${{ steps.get_version.outputs.version }}
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "Error: Tag v$VERSION already exists."
+            exit 1
+          fi
+
+  run-all-checks:
+    needs: [validate]
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
+
+  create-release:
+    needs: [validate, run-all-checks]
+    if: github.event.inputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Tag
+        run: |
+          VERSION=${{ needs.validate.outputs.version }}
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: Release v${{ needs.validate.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false

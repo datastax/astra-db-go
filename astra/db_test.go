@@ -21,6 +21,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/astra/table"
 )
 
 func TestDbUseKeyspace(t *testing.T) {
@@ -314,4 +315,55 @@ func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
 	if got := td.Definition.PrimaryKey.PartitionSort; len(got) != 0 {
 		t.Errorf("expected empty PartitionSort, got %v", got)
 	}
+}
+
+func TestAlterTypeCommandMarshal(t *testing.T) {
+	t.Run("add fields", func(t *testing.T) {
+		cmd := command{
+			name: "alterType",
+			payload: alterTypePayload{
+				Name: "address",
+				Operation: table.AddTypeFields{
+					Fields: table.Columns{
+						{Name: "country", Column: table.Text()},
+						{Name: "zip_code", Column: table.Int()},
+					},
+				},
+			},
+		}
+
+		got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
+		if err != nil {
+			t.Fatalf("failed to serialize: %v", err)
+		}
+
+		expected := `{"alterType":{"name":"address","operation":{"add":{"fields":{"country":{"type":"text"},"zip_code":{"type":"int"}}}}}}`
+		if string(got) != expected {
+			t.Errorf("expected %s, got %s", expected, string(got))
+		}
+	})
+
+	t.Run("rename fields", func(t *testing.T) {
+		cmd := command{
+			name: "alterType",
+			payload: alterTypePayload{
+				Name: "address",
+				Operation: table.RenameTypeFields{
+					Fields: map[string]string{
+						"street": "street_address",
+					},
+				},
+			},
+		}
+
+		got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
+		if err != nil {
+			t.Fatalf("failed to serialize: %v", err)
+		}
+
+		expected := `{"alterType":{"name":"address","operation":{"rename":{"fields":{"street":"street_address"}}}}}`
+		if string(got) != expected {
+			t.Errorf("expected %s, got %s", expected, string(got))
+		}
+	})
 }

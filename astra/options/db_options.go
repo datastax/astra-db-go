@@ -158,3 +158,10 @@ type ListTypeNamesOptions struct {
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
 }
+
+// AlterTypeOptions represents options for altering a user-defined type.
+type AlterTypeOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+}

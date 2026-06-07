@@ -47,15 +47,6 @@ func (b *apiOptionsBuilder) Setters() []func(*APIOptions) {
 	return b.setters
 }
 
-// SetToken sets the Token option.
-// Token is the authentication token for Astra DB
-func (b *apiOptionsBuilder) SetToken(v string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Token = &v
-	})
-	return b
-}
-
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the keyspace to use for operations
 func (b *apiOptionsBuilder) SetKeyspace(v string) *apiOptionsBuilder {
@@ -180,6 +171,15 @@ func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuild
 	return b
 }
 
+// SetCallers sets the Callers option.
+// Callers contains information about the application making the request
+func (b *apiOptionsBuilder) SetCallers(v ...Caller) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.Callers = v
+	})
+	return b
+}
+
 // AlterTableOption configures a AlterTable operation.
 // You can use the fluent-style builder or a pointer to [AlterTableOptions] interchangeably.
 //
@@ -221,6 +221,65 @@ func (b *alterTableOptionsBuilder) Setters() []func(*AlterTableOptions) {
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *alterTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *alterTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *AlterTableOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// AlterTypeOption configures a AlterType operation.
+// You can use the fluent-style builder or a pointer to [AlterTypeOptions] interchangeably.
+//
+// Example using the fluent builder ([AlterType]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.AlterType().SetKeyspace("value")
+//
+// Example using a pointer to [AlterTypeOptions] without the fluent builder:
+//
+//	opts := &options.AlterTypeOptions{Keyspace: ptr.To("value")}
+type AlterTypeOption = Builder[AlterTypeOptions]
+
+// Setters implements Builder[AlterTypeOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[AlterTypeOptions].
+func (o *AlterTypeOptions) Setters() []func(*AlterTypeOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for AlterTypeOptions.
+func (o *AlterTypeOptions) Validate() error { return nil }
+
+// alterTypeOptionsBuilder is a builder for AlterTypeOptions.
+type alterTypeOptionsBuilder struct {
+	setters []func(*AlterTypeOptions)
+}
+
+// AlterType creates a new builder for [AlterTypeOptions].
+func AlterType() *alterTypeOptionsBuilder {
+	return &alterTypeOptionsBuilder{}
+}
+
+// Setters implements Builder[AlterTypeOptions].
+func (b *alterTypeOptionsBuilder) Setters() []func(*AlterTypeOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *alterTypeOptionsBuilder) SetKeyspace(v string) *alterTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *AlterTypeOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *alterTypeOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *alterTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *AlterTypeOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
 	return b
@@ -2489,6 +2548,16 @@ func (b *indexingOptionsBuilder) SetDeny(v ...string) *indexingOptionsBuilder {
 }
 
 // LexicalOption configures a Lexical operation.
+// You can use the fluent-style builder or a pointer to [LexicalOptions] interchangeably.
+//
+// Example using the fluent builder ([Lexical]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.Lexical().SetEnabled(false)
+//
+// Example using a pointer to [LexicalOptions] without the fluent builder:
+//
+//	opts := &options.LexicalOptions{Enabled: ptr.To(false)}
 type LexicalOption = Builder[LexicalOptions]
 
 // Setters implements Builder[LexicalOptions] allowing the raw struct to be
@@ -2513,6 +2582,15 @@ func Lexical() *lexicalOptionsBuilder {
 // Setters implements Builder[LexicalOptions].
 func (b *lexicalOptionsBuilder) Setters() []func(*LexicalOptions) {
 	return b.setters
+}
+
+// SetEnabled sets the Enabled option.
+// Enabled specifies whether lexical search is enabled for the collection.
+func (b *lexicalOptionsBuilder) SetEnabled(v bool) *lexicalOptionsBuilder {
+	b.setters = append(b.setters, func(o *LexicalOptions) {
+		o.Enabled = &v
+	})
+	return b
 }
 
 // ListCollectionNamesOption configures a ListCollectionNames operation.
@@ -3001,6 +3079,16 @@ func (b *listTypesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listT
 }
 
 // RerankOption configures a Rerank operation.
+// You can use the fluent-style builder or a pointer to [RerankOptions] interchangeably.
+//
+// Example using the fluent builder ([Rerank]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.Rerank().SetEnabled(false)
+//
+// Example using a pointer to [RerankOptions] without the fluent builder:
+//
+//	opts := &options.RerankOptions{Enabled: ptr.To(false)}
 type RerankOption = Builder[RerankOptions]
 
 // Setters implements Builder[RerankOptions] allowing the raw struct to be
@@ -3025,6 +3113,98 @@ func Rerank() *rerankOptionsBuilder {
 // Setters implements Builder[RerankOptions].
 func (b *rerankOptionsBuilder) Setters() []func(*RerankOptions) {
 	return b.setters
+}
+
+// SetEnabled sets the Enabled option.
+// Enabled specifies whether reranking is enabled for the collection.
+func (b *rerankOptionsBuilder) SetEnabled(v bool) *rerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *RerankOptions) {
+		o.Enabled = &v
+	})
+	return b
+}
+
+// SetService sets the Service option.
+// Service configures the reranking service.
+func (b *rerankOptionsBuilder) SetService(v ...Builder[RerankServiceOptions]) *rerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *RerankOptions) {
+		MergeInto(&o.Service, v...)
+	})
+	return b
+}
+
+// RerankServiceOption configures a RerankService operation.
+// You can use the fluent-style builder or a pointer to [RerankServiceOptions] interchangeably.
+//
+// Example using the fluent builder ([RerankService]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.RerankService().SetProvider("value")
+//
+// Example using a pointer to [RerankServiceOptions] without the fluent builder:
+//
+//	opts := &options.RerankServiceOptions{Provider: ptr.To("value")}
+type RerankServiceOption = Builder[RerankServiceOptions]
+
+// Setters implements Builder[RerankServiceOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[RerankServiceOptions].
+func (o *RerankServiceOptions) Setters() []func(*RerankServiceOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for RerankServiceOptions.
+func (o *RerankServiceOptions) Validate() error { return nil }
+
+// rerankServiceOptionsBuilder is a builder for RerankServiceOptions.
+type rerankServiceOptionsBuilder struct {
+	setters []func(*RerankServiceOptions)
+}
+
+// RerankService creates a new builder for [RerankServiceOptions].
+func RerankService() *rerankServiceOptionsBuilder {
+	return &rerankServiceOptionsBuilder{}
+}
+
+// Setters implements Builder[RerankServiceOptions].
+func (b *rerankServiceOptionsBuilder) Setters() []func(*RerankServiceOptions) {
+	return b.setters
+}
+
+// SetProvider sets the Provider option.
+// Provider is the name of the reranking provider (e.g., "nvidia").
+func (b *rerankServiceOptionsBuilder) SetProvider(v string) *rerankServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *RerankServiceOptions) {
+		o.Provider = &v
+	})
+	return b
+}
+
+// SetModelName sets the ModelName option.
+// ModelName is the name of the reranking model to use.
+func (b *rerankServiceOptionsBuilder) SetModelName(v string) *rerankServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *RerankServiceOptions) {
+		o.ModelName = &v
+	})
+	return b
+}
+
+// SetAuthentication sets the Authentication option.
+// Authentication holds any necessary collection-bound authentication credentials.
+func (b *rerankServiceOptionsBuilder) SetAuthentication(v map[string]any) *rerankServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *RerankServiceOptions) {
+		o.Authentication = v
+	})
+	return b
+}
+
+// SetParameters sets the Parameters option.
+// Parameters holds arbitrary parameters that may be required on a per-model or
+// per-provider basis.
+func (b *rerankServiceOptionsBuilder) SetParameters(v map[string]any) *rerankServiceOptionsBuilder {
+	b.setters = append(b.setters, func(o *RerankServiceOptions) {
+		o.Parameters = v
+	})
+	return b
 }
 
 // SerdesOption configures a Serdes operation.

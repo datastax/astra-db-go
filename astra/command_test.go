@@ -15,6 +15,7 @@
 package astra
 
 import (
+	"context"
 	"testing"
 
 	"github.com/datastax/astra-db-go/astra/options"
@@ -163,8 +164,8 @@ func TestCommandOptionsHierarchy(t *testing.T) {
 
 	opts := cmd.resolveOptions()
 
-	if opts.GetToken() != "final-token" {
-		t.Errorf("expected final-token, got %q", opts.GetToken())
+	if token, _ := opts.TokenProvider.Token(context.Background()); token != "final-token" {
+		t.Errorf("expected final-token, got %q", token)
 	}
 	if opts.GetKeyspace() != "db-keyspace" {
 		t.Errorf("expected db-keyspace, got %q", opts.GetKeyspace())

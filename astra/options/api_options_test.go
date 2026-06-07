@@ -15,6 +15,7 @@
 package options_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 	"time"
@@ -37,6 +38,9 @@ func TestDefaultAPIOptions(t *testing.T) {
 	if opts.GetRequestTimeout() != 30*time.Second {
 		t.Errorf("expected default request timeout 30s, got %v", opts.GetRequestTimeout())
 	}
+	if opts.TokenProvider != nil {
+		t.Error("expected default token provider to be nil")
+	}
 }
 
 func TestNewAPIOptions(t *testing.T) {
@@ -49,8 +53,8 @@ func TestNewAPIOptions(t *testing.T) {
 		options.API().SetKeyspace(keyspace),
 	)
 
-	if opts.GetToken() != token {
-		t.Errorf("expected token %q, got %q", token, opts.GetToken())
+	if gotToken, _ := opts.TokenProvider.Token(context.Background()); gotToken != token {
+		t.Errorf("expected token %q, got %q", token, gotToken)
 	}
 	if *opts.Keyspace != keyspace {
 		t.Errorf("expected keyspace %q, got %q", keyspace, *opts.Keyspace)
@@ -64,8 +68,8 @@ func TestMerge_SingleLayer(t *testing.T) {
 
 	result := options.Merge(layer)
 
-	if result.GetToken() != token {
-		t.Errorf("expected token %q, got %q", token, result.GetToken())
+	if gotToken, _ := result.TokenProvider.Token(context.Background()); gotToken != token {
+		t.Errorf("expected token %q, got %q", token, gotToken)
 	}
 	// Should have defaults for unset values
 	if result.GetKeyspace() != "default_keyspace" {
@@ -86,8 +90,8 @@ func TestMerge_MultipleLayers(t *testing.T) {
 	result := options.Merge(clientOpts, dbOpts, collOpts)
 
 	// Token from client layer
-	if result.GetToken() != clientToken {
-		t.Errorf("expected token %q, got %q", clientToken, result.GetToken())
+	if gotToken, _ := result.TokenProvider.Token(context.Background()); gotToken != clientToken {
+		t.Errorf("expected token %q, got %q", clientToken, gotToken)
 	}
 	// Keyspace from db layer
 	if result.GetKeyspace() != dbKeyspace {
@@ -121,8 +125,8 @@ func TestMerge_NilLayers(t *testing.T) {
 	// Should handle nil layers gracefully
 	result := options.Merge(nil, opts, nil)
 
-	if result.GetToken() != token {
-		t.Errorf("expected token %q, got %q", token, result.GetToken())
+	if gotToken, _ := result.TokenProvider.Token(context.Background()); gotToken != token {
+		t.Errorf("expected token %q, got %q", token, gotToken)
 	}
 }
 
@@ -187,8 +191,8 @@ func TestGetters_NilSafety(t *testing.T) {
 	var nilOpts *options.APIOptions
 
 	// All getters should be safe to call on nil and return zero-values
-	if nilOpts.GetToken() != "" {
-		t.Error("expected empty token for nil options")
+	if nilOpts.GetTokenProvider() != nil {
+		t.Error("expected nil token provider for nil options")
 	}
 	if nilOpts.GetKeyspace() != "" {
 		t.Error("expected empty keyspace for nil options")
@@ -224,8 +228,8 @@ func TestMerge_FullHierarchy(t *testing.T) {
 	result := options.Merge(clientOpts, dbOpts, collOpts, cmdOpts)
 
 	// Token from client (unchanged)
-	if result.GetToken() != "client-token" {
-		t.Errorf("expected client token, got %q", result.GetToken())
+	if gotToken, _ := result.GetTokenProvider().Token(context.Background()); gotToken != "client-token" {
+		t.Errorf("expected client token, got %q", gotToken)
 	}
 
 	// Keyspace from db (overridden)

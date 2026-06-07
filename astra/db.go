@@ -284,6 +284,36 @@ func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDe
 	return err
 }
 
+// alterTypePayload is the payload for the alterType command.
+type alterTypePayload struct {
+	Name      string                   `json:"name"`
+	Operation table.AlterTypeOperation `json:"operation"`
+}
+
+// AlterType alters an existing user-defined type (UDT) in the database.
+//
+// Example usage:
+//
+//	err := db.AlterType(ctx, "address", table.AddTypeFields{
+//		Fields: table.Columns{
+//			{Name: "country", Column: table.Text()},
+//		},
+//	})
+func (d *Db) AlterType(ctx context.Context, name string, op table.AlterTypeOperation, opts ...options.AlterTypeOption) error {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+
+	cmd := d.newCmdWithMergedOptions("alterType", alterTypePayload{
+		Name:      name,
+		Operation: op,
+	}, merged.APIOptions)
+
+	_, _, _, err = cmd.Execute(ctx)
+	return err
+}
+
 // endregion
 
 // region Table/Collection/Index/Type Deletion

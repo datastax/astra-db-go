@@ -1346,8 +1346,29 @@ var exampleAlterTableDropVectorizePayloadJSON = testlib.CleanString(`{
   }
 }`)
 
+var exampleAlterTableAddRerankingPayloadJSON = testlib.CleanString(`{
+  "alterTable": {
+    "operation": {
+      "addReranking": {
+        "service": {
+          "provider": "nvidia",
+          "modelName": "nvidia/llama-3.2-nv-rerankqa-1b-v2"
+        }
+      }
+    }
+  }
+}`)
+
+var exampleAlterTableDropRerankingPayloadJSON = testlib.CleanString(`{
+  "alterTable": {
+    "operation": {
+      "dropReranking": {}
+    }
+  }
+}`)
+
 // TestTableAlter_CommandMarshal verifies that the alterTable payload for each
-// of the four operations matches the docs curl examples.
+// of the available operations matches the expected JSON structure.
 func TestTableAlter_CommandMarshal(t *testing.T) {
 	tbl := getTestTable(t)
 	tests := []testlib.JSONTestCase{{
@@ -1415,6 +1436,27 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 				Operation: &table.DropVectorize{
 					Columns: []string{"plot_synopsis"},
 				},
+			}),
+		},
+	}, {
+		Name:     "Add reranking",
+		Expected: exampleAlterTableAddRerankingPayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: &table.AddReranking{
+					Service: table.RerankService{
+						Provider:  "nvidia",
+						ModelName: "nvidia/llama-3.2-nv-rerankqa-1b-v2",
+					},
+				},
+			}),
+		},
+	}, {
+		Name:     "Drop reranking",
+		Expected: exampleAlterTableDropRerankingPayloadJSON,
+		Args: []any{
+			tbl.newCmd("alterTable", alterTablePayload{
+				Operation: &table.DropReranking{},
 			}),
 		},
 	}}

@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -175,11 +176,27 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes
 	}
 
 	// Set authentication token from resolved options
-	token := opts.GetToken()
-	if token != "" {
-		req.Header.Set("Token", token)
+	if opts.TokenProvider != nil {
+		token, err := opts.TokenProvider.Token(ctx)
+		if err != nil {
+			return body, nil, nil, fmt.Errorf("failed to get token from provider: %w", err)
+		}
+		if token != "" {
+			req.Header.Set("Token", token)
+		}
 	}
+
 	req.Header.Set("Content-Type", "application/json")
+
+	userAgent := LibName + "/" + LibVersion
+	for _, caller := range opts.Callers {
+		if caller.Version != "" {
+			userAgent += " " + caller.Name + "/" + caller.Version
+		} else {
+			userAgent += " " + caller.Name
+		}
+	}
+	req.Header.Set("User-Agent", userAgent)
 
 	// Add any custom headers from resolved options
 	for key, value := range opts.Headers {
