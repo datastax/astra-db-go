@@ -18,6 +18,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -27,7 +28,7 @@ import (
 const resumingResponse = "{\"message\":\"Your database is resuming from hibernation and will be available in the next few minutes.\"}"
 
 func TestCommandDBResuming(t *testing.T) {
-	cmd := command{Endpoint: "http://localhost"}
+	cmd := command.DataAPI{Endpoint: "http://localhost"}
 	_, _, _, err := cmd.ExtractErrors(503, []byte(resumingResponse), nil)
 	if err == nil {
 		t.Error("Expected error but got none")
@@ -37,7 +38,7 @@ func TestCommandDBResuming(t *testing.T) {
 const projectionSchemaResponse = "{\"data\":{\"document\":{\"int\":1,\"text\":\"1\"}},\"status\":{\"projectionSchema\":{\"text\":{\"type\":\"text\"},\"int\":{\"type\":\"int\"},\"ascii\":{\"type\":\"ascii\"},\"bigint\":{\"type\":\"bigint\"},\"blob\":{\"type\":\"blob\"},\"boolean\":{\"type\":\"boolean\"},\"date\":{\"type\":\"date\"},\"decimal\":{\"type\":\"decimal\"},\"double\":{\"type\":\"double\"},\"duration\":{\"type\":\"duration\"},\"float\":{\"type\":\"float\"},\"inet\":{\"type\":\"inet\"},\"list\":{\"type\":\"list\",\"valueType\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}}}},\"map\":{\"type\":\"map\",\"keyType\":\"varint\",\"valueType\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}}}},\"set\":{\"type\":\"set\",\"valueType\":\"uuid\"},\"smallint\":{\"type\":\"smallint\"},\"time\":{\"type\":\"time\"},\"timestamp\":{\"type\":\"timestamp\"},\"tinyint\":{\"type\":\"tinyint\"},\"udt\":{\"type\":\"userDefined\",\"udtName\":\"example_udt\",\"definition\":{\"fields\":{\"name\":{\"type\":\"text\"},\"age\":{\"type\":\"varint\"},\"id\":{\"type\":\"uuid\"}}},\"apiSupport\":{\"createTable\":true,\"insert\":true,\"read\":true,\"filter\":false,\"cqlDefinition\":\"default_keyspace.example_udt\"}},\"uuid\":{\"type\":\"uuid\"},\"varint\":{\"type\":\"varint\"},\"vector\":{\"type\":\"vector\",\"dimension\":5,\"apiSupport\":{\"createTable\":true,\"insert\":true,\"read\":true,\"filter\":false,\"cqlDefinition\":\"VECTOR<float,5>\"}}}}}"
 
 func TestCommandWithProjectionSchema(t *testing.T) {
-	cmd := command{Endpoint: "http://localhost"}
+	cmd := command.DataAPI{Endpoint: "http://localhost"}
 	_, _, _, err := cmd.ExtractErrors(200, []byte(projectionSchemaResponse), nil)
 	if err != nil {
 		t.Errorf("Did not expect error but got: %v", err)
@@ -48,7 +49,7 @@ func TestCommandWithProjectionSchema(t *testing.T) {
 const createAlreadyExistsResponse = "{\"status\":{\"insertedIds\":[]},\"errors\":[{\"message\":\"Document already exists with the given _id\",\"errorCode\":\"DOCUMENT_ALREADY_EXISTS\",\"id\":\"4055f085-68d8-4c2d-8d91-90a0722b5fef\",\"title\":\"Document already exists with the given _id\",\"family\":\"REQUEST\",\"scope\":\"DOCUMENT\"}]}"
 
 func TestCommandAlreadyExistsErr(t *testing.T) {
-	cmd := command{Endpoint: "http://localhost"}
+	cmd := command.DataAPI{Endpoint: "http://localhost"}
 	_, _, _, err := cmd.ExtractErrors(200, []byte(createAlreadyExistsResponse), nil)
 	t.Logf("err value:\n%s", err)
 	if err == nil {
@@ -60,7 +61,7 @@ func TestCommandAlreadyExistsErr(t *testing.T) {
 const warningsResponse = `{"data":{"documents":[]},"status":{"warnings":[{"errorCode":"WARN1","message":"Warning 1"}]}}`
 
 func TestCommandWarnings(t *testing.T) {
-	cmd := command{Endpoint: "http://localhost"}
+	cmd := command.DataAPI{Endpoint: "http://localhost"}
 	_, warnings, _, err := cmd.ExtractErrors(200, []byte(warningsResponse), nil)
 	if err != nil {
 		t.Errorf("Did not expect error but got: %v", err)
@@ -71,7 +72,7 @@ func TestCommandWarnings(t *testing.T) {
 }
 
 func TestMarshalJSONWithName(t *testing.T) {
-	cmd := command{
+	cmd := command.DataAPI{
 		Name:    "createCollection",
 		Payload: map[string]any{"name": "my_collection"},
 	}
@@ -86,7 +87,7 @@ func TestMarshalJSONWithName(t *testing.T) {
 }
 
 func TestMarshalJSONWithoutName(t *testing.T) {
-	cmd := command{
+	cmd := command.DataAPI{
 		Payload: map[string]string{"key": "value"},
 	}
 	got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
@@ -106,7 +107,7 @@ func TestExtractErrorsWarningHandler(t *testing.T) {
 	}
 	opts := options.Merge(options.API().SetWarningHandler(handler))
 
-	cmd := command{Endpoint: "http://localhost"}
+	cmd := command.DataAPI{Endpoint: "http://localhost"}
 	_, _, _, err := cmd.ExtractErrors(200, []byte(warningsResponse), opts)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

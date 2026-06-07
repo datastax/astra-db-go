@@ -19,15 +19,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/datastax/astra-db-go/astra/internal/commands"
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
 )
-
-type command = commands.Command
 
 // Db represents a connection to a specific Astra DB database.
 //
@@ -59,8 +57,8 @@ func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Join
 // region Meta
 
 // newCmd creates a database-level command.
-func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return command{
+func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.DataAPI{
 		Endpoint:      d.endpoint,
 		Name:          name,
 		Payload:       payload,
@@ -71,14 +69,14 @@ func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command
 	}
 }
 
-// newCmdWithMergedOptions is a compatibility alias for newCmd.
-func (d *Db) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+// newCmdWithMergedOptions is a compatibility alias for newcommand.
+func (d *Db) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
 	return d.newCmd(name, payload, opts...)
 }
 
 // newAdminCmd creates a database-level admin command.
-func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command {
-	return command{
+func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.DataAPI{
 		Endpoint:      d.endpoint,
 		Name:          name,
 		Payload:       payload,
@@ -89,8 +87,8 @@ func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) co
 	}
 }
 
-// newAdminCmdWithMergedOptions is a compatibility alias for newAdminCmd.
-func (d *Db) newAdminCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+// newAdminCmdWithMergedOptions is a compatibility alias for newAdmincommand.
+func (d *Db) newAdminCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
 	return d.newAdminCmd(name, payload, opts...)
 }
 

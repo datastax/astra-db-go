@@ -21,6 +21,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/cursors"
 	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/internal/utils"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
@@ -77,8 +78,8 @@ func (c *Collection) Database() *Db {
 }
 
 // newCmd creates a command for this collection.
-func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command {
-	return command{
+func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.DataAPI{
 		Endpoint:     c.db.endpoint,
 		Name:         name,
 		Payload:      payload,
@@ -88,8 +89,8 @@ func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption)
 	}
 }
 
-// newCmdWithMergedOptions is a compatibility alias for newCmd.
-func (c *Collection) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+// newCmdWithMergedOptions is a compatibility alias for newcommand.
+func (c *Collection) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
 	return c.newCmd(name, payload, opts...)
 }
 

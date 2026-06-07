@@ -17,6 +17,7 @@ package astra
 import (
 	"testing"
 
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
@@ -319,7 +320,7 @@ func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
 
 func TestAlterTypeCommandMarshal(t *testing.T) {
 	t.Run("add fields", func(t *testing.T) {
-		cmd := command{
+		cmd := command.DataAPI{
 			Name: "alterType",
 			Payload: alterTypePayload{
 				Name: "address",
@@ -344,7 +345,7 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 	})
 
 	t.Run("rename fields", func(t *testing.T) {
-		cmd := command{
+		cmd := command.DataAPI{
 			Name: "alterType",
 			Payload: alterTypePayload{
 				Name: "address",

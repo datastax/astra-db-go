@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package commands
+package command
 
 import (
 	"bytes"
@@ -29,7 +29,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/options"
 )
 
-type AdminCommand struct {
+type DevOpsAPI struct {
 	DevOpsURL     string
 	APIVersion    string
 	ClientOptions *options.APIOptions
@@ -39,7 +39,7 @@ type AdminCommand struct {
 	QueryParams   url.Values
 }
 
-func (ac *AdminCommand) URL() (string, error) {
+func (ac *DevOpsAPI) URL() (string, error) {
 	baseURL, err := url.JoinPath(ac.DevOpsURL, ac.APIVersion, ac.Path)
 	if err != nil {
 		return "", err
@@ -50,7 +50,7 @@ func (ac *AdminCommand) URL() (string, error) {
 	return baseURL, nil
 }
 
-func (ac *AdminCommand) WithQueryParam(key, value string) *AdminCommand {
+func (ac *DevOpsAPI) WithQueryParam(key, value string) *DevOpsAPI {
 	if ac.QueryParams == nil {
 		ac.QueryParams = url.Values{}
 	}
@@ -82,7 +82,7 @@ func extractHeaders(h http.Header) slog.Attr {
 	}
 }
 
-func (ac *AdminCommand) Execute(ctx context.Context) (*AdminResponse, error) {
+func (ac *DevOpsAPI) Execute(ctx context.Context) (*AdminResponse, error) {
 	// Build URL with query params
 	reqURL, err := ac.URL()
 	if err != nil {
@@ -100,7 +100,7 @@ func (ac *AdminCommand) Execute(ctx context.Context) (*AdminResponse, error) {
 		bodyReader = bytes.NewReader(payloadBytes)
 	}
 
-	slog.Debug("Running adminCommand.Execute", "req.method", ac.Method, "req.URL", reqURL, "req.body", string(payloadBytes))
+	slog.Debug("Running admincmd.Execute", "req.method", ac.Method, "req.URL", reqURL, "req.body", string(payloadBytes))
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, ac.Method, reqURL, bodyReader)
@@ -155,10 +155,10 @@ func (ac *AdminCommand) Execute(ctx context.Context) (*AdminResponse, error) {
 
 	// Only do the work to extract headers if we need to.
 	if slog.Default().Enabled(context.Background(), slog.LevelDebug) {
-		slog.Debug("adminCommand.Execute response headers", extractHeaders(resp.Header))
+		slog.Debug("admincmd.Execute response headers", extractHeaders(resp.Header))
 	}
 
-	slog.Debug("adminCommand.Execute response",
+	slog.Debug("admincmd.Execute response",
 		"resp.StatusCode", resp.StatusCode,
 		"resp.Status", resp.Status,
 		"resp.body", string(body))

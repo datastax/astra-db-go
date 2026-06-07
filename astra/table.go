@@ -20,6 +20,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/cursors"
 	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -70,8 +71,8 @@ func (t *Table) Database() *Db {
 
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
-func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return command{
+func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command.DataAPI {
+	return command.DataAPI{
 		Endpoint:     t.db.endpoint,
 		Name:         name,
 		Payload:      payload,
@@ -81,8 +82,8 @@ func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) c
 	}
 }
 
-// newCmdWithMergedOptions is a compatibility alias for newCmd.
-func (t *Table) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+// newCmdWithMergedOptions is a compatibility alias for newcommand.
+func (t *Table) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
 	return t.newCmd(name, payload, opts...)
 }
 
@@ -417,17 +418,17 @@ func validateIndexColumn(column any) error {
 }
 
 // createIndexCommand builds the createIndex command for the table
-func createIndexCommand(t *Table, name string, column any, opts ...options.CreateIndexOption) (command, error) {
+func createIndexCommand(t *Table, name string, column any, opts ...options.CreateIndexOption) (command.DataAPI, error) {
 	if err := validateIndexName(name); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 	if err := validateIndexColumn(column); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	return t.newCmdWithMergedOptions("createIndex", map[string]any{
@@ -474,17 +475,17 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 }
 
 // createVectorIndexCommand builds the createVectorIndex command for the table
-func createVectorIndexCommand(t *Table, name string, column string, opts ...options.CreateVectorIndexOption) (command, error) {
+func createVectorIndexCommand(t *Table, name string, column string, opts ...options.CreateVectorIndexOption) (command.DataAPI, error) {
 	if err := validateIndexName(name); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 	if err := validateIndexColumn(column); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	return t.newCmdWithMergedOptions("createVectorIndex", map[string]any{
@@ -551,10 +552,10 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 }
 
 // listIndexesCommand builds the listIndexes command for the table
-func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, error) {
+func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command.DataAPI, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	return t.newCmdWithMergedOptions("listIndexes", map[string]any{

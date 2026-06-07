@@ -23,12 +23,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/internal/commands"
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 )
-
-type adminCommand = commands.AdminCommand
 
 // DefaultAdminAPIVersion is the default version of the Astra DevOps API.
 const DefaultAdminAPIVersion = "v2"
@@ -43,8 +41,8 @@ type AstraAdmin struct {
 	astraEnvironment options.AstraEnvironment
 }
 
-func (a *AstraAdmin) createCommand(method string, path string, payload any) *adminCommand {
-	return &adminCommand{
+func (a *AstraAdmin) createCommand(method string, path string, payload any) *command.DevOpsAPI {
+	return &command.DevOpsAPI{
 		DevOpsURL:     a.astraEnvironment.DevOpsURL(),
 		APIVersion:    a.apiVersion,
 		ClientOptions: a.ClientOptions(),

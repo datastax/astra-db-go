@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/internal/constants"
 	"github.com/datastax/astra-db-go/astra/options"
 )
@@ -44,11 +45,11 @@ func TestCommandUserAgent(t *testing.T) {
 	}
 
 	// 1. Default User-Agent
-	cmd := command{
+	c := command.DataAPI{
 		Endpoint: "http://localhost",
 		Options:  options.Join(nil, options.API().SetHTTPClient(httpClient)),
 	}
-	_, _, _, _ = cmd.Execute(context.Background())
+	_, _, _, _ = c.Execute(context.Background())
 	expected := constants.LibName + "/" + constants.LibVersion
 	if capturedUA != expected {
 		t.Errorf("expected default User-Agent %q, got %q", expected, capturedUA)
@@ -60,11 +61,11 @@ func TestCommandUserAgent(t *testing.T) {
 		AddCaller("my-app", "1.2.3").
 		AddCaller("my-framework", "")
 
-	cmd = command{
+	c = command.DataAPI{
 		Endpoint: "http://localhost",
 		Options:  options.Join(nil, opts),
 	}
-	_, _, _, _ = cmd.Execute(context.Background())
+	_, _, _, _ = c.Execute(context.Background())
 	expected = constants.LibName + "/" + constants.LibVersion + " my-app/1.2.3 my-framework"
 	if capturedUA != expected {
 		t.Errorf("expected User-Agent with callers %q, got %q", expected, capturedUA)

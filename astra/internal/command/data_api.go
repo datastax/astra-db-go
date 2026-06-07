@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package commands
+package command
 
 import (
 	"bytes"
@@ -36,35 +36,35 @@ var (
 	ErrCmdNilDb = errors.New("command cannot execute with nil Db")
 )
 
-// Command represents a command to be executed against the astra DB.
-type Command struct {
+// DataAPI represents a command to be executed against the astra DB.
+type DataAPI struct {
 	Endpoint      string
 	Name          string
 	Payload       any
 	ResourceName  string
 	DatabaseAdmin bool                               // When true, URL skips keyspace and resource segments
-	Options       options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource -> Command
+	Options       options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource -> DataAPI
 	Target        serdes.Target
 }
 
 // ResolveOptions merges all option layers and returns the final resolved options.
-func (c *Command) ResolveOptions() *options.APIOptions {
+func (c *DataAPI) ResolveOptions() *options.APIOptions {
 	return options.Merge(c.Options...)
 }
 
 // Keyspace returns the keyspace to use for this command by resolving it from the
 // options hierarchy.
-func (c *Command) Keyspace() string {
+func (c *DataAPI) Keyspace() string {
 	return c.ResolveOptions().GetKeyspace()
 }
 
 // ApiVersion returns the Data API version to use for this command by resolving it
 // from the options hierarchy.
-func (c *Command) ApiVersion() string {
+func (c *DataAPI) ApiVersion() string {
 	return c.ResolveOptions().GetAPIVersion()
 }
 
-func (c *Command) URL() (string, error) {
+func (c *DataAPI) URL() (string, error) {
 	if len(c.Endpoint) == 0 {
 		return "", errors.New("empty API endpoint")
 	}
@@ -75,7 +75,7 @@ func (c *Command) URL() (string, error) {
 	return url.JoinPath(c.Endpoint, basePath, c.ApiVersion(), c.Keyspace(), c.ResourceName)
 }
 
-func (c Command) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (c DataAPI) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if len(c.Name) > 0 {
 		dst = append(dst, `{"`...)
 		dst = append(dst, c.Name...)
@@ -92,7 +92,7 @@ func (c Command) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, erro
 }
 
 // Execute a command against the astra DB web API.
-func (c *Command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+func (c *DataAPI) Execute(ctx context.Context) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	var body []byte
 	if c.Endpoint == "" {
 		return body, nil, nil, ErrCmdNilDb
@@ -175,7 +175,7 @@ type apiStatus struct {
 	schema   json.RawMessage
 }
 
-func (c *Command) ExtractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+func (c *DataAPI) ExtractErrors(statusCode int, body []byte, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	if statusCode >= 400 {
 		var transportErr results.DataAPIError
 		serdes.Deserialize(body, &transportErr, nil, serdes.TargetNone, opts.GetDesFlags())
