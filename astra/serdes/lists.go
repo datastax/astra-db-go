@@ -54,9 +54,11 @@ func encodeArray(ctx EncodeCtx, dst []byte, p unsafe.Pointer, n int, size uintpt
 		if i != 0 {
 			dst = append(dst, ',')
 		}
-		if dst, err = encode(ctx, dst, unsafe.Pointer(uintptr(p)+(uintptr(i)*size))); err != nil {
+		var next []byte
+		if next, err = encode(ctx, dst, unsafe.Pointer(uintptr(p)+(uintptr(i)*size))); err != nil {
 			return dst[:start], err
 		}
+		dst = next
 	}
 
 	dst = append(dst, ']')

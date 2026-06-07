@@ -16,6 +16,7 @@ package table
 
 import (
 	"fmt"
+	"math/big"
 	"net"
 	"reflect"
 	"sort"
@@ -33,6 +34,10 @@ var (
 	reflectDuration  = reflect.TypeFor[datatypes.Duration]()
 	reflectIP        = reflect.TypeFor[net.IP]()
 	reflectByteSlice = reflect.TypeFor[[]byte]()
+	reflectDateOnly  = reflect.TypeFor[datatypes.DateOnly]()
+	reflectTimeOnly  = reflect.TypeFor[datatypes.TimeOnly]()
+	reflectBigInt    = reflect.TypeFor[big.Int]()
+	reflectBigFloat  = reflect.TypeFor[big.Float]()
 )
 
 // fieldData holds processed metadata about a single struct field.
@@ -216,6 +221,14 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 		return Inet(), nil
 	case reflectByteSlice:
 		return Blob(), nil
+	case reflectDateOnly:
+		return Date(), nil
+	case reflectTimeOnly:
+		return Time(), nil
+	case reflectBigInt:
+		return Varint(), nil
+	case reflectBigFloat:
+		return Decimal(), nil
 	}
 
 	// Kind-based mapping
@@ -505,5 +518,46 @@ func Infer[T any]() (Definition, error) {
 	return Definition{
 		Columns:    columns,
 		PrimaryKey: primaryKey,
+	}, nil
+}
+
+// InferUDT generates a [UDTDefinition] from a Go struct's type information.
+//
+// Field names are taken from json tags (falling back to field names).
+// Type overrides come from astra tags.
+//
+// See [Infer] for details on the astra tag grammar.
+//
+// Example:
+//
+//	type Address struct {
+//	    Street string `json:"street"`
+//	    City   string `json:"city"`
+//	}
+//
+//	def, err := table.InferUDT[Address]()
+//	err := db.CreateType(ctx, "address", def)
+func InferUDT[T any]() (UDTDefinition, error) { // TODO somehow try to check if people are using the right Infer... maybe use pk tags to detect misuse?
+	t := reflect.TypeFor[T]()
+
+	fields, err := collectFields(t)
+	if err != nil {
+		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: %w", t.Name(), err)
+	}
+	if len(fields) == 0 {
+		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: no fields found", t.Name())
+	}
+
+	columns := make(Columns, 0, len(fields))
+	for _, fd := range fields {
+		col, err := goTypeToColumn(fd.goType, fd.tag)
+		if err != nil {
+			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.columnName, err)
+		}
+		columns = append(columns, NamedColumn{Name: fd.columnName, Column: col})
+	}
+
+	return UDTDefinition{
+		Fields: columns,
 	}, nil
 }

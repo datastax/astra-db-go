@@ -31,11 +31,11 @@ func (p *pathContext) setStruct(name string) {
 	p.Struct = name
 }
 
-func (p *pathContext) fullPath() string {
+func (p pathContext) fullPath() string {
 	return joinPath(p.Struct, p.Field)
 }
 
-func (p *pathContext) formatPath() string {
+func (p pathContext) formatPath() string {
 	if path := p.fullPath(); path != "" {
 		return " in '" + path + "'"
 	}
@@ -95,7 +95,9 @@ type SyntaxError struct {
 	Err     error  // underlying error
 }
 
-func (e *SyntaxError) diagnostic() string {
+func (e SyntaxError) GetSnippet() string { return e.Snippet }
+
+func (e SyntaxError) diagnostic() string {
 	msg := e.msg
 	if e.Err != nil {
 		msg += ": " + displayError(e.Err)
@@ -103,7 +105,7 @@ func (e *SyntaxError) diagnostic() string {
 	return msg
 }
 
-func (e *SyntaxError) Error() string {
+func (e SyntaxError) Error() string {
 	msg := "serdes: syntax error"
 	if path := e.formatPath(); path != "" {
 		msg += path
@@ -112,7 +114,7 @@ func (e *SyntaxError) Error() string {
 	return withSnippet(e, msg)
 }
 
-func (e *SyntaxError) Unwrap() error { return e.Err }
+func (e SyntaxError) Unwrap() error { return e.Err }
 
 // An UnmarshalTypeError describes a JSON/BSON value that was
 // not appropriate for a value of a specific Go type.
@@ -124,14 +126,16 @@ type UnmarshalTypeError struct {
 	Err     error        // underlying error
 }
 
-func (e *UnmarshalTypeError) diagnostic() string {
+func (e UnmarshalTypeError) GetSnippet() string { return e.Snippet }
+
+func (e UnmarshalTypeError) diagnostic() string {
 	if e.Err != nil {
 		return displayError(e.Err)
 	}
 	return ""
 }
 
-func (e *UnmarshalTypeError) Error() string {
+func (e UnmarshalTypeError) Error() string {
 	msg := "serdes: cannot unmarshal " + e.Value
 	path := e.fullPath()
 	if path != "" && path != e.Type.String() && path != e.Type.Name() {
@@ -168,7 +172,7 @@ func getValueName(t reflect.Type) string {
 	}
 }
 
-func (e *UnmarshalTypeError) Unwrap() error { return e.Err }
+func (e UnmarshalTypeError) Unwrap() error { return e.Err }
 
 func errorSnippet(b []byte, flags DesFlags) string {
 	if len(b) == 0 {
@@ -184,15 +188,17 @@ func errorSnippet(b []byte, flags DesFlags) string {
 	return string(b)
 }
 
+type snippetError interface {
+	GetSnippet() string
+}
+
 func innermostSnippet(err error) string {
 	var snippet string
 	for err != nil {
-		if se, ok := err.(*SyntaxError); ok && se.Snippet != "" {
-			snippet = se.Snippet
-		} else if te, ok := err.(*UnmarshalTypeError); ok && te.Snippet != "" {
-			snippet = te.Snippet
-		} else if ue, ok := err.(*UnmarshalerError); ok && ue.Snippet != "" {
-			snippet = ue.Snippet
+		if se, ok := err.(snippetError); ok {
+			if s := se.GetSnippet(); s != "" {
+				snippet = s
+			}
 		}
 		err = errors.Unwrap(err)
 	}
@@ -213,11 +219,11 @@ type MarshalerError struct {
 	Err  error
 }
 
-func (e *MarshalerError) diagnostic() string {
+func (e MarshalerError) diagnostic() string {
 	return displayError(e.Err)
 }
 
-func (e *MarshalerError) Error() string {
+func (e MarshalerError) Error() string {
 	msg := "serdes: error calling MarshalAstra"
 	path := e.fullPath()
 	if path != "" && path != e.Type.String() && path != e.Type.Name() {
@@ -229,7 +235,9 @@ func (e *MarshalerError) Error() string {
 	return msg
 }
 
-func (e *MarshalerError) Unwrap() error { return e.Err }
+func (e MarshalerError) Unwrap() error {
+	return e.Err
+}
 
 // An UnmarshalerError represents an error from calling an UnmarshalAstra method.
 type UnmarshalerError struct {
@@ -239,11 +247,13 @@ type UnmarshalerError struct {
 	Err     error
 }
 
-func (e *UnmarshalerError) diagnostic() string {
+func (e UnmarshalerError) GetSnippet() string { return e.Snippet }
+
+func (e UnmarshalerError) diagnostic() string {
 	return displayError(e.Err)
 }
 
-func (e *UnmarshalerError) Error() string {
+func (e UnmarshalerError) Error() string {
 	msg := "serdes: error calling UnmarshalAstra"
 	path := e.fullPath()
 	if path != "" && path != e.Type.String() && path != e.Type.Name() {
@@ -255,7 +265,7 @@ func (e *UnmarshalerError) Error() string {
 	return withSnippet(e, msg)
 }
 
-func (e *UnmarshalerError) Unwrap() error { return e.Err }
+func (e UnmarshalerError) Unwrap() error { return e.Err }
 
 // An UnsupportedValueError is returned when a value is not supported by Astra,
 // such as a cycle, a missing tag, or a target mismatch.
@@ -265,7 +275,7 @@ type UnsupportedValueError struct {
 	Msg   string
 }
 
-func (e *UnsupportedValueError) Error() string {
+func (e UnsupportedValueError) Error() string {
 	msg := "serdes: unsupported value"
 	if e.Msg != "" {
 		msg += ": " + e.Msg
@@ -280,7 +290,7 @@ type UnsupportedTypeError struct {
 	Type reflect.Type
 }
 
-func (e *UnsupportedTypeError) Error() string {
+func (e UnsupportedTypeError) Error() string {
 	return "serdes: unsupported type: " + e.Type.String() + e.formatPath()
 }
 
@@ -317,7 +327,7 @@ type InvalidUnmarshalError struct {
 	Type reflect.Type
 }
 
-func (e *InvalidUnmarshalError) Error() string {
+func (e InvalidUnmarshalError) Error() string {
 	if e.Type == nil {
 		return "serdes: Deserialize(nil)"
 	}

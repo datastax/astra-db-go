@@ -14,11 +14,14 @@
 
 // Package testutil provides utilities for testing. As more patterns
 // emerge, we can add more helpers.
-package testutils
+package testlib
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/datastax/astra-db-go/astra/serdes"
@@ -50,7 +53,7 @@ func cleanString(s string) string {
 //	}
 //	for _, tt := range tests {
 //		t.Run(tt.expectedJSON, func(t *testing.T) {
-//			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+//			testlib.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 //		})
 //	}
 func AssertJSONEqual(t *testing.T, expected string, args ...any) {
@@ -73,7 +76,7 @@ func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 //
 // Example usage:
 //
-//	tests := []testutils.JSONTestCase{{
+//	tests := []testlib.JSONTestCase{{
 //		Name:     "ascending",
 //		Expected: `{"rating":1}`,
 //		SerArgs: []any{
@@ -89,7 +92,7 @@ func AssertJSONEqual(t *testing.T, expected string, args ...any) {
 //		},
 //	}}
 //	// Run the tests
-//	testutils.RunJSONTestCases(t, tests)
+//	testlib.RunJSONTestCases(t, tests)
 type JSONTestCase struct {
 	Name     string
 	Expected string
@@ -111,6 +114,53 @@ type HasFatal interface {
 	Fatalf(format string, args ...any)
 }
 
+func AwaitAll[T any, R any](t HasFatal, xs []T, fn func(T) (R, error)) []R {
+	if t != nil {
+		t.Helper()
+	}
+
+	var wg sync.WaitGroup
+	var errAtomic atomic.Value
+	var panicAtomic atomic.Value
+
+	results := make([]R, len(xs))
+
+	for i, x := range xs {
+		wg.Add(1)
+		go func(index int, item T) {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					panicAtomic.Store(r)
+				}
+			}()
+
+			res, err := fn(item)
+			if err != nil {
+				errAtomic.Store(err)
+				return
+			}
+			results[index] = res
+		}(i, x)
+	}
+
+	wg.Wait()
+
+	if p := panicAtomic.Load(); p != nil {
+		panic(p)
+	}
+
+	if err := errAtomic.Load(); err != nil {
+		if t != nil {
+			t.Fatalf("AwaitAll: %v", err.(error))
+		} else {
+			panic(fmt.Sprintf("AwaitAll: %v", err))
+		}
+	}
+
+	return results
+}
+
 func FailIf(t HasFatal, pred bool, msg string, args ...any) {
 	t.Helper()
 	if pred {
@@ -122,6 +172,26 @@ func FailIfErr(t HasFatal, err error, msg string, args ...any) {
 	t.Helper()
 	if err != nil {
 		t.Fatalf("%s: %v", fmt.Sprintf(msg, args...), err)
+	}
+}
+
+func ErrMustBe[E error](t HasFatal, err error, msg string, args ...any) {
+	t.Helper()
+	var target E
+	if !errors.As(err, &target) {
+		t.Fatalf("%s: expected error of type %T but got %T", fmt.Sprintf(msg, args...), (*E)(nil), err)
+	}
+}
+
+func PanicIf(pred bool, msg string, args ...any) {
+	if pred {
+		panic(fmt.Sprintf(msg, args...))
+	}
+}
+
+func PanicIfErr(err error, msg string, args ...any) {
+	if err != nil {
+		panic(fmt.Sprintf("%s: %v", fmt.Sprintf(msg, args...), err))
 	}
 }
 

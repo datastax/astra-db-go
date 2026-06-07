@@ -608,7 +608,7 @@ func (r *serverRow) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error 
 
 func (r *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if ctx.Target != serdes.TargetTable {
-		return nil, fmt.Errorf("`Row` can only be serialized for tables, got %s", ctx.Target)
+		return dst, fmt.Errorf("`Row` can only be serialized for tables, got %s", ctx.Target)
 	}
 	return serdes.SerializeInto(r.data, ctx.Target, dst, ctx.Flags)
 }

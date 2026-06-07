@@ -33,7 +33,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/sort"
 	"github.com/datastax/astra-db-go/astra/table"
 	"github.com/datastax/astra-db-go/astra/update"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
 func TestTableDefinitionMarshal(t *testing.T) {
@@ -401,7 +401,7 @@ func getTestTable(t *testing.T) *Table {
 //
 // The endpoint should look like:
 // "API_ENDPOINT/api/json/v1/KEYSPACE_NAME/TABLE_NAME"
-var exampleIndexPayloadJSON = testutils.CleanString(`{
+var exampleIndexPayloadJSON = testlib.CleanString(`{
   "createIndex": {
     "definition": {
       "column": "example_column",
@@ -460,7 +460,7 @@ func TestCreateIndexCommandURL(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-index.html#example-ascii
-var exampleIndexASCIIPayloadJSON = testutils.CleanString(`{
+var exampleIndexASCIIPayloadJSON = testlib.CleanString(`{
   "createIndex": {
     "definition": {
       "column": "example_column",
@@ -503,7 +503,7 @@ func TestCreateIndexASCIICommandMarshal(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-index.html#example-index-map
-var exampleIndexMapKeysPayloadJSON = testutils.CleanString(`{
+var exampleIndexMapKeysPayloadJSON = testlib.CleanString(`{
   "createIndex": {
     "definition": {
       "column": {
@@ -548,7 +548,7 @@ func TestCreateIndexMapKeysCommandMarshal(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-default
-var exampleVectorIndexDefaultPayloadJSON = testutils.CleanString(`{
+var exampleVectorIndexDefaultPayloadJSON = testlib.CleanString(`{
   "createVectorIndex": {
     "definition": {
       "column": "example_vector_column",
@@ -590,7 +590,7 @@ func TestCreateVectorIndexDefaultCommandMarshal(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-model-metric
-var exampleVectorIndexModelMetricPayloadJSON = testutils.CleanString(`{
+var exampleVectorIndexModelMetricPayloadJSON = testlib.CleanString(`{
   "createVectorIndex": {
     "definition": {
       "column": "example_vector_column",
@@ -633,7 +633,7 @@ func TestCreateVectorIndexModelMetricCommandMarshal(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#example-exists
-var exampleVectorIndexIfNotExistsPayloadJSON = testutils.CleanString(`{
+var exampleVectorIndexIfNotExistsPayloadJSON = testlib.CleanString(`{
   "createVectorIndex": {
     "definition": {
       "column": "summary_genres_vector",
@@ -676,7 +676,7 @@ func TestCreateVectorIndexIfNotExistsCommandMarshal(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/list-index-metadata.html#example-names
-var exampleListIndexesNamesOnlyPayloadJSON = testutils.CleanString(`{
+var exampleListIndexesNamesOnlyPayloadJSON = testlib.CleanString(`{
   "listIndexes": {
     "options": {
       "explain": null
@@ -710,7 +710,7 @@ func TestListIndexesNamesOnlyCommandMarshal(t *testing.T) {
 
 // This example was taken from the documentation here:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/list-index-metadata.html#example-explain
-var exampleListIndexesExplainPayloadJSON = testutils.CleanString(`{
+var exampleListIndexesExplainPayloadJSON = testlib.CleanString(`{
   "listIndexes": {
     "options": {
       "explain": true
@@ -996,7 +996,7 @@ func TestCreateIndedxOptionsValidation(t *testing.T) {
 // This example was taken from the documentation:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/row-methods/update.html#example-update-multiple
 // ^ confusingly says "update multiple" but it means multiple fields on an updateOne command.
-var exampleUpdateOneSetPayloadJSON = testutils.CleanString(`{
+var exampleUpdateOneSetPayloadJSON = testlib.CleanString(`{
   "updateOne": {
     "filter": {
     	"author": "John Anthony",
@@ -1172,7 +1172,7 @@ func TestTableUpdateOne_ContextTimeout(t *testing.T) {
 
 // This example was taken from the documentation:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/row-methods/delete-one.html#delete-a-row-by-primary-key
-var exampleDeleteOnePayloadJSON = testutils.CleanString(`{
+var exampleDeleteOnePayloadJSON = testlib.CleanString(`{
   "deleteOne": {
     "filter": {
       "author": "John Anthony",
@@ -1221,7 +1221,7 @@ func TestTableDeleteOne_HappyPath(t *testing.T) {
 // From the docs:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/row-methods/delete-many.html#delete-a-row-by-primary-key
 // Order of filter keys changed to be alphanumeric.
-var exampleDeleteManyPayloadJSON = testutils.CleanString(`{
+var exampleDeleteManyPayloadJSON = testlib.CleanString(`{
   "deleteMany": {
     "filter": {
       "author": "John Anthony",  
@@ -1279,7 +1279,7 @@ func TestTableDeleteMany_EnforceNonNilFilter(t *testing.T) {
 // #region Table.Alter tests
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add
-var exampleAlterTableAddPayloadJSON = testutils.CleanString(`{
+var exampleAlterTableAddPayloadJSON = testlib.CleanString(`{
   "alterTable": {
     "operation": {
       "add": {
@@ -1294,7 +1294,7 @@ var exampleAlterTableAddPayloadJSON = testutils.CleanString(`{
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add-vector
 // Vector form of an "add" operation.
-var exampleAlterTableAddVectorColumnPayloadJSON = testutils.CleanString(`{
+var exampleAlterTableAddVectorColumnPayloadJSON = testlib.CleanString(`{
   "alterTable": {
     "operation": {
       "add": {
@@ -1307,7 +1307,7 @@ var exampleAlterTableAddVectorColumnPayloadJSON = testutils.CleanString(`{
 }`)
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-drop
-var exampleAlterTableDropPayloadJSON = testutils.CleanString(`{
+var exampleAlterTableDropPayloadJSON = testlib.CleanString(`{
   "alterTable": {
     "operation": {
       "drop": {
@@ -1318,7 +1318,7 @@ var exampleAlterTableDropPayloadJSON = testutils.CleanString(`{
 }`)
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-add-vectorize
-var exampleAlterTableAddVectorizePayloadJSON = testutils.CleanString(`{
+var exampleAlterTableAddVectorizePayloadJSON = testlib.CleanString(`{
   "alterTable": {
     "operation": {
       "addVectorize": {
@@ -1336,7 +1336,7 @@ var exampleAlterTableAddVectorizePayloadJSON = testutils.CleanString(`{
 }`)
 
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/table-methods/alter-table.html#example-drop-vectorize
-var exampleAlterTableDropVectorizePayloadJSON = testutils.CleanString(`{
+var exampleAlterTableDropVectorizePayloadJSON = testlib.CleanString(`{
   "alterTable": {
     "operation": {
       "dropVectorize": {
@@ -1350,7 +1350,7 @@ var exampleAlterTableDropVectorizePayloadJSON = testutils.CleanString(`{
 // of the four operations matches the docs curl examples.
 func TestTableAlter_CommandMarshal(t *testing.T) {
 	tbl := getTestTable(t)
-	tests := []testutils.JSONTestCase{{
+	tests := []testlib.JSONTestCase{{
 		Name:     "Add columns",
 		Expected: exampleAlterTableAddPayloadJSON,
 		Args: []any{
@@ -1418,7 +1418,7 @@ func TestTableAlter_CommandMarshal(t *testing.T) {
 			}),
 		},
 	}}
-	testutils.RunJSONTestCases(t, tests)
+	testlib.RunJSONTestCases(t, tests)
 }
 
 // TestTableAlter_HappyPath verifies that Alter posts the expected request

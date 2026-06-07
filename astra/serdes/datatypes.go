@@ -47,7 +47,7 @@ func uuidDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	var err error
 
 	if ctx.Target == TargetCollection {
-		src, uuid, err = parseDollarDatatype(ctx, src, uuidTag, decodeUUID)
+		src, uuid, err = parseDollarDatatype(ctx, src, uuidTag, decodeUUID) // TODO should we allow decoding UUIDs from plain strings? What about dates or object ids?
 	} else {
 		src, uuid, err = decodeUUID(ctx, src)
 	}

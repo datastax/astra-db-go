@@ -69,8 +69,9 @@ func mkStructEncoder(info *structInfo) encoder {
 
 			ctx.fieldHint = extractFieldHint(f.meta.name)
 
+			var next []byte
 			var err error
-			if dst, err = f.codec.encode(ctx, dst, v); err != nil {
+			if next, err = f.codec.encode(ctx, dst, v); err != nil {
 				//goland:noinspection GoTypeAssertionOnErrors
 				if _, ok := err.(rollback); ok {
 					dst = dst[:lengthBeforeKey]
@@ -79,6 +80,7 @@ func mkStructEncoder(info *structInfo) encoder {
 
 				return dst[:start], wrapField(err, info.typ.Name(), f.meta.name)
 			}
+			dst = next
 		}
 
 		return append(dst, '}'), nil

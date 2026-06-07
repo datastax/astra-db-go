@@ -24,7 +24,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/cursors"
 	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/integration/harness"
+	"github.com/datastax/astra-db-go/integration/legacy/harness"
 
 	"github.com/google/go-cmp/cmp"
 )

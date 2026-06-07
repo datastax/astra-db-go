@@ -12,27 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package results
 
-import (
-	"os"
+import "github.com/datastax/astra-db-go/astra/table"
 
-	"github.com/datastax/astra-db-go/integration/harness"
-	"github.com/datastax/astra-db-go/integration/legacy"
+// UDTDescriptor represents the descriptor for a user-defined type, including its name and definition.
+type UDTDescriptor struct {
+	// Name of the user-defined type.
+	Name string `json:"name"`
 
-	_ "github.com/datastax/astra-db-go/integration/tests/collection"
-	_ "github.com/datastax/astra-db-go/integration/tests/table"
-)
-
-func main() {
-	harness.Init()
-	exitCode := harness.Run()
-
-	if exitCode != 0 {
-		os.Exit(exitCode)
-	}
-
-	harness.PrintlnBold(harness.Highlight("...Running legacy integration tests...\n"))
-
-	legacy.Run() // temporary (obviously)
+	// Definition of the user-defined type.
+	// Only populated when listTypes is called with explain=true.
+	Definition table.UDTDefinition `json:"definition"`
 }

@@ -19,7 +19,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/update"
-	"github.com/datastax/astra-db-go/internal/testutils"
+	"github.com/datastax/astra-db-go/internal/testlib"
 )
 
 // Example taken from:
@@ -56,8 +56,8 @@ func TestUpdateManyExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}
-	if string(j) != testutils.CleanString(exampleFromDocs) {
-		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testutils.CleanString(exampleFromDocs))
+	if string(j) != testlib.CleanString(exampleFromDocs) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testlib.CleanString(exampleFromDocs))
 	}
 	// Now let's do the same thing for the fluent builder API, which should produce the same result.
 	fluentExample := update.Coll().Set("color", "blue").
@@ -68,8 +68,8 @@ func TestUpdateManyExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal fluent update: %v", err)
 	}
-	if string(j) != testutils.CleanString(exampleFromDocs) {
-		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testutils.CleanString(exampleFromDocs))
+	if string(j) != testlib.CleanString(exampleFromDocs) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testlib.CleanString(exampleFromDocs))
 	}
 }
 
@@ -131,7 +131,7 @@ func TestUpdateFieldOperators(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.expectedJSON, func(t *testing.T) {
-			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+			testlib.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 		})
 	}
 }
@@ -188,7 +188,7 @@ func TestUpdateArrayOperators(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.expectedJSON, func(t *testing.T) {
-			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+			testlib.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 		})
 	}
 }
@@ -213,8 +213,8 @@ func TestAdvancedChaining(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to marshal update: %v", err)
 	}
-	if string(j) != testutils.CleanString(expected) {
-		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testutils.CleanString(expected))
+	if string(j) != testlib.CleanString(expected) {
+		t.Errorf("\nGOT:\n%s\n\nWANT:\n%s", j, testlib.CleanString(expected))
 	}
 }
 
@@ -317,7 +317,7 @@ func TestTableUpdateBuilder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testutils.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
+			testlib.AssertJSONEqual(t, tt.expectedJSON, tt.fluent, tt.raw)
 		})
 	}
 }
