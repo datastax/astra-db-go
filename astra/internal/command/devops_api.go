@@ -31,41 +31,30 @@ import (
 
 type DevOpsAPI struct {
 	endpoint    string
-	apiVersion  string
 	method      string
-	path        string
 	payload     any
 	queryParams url.Values
 	apiOptions  *options.APIOptions
 }
 
-func NewDevOpsAPICommand(endpoint, apiVersion, method, path string, payload any, params url.Values, opts *options.APIOptions) *DevOpsAPI {
+func NewDevOpsAPICommand(endpoint, apiVersion, path, method string, payload any, params url.Values, opts *options.APIOptions) *DevOpsAPI {
 	return &DevOpsAPI{
-		endpoint:    endpoint,
-		apiVersion:  apiVersion,
+		endpoint:    strings.TrimRight(endpoint, "/") + "/" + apiVersion + "/" + strings.Trim(path, "/"),
 		method:      method,
-		path:        path,
 		payload:     payload,
 		queryParams: params,
 		apiOptions:  opts,
 	}
 }
 
-func (ac *DevOpsAPI) URL() (string, error) {
-	baseURL, err := url.JoinPath(ac.endpoint, ac.apiVersion, ac.path)
-	if err != nil {
-		return "", err
-	}
+func (ac *DevOpsAPI) URL() string {
 	if len(ac.queryParams) > 0 {
-		return baseURL + "?" + ac.queryParams.Encode(), nil
+		return ac.endpoint + "?" + ac.queryParams.Encode()
 	}
-	return baseURL, nil
+	return ac.endpoint
 }
 
 func (ac *DevOpsAPI) WithQueryParam(key, value string) *DevOpsAPI {
-	if ac.queryParams == nil {
-		ac.queryParams = url.Values{}
-	}
 	ac.queryParams.Set(key, value)
 	return ac
 }
@@ -96,16 +85,13 @@ func extractHeaders(h http.Header) slog.Attr {
 
 func (ac *DevOpsAPI) Execute(ctx context.Context) (*AdminResponse, error) {
 	// Build URL with query params
-	reqURL, err := ac.URL()
-	if err != nil {
-		return nil, err
-	}
+	reqURL := ac.URL()
 
 	// Marshal payload to JSON if present
 	var bodyReader io.Reader
 	var payloadBytes []byte
 	if ac.payload != nil {
-		payloadBytes, err = json.Marshal(ac.payload)
+		payloadBytes, err := json.Marshal(ac.payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal payload: %w", err)
 		}
