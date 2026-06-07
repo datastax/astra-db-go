@@ -23,6 +23,46 @@ import (
 	"github.com/datastax/astra-db-go/astra/serdes"
 )
 
+func TestDbUseKeyspace(t *testing.T) {
+	client := NewClient(options.API().SetToken("test-token"))
+
+	db := client.Database("https://id-region.apps.astra.datastax.com")
+
+	// Check default keyspace
+	if ks := db.ClientOptions().GetKeyspace(); ks != "default_keyspace" {
+		t.Errorf("expected default keyspace, got %s", ks)
+	}
+
+	// UseKeyspace
+	db.UseKeyspace("new_ks")
+	if ks := db.ClientOptions().GetKeyspace(); ks != "new_ks" {
+		t.Errorf("expected new_ks, got %s", ks)
+	}
+
+	// Check that child collection inherits it
+	coll := db.Collection("test_coll")
+	if ks := coll.ClientOptions().GetKeyspace(); ks != "new_ks" {
+		t.Errorf("expected collection to inherit new_ks, got %s", ks)
+	}
+
+	// Double UseKeyspace
+	db.UseKeyspace("newer_ks")
+	if ks := db.ClientOptions().GetKeyspace(); ks != "newer_ks" {
+		t.Errorf("expected newer_ks, got %s", ks)
+	}
+
+	// New collection should have newer_ks
+	coll2 := db.Collection("test_coll_2")
+	if ks := coll2.ClientOptions().GetKeyspace(); ks != "newer_ks" {
+		t.Errorf("expected coll2 to inherit newer_ks, got %s", ks)
+	}
+
+	// Old collection should not be affected by new UseKeyspace call
+	if ks := coll.ClientOptions().GetKeyspace(); ks != "new_ks" {
+		t.Errorf("expected old collection to still have new_ks, got %s", ks)
+	}
+}
+
 func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("no options", func(t *testing.T) {
 		var opts *options.CreateCollectionOptions
