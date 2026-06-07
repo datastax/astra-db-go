@@ -447,9 +447,9 @@ func TestCreateIndexCommandURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createIndexCommand: %v", err)
 	}
-	postURL, err := cmd.url()
+	postURL, err := cmd.URL()
 	if err != nil {
-		t.Fatalf("cmd.url: %v", err)
+		t.Fatalf("cmd.URL: %v", err)
 	}
 	// Verify the URL matches what example CURL command is expecting
 	expectedURL := "https://API_ENDPOINT/api/json/v1/some_keyspace/example_table"
@@ -741,9 +741,9 @@ func TestListIndexesCommandURL(t *testing.T) {
 	if err != nil {
 		t.Fatalf("listIndexesCommand: %v", err)
 	}
-	postURL, err := cmd.url()
+	postURL, err := cmd.URL()
 	if err != nil {
-		t.Fatalf("cmd.url: %v", err)
+		t.Fatalf("cmd.URL: %v", err)
 	}
 	// Verify the URL matches what example CURL command is expecting
 	expectedURL := "https://API_ENDPOINT/api/json/v1/some_keyspace/example_table"

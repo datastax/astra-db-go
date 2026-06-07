@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/datastax/astra-db-go/astra/internal/commands"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
 )
@@ -180,9 +181,9 @@ func TestSTuff(t *testing.T) {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
 	}
 	cmd := admin.createCommand("GET", "/regions/serverless", nil)
-	url, err := cmd.url()
+	url, err := cmd.URL()
 	if err != nil {
-		t.Fatalf("cmd.url() producted unexpected error: %v", err)
+		t.Fatalf("cmd.URL() producted unexpected error: %v", err)
 	}
 	expectedURL := "https://api.astra.datastax.com/v2/regions/serverless"
 	if url != expectedURL {
@@ -243,7 +244,7 @@ func TestAdminNotAvailableForNonAstra(t *testing.T) {
 func TestExtractDevopsError(t *testing.T) {
 	// Test that a DevOps error response is properly extracted and parsed
 	errorBody := "{\"errors\":[{\"ID\":340002,\"message\":\"no bearer token in request\"}]}"
-	err := extractDevOpsError(401, []byte(errorBody))
+	err := commands.ExtractDevOpsError(401, []byte(errorBody))
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}

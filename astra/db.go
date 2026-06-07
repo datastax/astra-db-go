@@ -19,12 +19,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/datastax/astra-db-go/astra/internal/commands"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
 )
+
+type command = commands.Command
 
 // Db represents a connection to a specific Astra DB database.
 //
@@ -58,7 +61,29 @@ func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Join
 // newCmdWithMergedOptions creates a database-level command with a pre-merged
 // *APIOptions for the command-level overrides.
 func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
-	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdAPIOpt)
+	return command{
+		Endpoint:      d.endpoint,
+		Name:          name,
+		Payload:       payload,
+		ResourceName:  "",
+		DatabaseAdmin: false,
+		Options:       options.Join(d.options, cmdAPIOpt),
+		Target:        serdes.TargetNone,
+	}
+}
+
+// newCmdWithMergedOptions creates a database-level command with a pre-merged
+// *APIOptions for the command-level overrides.
+func (d *Db) newAdminCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
+	return command{
+		Endpoint:      d.endpoint,
+		Name:          name,
+		Payload:       payload,
+		ResourceName:  "",
+		DatabaseAdmin: true,
+		Options:       options.Join(d.options, cmdAPIOpt),
+		Target:        serdes.TargetNone,
+	}
 }
 
 // Endpoint returns the database API endpoint.

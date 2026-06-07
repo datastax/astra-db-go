@@ -89,8 +89,13 @@ func (d *AstraDatabaseAdmin) Drop(ctx context.Context, opts ...options.DropDatab
 // Example:
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (d *AstraDatabaseAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
-	db, err := d.admin.GetDatabase(ctx, d.ID())
+func (d *AstraDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...options.ListKeyspacesOption) ([]string, error) {
+	_, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := d.admin.GetDatabase(ctx, d.ID()) // TODO get database needs to allow overriding api options
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +121,7 @@ func (d *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 	}
 
 	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
-	_, err = cmd.execute(ctx)
+	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
 	}
@@ -146,7 +151,7 @@ func (d *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 	}
 
 	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
-	_, err = cmd.execute(ctx)
+	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
 	}

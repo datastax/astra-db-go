@@ -26,6 +26,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/astra/update"
 )
 
 // CollectionFilter is implemented by [filter.F] and [filter.Filter].
@@ -41,6 +42,12 @@ import (
 //
 // [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/filter
 type CollectionFilter = filter.Filterable
+
+// CollectionUpdate is implemented by [update.CollectionUpdateBuilder] and [update.U].
+// See the [update package] for more details.
+//
+// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/update
+type CollectionUpdate = update.CollectionUpdate
 
 // Collection represents a collection in an Astra DB database.
 //
@@ -72,7 +79,14 @@ func (c *Collection) Database() *Db {
 // newCmdWithMergedOptions creates a command with a pre-built *APIOptions cmdOpts,
 // used by builder-pattern methods where API options flow through the struct.
 func (c *Collection) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(c.db, c.name, name, payload, c.options, serdes.TargetCollection, cmdOpts)
+	return command{
+		Endpoint:     c.db.endpoint,
+		Name:         name,
+		Payload:      payload,
+		ResourceName: c.name,
+		Target:       serdes.TargetCollection,
+		Options:      options.Join(c.options, cmdOpts),
+	}
 }
 
 // resolveGeneralMethodTimeout returns the effective timeout for a paginated
@@ -82,7 +96,7 @@ func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, o
 		return methodTimeout
 	}
 	cmd := c.newCmdWithMergedOptions("", nil, override)
-	opts := cmd.resolveOptions()
+	opts := cmd.ResolveOptions()
 	return opts.GetGeneralMethodTimeout()
 }
 

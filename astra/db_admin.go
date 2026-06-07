@@ -28,7 +28,7 @@ import (
 //   - Astra environments use [AstraDatabaseAdmin] (DevOps API)
 //   - Non-Astra environments use [DataAPIDatabaseAdmin] (Data API)
 type DatabaseAdmin interface {
-	ListKeyspaces(ctx context.Context) ([]string, error)
+	ListKeyspaces(ctx context.Context, opts ...options.ListKeyspacesOption) ([]string, error)
 	CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error
 	DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error
 	FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error)
@@ -48,7 +48,7 @@ func findEmbeddingProviders(db *Db, ctx context.Context, opts ...options.FindEmb
 		"options": merged,
 	}
 
-	cmd := newDatabaseAdminCmdWithMergedOptions(db, "findEmbeddingProviders", payload, merged.APIOptions)
+	cmd := db.newAdminCmdWithMergedOptions("findEmbeddingProviders", payload, merged.APIOptions)
 	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err

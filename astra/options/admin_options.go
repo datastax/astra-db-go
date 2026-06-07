@@ -142,6 +142,14 @@ func (o *DropDatabaseOptions) SetDefaults() {
 	o.PollInterval = ptr.To(DefaultDatabasePollInterval)
 }
 
+// ListKeyspacesOptions represents options for listing the keyspaces in a database.
+// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
+type ListKeyspacesOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // CreateKeyspaceOptions represents options for the CreateKeyspace operation.
 type CreateKeyspaceOptions struct {
 	// Blocking controls whether to wait for the keyspace to become visible.
@@ -156,6 +164,9 @@ type CreateKeyspaceOptions struct {
 	// UpdateDbKeyspace controls whether to update the parent Db instance to use the
 	// new keyspace after creation. Defaults to false.
 	UpdateDbKeyspace *bool
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions
 }
 
 // SetDefaults implements the Defaulter interface for CreateKeyspaceOptions.
@@ -172,6 +183,9 @@ type DropKeyspaceOptions struct {
 	// PollInterval is how often to check the keyspace status when blocking.
 	// Defaults to DefaultKeyspacePollInterval (1 second).
 	PollInterval *time.Duration
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions
 }
 
 // SetDefaults implements the Defaulter interface for DropKeyspaceOptions.

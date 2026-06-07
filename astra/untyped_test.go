@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/astra/internal/untyped"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
 	"github.com/datastax/astra-db-go/internal/testlib"
@@ -38,9 +39,9 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
 
-	// Verify it's a serverDocument
-	if reflect.TypeOf(doc).String() != "*astra.serverDocument" {
-		t.Errorf("expected *serverDocument, got %T", doc)
+	// Verify it's a ServerDocument
+	if reflect.TypeOf(doc).String() != "*untyped.ServerDocument" {
+		t.Errorf("expected *untyped.ServerDocument, got %T", doc)
 	}
 
 	// Test Get()
@@ -351,9 +352,9 @@ func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 		col := table.Column{Type: table.TypeVarint}
 
 		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-		val, err := deserializeColumn(ctx, raw, col)
+		val, err := untyped.DeserializeColumn(ctx, raw, col)
 		if err != nil {
-			t.Fatalf("deserializeColumn(%s) error = %v", s, err)
+			t.Fatalf("untyped.DeserializeColumn(%s) error = %v", s, err)
 		}
 
 		got, ok := val.(big.Int)
@@ -377,9 +378,9 @@ func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
 		col := table.Column{Type: table.TypeDecimal}
 
 		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-		val, err := deserializeColumn(ctx, raw, col)
+		val, err := untyped.DeserializeColumn(ctx, raw, col)
 		if err != nil {
-			t.Fatalf("deserializeColumn(%s) error = %v", s, err)
+			t.Fatalf("untyped.DeserializeColumn(%s) error = %v", s, err)
 		}
 
 		got, ok := val.(big.Float)
@@ -401,9 +402,9 @@ func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
 	col := table.Column{Type: "unknown_type"}
 
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-	val, err := deserializeColumn(ctx, raw, col)
+	val, err := untyped.DeserializeColumn(ctx, raw, col)
 	if err != nil {
-		t.Fatalf("deserializeColumn() error = %v", err)
+		t.Fatalf("untyped.DeserializeColumn() error = %v", err)
 	}
 
 	// Should fall back to generic deserialization

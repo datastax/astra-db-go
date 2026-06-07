@@ -320,8 +320,8 @@ func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
 func TestAlterTypeCommandMarshal(t *testing.T) {
 	t.Run("add fields", func(t *testing.T) {
 		cmd := command{
-			name: "alterType",
-			payload: alterTypePayload{
+			Name: "alterType",
+			Payload: alterTypePayload{
 				Name: "address",
 				Operation: table.AddTypeFields{
 					Fields: table.Columns{
@@ -345,8 +345,8 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 
 	t.Run("rename fields", func(t *testing.T) {
 		cmd := command{
-			name: "alterType",
-			payload: alterTypePayload{
+			Name: "alterType",
+			Payload: alterTypePayload{
 				Name: "address",
 				Operation: table.RenameTypeFields{
 					Fields: map[string]string{

@@ -24,21 +24,22 @@ import (
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/astra/update"
 )
 
 // TableFilter is implemented by [filter.F] and [filter.Filter].
 // See the [filter package] for more details.
 //
-// Example composing Filters:
-//
-//	f := filter.Gt("num_pages", 300)
-//
-// Example using filter.F:
-//
 //	f := filter.F{"num_pages": filter.F{"$gt": 300}}
 //
 // [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/filter
 type TableFilter = filter.Filterable
+
+// TableUpdate is implemented by [update.TableUpdateBuilder] and [update.U].
+// See the [update package] for more details.
+//
+// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/update
+type TableUpdate = update.TableUpdate
 
 // Table represents a table in the Astra DB.
 //
@@ -70,13 +71,27 @@ func (t *Table) Database() *Db {
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
 func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return newCmdWithOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts...)
+	return command{
+		Endpoint:     t.db.endpoint,
+		Name:         name,
+		Payload:      payload,
+		ResourceName: t.name,
+		Target:       serdes.TargetTable,
+		Options:      options.Join(t.options, cmdOpts...),
+	}
 }
 
 // newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
 // used by builder-pattern methods where API options flow through the struct.
 func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts)
+	return command{
+		Endpoint:     t.db.endpoint,
+		Name:         name,
+		Payload:      payload,
+		ResourceName: t.name,
+		Target:       serdes.TargetTable,
+		Options:      options.Join(t.options, cmdOpts),
+	}
 }
 
 // endregion
@@ -536,7 +551,7 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 	}
 
 	var resp listIndexesResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.resolveOptions().GetDesFlags()); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.ResolveOptions().GetDesFlags()); err != nil {
 		return nil, err
 	}
 

@@ -1764,6 +1764,16 @@ func (b *createKeyspaceOptionsBuilder) SetUpdateDbKeyspace(v bool) *createKeyspa
 	return b
 }
 
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *createKeyspaceOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CreateTableOption configures a CreateTable operation.
 // You can use the fluent-style builder or a pointer to [CreateTableOptions] interchangeably.
 //
@@ -2153,6 +2163,16 @@ func (b *dropKeyspaceOptionsBuilder) SetBlocking(v bool) *dropKeyspaceOptionsBui
 func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeyspaceOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropKeyspaceOptions) {
 		o.PollInterval = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *dropKeyspaceOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropKeyspaceOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2837,6 +2857,52 @@ func (b *listIndexesOptionsBuilder) SetExplain(v bool) *listIndexesOptionsBuilde
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *listIndexesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listIndexesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListIndexesOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// ListKeyspacesOption configures a ListKeyspaces operation.
+// You can use the fluent-style builder or a pointer to [ListKeyspacesOptions] interchangeably.
+//
+// Example using the fluent builder ([ListKeyspaces]):
+//
+//	opts := options.ListKeyspaces().SetAPIOptions(...)
+//
+// Example using a pointer to [ListKeyspacesOptions] without the fluent builder:
+//
+//	opts := &options.ListKeyspacesOptions{...}
+type ListKeyspacesOption = Builder[ListKeyspacesOptions]
+
+// Setters implements Builder[ListKeyspacesOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListKeyspacesOptions].
+func (o *ListKeyspacesOptions) Setters() []func(*ListKeyspacesOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for ListKeyspacesOptions.
+func (o *ListKeyspacesOptions) Validate() error { return nil }
+
+// listKeyspacesOptionsBuilder is a builder for ListKeyspacesOptions.
+type listKeyspacesOptionsBuilder struct {
+	setters []func(*ListKeyspacesOptions)
+}
+
+// ListKeyspaces creates a new builder for [ListKeyspacesOptions].
+func ListKeyspaces() *listKeyspacesOptionsBuilder {
+	return &listKeyspacesOptionsBuilder{}
+}
+
+// Setters implements Builder[ListKeyspacesOptions].
+func (b *listKeyspacesOptionsBuilder) Setters() []func(*ListKeyspacesOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *listKeyspacesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listKeyspacesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListKeyspacesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
 	return b

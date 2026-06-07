@@ -23,9 +23,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/datastax/astra-db-go/astra/internal/commands"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 )
+
+type adminCommand = commands.AdminCommand
 
 // DefaultAdminAPIVersion is the default version of the Astra DevOps API.
 const DefaultAdminAPIVersion = "v2"
@@ -42,11 +45,13 @@ type AstraAdmin struct {
 
 func (a *AstraAdmin) createCommand(method string, path string, payload any) *adminCommand {
 	return &adminCommand{
-		admin:       a,
-		method:      method,
-		path:        path,
-		payload:     payload,
-		queryParams: url.Values{},
+		DevOpsURL:     a.astraEnvironment.DevOpsURL(),
+		APIVersion:    a.apiVersion,
+		ClientOptions: a.ClientOptions(),
+		Method:        method,
+		Path:          path,
+		Payload:       payload,
+		QueryParams:   url.Values{},
 	}
 }
 
@@ -282,13 +287,13 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.F
 	// Build command with query parameters.
 	// Hard-coding to region-type=vector because classic isn't relevant to this client.
 	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil).
-		withQueryParam("region-type", "vector")
+		WithQueryParam("region-type", "vector")
 	if ptr.From(merged.FilterByOrg) {
-		cmd.withQueryParam("filter-by-org", "enabled")
+		cmd.WithQueryParam("filter-by-org", "enabled")
 	}
 
 	// Execute request
-	resp, err := cmd.execute(ctx)
+	resp, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -347,19 +352,19 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 
 	cmd := a.createCommand(http.MethodGet, "/databases", nil)
 	if merged.Include != nil {
-		cmd.withQueryParam("include", string(*merged.Include))
+		cmd.WithQueryParam("include", string(*merged.Include))
 	}
 	if merged.Provider != nil {
-		cmd.withQueryParam("provider", string(*merged.Provider))
+		cmd.WithQueryParam("provider", string(*merged.Provider))
 	}
 	if merged.Limit != nil {
-		cmd.withQueryParam("limit", fmt.Sprintf("%d", *merged.Limit))
+		cmd.WithQueryParam("limit", fmt.Sprintf("%d", *merged.Limit))
 	}
 	if merged.StartingAfter != nil {
-		cmd.withQueryParam("starting_after", *merged.StartingAfter)
+		cmd.WithQueryParam("starting_after", *merged.StartingAfter)
 	}
 
-	resp, err := cmd.execute(ctx)
+	resp, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +394,7 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 //	fmt.Println("Status:", db.Status)
 func (a *AstraAdmin) GetDatabase(ctx context.Context, databaseID string) (*DatabaseInfo, error) {
 	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil)
-	resp, err := cmd.execute(ctx)
+	resp, err := cmd.Execute(ctx)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			// Wrap error to provide more context and allow callers to check with errors.Is(err, ErrNotFound)
@@ -575,7 +580,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 
 	// Execute request
 	cmd := a.createCommand(http.MethodPost, "/databases", payload)
-	httpResp, err := cmd.execute(ctx)
+	httpResp, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -631,7 +636,7 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 	}
 
 	cmd := a.createCommand(http.MethodPost, "/databases/"+databaseID+"/terminate", nil)
-	_, err = cmd.execute(ctx)
+	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
 	}
