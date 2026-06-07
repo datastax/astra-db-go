@@ -28,26 +28,6 @@ import (
 	"github.com/datastax/astra-db-go/astra/table"
 )
 
-// region Interfaces
-
-// Document represents an untyped document used for a collection operation (as opposed to using a specific struct).
-type Document interface {
-	isDocument()
-
-	// Get looks up a value in the document using a sequence of keys to navigate
-	// through nested maps.
-	Get(path ...string) (any, bool)
-
-	// MustGet is like [Document.Get] but panics if the path doesn't exist.
-	MustGet(path ...string) any
-
-	// Decode tries to extract the value at the path and store it in dest.
-	Decode(dest any, path ...string) error
-
-	// ToMap converts the entire document into a standard map[string]any.
-	ToMap() map[string]any
-}
-
 // Row represents an untyped row used for a table operation (as opposed to using a specific struct).
 type Row interface {
 	isRow()
@@ -66,51 +46,6 @@ type Row interface {
 	ToMap() map[string]any
 }
 
-// endregion
-
-// region NewDocument
-
-// NewDocument is a map-based implementation of [Document], primarily used for insertion.
-type NewDocument map[string]any
-
-func (NewDocument) isDocument() {}
-
-// ToMap returns the document as a standard map[string]any.
-func (d NewDocument) ToMap() map[string]any {
-	return d
-}
-
-// Get looks up a value in the document using a sequence of keys to navigate
-// through nested maps.
-func (d NewDocument) Get(path ...string) (any, bool) {
-	return GetDeepFromMap(d, path...)
-}
-
-// MustGet is like [NewDocument.Get] but panics if the path doesn't exist.
-func (d NewDocument) MustGet(path ...string) any {
-	return MustGet(d.Get, path, "Document")
-}
-
-// Decode tries to extract the value at the path and store it in dest.
-func (d NewDocument) Decode(dest any, path ...string) error {
-	return DecodeFromMap(d, path, dest, serdes.TargetCollection)
-}
-
-func (d NewDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
-	if ctx.Target != serdes.TargetCollection {
-		return nil, fmt.Errorf("`NewDocument` can only be serialized for collections, got %s", ctx.Target)
-	}
-	return serdes.SerializeInto(map[string]any(d), ctx.Target, dst, ctx.Flags)
-}
-
-func (d NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
-	return fmt.Errorf("cannot deserialize into NewDocument; use the astra.Document interface for results")
-}
-
-// endregion
-
-// region NewRow
-
 // NewRow is a map-based implementation of [Row], primarily used for insertion.
 type NewRow map[string]any
 
@@ -123,17 +58,17 @@ func (r NewRow) ToMap() map[string]any {
 
 // Get retrieves a value from the row at the specified path.
 func (r NewRow) Get(path ...string) (any, bool) {
-	return GetDeepFromMap(r, path...)
+	return getDeepFromMap(r, path...)
 }
 
 // MustGet retrieves a value from the row at the specified path.
 func (r NewRow) MustGet(path ...string) any {
-	return MustGet(r.Get, path, "Row")
+	return mustGet(r.Get, path, "Row")
 }
 
 // Decode tries to extract the value at the path and store it in dest.
 func (r NewRow) Decode(dest any, path ...string) error {
-	return DecodeFromMap(r, path, dest, serdes.TargetTable)
+	return decodeFromMap(r, path, dest, serdes.TargetTable)
 }
 
 func (r NewRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
@@ -146,130 +81,6 @@ func (r NewRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error
 func (r NewRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewRow; use the astra.Row interface for results")
 }
-
-// endregion
-
-// region ServerDocument
-
-type ServerDocument struct {
-	Data  map[string]json.RawMessage
-	Flags serdes.DesFlags
-}
-
-func (d *ServerDocument) isDocument() {}
-
-func (d *ServerDocument) ToMap() map[string]any {
-	result := make(map[string]any, len(d.Data))
-
-	for name, rawValue := range d.Data {
-		if string(rawValue) == "null" {
-			result[name] = nil
-			continue
-		}
-
-		var val any
-		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetCollection, d.Flags)
-		result[name] = val
-	}
-	return result
-}
-
-func (d *ServerDocument) Get(path ...string) (any, bool) {
-	if len(path) == 0 {
-		return nil, false
-	}
-
-	currentRaw, ok := d.Data[path[0]]
-	if !ok {
-		return nil, false
-	}
-
-	for i := 1; i < len(path); i++ {
-		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.Flags); err != nil {
-			return nil, false
-		}
-		currentRaw, ok = nextLevel[path[i]]
-		if !ok {
-			return nil, false
-		}
-	}
-
-	var generic any
-	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetCollection, d.Flags); err != nil {
-		return nil, false
-	}
-	return generic, true
-}
-
-func (d *ServerDocument) MustGet(path ...string) any {
-	return MustGet(d.Get, path, "Document")
-}
-
-func (d *ServerDocument) Decode(dest any, path ...string) error {
-	if len(path) == 0 {
-		return fmt.Errorf("astra: empty path for Decode")
-	}
-
-	currentRaw, ok := d.Data[path[0]]
-	if !ok {
-		return fmt.Errorf("astra: path %q not found", path[0])
-	}
-
-	for i := 1; i < len(path); i++ {
-		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.Flags); err != nil {
-			return fmt.Errorf("astra: failed to decode intermediate path %q: %w", path[i-1], err)
-		}
-		currentRaw, ok = nextLevel[path[i]]
-		if !ok {
-			return fmt.Errorf("astra: path %q not found", path[i])
-		}
-	}
-
-	return serdes.Deserialize(currentRaw, dest, nil, serdes.TargetCollection, d.Flags)
-}
-
-func (d *ServerDocument) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
-	d.Data = make(map[string]json.RawMessage)
-	d.Flags = ctx.Flags
-	return serdes.Deserialize(value, &d.Data, nil, serdes.TargetCollection, d.Flags)
-}
-
-func (d *ServerDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
-	if ctx.Target != serdes.TargetCollection {
-		return nil, fmt.Errorf("`Document` can only be serialized for collections, got %s", ctx.Target)
-	}
-	return serdes.SerializeInto(d.Data, ctx.Target, dst, ctx.Flags)
-}
-
-// endregion
-
-// region Document TargetCtx
-
-var documentInterfaceType = reflect.TypeFor[Document]()
-
-type DocumentTargetCtx struct{}
-
-func (DocumentTargetCtx) UntypedTargetInterface() reflect.Type {
-	return documentInterfaceType
-}
-
-func (DocumentTargetCtx) NewUntypedTarget(ctx serdes.DecodeCtx, p unsafe.Pointer) serdes.AstraRawUnmarshaler {
-	doc := &ServerDocument{Flags: ctx.Flags}
-	*(*Document)(p) = doc
-	return doc
-}
-
-var GlobalDocumentCtx = DocumentTargetCtx{}
-
-func NewDocumentTargetCtx() serdes.TargetDecodeCtx {
-	return GlobalDocumentCtx
-}
-
-// endregion
-
-// region ServerRow
 
 type ServerRow struct {
 	Data   map[string]json.RawMessage
@@ -368,7 +179,7 @@ func (r *ServerRow) Get(path ...string) (any, bool) {
 }
 
 func (r *ServerRow) MustGet(path ...string) any {
-	return MustGet(r.Get, path, "Row")
+	return mustGet(r.Get, path, "Row")
 }
 
 func (r *ServerRow) Decode(dest any, path ...string) error {
@@ -429,10 +240,6 @@ func (r *ServerRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, e
 	return serdes.SerializeInto(r.Data, ctx.Target, dst, ctx.Flags)
 }
 
-// endregion
-
-// region Row TargetCtx
-
 type LazySchema struct {
 	AsRaw  json.RawMessage
 	AsCols table.Columns
@@ -483,10 +290,6 @@ func getSubColumn(col table.Column, key string) (table.Column, bool) {
 		return table.Column{}, false
 	}
 }
-
-// endregion
-
-// region Column Deserialization
 
 func DeserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
 	if string(raw) == "null" {
@@ -647,72 +450,3 @@ func DeserializeUDT(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column)
 	}
 	return r.ToMap(), nil
 }
-
-// endregion
-
-// region Helpers
-
-func GetDeepFromMap(m map[string]any, path ...string) (any, bool) {
-	current := m
-	for i, p := range path {
-		val, ok := current[p]
-		if !ok {
-			return nil, false
-		}
-
-		if i == len(path)-1 {
-			return val, true
-		}
-
-		nextMap, ok := val.(map[string]any)
-		if !ok {
-			return nil, false
-		}
-		current = nextMap
-	}
-	return nil, false
-}
-
-func MustGet(get func(path ...string) (any, bool), path []string, target string) any {
-	val, ok := get(path...)
-	if !ok {
-		panic(fmt.Sprintf("astra: path %v not found in %s", path, target))
-	}
-	return val
-}
-
-func DecodeFromMap(m map[string]any, path []string, dest any, target serdes.Target) error {
-	val, ok := GetDeepFromMap(m, path...)
-	if !ok {
-		return fmt.Errorf("astra: path %v not found", path)
-	}
-
-	rv := reflect.ValueOf(dest)
-	if rv.Kind() != reflect.Pointer || rv.IsNil() {
-		return fmt.Errorf("astra: destination must be a non-nil pointer")
-	}
-
-	if val != nil {
-		srcVal := reflect.ValueOf(val)
-		if srcVal.Type().AssignableTo(rv.Elem().Type()) {
-			rv.Elem().Set(srcVal)
-			return nil
-		}
-	} else {
-		elem := rv.Elem()
-		switch elem.Kind() {
-		case reflect.Pointer, reflect.Interface, reflect.Slice, reflect.Map:
-			elem.Set(reflect.Zero(elem.Type()))
-			return nil
-		}
-	}
-
-	b, err := serdes.Serialize(val, target)
-	if err != nil {
-		return err
-	}
-
-	return serdes.Deserialize(b, dest, nil, target)
-}
-
-// endregion
