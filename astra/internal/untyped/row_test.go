@@ -237,9 +237,9 @@ func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 		col := table.Column{Type: table.TypeVarint}
 
 		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-		val, err := DeserializeColumn(ctx, raw, col)
+		val, err := deserializeColumn(ctx, raw, col)
 		if err != nil {
-			t.Fatalf("untyped.DeserializeColumn(%s) error = %v", s, err)
+			t.Fatalf("untyped.deserializeColumn(%s) error = %v", s, err)
 		}
 
 		got, ok := val.(big.Int)
@@ -263,9 +263,9 @@ func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
 		col := table.Column{Type: table.TypeDecimal}
 
 		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-		val, err := DeserializeColumn(ctx, raw, col)
+		val, err := deserializeColumn(ctx, raw, col)
 		if err != nil {
-			t.Fatalf("untyped.DeserializeColumn(%s) error = %v", s, err)
+			t.Fatalf("untyped.deserializeColumn(%s) error = %v", s, err)
 		}
 
 		got, ok := val.(big.Float)
@@ -287,9 +287,9 @@ func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
 	col := table.Column{Type: "unknown_type"}
 
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-	val, err := DeserializeColumn(ctx, raw, col)
+	val, err := deserializeColumn(ctx, raw, col)
 	if err != nil {
-		t.Fatalf("untyped.DeserializeColumn() error = %v", err)
+		t.Fatalf("untyped.deserializeColumn() error = %v", err)
 	}
 
 	// Should fall back to generic deserialization
