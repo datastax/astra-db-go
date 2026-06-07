@@ -17,6 +17,7 @@ package astra
 import (
 	"testing"
 
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
@@ -319,18 +320,15 @@ func TestListTablesResponseUnmarshal_RealworldExample(t *testing.T) {
 
 func TestAlterTypeCommandMarshal(t *testing.T) {
 	t.Run("add fields", func(t *testing.T) {
-		cmd := command{
-			name: "alterType",
-			payload: alterTypePayload{
-				Name: "address",
-				Operation: table.AddTypeFields{
-					Fields: table.Columns{
-						{Name: "country", Column: table.Text()},
-						{Name: "zip_code", Column: table.Int()},
-					},
+		cmd := command.NewDataAPICommand("", "", "alterType", alterTypePayload{
+			Name: "address",
+			Operation: table.AddTypeFields{
+				Fields: table.Columns{
+					{Name: "country", Column: table.Text()},
+					{Name: "zip_code", Column: table.Int()},
 				},
 			},
-		}
+		}, 0, nil)
 
 		got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
 		if err != nil {
@@ -344,17 +342,14 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 	})
 
 	t.Run("rename fields", func(t *testing.T) {
-		cmd := command{
-			name: "alterType",
-			payload: alterTypePayload{
-				Name: "address",
-				Operation: table.RenameTypeFields{
-					Fields: map[string]string{
-						"street": "street_address",
-					},
+		cmd := command.NewDataAPICommand("", "", "alterType", alterTypePayload{
+			Name: "address",
+			Operation: table.RenameTypeFields{
+				Fields: map[string]string{
+					"street": "street_address",
 				},
 			},
-		}
+		}, 0, nil)
 
 		got, err := serdes.Serialize(cmd, serdes.TargetNone, serdes.SortMapKeys)
 		if err != nil {

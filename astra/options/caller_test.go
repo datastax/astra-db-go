@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package astra
+package options_test
 
 import (
 	"context"
@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/datastax/astra-db-go/astra/internal/command"
+	"github.com/datastax/astra-db-go/astra/internal/constants"
 	"github.com/datastax/astra-db-go/astra/options"
 )
 
@@ -43,12 +45,9 @@ func TestCommandUserAgent(t *testing.T) {
 	}
 
 	// 1. Default User-Agent
-	cmd := command{
-		db:      &Db{endpoint: "http://localhost"},
-		options: options.Join(nil, options.API().SetHTTPClient(httpClient)),
-	}
+	cmd := command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, options.API().SetHTTPClient(httpClient)))
 	_, _, _, _ = cmd.Execute(context.Background())
-	expected := LibName + "/" + LibVersion
+	expected := constants.LibName + "/" + constants.LibVersion
 	if capturedUA != expected {
 		t.Errorf("expected default User-Agent %q, got %q", expected, capturedUA)
 	}
@@ -59,12 +58,9 @@ func TestCommandUserAgent(t *testing.T) {
 		AddCaller("my-app", "1.2.3").
 		AddCaller("my-framework", "")
 
-	cmd = command{
-		db:      &Db{endpoint: "http://localhost"},
-		options: options.Join(nil, opts),
-	}
+	cmd = command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, opts))
 	_, _, _, _ = cmd.Execute(context.Background())
-	expected = LibName + "/" + LibVersion + " my-app/1.2.3 my-framework"
+	expected = constants.LibName + "/" + constants.LibVersion + " my-app/1.2.3 my-framework"
 	if capturedUA != expected {
 		t.Errorf("expected User-Agent with callers %q, got %q", expected, capturedUA)
 	}

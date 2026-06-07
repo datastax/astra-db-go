@@ -23,9 +23,9 @@ jobs:
       - name: Get version from code
         id: get_version
         run: |
-          VERSION=$(grep -E 'const LibVersion = "[0-9]+\.[0-9]+\.[0-9]+"' astra/version.go | cut -d'"' -f2)
+          VERSION=$(grep -E 'const LibVersion = "[0-9]+\.[0-9]+\.[0-9]+"' astra/internal/constants/version.go | cut -d'"' -f2)
           if [ -z "$VERSION" ]; then
-            echo "Error: Could not find valid LibVersion in astra/version.go"
+            echo "Error: Could not find valid LibVersion in astra/internal/constants/version.go"
             exit 1
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT

@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
@@ -55,10 +56,14 @@ func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Join
 
 // region Meta
 
-// newCmdWithMergedOptions creates a database-level command with a pre-merged
-// *APIOptions for the command-level overrides.
-func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
-	return newCmdWithMergedOptions(d, "", name, payload, d.options, serdes.TargetNone, cmdAPIOpt)
+// newCmd creates a database-level command.
+func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.NewDataAPICommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Join(d.options, opts...))
+}
+
+// newAdminCmd creates a database-level admin command.
+func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.NewDataAPIAdminCommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Join(d.options, opts...))
 }
 
 // Endpoint returns the database API endpoint.
@@ -195,7 +200,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		return nil, err
 	}
 
-	cmd := d.newCmdWithMergedOptions("createCollection", map[string]any{
+	cmd := d.newCmd("createCollection", map[string]any{
 		"name":    name,
 		"options": merged,
 	}, merged.APIOptions)
@@ -238,7 +243,7 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 		return nil, err
 	}
 
-	cmd := d.newCmdWithMergedOptions("createTable", map[string]any{
+	cmd := d.newCmd("createTable", map[string]any{
 		"name":       name,
 		"definition": definition,
 		"options":    merged,
@@ -274,7 +279,7 @@ func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDe
 		return err
 	}
 
-	cmd := d.newCmdWithMergedOptions("createType", map[string]any{
+	cmd := d.newCmd("createType", map[string]any{
 		"name":       name,
 		"definition": definition,
 		"options":    merged,
@@ -305,7 +310,7 @@ func (d *Db) AlterType(ctx context.Context, name string, op table.AlterTypeOpera
 		return err
 	}
 
-	cmd := d.newCmdWithMergedOptions("alterType", alterTypePayload{
+	cmd := d.newCmd("alterType", alterTypePayload{
 		Name:      name,
 		Operation: op,
 	}, merged.APIOptions)
@@ -325,7 +330,7 @@ func (d *Db) DropCollection(ctx context.Context, name string, opts ...options.Dr
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("deleteCollection", map[string]any{
+	cmd := d.newCmd("deleteCollection", map[string]any{
 		"name": name,
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
@@ -344,7 +349,7 @@ func (d *Db) DropTable(ctx context.Context, name string, opts ...options.DropTab
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("dropTable", map[string]any{
+	cmd := d.newCmd("dropTable", map[string]any{
 		"name": name,
 		"options": map[string]any{
 			"ifExists": merged.IfExists,
@@ -366,7 +371,7 @@ func (d *Db) DropTableIndex(ctx context.Context, name string, opts ...options.Dr
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("dropIndex", map[string]any{
+	cmd := d.newCmd("dropIndex", map[string]any{
 		"name": name,
 		"options": map[string]any{
 			"ifExists": merged.IfExists,
@@ -386,7 +391,7 @@ func (d *Db) DropType(ctx context.Context, name string, opts ...options.DropType
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("dropType", map[string]any{
+	cmd := d.newCmd("dropType", map[string]any{
 		"name": name,
 		"options": map[string]any{
 			"ifExists": merged.IfExists,
@@ -459,7 +464,7 @@ type listCollectionsResponse[T any] struct {
 }
 
 func listCollections[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("findCollections", map[string]any{
+	cmd := d.newCmd("findCollections", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
@@ -527,7 +532,7 @@ type listTablesResponse[T any] struct {
 }
 
 func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("listTables", map[string]any{
+	cmd := d.newCmd("listTables", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
@@ -588,7 +593,7 @@ type listTypesResponse[T any] struct {
 }
 
 func listTypes[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("listTypes", map[string]any{
+	cmd := d.newCmd("listTypes", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},

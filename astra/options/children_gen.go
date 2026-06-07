@@ -244,6 +244,16 @@ func (o *CreateIndexOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for CreateKeyspaceOptions.
+// Returns all non-nil Validator fields.
+func (o *CreateKeyspaceOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CreateTableOptions.
 // Returns all non-nil Validator fields.
 func (o *CreateTableOptions) Children() []Validator {
@@ -277,6 +287,16 @@ func (o *CreateVectorIndexOptions) Children() []Validator {
 // Children implements ChildValidator for DropCollectionOptions.
 // Returns all non-nil Validator fields.
 func (o *DropCollectionOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for DropKeyspaceOptions.
+// Returns all non-nil Validator fields.
+func (o *DropKeyspaceOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)
@@ -347,6 +367,16 @@ func (o *ListCollectionsOptions) Children() []Validator {
 // Children implements ChildValidator for ListIndexesOptions.
 // Returns all non-nil Validator fields.
 func (o *ListIndexesOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for ListKeyspacesOptions.
+// Returns all non-nil Validator fields.
+func (o *ListKeyspacesOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)

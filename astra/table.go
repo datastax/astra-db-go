@@ -20,25 +20,27 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/cursors"
 	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/astra/update"
 )
 
 // TableFilter is implemented by [filter.F] and [filter.Filter].
 // See the [filter package] for more details.
 //
-// Example composing Filters:
-//
-//	f := filter.Gt("num_pages", 300)
-//
-// Example using filter.F:
-//
 //	f := filter.F{"num_pages": filter.F{"$gt": 300}}
 //
 // [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/filter
 type TableFilter = filter.Filterable
+
+// TableUpdate is implemented by [update.TableUpdateBuilder] and [update.U].
+// See the [update package] for more details.
+//
+// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/update
+type TableUpdate = update.TableUpdate
 
 // Table represents a table in the Astra DB.
 //
@@ -69,14 +71,8 @@ func (t *Table) Database() *Db {
 
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
-func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command {
-	return newCmdWithOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts...)
-}
-
-// newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
-// used by builder-pattern methods where API options flow through the struct.
-func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return newCmdWithMergedOptions(t.db, t.name, name, payload, t.options, serdes.TargetTable, cmdOpts)
+func (t *Table) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.NewDataAPICommand(t.db.endpoint, t.name, name, payload, serdes.TargetTable, options.Join(t.options, opts...))
 }
 
 // endregion
@@ -140,7 +136,7 @@ func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableIns
 	if err != nil {
 		return nil, err
 	}
-	return insertOne(ctx, row, t.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetTable)
+	return insertOne(ctx, row, t.newCmd, (insertOneOptions)(*merged), serdes.TargetTable)
 }
 
 // InsertMany inserts multiple rows into the table.
@@ -162,7 +158,7 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetTable)
+	return insertMany(ctx, rows, t.newCmd, (insertManyOptions)(*merged), serdes.TargetTable)
 }
 
 // endregion
@@ -181,7 +177,7 @@ func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.Tabl
 	if err != nil {
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err, 0)
 	}
-	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
+	return findOne(ctx, f, t.newCmd, (findOneOptions)(*merged), serdes.TargetTable)
 }
 
 // Find returns a cursor for iterating over rows matching the filter criteria.
@@ -231,7 +227,7 @@ func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.Ta
 	merged, err := options.MergeAndValidate(opts...)
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
-		cmd := t.newCmdWithMergedOptions("find", payload, merged.APIOptions)
+		cmd := t.newCmd("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
 
@@ -265,7 +261,7 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 	if err != nil {
 		return err
 	}
-	_, err = updateOne(ctx, f, u, t.newCmdWithMergedOptions, updateOneOptions{nil, nil, merged.APIOptions})
+	_, err = updateOne(ctx, f, u, t.newCmd, updateOneOptions{nil, nil, merged.APIOptions})
 	return err
 }
 
@@ -292,7 +288,7 @@ func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.Ta
 		return err
 	}
 	// Note: warnings are accessible via the WarningHandler option callback only.
-	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions})
+	_, err = deleteOne(ctx, f, t.newCmd, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions})
 	return err
 }
 
@@ -322,7 +318,7 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 		return ErrNilFilter
 	}
 
-	cmd := t.newCmdWithMergedOptions("deleteMany", map[string]any{
+	cmd := t.newCmd("deleteMany", map[string]any{
 		"filter": f,
 	}, deleteOpts.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
@@ -410,20 +406,20 @@ func validateIndexColumn(column any) error {
 }
 
 // createIndexCommand builds the createIndex command for the table
-func createIndexCommand(t *Table, name string, column any, opts ...options.CreateIndexOption) (command, error) {
+func createIndexCommand(t *Table, name string, column any, opts ...options.CreateIndexOption) (command.DataAPI, error) {
 	if err := validateIndexName(name); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 	if err := validateIndexColumn(column); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
-	return t.newCmdWithMergedOptions("createIndex", map[string]any{
+	return t.newCmd("createIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -467,20 +463,20 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 }
 
 // createVectorIndexCommand builds the createVectorIndex command for the table
-func createVectorIndexCommand(t *Table, name string, column string, opts ...options.CreateVectorIndexOption) (command, error) {
+func createVectorIndexCommand(t *Table, name string, column string, opts ...options.CreateVectorIndexOption) (command.DataAPI, error) {
 	if err := validateIndexName(name); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 	if err := validateIndexColumn(column); err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
-	return t.newCmdWithMergedOptions("createVectorIndex", map[string]any{
+	return t.newCmd("createVectorIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -536,7 +532,7 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 	}
 
 	var resp listIndexesResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.resolveOptions().GetDesFlags()); err != nil {
+	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.ResolveOptions().GetDesFlags()); err != nil {
 		return nil, err
 	}
 
@@ -544,13 +540,13 @@ func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOpti
 }
 
 // listIndexesCommand builds the listIndexes command for the table
-func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command, error) {
+func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command.DataAPI, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
-		return command{}, err
+		return command.DataAPI{}, err
 	}
 
-	return t.newCmdWithMergedOptions("listIndexes", map[string]any{
+	return t.newCmd("listIndexes", map[string]any{
 		"options": map[string]any{
 			"explain": merged.Explain,
 		},
@@ -618,7 +614,7 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 		return err
 	}
 
-	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
+	cmd := t.newCmd("alterTable", alterTablePayload{
 		Operation: op,
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)

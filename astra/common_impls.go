@@ -23,6 +23,7 @@ import (
 	"sync/atomic"
 
 	"github.com/datastax/astra-db-go/astra/filter"
+	"github.com/datastax/astra-db-go/astra/internal/command"
 	"github.com/datastax/astra-db-go/astra/internal/utils"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/ptr"
@@ -31,7 +32,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/sort"
 )
 
-type mkCmd = func(name string, payload any, opts *options.APIOptions) command
+type mkCmd = func(name string, payload any, opts ...options.APIOption) command.DataAPI
 
 // region InsertOne
 

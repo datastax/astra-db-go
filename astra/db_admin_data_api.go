@@ -31,8 +31,13 @@ type DataAPIDatabaseAdmin struct {
 }
 
 // ListKeyspaces returns the keyspace names for this database via the Data API.
-func (d *DataAPIDatabaseAdmin) ListKeyspaces(ctx context.Context) ([]string, error) {
-	cmd := newDatabaseAdminCmd(d.db, "findKeyspaces", struct{}{})
+func (d *DataAPIDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...options.ListKeyspacesOption) ([]string, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := d.db.newAdminCmd("findKeyspaces", struct{}{}, merged.APIOptions)
 	body, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -83,18 +88,23 @@ func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 		}
 	}
 
-	cmd := newDatabaseAdminCmd(d.db, "createKeyspace", payload)
+	cmd := d.db.newAdminCmd("createKeyspace", payload, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
 // DropKeyspace drops a keyspace via the Data API.
 func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error {
-	payload := struct {
-		Name string `json:"name"`
-	}{Name: keyspace}
-	cmd := newDatabaseAdminCmd(d.db, "dropKeyspace", payload)
-	_, _, _, err := cmd.Execute(ctx)
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return err
+	}
+
+	payload := map[string]any{
+		"name": keyspace,
+	}
+	cmd := d.db.newAdminCmd("dropKeyspace", payload, merged.APIOptions)
+	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
 
