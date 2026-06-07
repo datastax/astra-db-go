@@ -15,6 +15,7 @@
 package options_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -227,8 +228,8 @@ func TestSetAPIOptionsBuilder(t *testing.T) {
 	if opts.APIOptions == nil {
 		t.Fatal("expected APIOptions to be set")
 	}
-	if opts.APIOptions.GetToken() != "override-token" {
-		t.Errorf("expected token 'override-token', got %q", opts.APIOptions.GetToken())
+	if token, _ := opts.APIOptions.GetTokenProvider().Token(context.Background()); token != "override-token" {
+		t.Errorf("expected token 'override-token', got %q", token)
 	}
 }
 
@@ -236,7 +237,7 @@ func TestSetAPIOptionsRawStruct(t *testing.T) {
 	token := "raw-token"
 	opts, err := options.MergeAndValidate(
 		options.CollectionDeleteMany().
-			SetAPIOptions(&options.APIOptions{Token: &token}),
+			SetAPIOptions(&options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -244,8 +245,8 @@ func TestSetAPIOptionsRawStruct(t *testing.T) {
 	if opts.APIOptions == nil {
 		t.Fatal("expected APIOptions to be set")
 	}
-	if opts.APIOptions.GetToken() != "raw-token" {
-		t.Errorf("expected token 'raw-token', got %q", opts.APIOptions.GetToken())
+	if gotToken, _ := opts.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != "raw-token" {
+		t.Errorf("expected token 'raw-token', got %q", gotToken)
 	}
 }
 
@@ -253,12 +254,12 @@ func TestAPIOptionsNotSerialized(t *testing.T) {
 	// Verify APIOptions (json:"-") does not leak into JSON for any of the 6 structs
 	token := "secret"
 	structs := []any{
-		options.CollectionFindOptions{APIOptions: &options.APIOptions{Token: &token}},
-		options.CollectionUpdateOneOptions{APIOptions: &options.APIOptions{Token: &token}},
-		options.CollectionUpdateManyOptions{APIOptions: &options.APIOptions{Token: &token}},
-		options.CollectionDeleteOneOptions{APIOptions: &options.APIOptions{Token: &token}},
-		options.CollectionDeleteManyOptions{APIOptions: &options.APIOptions{Token: &token}},
-		options.CollectionFindOneAndUpdateOptions{APIOptions: &options.APIOptions{Token: &token}},
+		options.CollectionFindOptions{APIOptions: &options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}},
+		options.CollectionUpdateOneOptions{APIOptions: &options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}},
+		options.CollectionUpdateManyOptions{APIOptions: &options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}},
+		options.CollectionDeleteOneOptions{APIOptions: &options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}},
+		options.CollectionDeleteManyOptions{APIOptions: &options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}},
+		options.CollectionFindOneAndUpdateOptions{APIOptions: &options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}},
 	}
 	for _, s := range structs {
 		b, err := json.Marshal(s)
@@ -281,8 +282,11 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectionFind: %v", err)
 	}
-	if f.APIOptions == nil || f.APIOptions.GetToken() != token {
-		t.Error("CollectionFind: APIOptions not set")
+	if f.APIOptions == nil {
+		t.Fatal("CollectionFind: APIOptions not set")
+	}
+	if gotToken, _ := f.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != token {
+		t.Errorf("CollectionFind: expected token %q, got %q", token, gotToken)
 	}
 
 	// CollectionUpdateOne
@@ -290,8 +294,11 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectionUpdateOne: %v", err)
 	}
-	if u1.APIOptions == nil || u1.APIOptions.GetToken() != token {
-		t.Error("CollectionUpdateOne: APIOptions not set")
+	if u1.APIOptions == nil {
+		t.Fatal("CollectionUpdateOne: APIOptions not set")
+	}
+	if gotToken, _ := u1.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != token {
+		t.Errorf("CollectionUpdateOne: expected token %q, got %q", token, gotToken)
 	}
 
 	// CollectionUpdateMany
@@ -299,8 +306,11 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectionUpdateMany: %v", err)
 	}
-	if um.APIOptions == nil || um.APIOptions.GetToken() != token {
-		t.Error("CollectionUpdateMany: APIOptions not set")
+	if um.APIOptions == nil {
+		t.Fatal("CollectionUpdateMany: APIOptions not set")
+	}
+	if gotToken, _ := um.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != token {
+		t.Errorf("CollectionUpdateMany: expected token %q, got %q", token, gotToken)
 	}
 
 	// CollectionDeleteOne
@@ -308,8 +318,11 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectionDeleteOne: %v", err)
 	}
-	if d1.APIOptions == nil || d1.APIOptions.GetToken() != token {
-		t.Error("CollectionDeleteOne: APIOptions not set")
+	if d1.APIOptions == nil {
+		t.Fatal("CollectionDeleteOne: APIOptions not set")
+	}
+	if gotToken, _ := d1.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != token {
+		t.Errorf("CollectionDeleteOne: expected token %q, got %q", token, gotToken)
 	}
 
 	// CollectionDeleteMany
@@ -317,8 +330,11 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectionDeleteMany: %v", err)
 	}
-	if dm.APIOptions == nil || dm.APIOptions.GetToken() != token {
-		t.Error("CollectionDeleteMany: APIOptions not set")
+	if dm.APIOptions == nil {
+		t.Fatal("CollectionDeleteMany: APIOptions not set")
+	}
+	if gotToken, _ := dm.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != token {
+		t.Errorf("CollectionDeleteMany: expected token %q, got %q", token, gotToken)
 	}
 
 	// CollectionFindOneAndUpdate
@@ -326,8 +342,11 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CollectionFindOneAndUpdate: %v", err)
 	}
-	if fu.APIOptions == nil || fu.APIOptions.GetToken() != token {
-		t.Error("CollectionFindOneAndUpdate: APIOptions not set")
+	if fu.APIOptions == nil {
+		t.Fatal("CollectionFindOneAndUpdate: APIOptions not set")
+	}
+	if gotToken, _ := fu.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != token {
+		t.Errorf("CollectionFindOneAndUpdate: expected token %q, got %q", token, gotToken)
 	}
 }
 

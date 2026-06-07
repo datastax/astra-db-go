@@ -15,13 +15,13 @@
 package options_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/datastax/astra-db-go/astra"
 	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/datastax/astra-db-go/internal/testlib"
 	"pgregory.net/rapid"
 )
 
@@ -36,8 +36,8 @@ func TestAdditiveMerging(t *testing.T) {
 	if merged.APIOptions == nil {
 		t.Fatal("expected APIOptions to be non-nil")
 	}
-	if merged.APIOptions.GetToken() != "token1" {
-		t.Errorf("expected token1, got %q", merged.APIOptions.GetToken())
+	if gotToken, _ := merged.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != "token1" {
+		t.Errorf("expected token1, got %q", gotToken)
 	}
 	if merged.APIOptions.GetKeyspace() != "ks1" {
 		t.Errorf("expected ks1, got %q", merged.APIOptions.GetKeyspace())
@@ -55,8 +55,8 @@ func TestExplicitReplace(t *testing.T) {
 	if merged.APIOptions == nil {
 		t.Fatal("expected APIOptions to be non-nil")
 	}
-	if merged.APIOptions.GetToken() != "token2" {
-		t.Errorf("expected token2, got %q", merged.APIOptions.GetToken())
+	if gotToken, _ := merged.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != "token2" {
+		t.Errorf("expected token2, got %q", gotToken)
 	}
 	// Keyspace should have been wiped and then set to default by Merge initializing new APIOptions
 	if merged.APIOptions.GetKeyspace() != "default_keyspace" {
@@ -141,8 +141,8 @@ func TestHierarchyInheritance(t *testing.T) {
 	resolved := coll.ClientOptions()
 
 	// ASSERTIONS:
-	if resolved.GetToken() != "client-token" {
-		t.Errorf("Client token lost: got %q", resolved.GetToken())
+	if gotToken, _ := resolved.GetTokenProvider().Token(context.Background()); gotToken != "client-token" {
+		t.Errorf("Client token lost: got %q", gotToken)
 	}
 	if resolved.GetKeyspace() != "db-keyspace" {
 		t.Errorf("DB keyspace lost: got %q", resolved.GetKeyspace())
@@ -197,8 +197,8 @@ func TestProperty_MergePrecedence(t *testing.T) {
 
 		resolved := options.Merge(append(leading, final)...)
 
-		if resolved.GetToken() != token {
-			t.Errorf("Precedence failed: expected %q, got %q", token, resolved.GetToken())
+		if gotToken, _ := resolved.GetTokenProvider().Token(context.Background()); gotToken != token {
+			t.Errorf("Precedence failed: expected %q, got %q", token, gotToken)
 		}
 	})
 }
@@ -234,10 +234,7 @@ func TestProperty_ReplaceLaw(t *testing.T) {
 		res1 := options.Merge(append(optA, options.Replace(optB))...)
 		res2 := options.Merge(optB)
 
-		if diff := cmp.Diff(res1, res2,
-			cmpopts.IgnoreUnexported(options.APIOptions{}),
-			cmpopts.IgnoreFields(options.APIOptions{}, "WarningHandler"),
-		); diff != "" {
+		if diff := testlib.Diff(t, res1, res2); diff != "" {
 			t.Errorf("Replace law violated (-merged_with_replace +merged_directly):\n%s", diff)
 		}
 	})
@@ -249,10 +246,7 @@ func TestProperty_DefaultsAreStable(t *testing.T) {
 		res1 := options.Merge[options.APIOptions]()
 		res2 := options.Merge[options.APIOptions]()
 
-		if diff := cmp.Diff(res1, res2,
-			cmpopts.IgnoreUnexported(options.APIOptions{}),
-			cmpopts.IgnoreFields(options.APIOptions{}, "WarningHandler"),
-		); diff != "" {
+		if diff := testlib.Diff(t, res1, res2); diff != "" {
 			t.Errorf("Defaults not stable:\n%s", diff)
 		}
 

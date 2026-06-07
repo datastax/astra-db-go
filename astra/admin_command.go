@@ -102,12 +102,30 @@ func (ac *adminCommand) execute(ctx context.Context) (*adminResponse, error) {
 
 	// Set headers
 	resolvedOpts := ac.admin.ClientOptions()
-	token := resolvedOpts.GetToken()
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+
+	// Set authentication token from resolved options
+	if resolvedOpts.TokenProvider != nil {
+		token, err := resolvedOpts.TokenProvider.Token(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get token from provider: %w", err)
+		}
+		if token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
 	}
+
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
+
+	userAgent := LibName + "/" + LibVersion
+	for _, caller := range resolvedOpts.Callers {
+		if caller.Version != "" {
+			userAgent += " " + caller.Name + "/" + caller.Version
+		} else {
+			userAgent += " " + caller.Name
+		}
+	}
+	req.Header.Set("User-Agent", userAgent)
 
 	// Add custom headers from options
 	for key, value := range resolvedOpts.Headers {

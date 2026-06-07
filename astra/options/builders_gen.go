@@ -47,15 +47,6 @@ func (b *apiOptionsBuilder) Setters() []func(*APIOptions) {
 	return b.setters
 }
 
-// SetToken sets the Token option.
-// Token is the authentication token for Astra DB
-func (b *apiOptionsBuilder) SetToken(v string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Token = &v
-	})
-	return b
-}
-
 // SetKeyspace sets the Keyspace option.
 // Keyspace is the keyspace to use for operations
 func (b *apiOptionsBuilder) SetKeyspace(v string) *apiOptionsBuilder {

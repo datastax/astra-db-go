@@ -19,6 +19,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -175,10 +176,16 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes
 	}
 
 	// Set authentication token from resolved options
-	token := opts.GetToken()
-	if token != "" {
-		req.Header.Set("Token", token)
+	if opts.TokenProvider != nil {
+		token, err := opts.TokenProvider.Token(ctx)
+		if err != nil {
+			return body, nil, nil, fmt.Errorf("failed to get token from provider: %w", err)
+		}
+		if token != "" {
+			req.Header.Set("Token", token)
+		}
 	}
+
 	req.Header.Set("Content-Type", "application/json")
 
 	userAgent := LibName + "/" + LibVersion

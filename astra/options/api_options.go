@@ -28,8 +28,8 @@ import (
 // in the client hierarchy (Client -> Database -> Collection/Table -> Command).
 // Options set at a lower level override those set at a higher level.
 type APIOptions struct {
-	// Token is the authentication token for Astra DB
-	Token *string
+	// TokenProvider is the authentication token provider for Astra DB
+	TokenProvider TokenProvider
 
 	// Keyspace is the keyspace to use for operations
 	Keyspace *string
@@ -231,6 +231,22 @@ func (b *apiOptionsBuilder) SetWarningHandler(handler WarningHandler) *apiOption
 	return b
 }
 
+// SetToken sets the authentication token for Astra DB.
+func (b *apiOptionsBuilder) SetToken(token string) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.TokenProvider = NewStaticTokenProvider(token)
+	})
+	return b
+}
+
+// SetTokenProvider sets the authentication token provider for Astra DB.
+func (b *apiOptionsBuilder) SetTokenProvider(provider TokenProvider) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.TokenProvider = provider
+	})
+	return b
+}
+
 // SetEmbeddingApiKey sets the x-embedding-api-key header.
 func (b *apiOptionsBuilder) SetEmbeddingApiKey(key string) *apiOptionsBuilder {
 	return b.SetHeader("x-embedding-api-key", key)
@@ -251,12 +267,12 @@ func (b *apiOptionsBuilder) AddCaller(name, version string) *apiOptionsBuilder {
 
 // Helper functions for getting values safely.
 
-// GetToken returns the token or empty string if not set.
-func (o *APIOptions) GetToken() string {
-	if o == nil || o.Token == nil {
-		return ""
+// GetTokenProvider returns the token provider or nil if not set.
+func (o *APIOptions) GetTokenProvider() TokenProvider {
+	if o == nil {
+		return nil
 	}
-	return *o.Token
+	return o.TokenProvider
 }
 
 // GetKeyspace returns the keyspace or empty string if not set.

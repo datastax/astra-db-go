@@ -15,6 +15,7 @@
 package astra
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"testing"
@@ -128,8 +129,9 @@ func TestAdminResolveOptions(t *testing.T) {
 	}
 
 	opts := admin.ClientOptions()
-	if opts.GetToken() != "client-token" {
-		t.Errorf("expected token 'client-token', got %s", opts.GetToken())
+	token, _ := opts.TokenProvider.Token(context.Background())
+	if token != "client-token" {
+		t.Errorf("expected token 'client-token', got %s", token)
 	}
 }
 
@@ -142,8 +144,9 @@ func TestAdminOptionOverride(t *testing.T) {
 	}
 
 	opts := admin.ClientOptions()
-	if opts.GetToken() != "admin-token" {
-		t.Errorf("expected token 'admin-token', got %s", opts.GetToken())
+	token, _ := opts.TokenProvider.Token(context.Background())
+	if token != "admin-token" {
+		t.Errorf("expected token 'admin-token', got %s", token)
 	}
 }
 

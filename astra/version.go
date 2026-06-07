@@ -16,3 +16,6 @@ package astra
 
 // LibVersion is the version of the library.
 const LibVersion = "0.1.0"
+
+// LibName is the name of the library.
+const LibName = "astra-db-go"
