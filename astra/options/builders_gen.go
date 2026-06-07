@@ -226,6 +226,65 @@ func (b *alterTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *alte
 	return b
 }
 
+// AlterTypeOption configures a AlterType operation.
+// You can use the fluent-style builder or a pointer to [AlterTypeOptions] interchangeably.
+//
+// Example using the fluent builder ([AlterType]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.AlterType().SetKeyspace("value")
+//
+// Example using a pointer to [AlterTypeOptions] without the fluent builder:
+//
+//	opts := &options.AlterTypeOptions{Keyspace: ptr.To("value")}
+type AlterTypeOption = Builder[AlterTypeOptions]
+
+// Setters implements Builder[AlterTypeOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[AlterTypeOptions].
+func (o *AlterTypeOptions) Setters() []func(*AlterTypeOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for AlterTypeOptions.
+func (o *AlterTypeOptions) Validate() error { return nil }
+
+// alterTypeOptionsBuilder is a builder for AlterTypeOptions.
+type alterTypeOptionsBuilder struct {
+	setters []func(*AlterTypeOptions)
+}
+
+// AlterType creates a new builder for [AlterTypeOptions].
+func AlterType() *alterTypeOptionsBuilder {
+	return &alterTypeOptionsBuilder{}
+}
+
+// Setters implements Builder[AlterTypeOptions].
+func (b *alterTypeOptionsBuilder) Setters() []func(*AlterTypeOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *alterTypeOptionsBuilder) SetKeyspace(v string) *alterTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *AlterTypeOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *alterTypeOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *alterTypeOptionsBuilder {
+	b.setters = append(b.setters, func(o *AlterTypeOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CollectionCountDocumentsOption configures a CollectionCountDocuments operation.
 // You can use the fluent-style builder or a pointer to [CollectionCountDocumentsOptions] interchangeably.
 //

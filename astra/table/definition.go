@@ -507,3 +507,33 @@ func (v DropVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte
 	type alias DropVectorize
 	return serdes.SerializeInto(map[string]any{"dropVectorize": alias(v)}, ctx.Target, dst, ctx.Flags)
 }
+
+// AlterTypeOperation represents an operation to alter a user-defined type (UDT).
+type AlterTypeOperation interface {
+	isAlterTypeOp()
+	serdes.AstraRawMarshaler
+}
+
+// AddTypeFields is the payload for the alterType "add" operation.
+type AddTypeFields struct {
+	Fields Columns `json:"fields"`
+}
+
+func (a AddTypeFields) isAlterTypeOp() {}
+
+func (a AddTypeFields) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias AddTypeFields
+	return serdes.SerializeInto(map[string]any{"add": alias(a)}, ctx.Target, dst, ctx.Flags)
+}
+
+// RenameTypeFields is the payload for the alterType "rename" operation.
+type RenameTypeFields struct {
+	Fields map[string]string `json:"fields"`
+}
+
+func (r RenameTypeFields) isAlterTypeOp() {}
+
+func (r RenameTypeFields) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias RenameTypeFields
+	return serdes.SerializeInto(map[string]any{"rename": alias(r)}, ctx.Target, dst, ctx.Flags)
+}

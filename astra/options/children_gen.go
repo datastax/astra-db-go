@@ -39,6 +39,16 @@ func (o *AlterTableOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for AlterTypeOptions.
+// Returns all non-nil Validator fields.
+func (o *AlterTypeOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CollectionCountDocumentsOptions.
 // Returns all non-nil Validator fields.
 func (o *CollectionCountDocumentsOptions) Children() []Validator {
