@@ -156,7 +156,7 @@ func TestCommandOptionsHierarchy(t *testing.T) {
 	coll := db.Collection("my-coll", options.API().SetAPIVersion("v2"))
 
 	// Create command with both builders and a merged struct override
-	cmd := coll.newCmdWithMergedOptions("find", nil, options.Merge(options.API().SetHeader("X-Custom", "value")))
+	cmd := coll.newCmd("find", nil, options.API().SetHeader("X-Custom", "value"))
 	cmd.Options = options.Join(cmd.Options, options.API().SetToken("final-token"))
 
 	opts := cmd.ResolveOptions()

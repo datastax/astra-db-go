@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package astra
+package untyped
 
 import (
 	"encoding/json"
@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/internal/untyped"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
 	"github.com/datastax/astra-db-go/internal/testlib"
@@ -34,7 +33,7 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 	jsonData := `{"id": "123", "name": "Alice", "meta": {"score": 0.95}}`
 
 	var doc Document
-	err := serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
+	err := serdes.Deserialize([]byte(jsonData), &doc, GlobalDocumentCtx, serdes.TargetCollection)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
@@ -113,7 +112,7 @@ func TestDocument_NullHandling(t *testing.T) {
 	jsonData := `{"id": "123", "optional": null}`
 
 	var doc Document
-	_ = serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
+	_ = serdes.Deserialize([]byte(jsonData), &doc, GlobalDocumentCtx, serdes.TargetCollection)
 
 	val, ok := doc.Get("optional")
 	if !ok || val != nil {
@@ -130,7 +129,7 @@ func TestDocument_DeepPathNotFound(t *testing.T) {
 	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
 
 	var doc Document
-	_ = serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
+	_ = serdes.Deserialize([]byte(jsonData), &doc, GlobalDocumentCtx, serdes.TargetCollection)
 
 	_, ok := doc.Get("meta", "missing")
 	if ok {
@@ -352,7 +351,7 @@ func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 		col := table.Column{Type: table.TypeVarint}
 
 		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-		val, err := untyped.DeserializeColumn(ctx, raw, col)
+		val, err := DeserializeColumn(ctx, raw, col)
 		if err != nil {
 			t.Fatalf("untyped.DeserializeColumn(%s) error = %v", s, err)
 		}
@@ -378,7 +377,7 @@ func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
 		col := table.Column{Type: table.TypeDecimal}
 
 		ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-		val, err := untyped.DeserializeColumn(ctx, raw, col)
+		val, err := DeserializeColumn(ctx, raw, col)
 		if err != nil {
 			t.Fatalf("untyped.DeserializeColumn(%s) error = %v", s, err)
 		}
@@ -402,7 +401,7 @@ func TestDeserializeWithTypeHint_UnknownType(t *testing.T) {
 	col := table.Column{Type: "unknown_type"}
 
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable}
-	val, err := untyped.DeserializeColumn(ctx, raw, col)
+	val, err := DeserializeColumn(ctx, raw, col)
 	if err != nil {
 		t.Fatalf("untyped.DeserializeColumn() error = %v", err)
 	}
@@ -416,7 +415,7 @@ func TestDocument_MustGet(t *testing.T) {
 	jsonData := `{"id": "123", "meta": {"score": 0.95}}`
 
 	var doc Document
-	err := serdes.Deserialize([]byte(jsonData), &doc, documentCtx, serdes.TargetCollection)
+	err := serdes.Deserialize([]byte(jsonData), &doc, GlobalDocumentCtx, serdes.TargetCollection)
 	if err != nil {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
@@ -527,7 +526,7 @@ func TestProperty_Document(t *testing.T) {
 		}
 
 		var doc Document
-		err = serdes.Deserialize(encoded, &doc, documentCtx, serdes.TargetCollection)
+		err = serdes.Deserialize(encoded, &doc, GlobalDocumentCtx, serdes.TargetCollection)
 		if err != nil {
 			t.Fatalf("Deserialize() error = %v", err)
 		}

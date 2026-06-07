@@ -31,7 +31,7 @@ import (
 	"github.com/datastax/astra-db-go/astra/sort"
 )
 
-type mkCmd = func(name string, payload any, opts *options.APIOptions) command
+type mkCmd = func(name string, payload any, opts ...options.APIOption) command
 
 // region InsertOne
 

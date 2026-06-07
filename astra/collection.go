@@ -76,17 +76,21 @@ func (c *Collection) Database() *Db {
 	return c.db
 }
 
-// newCmdWithMergedOptions creates a command with a pre-built *APIOptions cmdOpts,
-// used by builder-pattern methods where API options flow through the struct.
-func (c *Collection) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
+// newCmd creates a command for this collection.
+func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command {
 	return command{
 		Endpoint:     c.db.endpoint,
 		Name:         name,
 		Payload:      payload,
 		ResourceName: c.name,
 		Target:       serdes.TargetCollection,
-		Options:      options.Join(c.options, cmdOpts),
+		Options:      options.Join(c.options, opts...),
 	}
+}
+
+// newCmdWithMergedOptions is a compatibility alias for newCmd.
+func (c *Collection) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+	return c.newCmd(name, payload, opts...)
 }
 
 // resolveGeneralMethodTimeout returns the effective timeout for a paginated

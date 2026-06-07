@@ -58,32 +58,40 @@ func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Join
 
 // region Meta
 
-// newCmdWithMergedOptions creates a database-level command with a pre-merged
-// *APIOptions for the command-level overrides.
-func (d *Db) newCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
+// newCmd creates a database-level command.
+func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command {
 	return command{
 		Endpoint:      d.endpoint,
 		Name:          name,
 		Payload:       payload,
 		ResourceName:  "",
 		DatabaseAdmin: false,
-		Options:       options.Join(d.options, cmdAPIOpt),
+		Options:       options.Join(d.options, opts...),
 		Target:        serdes.TargetNone,
 	}
 }
 
-// newCmdWithMergedOptions creates a database-level command with a pre-merged
-// *APIOptions for the command-level overrides.
-func (d *Db) newAdminCmdWithMergedOptions(name string, payload any, cmdAPIOpt *options.APIOptions) command {
+// newCmdWithMergedOptions is a compatibility alias for newCmd.
+func (d *Db) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+	return d.newCmd(name, payload, opts...)
+}
+
+// newAdminCmd creates a database-level admin command.
+func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command {
 	return command{
 		Endpoint:      d.endpoint,
 		Name:          name,
 		Payload:       payload,
 		ResourceName:  "",
 		DatabaseAdmin: true,
-		Options:       options.Join(d.options, cmdAPIOpt),
+		Options:       options.Join(d.options, opts...),
 		Target:        serdes.TargetNone,
 	}
+}
+
+// newAdminCmdWithMergedOptions is a compatibility alias for newAdminCmd.
+func (d *Db) newAdminCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+	return d.newAdminCmd(name, payload, opts...)
 }
 
 // Endpoint returns the database API endpoint.

@@ -16,8 +16,8 @@ package astra
 
 import (
 	"github.com/datastax/astra-db-go/astra/internal/untyped"
-	"github.com/datastax/astra-db-go/astra/table"
 	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/astra/table"
 )
 
 // Document represents an untyped document used for a collection operation (as opposed to using a specific struct).
@@ -39,12 +39,3 @@ func NewDocumentTargetCtx() serdes.TargetDecodeCtx {
 func NewRowTargetCtx(cols table.Columns) serdes.TargetDecodeCtx {
 	return untyped.NewRowTargetCtx(cols)
 }
-
-// Internal variables used by the command package.
-var (
-	documentCtx = untyped.GlobalDocumentCtx
-)
-
-type (
-	lazySchema = untyped.LazySchema
-)

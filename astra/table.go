@@ -81,17 +81,9 @@ func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) c
 	}
 }
 
-// newCmdWithMergedOptions creates a command with a pre-built *APIOptions override,
-// used by builder-pattern methods where API options flow through the struct.
-func (t *Table) newCmdWithMergedOptions(name string, payload any, cmdOpts *options.APIOptions) command {
-	return command{
-		Endpoint:     t.db.endpoint,
-		Name:         name,
-		Payload:      payload,
-		ResourceName: t.name,
-		Target:       serdes.TargetTable,
-		Options:      options.Join(t.options, cmdOpts),
-	}
+// newCmdWithMergedOptions is a compatibility alias for newCmd.
+func (t *Table) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command {
+	return t.newCmd(name, payload, opts...)
 }
 
 // endregion
