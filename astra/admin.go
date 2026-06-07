@@ -42,15 +42,7 @@ type AstraAdmin struct {
 }
 
 func (a *AstraAdmin) createCommand(method string, path string, payload any) *command.DevOpsAPI {
-	return &command.DevOpsAPI{
-		DevOpsURL:     a.astraEnvironment.DevOpsURL(),
-		APIVersion:    a.apiVersion,
-		ClientOptions: a.ClientOptions(),
-		Method:        method,
-		Path:          path,
-		Payload:       payload,
-		QueryParams:   url.Values{},
-	}
+	return command.NewDevOpsAPICommand(a.astraEnvironment.DevOpsURL(), a.apiVersion, method, path, payload, url.Values{}, a.ClientOptions())
 }
 
 // Region represents an available serverless region from the DevOps API.

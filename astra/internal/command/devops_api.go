@@ -30,31 +30,43 @@ import (
 )
 
 type DevOpsAPI struct {
-	DevOpsURL     string
-	APIVersion    string
-	ClientOptions *options.APIOptions
-	Method        string
-	Path          string
-	Payload       any
-	QueryParams   url.Values
+	endpoint    string
+	apiVersion  string
+	method      string
+	path        string
+	payload     any
+	queryParams url.Values
+	apiOptions  *options.APIOptions
+}
+
+func NewDevOpsAPICommand(endpoint, apiVersion, method, path string, payload any, params url.Values, opts *options.APIOptions) *DevOpsAPI {
+	return &DevOpsAPI{
+		endpoint:    endpoint,
+		apiVersion:  apiVersion,
+		method:      method,
+		path:        path,
+		payload:     payload,
+		queryParams: params,
+		apiOptions:  opts,
+	}
 }
 
 func (ac *DevOpsAPI) URL() (string, error) {
-	baseURL, err := url.JoinPath(ac.DevOpsURL, ac.APIVersion, ac.Path)
+	baseURL, err := url.JoinPath(ac.endpoint, ac.apiVersion, ac.path)
 	if err != nil {
 		return "", err
 	}
-	if len(ac.QueryParams) > 0 {
-		return baseURL + "?" + ac.QueryParams.Encode(), nil
+	if len(ac.queryParams) > 0 {
+		return baseURL + "?" + ac.queryParams.Encode(), nil
 	}
 	return baseURL, nil
 }
 
 func (ac *DevOpsAPI) WithQueryParam(key, value string) *DevOpsAPI {
-	if ac.QueryParams == nil {
-		ac.QueryParams = url.Values{}
+	if ac.queryParams == nil {
+		ac.queryParams = url.Values{}
 	}
-	ac.QueryParams.Set(key, value)
+	ac.queryParams.Set(key, value)
 	return ac
 }
 
@@ -92,24 +104,24 @@ func (ac *DevOpsAPI) Execute(ctx context.Context) (*AdminResponse, error) {
 	// Marshal payload to JSON if present
 	var bodyReader io.Reader
 	var payloadBytes []byte
-	if ac.Payload != nil {
-		payloadBytes, err = json.Marshal(ac.Payload)
+	if ac.payload != nil {
+		payloadBytes, err = json.Marshal(ac.payload)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal payload: %w", err)
 		}
 		bodyReader = bytes.NewReader(payloadBytes)
 	}
 
-	slog.Debug("Running admincmd.Execute", "req.method", ac.Method, "req.URL", reqURL, "req.body", string(payloadBytes))
+	slog.Debug("Running admincmd.Execute", "req.method", ac.method, "req.URL", reqURL, "req.body", string(payloadBytes))
 
 	// Create request
-	req, err := http.NewRequestWithContext(ctx, ac.Method, reqURL, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, ac.method, reqURL, bodyReader)
 	if err != nil {
 		return nil, err
 	}
 
 	// Set headers
-	resolvedOpts := ac.ClientOptions
+	resolvedOpts := ac.apiOptions
 
 	// Set authentication token from resolved options
 	if resolvedOpts.TokenProvider != nil {
