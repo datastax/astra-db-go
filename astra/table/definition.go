@@ -440,6 +440,8 @@ func UDT(udtName string) Column {
 //   - DropColumns: Removes existing columns.
 //   - AddVectorize: Configures AI embedding generation for specific columns.
 //   - DropVectorize: Removes AI embedding configurations.
+//   - AddReranking: Enables reranking for the table.
+//   - DropReranking: Disables reranking for the table.
 //
 // Example — Add columns:
 //
@@ -506,6 +508,42 @@ func (v DropVectorize) isAlterOp() {}
 func (v DropVectorize) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	type alias DropVectorize
 	return serdes.SerializeInto(map[string]any{"dropVectorize": alias(v)}, ctx.Target, dst, ctx.Flags)
+}
+
+// AddReranking is the payload for the alterTable "addReranking" operation.
+type AddReranking struct {
+	Service RerankService `json:"service"`
+}
+
+func (r AddReranking) isAlterOp() {}
+
+func (r AddReranking) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	type alias AddReranking
+	return serdes.SerializeInto(map[string]any{"addReranking": alias(r)}, ctx.Target, dst, ctx.Flags)
+}
+
+// DropReranking is the payload for the alterTable "dropReranking" operation.
+type DropReranking struct{}
+
+func (r DropReranking) isAlterOp() {}
+
+func (r DropReranking) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+	return serdes.SerializeInto(map[string]any{"dropReranking": map[string]any{}}, ctx.Target, dst, ctx.Flags)
+}
+
+// RerankService defines the configuration for reranking.
+type RerankService struct {
+	// Provider is the reranking provider name (e.g., "nvidia")
+	Provider string `json:"provider"`
+
+	// ModelName is the model to use for reranking
+	ModelName string `json:"modelName"`
+
+	// Authentication contains authentication configuration
+	Authentication map[string]string `json:"authentication,omitempty"`
+
+	// Parameters contains provider-specific parameters
+	Parameters map[string]string `json:"parameters,omitempty"`
 }
 
 // AlterTypeOperation represents an operation to alter a user-defined type (UDT).

@@ -394,6 +394,16 @@ func (o *ListTypesOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for RerankOptions.
+// Returns all non-nil Validator fields.
+func (o *RerankOptions) Children() []Validator {
+	var children []Validator
+	if o.Service != nil {
+		children = append(children, o.Service)
+	}
+	return children
+}
+
 // Children implements ChildValidator for TableDefinitionOptions.
 // Returns all non-nil Validator fields.
 func (o *TableDefinitionOptions) Children() []Validator {

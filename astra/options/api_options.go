@@ -222,6 +222,16 @@ func (b *apiOptionsBuilder) SetWarningHandler(handler WarningHandler) *apiOption
 	return b
 }
 
+// SetEmbeddingApiKey sets the x-embedding-api-key header.
+func (b *apiOptionsBuilder) SetEmbeddingApiKey(key string) *apiOptionsBuilder {
+	return b.SetHeader("x-embedding-api-key", key)
+}
+
+// SetRerankingApiKey sets the x-rerank-api-key header.
+func (b *apiOptionsBuilder) SetRerankingApiKey(key string) *apiOptionsBuilder {
+	return b.SetHeader("x-rerank-api-key", key)
+}
+
 // Helper functions for getting values safely.
 
 // GetToken returns the token or empty string if not set.

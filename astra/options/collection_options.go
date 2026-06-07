@@ -182,9 +182,55 @@ func (o *IndexingOptions) Validate() error {
 	return nil
 }
 
-type LexicalOptions struct{}
+// LexicalOptions configures lexical search (BM25) for a collection.
+type LexicalOptions struct {
+	// Enabled specifies whether lexical search is enabled for the collection.
+	Enabled *bool `json:"enabled,omitempty"`
 
-type RerankOptions struct{}
+	// Analyzer specifies the analyzer to use for lexical search.
+	Analyzer any `json:"analyzer,omitempty"`
+}
+
+// RerankOptions configures reranking for a collection.
+type RerankOptions struct {
+	// Enabled specifies whether reranking is enabled for the collection.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Service configures the reranking service.
+	Service *RerankServiceOptions `json:"service,omitempty"`
+}
+
+// RerankServiceOptions configures the reranking service.
+type RerankServiceOptions struct {
+	// Provider is the name of the reranking provider (e.g., "nvidia").
+	Provider *string `json:"provider,omitempty"`
+
+	// ModelName is the name of the reranking model to use.
+	ModelName *string `json:"modelName,omitempty"`
+
+	// Authentication holds any necessary collection-bound authentication credentials.
+	Authentication map[string]any `json:"authentication,omitempty"`
+
+	// Parameters holds arbitrary parameters that may be required on a per-model or
+	// per-provider basis.
+	Parameters map[string]any `json:"parameters,omitempty"`
+}
+
+// SetAnalyzer sets the analyzer name for lexical search (e.g., "standard").
+func (b *lexicalOptionsBuilder) SetAnalyzer(v string) *lexicalOptionsBuilder {
+	b.setters = append(b.setters, func(o *LexicalOptions) {
+		o.Analyzer = v
+	})
+	return b
+}
+
+// SetCustomAnalyzer sets a complex analyzer configuration for lexical search.
+func (b *lexicalOptionsBuilder) SetCustomAnalyzer(v map[string]any) *lexicalOptionsBuilder {
+	b.setters = append(b.setters, func(o *LexicalOptions) {
+		o.Analyzer = v
+	})
+	return b
+}
 
 // CollectionInsertOneOptions represents options for inserting a single document.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
