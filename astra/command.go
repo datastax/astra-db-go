@@ -181,6 +181,16 @@ func (c *command) Execute(ctx context.Context) ([]byte, results.Warnings, serdes
 	}
 	req.Header.Set("Content-Type", "application/json")
 
+	userAgent := LibName + "/" + LibVersion
+	for _, caller := range opts.Callers {
+		if caller.Version != "" {
+			userAgent += " " + caller.Name + "/" + caller.Version
+		} else {
+			userAgent += " " + caller.Name
+		}
+	}
+	req.Header.Set("User-Agent", userAgent)
+
 	// Add any custom headers from resolved options
 	for key, value := range opts.Headers {
 		req.Header.Set(key, value)

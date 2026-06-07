@@ -61,6 +61,15 @@ type APIOptions struct {
 	// DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
 	// Controls the Data API path. Defaults to astra.
 	DataAPIBackend *DataAPIBackend
+
+	// Callers contains information about the application making the request
+	Callers []Caller
+}
+
+// Caller represents information about the application making the request.
+type Caller struct {
+	Name    string
+	Version string
 }
 
 func (o *APIOptions) SetDefaults() {
@@ -230,6 +239,14 @@ func (b *apiOptionsBuilder) SetEmbeddingApiKey(key string) *apiOptionsBuilder {
 // SetRerankingApiKey sets the x-rerank-api-key header.
 func (b *apiOptionsBuilder) SetRerankingApiKey(key string) *apiOptionsBuilder {
 	return b.SetHeader("x-rerank-api-key", key)
+}
+
+// AddCaller adds caller information to the existing list.
+func (b *apiOptionsBuilder) AddCaller(name, version string) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.Callers = append(o.Callers, Caller{Name: name, Version: version})
+	})
+	return b
 }
 
 // Helper functions for getting values safely.

@@ -1,6 +1,7 @@
 name: Checks
 
 on:
+  workflow_call:
   merge_group:
     branches: [ main ]
   pull_request:
@@ -10,7 +11,7 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      is_full_run: ${{ github.event_name == 'merge_group' || contains(github.event.pull_request.labels.*.name, 'Run Full Tests') }}
+      is_full_run: ${{ github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'Run Full Tests') }}
     steps:
       - run: exit 0
 

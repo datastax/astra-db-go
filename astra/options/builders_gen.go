@@ -180,6 +180,15 @@ func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuild
 	return b
 }
 
+// SetCallers sets the Callers option.
+// Callers contains information about the application making the request
+func (b *apiOptionsBuilder) SetCallers(v ...Caller) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.Callers = v
+	})
+	return b
+}
+
 // AlterTableOption configures a AlterTable operation.
 // You can use the fluent-style builder or a pointer to [AlterTableOptions] interchangeably.
 //
