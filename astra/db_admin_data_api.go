@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 )
 
@@ -54,6 +55,10 @@ func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
+	}
+
+	if ptr.From(merged.UpdateDbKeyspace) {
+		d.db.UseKeyspace(keyspace)
 	}
 
 	type replicationOptions struct {

@@ -118,6 +118,18 @@ func (d *Db) Client() *DataAPIClient {
 	return d.client
 }
 
+// UseKeyspace permanently switches the keyspace for this Db instance.
+//
+// All future operations on this database, and any collections/tables created
+// from it, will use the new keyspace by default.
+//
+// Example:
+//
+//	db.UseKeyspace("new_keyspace")
+func (d *Db) UseKeyspace(keyspace string) {
+	d.options = options.Join(d.options, options.API().SetKeyspace(keyspace))
+}
+
 // endregion
 
 // region Table/Collection Getters

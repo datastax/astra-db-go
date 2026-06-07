@@ -153,6 +153,9 @@ type CreateKeyspaceOptions struct {
 	// ReplicationFactor sets the replication factor for the keyspace.
 	// Only used by the Data API path (non-Astra environments).
 	ReplicationFactor *int
+	// UpdateDbKeyspace controls whether to update the parent Db instance to use the
+	// new keyspace after creation. Defaults to false.
+	UpdateDbKeyspace *bool
 }
 
 // SetDefaults implements the Defaulter interface for CreateKeyspaceOptions.

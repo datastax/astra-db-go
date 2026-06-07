@@ -19,6 +19,7 @@ import (
 	"net/http"
 
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/astra/ptr"
 	"github.com/datastax/astra-db-go/astra/results"
 )
 
@@ -108,6 +109,10 @@ func (d *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
+	}
+
+	if ptr.From(merged.UpdateDbKeyspace) {
+		d.db.UseKeyspace(keyspace)
 	}
 
 	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)

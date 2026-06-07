@@ -1695,6 +1695,16 @@ func (b *createKeyspaceOptionsBuilder) SetReplicationFactor(v int) *createKeyspa
 	return b
 }
 
+// SetUpdateDbKeyspace sets the UpdateDbKeyspace option.
+// UpdateDbKeyspace controls whether to update the parent Db instance to use the
+// new keyspace after creation. Defaults to false.
+func (b *createKeyspaceOptionsBuilder) SetUpdateDbKeyspace(v bool) *createKeyspaceOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
+		o.UpdateDbKeyspace = &v
+	})
+	return b
+}
+
 // CreateTableOption configures a CreateTable operation.
 // You can use the fluent-style builder or a pointer to [CreateTableOptions] interchangeably.
 //
