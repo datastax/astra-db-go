@@ -121,7 +121,7 @@ func TestURLDatabaseAdmin(t *testing.T) {
 	id, region := "db-id", "us-east-1"
 	client := NewClient()
 	db := newDbFromID(id, region, options.AstraEnvironmentProd, client, nil)
-	cmd := db.newAdminCmdWithMergedOptions("findKeyspaces", nil, nil)
+	cmd := db.newAdminCmd("findKeyspaces", nil, nil)
 	got, err := cmd.URL()
 	if err != nil {
 		t.Fatal(err)
@@ -136,7 +136,7 @@ func TestURLNonAstraBackend(t *testing.T) {
 	hcd := options.DataAPIBackendHCD
 	client := NewClient()
 	db := newDbFromEndpoint("http://localhost:8181", client, options.Join(nil, options.API().SetDataAPIBackend(hcd)))
-	cmd := db.Collection("my_collection").newCmdWithMergedOptions("find", nil, nil)
+	cmd := db.Collection("my_collection").newCmd("find", nil, nil)
 
 	got, err := cmd.URL()
 	if err != nil {

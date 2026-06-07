@@ -82,11 +82,6 @@ func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) c
 	}
 }
 
-// newCmdWithMergedOptions is a compatibility alias for newcommand.
-func (t *Table) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return t.newCmd(name, payload, opts...)
-}
-
 // endregion
 
 // region Definition
@@ -148,7 +143,7 @@ func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableIns
 	if err != nil {
 		return nil, err
 	}
-	return insertOne(ctx, row, t.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetTable)
+	return insertOne(ctx, row, t.newCmd, (insertOneOptions)(*merged), serdes.TargetTable)
 }
 
 // InsertMany inserts multiple rows into the table.
@@ -170,7 +165,7 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, rows, t.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetTable)
+	return insertMany(ctx, rows, t.newCmd, (insertManyOptions)(*merged), serdes.TargetTable)
 }
 
 // endregion
@@ -189,7 +184,7 @@ func (t *Table) FindOne(ctx context.Context, f TableFilter, opts ...options.Tabl
 	if err != nil {
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetTable, err, 0)
 	}
-	return findOne(ctx, f, t.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetTable)
+	return findOne(ctx, f, t.newCmd, (findOneOptions)(*merged), serdes.TargetTable)
 }
 
 // Find returns a cursor for iterating over rows matching the filter criteria.
@@ -239,7 +234,7 @@ func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.Ta
 	merged, err := options.MergeAndValidate(opts...)
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
-		cmd := t.newCmdWithMergedOptions("find", payload, merged.APIOptions)
+		cmd := t.newCmd("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
 
@@ -273,7 +268,7 @@ func (t *Table) UpdateOne(ctx context.Context, f TableFilter, u TableUpdate, opt
 	if err != nil {
 		return err
 	}
-	_, err = updateOne(ctx, f, u, t.newCmdWithMergedOptions, updateOneOptions{nil, nil, merged.APIOptions})
+	_, err = updateOne(ctx, f, u, t.newCmd, updateOneOptions{nil, nil, merged.APIOptions})
 	return err
 }
 
@@ -300,7 +295,7 @@ func (t *Table) DeleteOne(ctx context.Context, f TableFilter, opts ...options.Ta
 		return err
 	}
 	// Note: warnings are accessible via the WarningHandler option callback only.
-	_, err = deleteOne(ctx, f, t.newCmdWithMergedOptions, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions})
+	_, err = deleteOne(ctx, f, t.newCmd, deleteOneOptions{Sort: nil, APIOptions: deleteOpts.APIOptions})
 	return err
 }
 
@@ -330,7 +325,7 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 		return ErrNilFilter
 	}
 
-	cmd := t.newCmdWithMergedOptions("deleteMany", map[string]any{
+	cmd := t.newCmd("deleteMany", map[string]any{
 		"filter": f,
 	}, deleteOpts.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
@@ -431,7 +426,7 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 		return command.DataAPI{}, err
 	}
 
-	return t.newCmdWithMergedOptions("createIndex", map[string]any{
+	return t.newCmd("createIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -488,7 +483,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 		return command.DataAPI{}, err
 	}
 
-	return t.newCmdWithMergedOptions("createVectorIndex", map[string]any{
+	return t.newCmd("createVectorIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
 			"column": column,
@@ -558,7 +553,7 @@ func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command.Da
 		return command.DataAPI{}, err
 	}
 
-	return t.newCmdWithMergedOptions("listIndexes", map[string]any{
+	return t.newCmd("listIndexes", map[string]any{
 		"options": map[string]any{
 			"explain": merged.Explain,
 		},
@@ -626,7 +621,7 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 		return err
 	}
 
-	cmd := t.newCmdWithMergedOptions("alterTable", alterTablePayload{
+	cmd := t.newCmd("alterTable", alterTablePayload{
 		Operation: op,
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)

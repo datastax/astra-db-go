@@ -37,7 +37,7 @@ func (d *DataAPIDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...option
 		return nil, err
 	}
 
-	cmd := d.db.newAdminCmdWithMergedOptions("findKeyspaces", struct{}{}, merged.APIOptions)
+	cmd := d.db.newAdminCmd("findKeyspaces", struct{}{}, merged.APIOptions)
 	body, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -88,7 +88,7 @@ func (d *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 		}
 	}
 
-	cmd := d.db.newAdminCmdWithMergedOptions("createKeyspace", payload, merged.APIOptions)
+	cmd := d.db.newAdminCmd("createKeyspace", payload, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err
 }
@@ -103,7 +103,7 @@ func (d *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 	payload := map[string]any{
 		"name": keyspace,
 	}
-	cmd := d.db.newAdminCmdWithMergedOptions("dropKeyspace", payload, merged.APIOptions)
+	cmd := d.db.newAdminCmd("dropKeyspace", payload, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
 	return err
 }

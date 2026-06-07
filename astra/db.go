@@ -69,11 +69,6 @@ func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command
 	}
 }
 
-// newCmdWithMergedOptions is a compatibility alias for newcommand.
-func (d *Db) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return d.newCmd(name, payload, opts...)
-}
-
 // newAdminCmd creates a database-level admin command.
 func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
 	return command.DataAPI{
@@ -85,11 +80,6 @@ func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) co
 		Options:       options.Join(d.options, opts...),
 		Target:        serdes.TargetNone,
 	}
-}
-
-// newAdminCmdWithMergedOptions is a compatibility alias for newAdmincommand.
-func (d *Db) newAdminCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return d.newAdminCmd(name, payload, opts...)
 }
 
 // Endpoint returns the database API endpoint.
@@ -226,7 +216,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		return nil, err
 	}
 
-	cmd := d.newCmdWithMergedOptions("createCollection", map[string]any{
+	cmd := d.newCmd("createCollection", map[string]any{
 		"name":    name,
 		"options": merged,
 	}, merged.APIOptions)
@@ -269,7 +259,7 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 		return nil, err
 	}
 
-	cmd := d.newCmdWithMergedOptions("createTable", map[string]any{
+	cmd := d.newCmd("createTable", map[string]any{
 		"name":       name,
 		"definition": definition,
 		"options":    merged,
@@ -305,7 +295,7 @@ func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDe
 		return err
 	}
 
-	cmd := d.newCmdWithMergedOptions("createType", map[string]any{
+	cmd := d.newCmd("createType", map[string]any{
 		"name":       name,
 		"definition": definition,
 		"options":    merged,
@@ -336,7 +326,7 @@ func (d *Db) AlterType(ctx context.Context, name string, op table.AlterTypeOpera
 		return err
 	}
 
-	cmd := d.newCmdWithMergedOptions("alterType", alterTypePayload{
+	cmd := d.newCmd("alterType", alterTypePayload{
 		Name:      name,
 		Operation: op,
 	}, merged.APIOptions)
@@ -356,7 +346,7 @@ func (d *Db) DropCollection(ctx context.Context, name string, opts ...options.Dr
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("deleteCollection", map[string]any{
+	cmd := d.newCmd("deleteCollection", map[string]any{
 		"name": name,
 	}, merged.APIOptions)
 	_, _, _, err = cmd.Execute(ctx)
@@ -375,7 +365,7 @@ func (d *Db) DropTable(ctx context.Context, name string, opts ...options.DropTab
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("dropTable", map[string]any{
+	cmd := d.newCmd("dropTable", map[string]any{
 		"name": name,
 		"options": map[string]any{
 			"ifExists": merged.IfExists,
@@ -397,7 +387,7 @@ func (d *Db) DropTableIndex(ctx context.Context, name string, opts ...options.Dr
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("dropIndex", map[string]any{
+	cmd := d.newCmd("dropIndex", map[string]any{
 		"name": name,
 		"options": map[string]any{
 			"ifExists": merged.IfExists,
@@ -417,7 +407,7 @@ func (d *Db) DropType(ctx context.Context, name string, opts ...options.DropType
 	if err != nil {
 		return err
 	}
-	cmd := d.newCmdWithMergedOptions("dropType", map[string]any{
+	cmd := d.newCmd("dropType", map[string]any{
 		"name": name,
 		"options": map[string]any{
 			"ifExists": merged.IfExists,
@@ -490,7 +480,7 @@ type listCollectionsResponse[T any] struct {
 }
 
 func listCollections[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("findCollections", map[string]any{
+	cmd := d.newCmd("findCollections", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
@@ -558,7 +548,7 @@ type listTablesResponse[T any] struct {
 }
 
 func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("listTables", map[string]any{
+	cmd := d.newCmd("listTables", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},
@@ -619,7 +609,7 @@ type listTypesResponse[T any] struct {
 }
 
 func listTypes[T any](d *Db, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
-	cmd := d.newCmdWithMergedOptions("listTypes", map[string]any{
+	cmd := d.newCmd("listTypes", map[string]any{
 		"options": map[string]any{
 			"explain": explain,
 		},

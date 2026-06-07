@@ -89,18 +89,13 @@ func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption)
 	}
 }
 
-// newCmdWithMergedOptions is a compatibility alias for newcommand.
-func (c *Collection) newCmdWithMergedOptions(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return c.newCmd(name, payload, opts...)
-}
-
 // resolveGeneralMethodTimeout returns the effective timeout for a paginated
 // operation. The per-method timeout takes priority over the hierarchy timeout.
 func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, override *options.APIOptions) *time.Duration {
 	if methodTimeout != nil {
 		return methodTimeout
 	}
-	cmd := c.newCmdWithMergedOptions("", nil, override)
+	cmd := c.newCmd("", nil, override)
 	opts := cmd.ResolveOptions()
 	return opts.GetGeneralMethodTimeout()
 }
@@ -146,7 +141,7 @@ func (c *Collection) InsertOne(ctx context.Context, document any, opts ...option
 	if err != nil {
 		return nil, err
 	}
-	return insertOne(ctx, document, c.newCmdWithMergedOptions, (insertOneOptions)(*merged), serdes.TargetCollection)
+	return insertOne(ctx, document, c.newCmd, (insertOneOptions)(*merged), serdes.TargetCollection)
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
@@ -157,7 +152,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmdWithMergedOptions, (insertManyOptions)(*merged), serdes.TargetCollection)
+	return insertMany(ctx, documents, c.newCmd, (insertManyOptions)(*merged), serdes.TargetCollection)
 }
 
 // endregion
@@ -172,7 +167,7 @@ func (c *Collection) FindOne(ctx context.Context, f CollectionFilter, opts ...op
 	if err != nil {
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
-	return findOne(ctx, f, c.newCmdWithMergedOptions, (findOneOptions)(*merged), serdes.TargetCollection)
+	return findOne(ctx, f, c.newCmd, (findOneOptions)(*merged), serdes.TargetCollection)
 }
 
 // Find returns a cursor for iterating over documents matching the filter.
@@ -222,7 +217,7 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 	merged, err := options.MergeAndValidate(opts...)
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
-		cmd := c.newCmdWithMergedOptions("find", payload, merged.APIOptions)
+		cmd := c.newCmd("find", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
 
@@ -257,7 +252,7 @@ func (c *Collection) FindAndRerank(f CollectionFilter, opts ...options.Collectio
 	merged, err := options.MergeAndValidate(opts...)
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
-		cmd := c.newCmdWithMergedOptions("findAndRerank", payload, merged.APIOptions)
+		cmd := c.newCmd("findAndRerank", payload, merged.APIOptions)
 		return cmd.Execute(ctx)
 	}
 
@@ -288,7 +283,7 @@ func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u Collec
 	if err != nil {
 		return nil, err
 	}
-	b, err := updateOne(ctx, f, u, c.newCmdWithMergedOptions, (updateOneOptions)(*merged))
+	b, err := updateOne(ctx, f, u, c.newCmd, (updateOneOptions)(*merged))
 
 	var resp collectionUpdateResponse
 	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetCollection, merged.APIOptions.GetDesFlags()); err != nil {
@@ -340,7 +335,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 	result := &results.UpdateResult{}
 
 	for {
-		cmd := c.newCmdWithMergedOptions("updateMany", payload, merged.APIOptions)
+		cmd := c.newCmd("updateMany", payload, merged.APIOptions)
 		b, _, _, err := cmd.Execute(ctx)
 		if err != nil {
 			return nil, err
@@ -380,7 +375,7 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
 
-	cmd := c.newCmdWithMergedOptions("findOneAndUpdate", map[string]any{
+	cmd := c.newCmd("findOneAndUpdate", map[string]any{
 		"filter":     f,
 		"update":     u,
 		"sort":       merged.Sort,
@@ -460,7 +455,7 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 }
 
 func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts *options.CollectionFindOneAndReplaceOptions) ([]byte, results.Warnings, error) {
-	cmd := c.newCmdWithMergedOptions("findOneAndReplace", map[string]any{
+	cmd := c.newCmd("findOneAndReplace", map[string]any{
 		"filter":      f,
 		"replacement": replacement,
 		"sort":        opts.Sort,
@@ -498,7 +493,7 @@ func (c *Collection) DeleteOne(ctx context.Context, f CollectionFilter, opts ...
 		return nil, err
 	}
 
-	b, err := deleteOne(ctx, f, c.newCmdWithMergedOptions, (deleteOneOptions)(*merged))
+	b, err := deleteOne(ctx, f, c.newCmd, (deleteOneOptions)(*merged))
 	if err != nil {
 		return nil, err
 	}
@@ -556,7 +551,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 	result := &results.DeleteResult{}
 
 	for {
-		cmd := c.newCmdWithMergedOptions("deleteMany", payload, merged.APIOptions)
+		cmd := c.newCmd("deleteMany", payload, merged.APIOptions)
 		b, _, _, err := cmd.Execute(ctx)
 		if err != nil {
 			return nil, err
@@ -587,7 +582,7 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, 0)
 	}
 
-	cmd := c.newCmdWithMergedOptions("findOneAndDelete", map[string]any{
+	cmd := c.newCmd("findOneAndDelete", map[string]any{
 		"filter":     f,
 		"sort":       merged.Sort,
 		"projection": utils.NonNilMap(merged.Projection),
@@ -618,7 +613,7 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 		return 0, err
 	}
 
-	cmd := c.newCmdWithMergedOptions("countDocuments", map[string]any{"filter": f}, merged.APIOptions)
+	cmd := c.newCmd("countDocuments", map[string]any{"filter": f}, merged.APIOptions)
 	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err
@@ -653,7 +648,7 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 		return 0, err
 	}
 
-	cmd := c.newCmdWithMergedOptions("estimatedDocumentCount", struct{}{}, merged.APIOptions)
+	cmd := c.newCmd("estimatedDocumentCount", struct{}{}, merged.APIOptions)
 	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return 0, err

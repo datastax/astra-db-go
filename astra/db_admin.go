@@ -48,7 +48,7 @@ func findEmbeddingProviders(db *Db, ctx context.Context, opts ...options.FindEmb
 		"options": merged,
 	}
 
-	cmd := db.newAdminCmdWithMergedOptions("findEmbeddingProviders", payload, merged.APIOptions)
+	cmd := db.newAdminCmd("findEmbeddingProviders", payload, merged.APIOptions)
 	b, _, _, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err

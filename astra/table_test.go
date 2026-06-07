@@ -1071,7 +1071,7 @@ func TestTableUpdateOne_HappyPath(t *testing.T) {
 }
 
 // TestTableUpdateOne_APIOptionsOverrideToken proves the command-level
-// APIOptions override flows end-to-end through newCmdWithMergedOptions.
+// APIOptions override flows end-to-end through newCmd.
 func TestTableUpdateOne_APIOptionsOverrideToken(t *testing.T) {
 	var receivedToken atomic.Value
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
