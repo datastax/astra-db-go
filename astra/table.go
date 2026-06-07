@@ -71,15 +71,8 @@ func (t *Table) Database() *Db {
 
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
-func (t *Table) newCmd(name string, payload any, cmdOpts ...options.APIOption) command.DataAPI {
-	return command.DataAPI{
-		Endpoint:     t.db.endpoint,
-		Name:         name,
-		Payload:      payload,
-		ResourceName: t.name,
-		Target:       serdes.TargetTable,
-		Options:      options.Join(t.options, cmdOpts...),
-	}
+func (t *Table) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
+	return command.NewDataAPICommand(t.db.endpoint, t.name, name, payload, serdes.TargetTable, options.Join(t.options, opts...))
 }
 
 // endregion

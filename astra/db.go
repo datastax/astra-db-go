@@ -58,28 +58,12 @@ func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Join
 
 // newCmd creates a database-level command.
 func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.DataAPI{
-		Endpoint:      d.endpoint,
-		Name:          name,
-		Payload:       payload,
-		ResourceName:  "",
-		DatabaseAdmin: false,
-		Options:       options.Join(d.options, opts...),
-		Target:        serdes.TargetNone,
-	}
+	return command.NewDataAPICommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Join(d.options, opts...))
 }
 
 // newAdminCmd creates a database-level admin command.
 func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.DataAPI{
-		Endpoint:      d.endpoint,
-		Name:          name,
-		Payload:       payload,
-		ResourceName:  "",
-		DatabaseAdmin: true,
-		Options:       options.Join(d.options, opts...),
-		Target:        serdes.TargetNone,
-	}
+	return command.NewDataAPIAdminCommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Join(d.options, opts...))
 }
 
 // Endpoint returns the database API endpoint.

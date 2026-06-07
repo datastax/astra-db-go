@@ -38,18 +38,41 @@ var (
 
 // DataAPI represents a command to be executed against the astra DB.
 type DataAPI struct {
-	Endpoint      string
-	Name          string
-	Payload       any
-	ResourceName  string
-	DatabaseAdmin bool                               // When true, URL skips keyspace and resource segments
-	Options       options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource -> DataAPI
-	Target        serdes.Target
+	endpoint      string
+	resourceName  string
+	name          string
+	payload       any
+	databaseAdmin bool                               // When true, URL skips keyspace and resource segments
+	options       options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource -> DataAPI
+	target        serdes.Target
+}
+
+func NewDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts options.Joined[options.APIOptions]) DataAPI {
+	return DataAPI{
+		endpoint:     endpoint,
+		resourceName: resourceName,
+		name:         name,
+		payload:      payload,
+		target:       target,
+		options:      opts,
+	}
+}
+
+func NewDataAPIAdminCommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts options.Joined[options.APIOptions]) DataAPI {
+	return DataAPI{
+		endpoint:      endpoint,
+		resourceName:  resourceName,
+		name:          name,
+		payload:       payload,
+		databaseAdmin: true,
+		target:        target,
+		options:       opts,
+	}
 }
 
 // ResolveOptions merges all option layers and returns the final resolved options.
 func (c *DataAPI) ResolveOptions() *options.APIOptions {
-	return options.Merge(c.Options...)
+	return options.Merge(c.options...)
 }
 
 // Keyspace returns the keyspace to use for this command by resolving it from the
@@ -65,43 +88,43 @@ func (c *DataAPI) ApiVersion() string {
 }
 
 func (c *DataAPI) URL() (string, error) {
-	if len(c.Endpoint) == 0 {
+	if len(c.endpoint) == 0 {
 		return "", errors.New("empty API endpoint")
 	}
 	basePath := c.ResolveOptions().GetDataAPIBackend().DataAPIPath()
-	if c.DatabaseAdmin {
-		return url.JoinPath(c.Endpoint, basePath, c.ApiVersion())
+	if c.databaseAdmin {
+		return url.JoinPath(c.endpoint, basePath, c.ApiVersion())
 	}
-	return url.JoinPath(c.Endpoint, basePath, c.ApiVersion(), c.Keyspace(), c.ResourceName)
+	return url.JoinPath(c.endpoint, basePath, c.ApiVersion(), c.Keyspace(), c.resourceName)
 }
 
 func (c DataAPI) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
-	if len(c.Name) > 0 {
+	if len(c.name) > 0 {
 		dst = append(dst, `{"`...)
-		dst = append(dst, c.Name...)
+		dst = append(dst, c.name...)
 		dst = append(dst, `":`...)
 
 		var err error
-		dst, err = serdes.SerializeInto(c.Payload, c.Target, dst, ctx.Flags)
+		dst, err = serdes.SerializeInto(c.payload, c.target, dst, ctx.Flags)
 		if err != nil {
 			return nil, err
 		}
 		return append(dst, '}'), nil
 	}
-	return serdes.SerializeInto(c.Payload, c.Target, dst, ctx.Flags)
+	return serdes.SerializeInto(c.payload, c.target, dst, ctx.Flags)
 }
 
 // Execute a command against the astra DB web API.
 func (c *DataAPI) Execute(ctx context.Context) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	var body []byte
-	if c.Endpoint == "" {
+	if c.endpoint == "" {
 		return body, nil, nil, ErrCmdNilDb
 	}
 
 	// Resolve all options for this command
 	opts := c.ResolveOptions()
 
-	b, err := serdes.Serialize(c, c.Target)
+	b, err := serdes.Serialize(c, c.target)
 	if err != nil {
 		return body, nil, nil, err
 	}
@@ -186,7 +209,7 @@ func (c *DataAPI) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	}
 
 	var resp apiResponse
-	serdes.Deserialize(body, &resp, nil, c.Target, opts.GetDesFlags())
+	serdes.Deserialize(body, &resp, nil, c.target, opts.GetDesFlags())
 
 	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {
 		for _, w := range resp.Status.Warnings {
@@ -203,7 +226,7 @@ func (c *DataAPI) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	}
 
 	var schema serdes.TargetDecodeCtx
-	if c.Target == serdes.TargetCollection {
+	if c.target == serdes.TargetCollection {
 		schema = untyped.GlobalDocumentCtx
 	} else if status.schema != nil {
 		schema = &untyped.LazySchema{AsRaw: status.schema}

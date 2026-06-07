@@ -79,14 +79,7 @@ func (c *Collection) Database() *Db {
 
 // newCmd creates a command for this collection.
 func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.DataAPI{
-		Endpoint:     c.db.endpoint,
-		Name:         name,
-		Payload:      payload,
-		ResourceName: c.name,
-		Target:       serdes.TargetCollection,
-		Options:      options.Join(c.options, opts...),
-	}
+	return command.NewDataAPICommand(c.db.endpoint, c.name, name, payload, serdes.TargetCollection, options.Join(c.options, opts...))
 }
 
 // resolveGeneralMethodTimeout returns the effective timeout for a paginated

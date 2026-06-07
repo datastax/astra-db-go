@@ -45,11 +45,8 @@ func TestCommandUserAgent(t *testing.T) {
 	}
 
 	// 1. Default User-Agent
-	c := command.DataAPI{
-		Endpoint: "http://localhost",
-		Options:  options.Join(nil, options.API().SetHTTPClient(httpClient)),
-	}
-	_, _, _, _ = c.Execute(context.Background())
+	cmd := command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, options.API().SetHTTPClient(httpClient)))
+	_, _, _, _ = cmd.Execute(context.Background())
 	expected := constants.LibName + "/" + constants.LibVersion
 	if capturedUA != expected {
 		t.Errorf("expected default User-Agent %q, got %q", expected, capturedUA)
@@ -61,11 +58,8 @@ func TestCommandUserAgent(t *testing.T) {
 		AddCaller("my-app", "1.2.3").
 		AddCaller("my-framework", "")
 
-	c = command.DataAPI{
-		Endpoint: "http://localhost",
-		Options:  options.Join(nil, opts),
-	}
-	_, _, _, _ = c.Execute(context.Background())
+	cmd = command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, opts))
+	_, _, _, _ = cmd.Execute(context.Background())
 	expected = constants.LibName + "/" + constants.LibVersion + " my-app/1.2.3 my-framework"
 	if capturedUA != expected {
 		t.Errorf("expected User-Agent with callers %q, got %q", expected, capturedUA)
