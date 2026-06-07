@@ -54,11 +54,6 @@ func (ac *DevOpsAPI) URL() string {
 	return ac.endpoint
 }
 
-func (ac *DevOpsAPI) WithQueryParam(key, value string) *DevOpsAPI {
-	ac.queryParams.Set(key, value)
-	return ac
-}
-
 // DevOpsResponse holds the response from an admin command execution.
 type DevOpsResponse struct {
 	Body       []byte

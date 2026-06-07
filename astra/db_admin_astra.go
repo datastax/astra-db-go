@@ -120,7 +120,7 @@ func (d *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 		d.db.UseKeyspace(keyspace)
 	}
 
-	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil, nil)
 	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func (d *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil)
+	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil, nil)
 	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err

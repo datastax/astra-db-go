@@ -180,7 +180,7 @@ func TestSTuff(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Admin() returned unexpected error: %v", err)
 	}
-	cmd := admin.createCommand("GET", "/regions/serverless", nil)
+	cmd := admin.createCommand("GET", "/regions/serverless", nil, nil)
 	url := cmd.URL()
 	expectedURL := "https://api.astra.datastax.com/v2/regions/serverless"
 	if url != expectedURL {

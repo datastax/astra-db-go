@@ -41,8 +41,8 @@ type AstraAdmin struct {
 	astraEnvironment options.AstraEnvironment
 }
 
-func (a *AstraAdmin) createCommand(method string, path string, payload any) *command.DevOpsAPI {
-	return command.NewDevOpsAPICommand(a.astraEnvironment.DevOpsURL(), a.apiVersion, path, method, payload, url.Values{}, a.ClientOptions())
+func (a *AstraAdmin) createCommand(method string, path string, payload any, params url.Values) *command.DevOpsAPI {
+	return command.NewDevOpsAPICommand(a.astraEnvironment.DevOpsURL(), a.apiVersion, path, method, payload, params, a.ClientOptions())
 }
 
 // Region represents an available serverless region from the DevOps API.
@@ -276,11 +276,12 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.F
 
 	// Build command with query parameters.
 	// Hard-coding to region-type=vector because classic isn't relevant to this client.
-	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil).
-		WithQueryParam("region-type", "vector")
+	params := url.Values{}
+	params.Set("region-type", "vector")
 	if ptr.From(merged.FilterByOrg) {
-		cmd.WithQueryParam("filter-by-org", "enabled")
+		params.Set("filter-by-org", "enabled")
 	}
+	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil, params)
 
 	// Execute request
 	resp, err := cmd.Execute(ctx)
@@ -340,19 +341,20 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 		return nil, err
 	}
 
-	cmd := a.createCommand(http.MethodGet, "/databases", nil)
+	params := url.Values{}
 	if merged.Include != nil {
-		cmd.WithQueryParam("include", string(*merged.Include))
+		params.Set("include", string(*merged.Include))
 	}
 	if merged.Provider != nil {
-		cmd.WithQueryParam("provider", string(*merged.Provider))
+		params.Set("provider", string(*merged.Provider))
 	}
 	if merged.Limit != nil {
-		cmd.WithQueryParam("limit", fmt.Sprintf("%d", *merged.Limit))
+		params.Set("limit", fmt.Sprintf("%d", *merged.Limit))
 	}
 	if merged.StartingAfter != nil {
-		cmd.WithQueryParam("starting_after", *merged.StartingAfter)
+		params.Set("starting_after", *merged.StartingAfter)
 	}
+	cmd := a.createCommand(http.MethodGet, "/databases", nil, params)
 
 	resp, err := cmd.Execute(ctx)
 	if err != nil {
@@ -383,7 +385,7 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 //	}
 //	fmt.Println("Status:", db.Status)
 func (a *AstraAdmin) GetDatabase(ctx context.Context, databaseID string) (*DatabaseInfo, error) {
-	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil)
+	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil, nil)
 	resp, err := cmd.Execute(ctx)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -569,7 +571,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 	}
 
 	// Execute request
-	cmd := a.createCommand(http.MethodPost, "/databases", payload)
+	cmd := a.createCommand(http.MethodPost, "/databases", payload, nil)
 	httpResp, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -625,7 +627,7 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 		return err
 	}
 
-	cmd := a.createCommand(http.MethodPost, "/databases/"+databaseID+"/terminate", nil)
+	cmd := a.createCommand(http.MethodPost, "/databases/"+databaseID+"/terminate", nil, nil)
 	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
