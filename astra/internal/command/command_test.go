@@ -112,10 +112,7 @@ package command_test
 //	client := astra.NewClient()
 //	db := astra.newDbFromID(id, region, options.AstraEnvironmentProd, client, nil)
 //	cmd := db.newAdminCmd("findKeyspaces", nil, nil)
-//	got, err := cmd.URL()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
+//	got := cmd.URL()
 //	expected := "https://db-id-us-east-1.apps.astra.datastax.com/api/json/v1"
 //	if got != expected {
 //		t.Errorf("expected %q, got %q", expected, got)
@@ -128,10 +125,7 @@ package command_test
 //	db := client.Database("http://localhost:8181", options.API().SetDataAPIBackend(hcd))
 //	cmd := db.Collection("my_collection").newCmd("find", nil, nil)
 //
-//	got, err := cmd.URL()
-//	if err != nil {
-//		t.Fatal(err)
-//	}
+//	got := cmd.URL()
 //	// Non-astra: no "api/json" prefix, just version/keyspace/resource
 //	expected := "http://localhost:8181/v1/default_keyspace/my_collection"
 //	if got != expected {

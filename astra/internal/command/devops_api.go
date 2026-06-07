@@ -30,28 +30,27 @@ import (
 )
 
 type DevOpsAPI struct {
-	endpoint    string
+	url         string
 	method      string
 	payload     any
-	queryParams url.Values
 	apiOptions  *options.APIOptions
 }
 
 func NewDevOpsAPICommand(endpoint, apiVersion, path, method string, payload any, params url.Values, opts *options.APIOptions) *DevOpsAPI {
+	fullURL := strings.TrimRight(endpoint, "/") + "/" + apiVersion + "/" + strings.Trim(path, "/")
+	if len(params) > 0 {
+		fullURL += "?" + params.Encode()
+	}
 	return &DevOpsAPI{
-		endpoint:    strings.TrimRight(endpoint, "/") + "/" + apiVersion + "/" + strings.Trim(path, "/"),
-		method:      method,
-		payload:     payload,
-		queryParams: params,
-		apiOptions:  opts,
+		url:        fullURL,
+		method:     method,
+		payload:    payload,
+		apiOptions: opts,
 	}
 }
 
 func (ac *DevOpsAPI) URL() string {
-	if len(ac.queryParams) > 0 {
-		return ac.endpoint + "?" + ac.queryParams.Encode()
-	}
-	return ac.endpoint
+	return ac.url
 }
 
 // DevOpsResponse holds the response from an admin command execution.

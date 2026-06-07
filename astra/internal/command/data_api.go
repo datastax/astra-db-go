@@ -38,64 +38,59 @@ var (
 
 // DataAPI represents a command to be executed against the astra DB.
 type DataAPI struct {
-	endpoint      string
-	resourceName  string
-	name          string
-	payload       any
-	databaseAdmin bool                               // When true, URL skips keyspace and resource segments
-	options       options.Joined[options.APIOptions] // Cumulative options from Client -> DB -> Resource -> DataAPI
-	target        serdes.Target
+	url     string
+	name    string
+	payload any
+	options *options.APIOptions
+	target  serdes.Target
+}
+
+func newDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, joined options.Joined[options.APIOptions], admin bool) DataAPI {
+	opts := options.Merge(joined...)
+
+	var u string
+	if endpoint != "" {
+		basePath := opts.GetDataAPIBackend().DataAPIPath()
+		u, _ = url.JoinPath(endpoint, basePath, opts.GetAPIVersion())
+		if !admin {
+			u, _ = url.JoinPath(u, opts.GetKeyspace(), resourceName)
+		}
+	}
+
+	return DataAPI{
+		url:     u,
+		name:    name,
+		payload: payload,
+		options: opts,
+		target:  target,
+	}
 }
 
 func NewDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts options.Joined[options.APIOptions]) DataAPI {
-	return DataAPI{
-		endpoint:     endpoint,
-		resourceName: resourceName,
-		name:         name,
-		payload:      payload,
-		target:       target,
-		options:      opts,
-	}
+	return newDataAPICommand(endpoint, resourceName, name, payload, target, opts, false)
 }
 
 func NewDataAPIAdminCommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts options.Joined[options.APIOptions]) DataAPI {
-	return DataAPI{
-		endpoint:      endpoint,
-		resourceName:  resourceName,
-		name:          name,
-		payload:       payload,
-		databaseAdmin: true,
-		target:        target,
-		options:       opts,
-	}
+	return newDataAPICommand(endpoint, resourceName, name, payload, target, opts, true)
 }
 
-// ResolveOptions merges all option layers and returns the final resolved options.
+// ResolveOptions returns the final resolved options.
 func (c *DataAPI) ResolveOptions() *options.APIOptions {
-	return options.Merge(c.options...)
+	return c.options
 }
 
-// Keyspace returns the keyspace to use for this command by resolving it from the
-// options hierarchy.
+// Keyspace returns the keyspace to use for this command.
 func (c *DataAPI) Keyspace() string {
-	return c.ResolveOptions().GetKeyspace()
+	return c.options.GetKeyspace()
 }
 
-// ApiVersion returns the Data API version to use for this command by resolving it
-// from the options hierarchy.
+// ApiVersion returns the Data API version to use for this command.
 func (c *DataAPI) ApiVersion() string {
-	return c.ResolveOptions().GetAPIVersion()
+	return c.options.GetAPIVersion()
 }
 
-func (c *DataAPI) URL() (string, error) {
-	if len(c.endpoint) == 0 {
-		return "", errors.New("empty API endpoint")
-	}
-	basePath := c.ResolveOptions().GetDataAPIBackend().DataAPIPath()
-	if c.databaseAdmin {
-		return url.JoinPath(c.endpoint, basePath, c.ApiVersion())
-	}
-	return url.JoinPath(c.endpoint, basePath, c.ApiVersion(), c.Keyspace(), c.resourceName)
+func (c *DataAPI) URL() string {
+	return c.url
 }
 
 func (c DataAPI) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
@@ -117,21 +112,18 @@ func (c DataAPI) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, erro
 // Execute a command against the astra DB web API.
 func (c *DataAPI) Execute(ctx context.Context) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	var body []byte
-	if c.endpoint == "" {
+	if c.url == "" {
 		return body, nil, nil, ErrCmdNilDb
 	}
 
 	// Resolve all options for this command
-	opts := c.ResolveOptions()
+	opts := c.options
 
 	b, err := serdes.Serialize(c, c.target)
 	if err != nil {
 		return body, nil, nil, err
 	}
-	cmdURL, err := c.URL()
-	if err != nil {
-		return body, nil, nil, err
-	}
+	cmdURL := c.URL()
 	slog.Debug("Running cmd.Execute", "req.URL", cmdURL, "req.body", string(b))
 
 	req, err := http.NewRequestWithContext(ctx, "POST", cmdURL, bytes.NewReader(b))
