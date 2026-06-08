@@ -190,21 +190,21 @@ func TestWithAPIVersion(t *testing.T) {
 func TestGetters_NilSafety(t *testing.T) {
 	var nilOpts *options.APIOptions
 
-	// All getters should be safe to call on nil and return zero-values
+	// All getters should be safe to call on nil and return default-values
 	if nilOpts.GetTokenProvider() != nil {
 		t.Error("expected nil token provider for nil options")
 	}
-	if nilOpts.GetKeyspace() != "" {
-		t.Error("expected empty keyspace for nil options")
+	if nilOpts.GetKeyspace() != "default_keyspace" {
+		t.Errorf("expected 'default_keyspace' for nil options, got %v", nilOpts.GetKeyspace())
 	}
-	if nilOpts.GetAPIVersion() != "" {
-		t.Error("expected empty API version for nil options")
+	if nilOpts.GetAPIVersion() != "v1" {
+		t.Errorf("expected 'v1' API version for nil options, got %v", nilOpts.GetAPIVersion())
 	}
-	if nilOpts.GetHTTPClient() != nil {
-		t.Error("expected nil HTTP client for nil options")
+	if nilOpts.GetHTTPClient() == nil {
+		t.Error("expected non-nil HTTP client for nil options")
 	}
-	if nilOpts.GetRequestTimeout() != 0 {
-		t.Error("expected zero timeout for nil options")
+	if nilOpts.GetRequestTimeout() != 30*time.Second {
+		t.Errorf("expected 30s timeout for nil options, got %v", nilOpts.GetRequestTimeout())
 	}
 }
 

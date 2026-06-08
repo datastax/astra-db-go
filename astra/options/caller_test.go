@@ -45,8 +45,11 @@ func TestCommandUserAgent(t *testing.T) {
 	}
 
 	// 1. Default User-Agent
-	cmd := command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, options.API().SetHTTPClient(httpClient)))
-	_, _, _, _ = cmd.Execute(context.Background())
+	cmd := command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, options.API().SetHTTPClient(httpClient).SetToken("")))
+	_, _, _, err := cmd.Execute(context.Background())
+	if err != nil {
+		t.Fatalf("command execution failed: %v", err)
+	}
 	expected := constants.LibName + "/" + constants.LibVersion
 	if capturedUA != expected {
 		t.Errorf("expected default User-Agent %q, got %q", expected, capturedUA)
@@ -56,7 +59,8 @@ func TestCommandUserAgent(t *testing.T) {
 	opts := options.API().
 		SetHTTPClient(httpClient).
 		AddCaller("my-app", "1.2.3").
-		AddCaller("my-framework", "")
+		AddCaller("my-framework", "").
+		SetToken("")
 
 	cmd = command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Join(nil, opts))
 	_, _, _, _ = cmd.Execute(context.Background())

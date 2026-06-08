@@ -25,7 +25,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/datastax/astra-db-go/astra/internal/constants"
 	"github.com/datastax/astra-db-go/astra/options"
 )
 
@@ -101,39 +100,23 @@ func (ac *DevOpsAPI) Execute(ctx context.Context) (*DevOpsResponse, error) {
 	}
 
 	// Set headers
-	resolvedOpts := ac.apiOptions
+	opts := ac.apiOptions
 
-	// Set authentication token from resolved options
-	if resolvedOpts.TokenProvider != nil {
-		token, err := resolvedOpts.TokenProvider.Token(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get token from provider: %w", err)
-		}
-		if token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
+	token, err := resolveToken(ctx, opts.TokenProvider)
+	if err != nil {
+		return nil, err
 	}
 
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-
-	userAgent := constants.LibName + "/" + constants.LibVersion
-	for _, caller := range resolvedOpts.Callers {
-		if caller.Version != "" {
-			userAgent += " " + caller.Name + "/" + caller.Version
-		} else {
-			userAgent += " " + caller.Name
-		}
-	}
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("Authorization", "Bearer "+token)
+	setCommonHeaders(req.Header, opts.Callers)
 
 	// Add custom headers from options
-	for key, value := range resolvedOpts.Headers {
+	for key, value := range opts.Headers {
 		req.Header.Set(key, value)
 	}
 
 	// Execute request
-	httpClient := resolvedOpts.GetHTTPClient()
+	httpClient := opts.GetHTTPClient()
 	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err

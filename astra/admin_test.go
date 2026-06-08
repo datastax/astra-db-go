@@ -283,7 +283,7 @@ func TestListDatbasesJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(exampleRespListDatabases), &raw); err != nil {
 		t.Errorf("failed to parse databases response: %v", err)
 	}
-	databases := make([]DatabaseInfo, len(raw))
+	databases := make([]FullAstraDatabaseInfo, len(raw))
 	for i := range raw {
 		databases[i] = *raw[i].toDatabaseInfo(options.AstraEnvironmentDev)
 	}

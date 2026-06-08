@@ -33,14 +33,6 @@ type ChildValidator interface {
 	Children() []Validator
 }
 
-// Defaulter is an optional interface that options types can implement
-// to populate default values. If a type implements Defaulter, Merge
-// calls SetDefaults before applying user-provided setters, so user values
-// always override defaults.
-type Defaulter interface {
-	SetDefaults()
-}
-
 // Builder is an interface that wraps a Setters method to return a
 // slice of option setters. This follows the MongoDB Go driver pattern
 // for composable options.
@@ -107,9 +99,6 @@ func validateRecursive(v Validator) error {
 // Note: result will never be nil and will always have defaults applied.
 func Merge[T any](opts ...Builder[T]) *T {
 	result := new(T)
-	if d, ok := any(result).(Defaulter); ok {
-		d.SetDefaults()
-	}
 
 	for _, opt := range opts {
 		if opt == nil || reflect.ValueOf(opt).IsNil() {
@@ -119,9 +108,6 @@ func Merge[T any](opts ...Builder[T]) *T {
 		// before applying that option's setters.
 		if isReplace(opt) {
 			*result = *new(T)
-			if d, ok := any(result).(Defaulter); ok {
-				d.SetDefaults()
-			}
 		}
 
 		for _, setter := range opt.Setters() {
@@ -154,9 +140,6 @@ func MergeInto[T any](target **T, opts ...Builder[T]) {
 		}
 		if isReplace(opt) {
 			*target = new(T)
-			if d, ok := any(*target).(Defaulter); ok {
-				d.SetDefaults()
-			}
 		}
 		if *target == nil {
 			*target = new(T)

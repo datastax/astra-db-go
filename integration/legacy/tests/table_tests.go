@@ -408,7 +408,7 @@ func TableListIndexes(e *harness.TestEnv) error {
 	}
 
 	// Test listing indexes without explain (names only)
-	indexes, err := tbl.ListIndexes(ctx)
+	indexes, err := tbl.ListIndexNames(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list indexes: %w", err)
 	}
@@ -421,7 +421,7 @@ func TableListIndexes(e *harness.TestEnv) error {
 	// Verify our index is in the list
 	found := false
 	for _, idx := range indexes {
-		if idx.Name == indexName {
+		if idx == indexName {
 			found = true
 			break
 		}
@@ -431,7 +431,7 @@ func TableListIndexes(e *harness.TestEnv) error {
 	}
 
 	// Test listing indexes with explain (full metadata)
-	indexesExplain, err := tbl.ListIndexes(ctx, options.ListIndexes().SetExplain(true))
+	indexesExplain, err := tbl.ListIndexes(ctx, options.ListIndexes())
 	if err != nil {
 		return fmt.Errorf("failed to list indexes with explain: %w", err)
 	}
@@ -620,7 +620,7 @@ func TableVectorIndex(e *harness.TestEnv) error {
 	}
 
 	// Verify the index appears in ListIndexes with correct type
-	indexes, err := tbl.ListIndexes(ctx, options.ListIndexes().SetExplain(true))
+	indexes, err := tbl.ListIndexes(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to list indexes: %w", err)
 	}

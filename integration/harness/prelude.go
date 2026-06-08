@@ -157,7 +157,7 @@ func startPruningCollections(db *astra.Db) {
 		defer deleteTCWG.Done()
 
 		testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
-			names, err := db.ListCollectionNames(Ctx, options.ListCollectionNames().SetKeyspace(ks))
+			names, err := db.ListCollectionNames(Ctx, options.ListCollections().SetKeyspace(ks))
 			if err != nil {
 				return nil, err
 			}
@@ -182,7 +182,7 @@ func startPruningTables(db *astra.Db) {
 		defer deleteTCWG.Done()
 
 		testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
-			names, err := db.ListTableNames(Ctx, options.ListTableNames().SetKeyspace(ks))
+			names, err := db.ListTableNames(Ctx, options.ListTables().SetKeyspace(ks))
 			if err != nil {
 				return nil, err
 			}
@@ -207,7 +207,7 @@ func startPruningUDTs(db *astra.Db) {
 		defer deleteTCWG.Done()
 
 		testlib.AwaitAll(nil, TestKeyspaces, func(ks string) (any, error) {
-			names, err := db.ListTypeNames(Ctx, options.ListTypeNames().SetKeyspace(ks))
+			names, err := db.ListTypeNames(Ctx, options.ListTypes().SetKeyspace(ks))
 			if err != nil {
 				return nil, err
 			}

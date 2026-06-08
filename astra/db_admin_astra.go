@@ -54,8 +54,8 @@ func (a *AstraDatabaseAdmin) Db() *Db {
 }
 
 // ID returns the database ID.
-func (d *AstraDatabaseAdmin) ID() string {
-	return *d.db.id
+func (a *AstraDatabaseAdmin) ID() string {
+	return *a.db.id
 }
 
 // Info retrieves full database information from the DevOps API.
@@ -64,8 +64,8 @@ func (d *AstraDatabaseAdmin) ID() string {
 //
 //	info, err := dbAdmin.Info(ctx)
 //	fmt.Println("Status:", info.Status)
-func (d *AstraDatabaseAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
-	return d.admin.GetDatabase(ctx, d.ID())
+func (a *AstraDatabaseAdmin) Info(ctx context.Context, opts ...options.DatabaseInfoOption) (*FullAstraDatabaseInfo, error) {
+	return a.admin.DatabaseInfo(ctx, a.ID(), opts...)
 }
 
 // Drop terminates the database, permanently deleting all of its data.
@@ -79,8 +79,8 @@ func (d *AstraDatabaseAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
 // Example:
 //
 //	err := dbAdmin.Drop(ctx)
-func (d *AstraDatabaseAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOption) error {
-	return d.admin.DropDatabase(ctx, d.ID(), opts...)
+func (a *AstraDatabaseAdmin) Drop(ctx context.Context, opts ...options.DropDatabaseOption) error {
+	return a.admin.DropDatabase(ctx, a.ID(), opts...)
 }
 
 // ListKeyspaces returns the keyspace names for this database, with the
@@ -89,13 +89,13 @@ func (d *AstraDatabaseAdmin) Drop(ctx context.Context, opts ...options.DropDatab
 // Example:
 //
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
-func (d *AstraDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...options.ListKeyspacesOption) ([]string, error) {
-	_, err := options.MergeAndValidate(opts...)
+func (a *AstraDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...options.ListKeyspacesOption) ([]string, error) {
+	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	db, err := d.admin.GetDatabase(ctx, d.ID()) // TODO get database needs to allow overriding api options
+	db, err := a.admin.DatabaseInfo(ctx, a.ID(), options.DatabaseInfo().SetAPIOptions(merged.APIOptions))
 	if err != nil {
 		return nil, err
 	}
@@ -110,32 +110,33 @@ func (d *AstraDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...options.
 // Example:
 //
 //	err := dbAdmin.CreateKeyspace(ctx, "my_keyspace")
-func (d *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error {
+func (a *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
 	}
 
 	if ptr.From(merged.UpdateDbKeyspace) {
-		d.db.UseKeyspace(keyspace)
+		a.db.UseKeyspace(keyspace)
 	}
 
-	cmd := d.admin.createCommand(http.MethodPost, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil, nil)
+	cmd := a.admin.createCommand(http.MethodPost, "/databases/"+a.ID()+"/keyspaces/"+keyspace, nil, nil, merged.APIOptions)
 	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
 	}
 
-	if !*merged.Blocking {
+	if !merged.GetBlocking() {
 		return nil
 	}
 
 	awaitOpts := AwaitStatusOptions{
-		PollInterval: *merged.PollInterval,
+		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
+		APIOptions:   merged.APIOptions,
 	}
-	err = d.admin.awaitStatus(ctx, d.ID(), awaitOpts)
+	err = a.admin.awaitStatus(ctx, a.ID(), awaitOpts)
 	return err
 }
 
@@ -144,28 +145,29 @@ func (d *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 // Example:
 //
 //	err := dbAdmin.DropKeyspace(ctx, "my_keyspace")
-func (d *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error {
+func (a *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return err
 	}
 
-	cmd := d.admin.createCommand(http.MethodDelete, "/databases/"+d.ID()+"/keyspaces/"+keyspace, nil, nil)
+	cmd := a.admin.createCommand(http.MethodDelete, "/databases/"+a.ID()+"/keyspaces/"+keyspace, nil, nil, merged.APIOptions)
 	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
 	}
 
-	if !*merged.Blocking {
+	if !merged.GetBlocking() {
 		return nil
 	}
 
 	awaitOpts := AwaitStatusOptions{
-		PollInterval: *merged.PollInterval,
+		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
+		APIOptions:   merged.APIOptions,
 	}
-	err = d.admin.awaitStatus(ctx, d.ID(), awaitOpts)
+	err = a.admin.awaitStatus(ctx, a.ID(), awaitOpts)
 	return err
 }
 
@@ -190,6 +192,6 @@ func (d *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 //	}
 //
 // Note: Warnings are accessible via the WarningHandler option callback only.
-func (d *AstraDatabaseAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
-	return findEmbeddingProviders(d.db, ctx, opts...)
+func (a *AstraDatabaseAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
+	return findEmbeddingProviders(a.db, ctx, opts...)
 }

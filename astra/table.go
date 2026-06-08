@@ -491,66 +491,125 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 	}, merged.APIOptions), nil
 }
 
-// endregion
-
-// region Index Listing
-
-// listIndexesResponse is the response from the listIndexes command
-type listIndexesResponse struct {
-	Status struct {
-		Indexes []results.IndexDescriptor `json:"indexes"`
-	} `json:"status"`
+// CreateTextIndex creates a text index on a text column in the table.
+//
+// Example - basic text index:
+//
+//	err := tbl.CreateTextIndex(ctx, "content_idx", "content")
+//
+// Example - with analyzer:
+//
+//	err := tbl.CreateTextIndex(ctx, "content_idx", "content",
+//	    options.CreateTextIndex().SetAnalyzer("standard"))
+//
+// Example - with ifNotExists:
+//
+//	err := tbl.CreateTextIndex(ctx, "content_idx", "content",
+//	    options.CreateTextIndex().SetIfNotExists(true))
+func (t *Table) CreateTextIndex(ctx context.Context, name string, column string, opts ...options.CreateTextIndexOption) error {
+	cmd, err := createTextIndexCommand(t, name, column, opts...)
+	if err != nil {
+		return err
+	}
+	_, _, _, err = cmd.Execute(ctx)
+	return err
 }
 
-// ListIndexes lists indexes on the table.
-//
-// By default, only index names are returned. Use SetExplain(true) to get
-// full index metadata including column definitions and options.
-//
-// Example - list index names only:
-//
-//	indexes, err := tbl.ListIndexes(ctx)
-//	for _, idx := range indexes {
-//	    fmt.Println(idx.Name)
-//	}
-//
-// Example - list with full metadata:
-//
-//	indexes, err := tbl.ListIndexes(ctx, options.ListIndexes().SetExplain(true))
-//	for _, idx := range indexes {
-//	    fmt.Printf("Index %s on column %s (type: %s)\n",
-//	        idx.Name, idx.Definition.Column, idx.IndexType)
-//	}
-func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]results.IndexDescriptor, error) {
-	cmd, err := listIndexesCommand(t, opts...)
-	if err != nil {
-		return nil, err
+// createTextIndexCommand builds the createTextIndex command for the table
+func createTextIndexCommand(t *Table, name string, column string, opts ...options.CreateTextIndexOption) (command.DataAPI, error) {
+	if err := validateIndexName(name); err != nil {
+		return command.DataAPI{}, err
 	}
-	b, _, _, err := cmd.Execute(ctx)
-	if err != nil {
-		return nil, err
+	if err := validateIndexColumn(column); err != nil {
+		return command.DataAPI{}, err
 	}
 
-	var resp listIndexesResponse
-	if err := serdes.Deserialize(b, &resp, nil, serdes.TargetTable, cmd.ResolveOptions().GetDesFlags()); err != nil {
-		return nil, err
-	}
-
-	return resp.Status.Indexes, nil
-}
-
-// listIndexesCommand builds the listIndexes command for the table
-func listIndexesCommand(t *Table, opts ...options.ListIndexesOption) (command.DataAPI, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command.DataAPI{}, err
 	}
 
-	return t.newCmd("listIndexes", map[string]any{
+	return t.newCmd("createTextIndex", map[string]any{
+		"name": name,
+		"definition": map[string]any{
+			"column": column,
+			"options": map[string]any{
+				"analyzer": merged.Analyzer,
+			},
+		},
 		"options": map[string]any{
-			"explain": merged.Explain,
+			"ifNotExists": merged.IfNotExists,
 		},
 	}, merged.APIOptions), nil
+}
+
+// endregion
+
+// region Index Listing
+
+// ListIndexes lists all indexes on the table with their full definitions.
+//
+// Example:
+//
+//	indexes, err := tbl.ListIndexes(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, idx := range indexes {
+//	    fmt.Printf("Index: %s on column %s\n", idx.Name, idx.Definition.Column)
+//	}
+//
+// Options passed here override those set on the database.
+func (t *Table) ListIndexes(ctx context.Context, opts ...options.ListIndexesOption) ([]results.IndexDescriptor, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return listIndexes[[]results.IndexDescriptor](t, ctx, true, merged.APIOptions)
+}
+
+// ListIndexNames lists the names of all indexes on the table.
+//
+// Example:
+//
+//	names, err := tbl.ListIndexNames(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	for _, name := range names {
+//	    fmt.Printf("Index: %s\n", name)
+//	}
+//
+// Options passed here override those set on the database.
+func (t *Table) ListIndexNames(ctx context.Context, opts ...options.ListIndexesOption) ([]string, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+	return listIndexes[[]string](t, ctx, false, merged.APIOptions)
+}
+
+// listIndexesResponse is the response from the listIndexes command
+type listIndexesResponse[T any] struct {
+	Status struct {
+		Indexes T `json:"indexes"`
+	} `json:"status"`
+}
+
+func listIndexes[T any](t *Table, ctx context.Context, explain bool, opts *options.APIOptions) (T, error) {
+	cmd := t.newCmd("listIndexes", map[string]any{
+		"options": map[string]any{
+			"explain": explain,
+		},
+	}, opts)
+	b, _, _, err := cmd.Execute(ctx)
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	var resp listIndexesResponse[T]
+	err = serdes.Deserialize(b, &resp, nil, serdes.TargetTable, opts.GetDesFlags())
+	return resp.Status.Indexes, err
 }
 
 // endregion

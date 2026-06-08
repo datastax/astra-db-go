@@ -71,4 +71,6 @@ type IndexDefinitionOptions struct {
 	Normalize *bool `json:"normalize,omitempty"`
 	// CaseSensitive if true, enforces case-sensitive matching.
 	CaseSensitive *bool `json:"caseSensitive,omitempty"`
+	// Analyzer is the name of the analyzer used for the index.
+	Analyzer any `json:"analyzer,omitempty"`
 }

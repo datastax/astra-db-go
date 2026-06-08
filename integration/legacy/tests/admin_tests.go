@@ -96,7 +96,7 @@ func AdminListDatabasesPaginated(e *harness.TestEnv) error {
 
 	// Using low page-size to try to  ensure pagination is exercised in tests.
 	pageSize := 5
-	var all []astra.DatabaseInfo
+	var all []astra.FullAstraDatabaseInfo
 	opts := options.ListDatabases().SetInclude(options.DatabaseStatusAll).SetLimit(pageSize)
 
 	for page := 1; ; page++ {
@@ -230,7 +230,7 @@ func AdminGetDatabaseNotFound(e *harness.TestEnv) error {
 	}
 
 	// Attempt to get a database with an ID that doesn't exist
-	_, err = admin.GetDatabase(ctx, "nonexistent-id")
+	_, err = admin.DatabaseInfo(ctx, "nonexistent-id")
 	if err == nil {
 		return fmt.Errorf("expected error when getting nonexistent database, got nil")
 	}

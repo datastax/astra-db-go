@@ -148,7 +148,7 @@ func (d *Db) UseKeyspace(keyspace string) {
 //	coll := db.Collection("my_collection",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
+func (d *Db) Collection(name string, opts ...options.APIOption) *Collection { // TODO need to entirely rework options because trying to use GetCollectionOption which wraps APIOption causes major issues w/ the options hierarchy
 	return &Collection{d, name, options.Join(d.options, opts...)}
 }
 
@@ -213,7 +213,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 	return &Collection{
 		db:      d,
 		name:    name,
-		options: options.Join(d.options, merged.APIOptions),
+		options: options.Join(d.options, merged.APIOptions), // TODO this breaks things; will need to address as part of an options rework
 	}, nil
 }
 
@@ -448,7 +448,7 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollection
 //	}
 //
 // Options passed here override those set on the database.
-func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionNamesOption) ([]string, error) {
+func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionsOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
@@ -516,7 +516,7 @@ func (d *Db) ListTables(ctx context.Context, opts ...options.ListTablesOption) (
 //	}
 //
 // Options passed here override those set on the database.
-func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTableNamesOption) ([]string, error) {
+func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTablesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
@@ -577,7 +577,7 @@ func (d *Db) ListTypes(ctx context.Context, opts ...options.ListTypesOption) ([]
 //	for _, name := range names {
 //	    fmt.Printf("UDT: %s\n", name)
 //	}
-func (d *Db) ListTypeNames(ctx context.Context, opts ...options.ListTypeNamesOption) ([]string, error) {
+func (d *Db) ListTypeNames(ctx context.Context, opts ...options.ListTypesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
@@ -630,6 +630,40 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 	}
 	// Non-Astra backends use the Data API.
 	return &DataAPIDatabaseAdmin{db: d}, nil
+}
+
+// Info retrieves partial database metadata based on the database's endpoint.
+// This operation requires a call to the DevOps API, which is only available on Astra databases.
+func (d *Db) Info(ctx context.Context, opts ...options.DatabaseInfoOption) (*PartialAstraDatabaseInfo, error) {
+	if !d.client.dataAPIBackend.IsAstra() {
+		return nil, fmt.Errorf("info() is only available for Astra databases")
+	}
+
+	admin, err := d.DatabaseAdmin()
+	if err != nil {
+		return nil, err
+	}
+
+	astraAdmin, ok := admin.(*AstraDatabaseAdmin)
+	if !ok {
+		return nil, fmt.Errorf("expected AstraDatabaseAdmin, got %T", admin)
+	}
+
+	info, err := astraAdmin.Info(ctx, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	region, err := d.Region()
+	if err != nil {
+		return nil, err
+	}
+
+	return &PartialAstraDatabaseInfo{
+		BaseAstraDatabaseInfo: info.BaseAstraDatabaseInfo,
+		Region:                region,
+		APIEndpoint:           d.Endpoint(),
+	}, nil
 }
 
 // endregion

@@ -67,25 +67,9 @@ type ListCollectionsOptions struct {
 	APIOptions *APIOptions `optlift:"Keyspace"`
 }
 
-// ListCollectionNamesOptions represents options for listing collection names in a database.
-// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
-type ListCollectionNamesOptions struct {
-	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
-	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `optlift:"Keyspace"`
-}
-
 // ListTablesOptions represents options for listing tables in a database with full metadata.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type ListTablesOptions struct {
-	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
-	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `optlift:"Keyspace"`
-}
-
-// ListTableNamesOptions represents options for listing table names in a database.
-// Right now this is empty except for APIOptions, but leaving it here for future-proofing.
-type ListTableNamesOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `optlift:"Keyspace"`
@@ -147,13 +131,6 @@ type DropTypeOptions struct {
 
 // ListTypesOptions represents options for listing user-defined types in a database.
 type ListTypesOptions struct {
-	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
-	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
-}
-
-// ListTypeNamesOptions represents options for listing user-defined type names in a database.
-type ListTypeNamesOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
 	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`

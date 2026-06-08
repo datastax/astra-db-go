@@ -64,40 +64,18 @@ type APIOptions struct {
 
 	// Callers contains information about the application making the request
 	Callers []Caller
+
+	// EmbeddingHeaderProvider provides headers for embedding services (e.g. $vectorize).
+	EmbeddingHeadersProvider EmbeddingHeadersProvider
+
+	// RerankingHeaderProvider provides headers for reranking services (e.g. $lexical).
+	RerankingHeadersProvider RerankingHeadersProvider
 }
 
 // Caller represents information about the application making the request.
 type Caller struct {
 	Name    string
 	Version string
-}
-
-func (o *APIOptions) SetDefaults() {
-	o.APIVersion = ptr.To("v1")
-	o.Keyspace = ptr.To("default_keyspace")
-	o.HTTPClient = &http.Client{}
-	o.Headers = make(map[string]string)
-	o.Timeout = &TimeoutOptions{}
-	o.Timeout.SetDefaults()
-	o.AstraEnvironment = ptr.To(AstraEnvironmentProd)
-	o.DataAPIBackend = ptr.To(DataAPIBackendAstra)
-}
-
-// TimeoutOptions contains timeout configuration for API operations.
-type TimeoutOptions struct {
-	// Request is the timeout for individual HTTP requests
-	Request *time.Duration
-	// Connection is the timeout for establishing connections
-	Connection *time.Duration
-	// BulkOperation is the timeout for bulk operations like insertMany
-	BulkOperation *time.Duration
-	// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
-	// When set, the entire multi-page operation must complete within this duration.
-	GeneralMethod *time.Duration
-}
-
-func (o *TimeoutOptions) SetDefaults() {
-	o.Request = ptr.To(30 * time.Second)
 }
 
 // SerdesOptions contains options for serialization and deserialization behavior.
@@ -157,6 +135,51 @@ func (o *SerdesOptions) walkDesFlags(fn func(serdes.DesFlags, **bool)) {
 	fn(serdes.DesNoCache, &o.DesNoCache)
 	fn(serdes.ExtendedErrorContext, &o.ExtendedErrorContext)
 	fn(serdes.UseJSONUnmarshal, &o.UseJSONUnmarshal)
+}
+
+// TimeoutOptions contains timeout configuration for API operations.
+type TimeoutOptions struct {
+	// Request is the timeout for individual HTTP requests
+	Request *time.Duration
+	// Connection is the timeout for establishing connections
+	Connection *time.Duration
+	// BulkOperation is the timeout for bulk operations like insertMany
+	BulkOperation *time.Duration
+	// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
+	// When set, the entire multi-page operation must complete within this duration.
+	GeneralMethod *time.Duration
+}
+
+// GetRequest returns the request timeout or 30 seconds if not set.
+func (o *TimeoutOptions) GetRequest() time.Duration {
+	if o == nil || o.Request == nil {
+		return 30 * time.Second
+	}
+	return *o.Request
+}
+
+// GetConnection returns the connection timeout or 0 if not set.
+func (o *TimeoutOptions) GetConnection() time.Duration {
+	if o == nil || o.Connection == nil {
+		return 0
+	}
+	return *o.Connection
+}
+
+// GetBulkOperation returns the bulk operation timeout or 0 if not set.
+func (o *TimeoutOptions) GetBulkOperation() time.Duration {
+	if o == nil || o.BulkOperation == nil {
+		return 0
+	}
+	return *o.BulkOperation
+}
+
+// GetGeneralMethod returns the general method timeout or nil if not set.
+func (o *TimeoutOptions) GetGeneralMethod() *time.Duration {
+	if o == nil {
+		return nil
+	}
+	return o.GeneralMethod
 }
 
 // EnableSerFlags sets the provided serialization flags to true.
@@ -247,16 +270,6 @@ func (b *apiOptionsBuilder) SetTokenProvider(provider TokenProvider) *apiOptions
 	return b
 }
 
-// SetEmbeddingApiKey sets the x-embedding-api-key header.
-func (b *apiOptionsBuilder) SetEmbeddingApiKey(key string) *apiOptionsBuilder {
-	return b.SetHeader("x-embedding-api-key", key)
-}
-
-// SetRerankingApiKey sets the x-rerank-api-key header.
-func (b *apiOptionsBuilder) SetRerankingApiKey(key string) *apiOptionsBuilder {
-	return b.SetHeader("x-rerank-api-key", key)
-}
-
 // AddCaller adds caller information to the existing list.
 func (b *apiOptionsBuilder) AddCaller(name, version string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
@@ -275,65 +288,67 @@ func (o *APIOptions) GetTokenProvider() TokenProvider {
 	return o.TokenProvider
 }
 
-// GetKeyspace returns the keyspace or empty string if not set.
+// GetKeyspace returns the keyspace or "default_keyspace" if not set.
 func (o *APIOptions) GetKeyspace() string {
 	if o == nil || o.Keyspace == nil {
-		return ""
+		return "default_keyspace"
 	}
 	return *o.Keyspace
 }
 
-// GetAPIVersion returns the API version or empty string if not set.
+// GetAPIVersion returns the API version or "v1" if not set.
 func (o *APIOptions) GetAPIVersion() string {
 	if o == nil || o.APIVersion == nil {
-		return ""
+		return "v1"
 	}
 	return *o.APIVersion
 }
 
-// GetHTTPClient returns the HTTP client or nil if not set.
+// GetHTTPClient returns the HTTP client or a default one if not set.
 func (o *APIOptions) GetHTTPClient() *http.Client {
-	if o == nil {
-		return nil
+	if o == nil || o.HTTPClient == nil {
+		return &http.Client{}
 	}
 	return o.HTTPClient
 }
 
-// GetAstraEnvironment returns the Astra environment or zero-value if not set.
+// GetAstraEnvironment returns the Astra environment or AstraEnvironmentProd if not set.
 func (o *APIOptions) GetAstraEnvironment() AstraEnvironment {
 	if o == nil || o.AstraEnvironment == nil {
-		return ""
+		return AstraEnvironmentProd
 	}
 	return *o.AstraEnvironment
 }
 
-// GetDataAPIBackend returns the database backend or zero-value if not set.
+// GetDataAPIBackend returns the database backend or DataAPIBackendAstra if not set.
 func (o *APIOptions) GetDataAPIBackend() DataAPIBackend {
 	if o == nil || o.DataAPIBackend == nil {
-		return ""
+		return DataAPIBackendAstra
 	}
 	return *o.DataAPIBackend
 }
 
-// GetRequestTimeout returns the request timeout or 0 if not set.
+// GetRequestTimeout returns the request timeout or 30 seconds if not set.
 func (o *APIOptions) GetRequestTimeout() time.Duration {
-	if o == nil || o.Timeout == nil || o.Timeout.Request == nil {
-		return 0
-	}
-	return *o.Timeout.Request
+	return o.GetTimeout().GetRequest()
 }
 
 // GetGeneralMethodTimeout returns the general method timeout or nil if not set.
 func (o *APIOptions) GetGeneralMethodTimeout() *time.Duration {
-	if o == nil || o.Timeout == nil {
+	return o.GetTimeout().GetGeneralMethod()
+}
+
+// GetTimeout returns the timeout configuration.
+func (o *APIOptions) GetTimeout() *TimeoutOptions {
+	if o == nil {
 		return nil
 	}
-	return o.Timeout.GeneralMethod
+	return o.Timeout
 }
 
 // GetSerFlags returns the serialization flags or 0 if not set.
 func (o *APIOptions) GetSerFlags() serdes.SerFlags {
-	if o == nil {
+	if o == nil || o.Serdes == nil {
 		return 0
 	}
 	return o.Serdes.GetSerFlags()
@@ -341,7 +356,7 @@ func (o *APIOptions) GetSerFlags() serdes.SerFlags {
 
 // GetDesFlags returns the deserialization flags or 0 if not set.
 func (o *APIOptions) GetDesFlags() serdes.DesFlags {
-	if o == nil {
+	if o == nil || o.Serdes == nil {
 		return 0
 	}
 	return o.Serdes.GetDesFlags()
