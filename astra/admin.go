@@ -41,8 +41,8 @@ type AstraAdmin struct {
 	astraEnvironment options.AstraEnvironment
 }
 
-func (a *AstraAdmin) createCommand(method string, path string, payload any, params url.Values) *command.DevOpsAPI {
-	return command.NewDevOpsAPICommand(a.astraEnvironment.DevOpsURL(), a.apiVersion, path, method, payload, params, a.ClientOptions())
+func (a *AstraAdmin) createCommand(method string, path string, payload any, params url.Values, opts ...options.Builder[options.APIOptions]) *command.DevOpsAPI {
+	return command.NewDevOpsAPICommand(a.astraEnvironment.DevOpsURL(), a.apiVersion, path, method, payload, params, options.Merge(append(a.options, opts...)...))
 }
 
 // Region represents an available serverless region from the DevOps API.
@@ -296,7 +296,7 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.F
 	if ptr.From(merged.FilterByOrg) {
 		params.Set("filter-by-org", "enabled")
 	}
-	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil, params)
+	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil, params, merged.APIOptions)
 
 	// Execute request
 	resp, err := cmd.Execute(ctx)
@@ -369,7 +369,7 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 	if merged.StartingAfter != nil {
 		params.Set("starting_after", *merged.StartingAfter)
 	}
-	cmd := a.createCommand(http.MethodGet, "/databases", nil, params)
+	cmd := a.createCommand(http.MethodGet, "/databases", nil, params, merged.APIOptions)
 
 	resp, err := cmd.Execute(ctx)
 	if err != nil {
@@ -389,18 +389,23 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 	return databases, nil
 }
 
-// GetDatabase retrieves information about a specific database.
+// DatabaseInfo retrieves information about a specific database.
 //
 // Example:
 //
 //	admin, err := client.Admin()
-//	db, err := admin.GetDatabase(ctx, "database-id")
+//	db, err := admin.DatabaseInfo(ctx, "database-id")
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
 //	fmt.Println("Status:", db.Status)
-func (a *AstraAdmin) GetDatabase(ctx context.Context, databaseID string) (*FullAstraDatabaseInfo, error) {
-	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil, nil)
+func (a *AstraAdmin) DatabaseInfo(ctx context.Context, databaseID string, opts ...options.DatabaseInfoOption) (*FullAstraDatabaseInfo, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil, nil, merged.APIOptions)
 	resp, err := cmd.Execute(ctx)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
@@ -478,6 +483,8 @@ type AwaitStatusOptions struct {
 	Target DatabaseStatus
 	// Legal statuses that DB can/will enter before entering target status.
 	LegalStates []DatabaseStatus
+	// APIOptions are the API options to use for status checks.
+	APIOptions *options.APIOptions
 }
 
 // Case-insensitive compare out of an abundance of caution
@@ -503,7 +510,7 @@ func (o *AwaitStatusOptions) IsStatusLegal(s DatabaseStatus) bool {
 	return false
 }
 
-// awaitStatus polls GetDatabase until the status matches a target or hits a failure state.
+// awaitStatus polls DatabaseInfo until the status matches a target or hits a failure state.
 // See [AwaitStatusOptions] for configuration.
 func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts AwaitStatusOptions) error {
 	ticker := time.NewTicker(opts.Interval())
@@ -513,7 +520,7 @@ func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts Aw
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			db, err := a.GetDatabase(ctx, databaseID)
+			db, err := a.DatabaseInfo(ctx, databaseID, options.DatabaseInfo().SetAPIOptions(opts.APIOptions))
 			if err != nil {
 				return err
 			}
@@ -586,7 +593,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 	}
 
 	// Execute request
-	cmd := a.createCommand(http.MethodPost, "/databases", payload, nil)
+	cmd := a.createCommand(http.MethodPost, "/databases", payload, nil, merged.APIOptions)
 	httpResp, err := cmd.Execute(ctx)
 	if err != nil {
 		return nil, err
@@ -610,6 +617,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusInitializing, DatabaseStatusPending, DatabaseStatusAssociating},
+		APIOptions:   merged.APIOptions,
 	}
 	err = a.awaitStatus(ctx, dbID, awaitOpts)
 	return dbAdmin, err
@@ -642,7 +650,7 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 		return err
 	}
 
-	cmd := a.createCommand(http.MethodPost, "/databases/"+databaseID+"/terminate", nil, nil)
+	cmd := a.createCommand(http.MethodPost, "/databases/"+databaseID+"/terminate", nil, nil, merged.APIOptions)
 	_, err = cmd.Execute(ctx)
 	if err != nil {
 		return err
@@ -656,6 +664,7 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusTerminated,
 		LegalStates:  []DatabaseStatus{DatabaseStatusTerminating},
+		APIOptions:   merged.APIOptions,
 	}
 
 	return a.awaitStatus(ctx, databaseID, awaitOpts)

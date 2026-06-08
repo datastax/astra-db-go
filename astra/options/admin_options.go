@@ -29,6 +29,10 @@ type FindAvailableRegionsOptions struct {
 	// FilterByOrg filters by organization access. Whether to only return regions that
 	// can be used by the caller's organization.
 	FilterByOrg *bool
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→Admin hierarchy.
+	APIOptions *APIOptions
 }
 
 // DatabaseStatus represents the status of an Astra database.
@@ -104,6 +108,10 @@ type ListDatabasesOptions struct {
 	// StartingAfter is a database ID to use with pagination. Pass the DB ID of the
 	// last item on the previous page to get the next page.
 	StartingAfter *string
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→Admin hierarchy.
+	APIOptions *APIOptions
 }
 
 // CreateDatabaseOptions represents options for the CreateDatabase operation.
@@ -116,6 +124,10 @@ type CreateDatabaseOptions struct {
 	// PollInterval is how often to check the database status when blocking.
 	// Defaults to DefaultDatabasePollInterval (10 seconds).
 	PollInterval *time.Duration
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→Admin hierarchy.
+	APIOptions *APIOptions
 }
 
 // GetBlocking returns the Blocking option or true if not set.
@@ -142,6 +154,10 @@ type DropDatabaseOptions struct {
 	// PollInterval is how often to check the database status when blocking.
 	// Defaults to DefaultDatabasePollInterval (10 seconds).
 	PollInterval *time.Duration
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→Admin hierarchy.
+	APIOptions *APIOptions
 }
 
 // GetBlocking returns the Blocking option or true if not set.
@@ -230,4 +246,11 @@ func (o *DropKeyspaceOptions) GetPollInterval() time.Duration {
 		return DefaultKeyspacePollInterval
 	}
 	return *o.PollInterval
+}
+
+// DatabaseInfoOptions represents options for the DatabaseInfo (AstraAdmin) and Info (Db/AstraDatabaseAdmin) operations.
+type DatabaseInfoOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→Admin hierarchy.
+	APIOptions *APIOptions
 }

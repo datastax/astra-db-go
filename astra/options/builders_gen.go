@@ -1600,6 +1600,16 @@ func (b *createDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *createD
 	return b
 }
 
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→Admin hierarchy.
+func (b *createDatabaseOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateDatabaseOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CreateIndexOption configures a CreateIndex operation.
 // You can use the fluent-style builder or a pointer to [CreateIndexOptions] interchangeably.
 //
@@ -1994,6 +2004,52 @@ func (b *createVectorIndexOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]
 	return b
 }
 
+// DatabaseInfoOption configures a DatabaseInfo operation.
+// You can use the fluent-style builder or a pointer to [DatabaseInfoOptions] interchangeably.
+//
+// Example using the fluent builder ([DatabaseInfo]):
+//
+//	opts := options.DatabaseInfo().SetAPIOptions(...)
+//
+// Example using a pointer to [DatabaseInfoOptions] without the fluent builder:
+//
+//	opts := &options.DatabaseInfoOptions{...}
+type DatabaseInfoOption = Builder[DatabaseInfoOptions]
+
+// Setters implements Builder[DatabaseInfoOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[DatabaseInfoOptions].
+func (o *DatabaseInfoOptions) Setters() []func(*DatabaseInfoOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for DatabaseInfoOptions.
+func (o *DatabaseInfoOptions) Validate() error { return nil }
+
+// databaseInfoOptionsBuilder is a builder for DatabaseInfoOptions.
+type databaseInfoOptionsBuilder struct {
+	setters []func(*DatabaseInfoOptions)
+}
+
+// DatabaseInfo creates a new builder for [DatabaseInfoOptions].
+func DatabaseInfo() *databaseInfoOptionsBuilder {
+	return &databaseInfoOptionsBuilder{}
+}
+
+// Setters implements Builder[DatabaseInfoOptions].
+func (b *databaseInfoOptionsBuilder) Setters() []func(*DatabaseInfoOptions) {
+	return b.setters
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→Admin hierarchy.
+func (b *databaseInfoOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *databaseInfoOptionsBuilder {
+	b.setters = append(b.setters, func(o *DatabaseInfoOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // DropCollectionOption configures a DropCollection operation.
 // You can use the fluent-style builder or a pointer to [DropCollectionOptions] interchangeably.
 //
@@ -2106,6 +2162,16 @@ func (b *dropDatabaseOptionsBuilder) SetBlocking(v bool) *dropDatabaseOptionsBui
 func (b *dropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *dropDatabaseOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropDatabaseOptions) {
 		o.PollInterval = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→Admin hierarchy.
+func (b *dropDatabaseOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *dropDatabaseOptionsBuilder {
+	b.setters = append(b.setters, func(o *DropDatabaseOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2427,6 +2493,16 @@ func (b *findAvailableRegionsOptionsBuilder) Setters() []func(*FindAvailableRegi
 func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailableRegionsOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindAvailableRegionsOptions) {
 		o.FilterByOrg = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→Admin hierarchy.
+func (b *findAvailableRegionsOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *findAvailableRegionsOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindAvailableRegionsOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }
@@ -2919,6 +2995,16 @@ func (b *listDatabasesOptionsBuilder) SetLimit(v int) *listDatabasesOptionsBuild
 func (b *listDatabasesOptionsBuilder) SetStartingAfter(v string) *listDatabasesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
 		o.StartingAfter = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→Admin hierarchy.
+func (b *listDatabasesOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *listDatabasesOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
+		MergeInto(&o.APIOptions, v...)
 	})
 	return b
 }

@@ -230,7 +230,7 @@ func AdminGetDatabaseNotFound(e *harness.TestEnv) error {
 	}
 
 	// Attempt to get a database with an ID that doesn't exist
-	_, err = admin.GetDatabase(ctx, "nonexistent-id")
+	_, err = admin.DatabaseInfo(ctx, "nonexistent-id")
 	if err == nil {
 		return fmt.Errorf("expected error when getting nonexistent database, got nil")
 	}
