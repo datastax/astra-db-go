@@ -23,6 +23,35 @@ import (
 	"github.com/datastax/astra-db-go/astra/sort"
 )
 
+// GetCollectionOptions represents options for getting a collection handle.
+type GetCollectionOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace,EmbeddingHeadersProvider,RerankingHeadersProvider"`
+}
+
+// SetEmbeddingAPIKey sets the API key to use for embedding generation for this collection.
+func (b *getCollectionOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *getCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this collection.
+func (b *getCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *getCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
+}
+
 // CreateCollectionOptions represents options for a collection's behavior.
 type CreateCollectionOptions struct {
 	// Settings for generating ids
@@ -42,7 +71,29 @@ type CreateCollectionOptions struct {
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace,EmbeddingHeadersProvider,RerankingHeadersProvider"`
+}
+
+// SetEmbeddingAPIKey sets the API key to use for embedding generation for this collection.
+func (b *createCollectionOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this collection.
+func (b *createCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
 }
 
 // SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.

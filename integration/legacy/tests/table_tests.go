@@ -222,9 +222,9 @@ func TableFind(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 	warningHandlerRun := false
-	tbl := db.Table(tableName, options.API().SetWarningHandler(func(w results.Warning) {
+	tbl := db.Table(tableName, options.GetTable().SetAPIOptions(options.API().SetWarningHandler(func(w results.Warning) {
 		warningHandlerRun = true
-	}))
+	})))
 
 	// Find all books that are not checked out using cursors.All()
 	cursor := tbl.Find(filter.Eq("is_checked_out", false))

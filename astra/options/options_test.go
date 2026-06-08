@@ -132,9 +132,10 @@ func TestHierarchyInheritance(t *testing.T) {
 	)
 
 	// 3. Collection adds a timeout and another header
-	coll := db.Collection("my-coll",
-		options.API().SetTimeout(options.Timeout().SetRequest(10*time.Second)),
-		options.API().SetHeader("X-Coll", "true"),
+	coll := db.Collection("my-coll", options.GetCollection().
+		SetAPIOptions(options.API().
+			SetTimeout(options.Timeout().SetRequest(10*time.Second)).
+			SetHeader("X-Coll", "true")),
 	)
 
 	// 4. Resolve at the final level
@@ -150,6 +151,7 @@ func TestHierarchyInheritance(t *testing.T) {
 	if resolved.GetRequestTimeout() != 10*time.Second {
 		t.Errorf("Coll timeout lost: got %v", resolved.GetRequestTimeout())
 	}
+	t.Log(resolved.Headers)
 	if len(resolved.Headers) != 3 {
 		t.Errorf("Headers not merged correctly: expected 3, got %d", len(resolved.Headers))
 	}

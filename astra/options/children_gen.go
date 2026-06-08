@@ -344,6 +344,26 @@ func (o *FindEmbeddingProvidersOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for GetCollectionOptions.
+// Returns all non-nil Validator fields.
+func (o *GetCollectionOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for GetTableOptions.
+// Returns all non-nil Validator fields.
+func (o *GetTableOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for ListCollectionNamesOptions.
 // Returns all non-nil Validator fields.
 func (o *ListCollectionNamesOptions) Children() []Validator {

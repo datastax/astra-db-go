@@ -2514,6 +2514,124 @@ func (b *findEmbeddingProvidersOptionsBuilder) SetAPIOptions(v ...Builder[APIOpt
 	return b
 }
 
+// GetCollectionOption configures a GetCollection operation.
+// You can use the fluent-style builder or a pointer to [GetCollectionOptions] interchangeably.
+//
+// Example using the fluent builder ([GetCollection]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.GetCollection().SetKeyspace("value")
+//
+// Example using a pointer to [GetCollectionOptions] without the fluent builder:
+//
+//	opts := &options.GetCollectionOptions{Keyspace: ptr.To("value")}
+type GetCollectionOption = Builder[GetCollectionOptions]
+
+// Setters implements Builder[GetCollectionOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[GetCollectionOptions].
+func (o *GetCollectionOptions) Setters() []func(*GetCollectionOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for GetCollectionOptions.
+func (o *GetCollectionOptions) Validate() error { return nil }
+
+// getCollectionOptionsBuilder is a builder for GetCollectionOptions.
+type getCollectionOptionsBuilder struct {
+	setters []func(*GetCollectionOptions)
+}
+
+// GetCollection creates a new builder for [GetCollectionOptions].
+func GetCollection() *getCollectionOptionsBuilder {
+	return &getCollectionOptionsBuilder{}
+}
+
+// Setters implements Builder[GetCollectionOptions].
+func (b *getCollectionOptionsBuilder) Setters() []func(*GetCollectionOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *getCollectionOptionsBuilder) SetKeyspace(v string) *getCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetCollectionOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+func (b *getCollectionOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *getCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetCollectionOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// GetTableOption configures a GetTable operation.
+// You can use the fluent-style builder or a pointer to [GetTableOptions] interchangeably.
+//
+// Example using the fluent builder ([GetTable]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.GetTable().SetKeyspace("value")
+//
+// Example using a pointer to [GetTableOptions] without the fluent builder:
+//
+//	opts := &options.GetTableOptions{Keyspace: ptr.To("value")}
+type GetTableOption = Builder[GetTableOptions]
+
+// Setters implements Builder[GetTableOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[GetTableOptions].
+func (o *GetTableOptions) Setters() []func(*GetTableOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for GetTableOptions.
+func (o *GetTableOptions) Validate() error { return nil }
+
+// getTableOptionsBuilder is a builder for GetTableOptions.
+type getTableOptionsBuilder struct {
+	setters []func(*GetTableOptions)
+}
+
+// GetTable creates a new builder for [GetTableOptions].
+func GetTable() *getTableOptionsBuilder {
+	return &getTableOptionsBuilder{}
+}
+
+// Setters implements Builder[GetTableOptions].
+func (b *getTableOptionsBuilder) Setters() []func(*GetTableOptions) {
+	return b.setters
+}
+
+// SetKeyspace sets the Keyspace option.
+// Keyspace is the keyspace to use for operations (lifted from APIOptions)
+func (b *getTableOptionsBuilder) SetKeyspace(v string) *getTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetTableOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.Keyspace = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *getTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *getTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetTableOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // IndexingOption configures a Indexing operation.
 // You can use the fluent-style builder or a pointer to [IndexingOptions] interchangeably.
 //
@@ -3422,7 +3540,7 @@ func (b *tableDefinitionOptionsBuilder) Setters() []func(*TableDefinitionOptions
 
 // SetAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
-// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableDefinitionOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableDefinitionOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDefinitionOptions) {
 		MergeInto(&o.APIOptions, v...)
@@ -3706,7 +3824,7 @@ func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOption
 
 // SetAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
-// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *tableFindOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *tableFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOptions) {
 		MergeInto(&o.APIOptions, v...)

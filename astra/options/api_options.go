@@ -64,6 +64,12 @@ type APIOptions struct {
 
 	// Callers contains information about the application making the request
 	Callers []Caller
+
+	// EmbeddingHeaderProvider provides headers for embedding services (e.g. $vectorize).
+	EmbeddingHeadersProvider EmbeddingHeadersProvider
+
+	// RerankingHeaderProvider provides headers for reranking services (e.g. $lexical).
+	RerankingHeadersProvider RerankingHeadersProvider
 }
 
 // Caller represents information about the application making the request.
@@ -245,16 +251,6 @@ func (b *apiOptionsBuilder) SetTokenProvider(provider TokenProvider) *apiOptions
 		o.TokenProvider = provider
 	})
 	return b
-}
-
-// SetEmbeddingApiKey sets the x-embedding-api-key header.
-func (b *apiOptionsBuilder) SetEmbeddingApiKey(key string) *apiOptionsBuilder {
-	return b.SetHeader("x-embedding-api-key", key)
-}
-
-// SetRerankingApiKey sets the x-rerank-api-key header.
-func (b *apiOptionsBuilder) SetRerankingApiKey(key string) *apiOptionsBuilder {
-	return b.SetHeader("x-rerank-api-key", key)
 }
 
 // AddCaller adds caller information to the existing list.

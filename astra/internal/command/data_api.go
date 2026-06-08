@@ -19,13 +19,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 
-	"github.com/datastax/astra-db-go/astra/internal/constants"
 	"github.com/datastax/astra-db-go/astra/internal/untyped"
 	"github.com/datastax/astra-db-go/astra/options"
 	"github.com/datastax/astra-db-go/astra/results"
@@ -131,28 +129,21 @@ func (c *DataAPI) Execute(ctx context.Context) ([]byte, results.Warnings, serdes
 		return body, nil, nil, err
 	}
 
-	// Set authentication token from resolved options
-	if opts.TokenProvider != nil {
-		token, err := opts.TokenProvider.Token(ctx)
-		if err != nil {
-			return body, nil, nil, fmt.Errorf("failed to get token from provider: %w", err)
-		}
-		if token != "" {
-			req.Header.Set("Token", token)
-		}
+	token, err := resolveToken(ctx, opts.TokenProvider)
+	if err != nil {
+		return body, nil, nil, err
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-
-	userAgent := constants.LibName + "/" + constants.LibVersion
-	for _, caller := range opts.Callers {
-		if caller.Version != "" {
-			userAgent += " " + caller.Name + "/" + caller.Version
-		} else {
-			userAgent += " " + caller.Name
-		}
+	if err := setEmbeddingHeaders(ctx, req.Header, opts.EmbeddingHeadersProvider); err != nil {
+		return body, nil, nil, err
 	}
-	req.Header.Set("User-Agent", userAgent)
+
+	if err := setRerankingHeaders(ctx, req.Header, opts.RerankingHeadersProvider); err != nil {
+		return body, nil, nil, err
+	}
+
+	req.Header.Set("Token", token)
+	setCommonHeaders(req.Header, opts.Callers)
 
 	// Add any custom headers from resolved options
 	for key, value := range opts.Headers {
@@ -229,4 +220,32 @@ func (c *DataAPI) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	}
 
 	return body, resp.Status.Warnings, schema, nil
+}
+
+func setEmbeddingHeaders(ctx context.Context, headers http.Header, provider options.EmbeddingHeadersProvider) error {
+	if provider == nil {
+		return nil
+	}
+	embeddingHeaders, err := provider.GetEmbeddingHeaders(ctx)
+	if err != nil {
+		return err
+	}
+	for key, value := range embeddingHeaders {
+		headers.Set(key, value)
+	}
+	return nil
+}
+
+func setRerankingHeaders(ctx context.Context, headers http.Header, provider options.RerankingHeadersProvider) error {
+	if provider == nil {
+		return nil
+	}
+	rerankingHeaders, err := provider.GetRerankingHeaders(ctx)
+	if err != nil {
+		return err
+	}
+	for key, value := range rerankingHeaders {
+		headers.Set(key, value)
+	}
+	return nil
 }

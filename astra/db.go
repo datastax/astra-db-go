@@ -148,8 +148,9 @@ func (d *Db) UseKeyspace(keyspace string) {
 //	coll := db.Collection("my_collection",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
-	return &Collection{d, name, options.Join(d.options, opts...)}
+func (d *Db) Collection(name string, opts ...options.GetCollectionOption) *Collection {
+	merged := options.Merge(opts...)
+	return &Collection{d, name, options.Join(d.options, merged.APIOptions)}
 }
 
 // Table returns a Table object for the specified table name.
@@ -162,8 +163,9 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection {
 //	tbl := db.Table("my_table",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{d, name, options.Join(d.options, opts...)}
+func (d *Db) Table(name string, opts ...options.GetTableOption) *Table {
+	merged := options.Merge(opts...)
+	return &Table{d, name, options.Join(d.options, merged.APIOptions)}
 }
 
 // endregion

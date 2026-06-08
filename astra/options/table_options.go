@@ -16,6 +16,35 @@ package options
 
 import "github.com/datastax/astra-db-go/astra/sort"
 
+// GetTableOptions represents options for getting a table handle.
+type GetTableOptions struct {
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace,EmbeddingHeadersProvider,RerankingHeadersProvider"`
+}
+
+// SetEmbeddingAPIKey sets the API key to use for embedding generation for this table.
+func (b *getTableOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *getTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetTableOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this table.
+func (b *getTableOptionsBuilder) SetRerankingAPIKey(apiKey string) *getTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *GetTableOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
+}
+
 // CreateTableOptions represents options for creating a table
 type CreateTableOptions struct {
 	// IfNotExists if true, the command will silently succeed even if a table
@@ -24,7 +53,29 @@ type CreateTableOptions struct {
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
-	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+	APIOptions *APIOptions `json:"-" optlift:"Keyspace,EmbeddingHeadersProvider,RerankingHeadersProvider"`
+}
+
+// SetEmbeddingAPIKey sets the API key to use for embedding generation for this table.
+func (b *createTableOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *createTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTableOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this table.
+func (b *createTableOptionsBuilder) SetRerankingAPIKey(apiKey string) *createTableOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTableOptions) {
+		if o.APIOptions == nil {
+			o.APIOptions = &APIOptions{}
+		}
+		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+	})
+	return b
 }
 
 // TableFindOneOptions represents options for a findOne operation.
@@ -72,7 +123,7 @@ type TableFindOptions struct {
 	InitialPageState *string `json:"pageState,omitempty"`
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
-	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
 
@@ -131,7 +182,7 @@ type TableDeleteManyOptions struct {
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type TableDefinitionOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
-	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
 }
 
