@@ -15,6 +15,7 @@
 package astra
 
 import (
+	"context"
 	"testing"
 
 	"github.com/datastax/astra-db-go/astra/internal/command"
@@ -24,6 +25,20 @@ import (
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/table"
 )
+
+func TestDbInfoNonAstra(t *testing.T) {
+	client := NewClient(options.API().SetDataAPIBackend(options.DataAPIBackendHCD))
+	db := client.Database("http://localhost:8181")
+
+	_, err := db.Info(context.Background())
+	if err == nil {
+		t.Error("expected error for non-Astra backend, got nil")
+	}
+	expected := "info() is only available for Astra databases"
+	if err.Error() != expected {
+		t.Errorf("expected error %q, got %q", expected, err.Error())
+	}
+}
 
 func TestDbUseKeyspace(t *testing.T) {
 	client := NewClient(options.API().SetToken("test-token"))

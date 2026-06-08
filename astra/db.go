@@ -632,4 +632,38 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 	return &DataAPIDatabaseAdmin{db: d}, nil
 }
 
+// Info retrieves partial database metadata based on the database's endpoint.
+// This operation requires a call to the DevOps API, which is only available on Astra databases.
+func (d *Db) Info(ctx context.Context) (*PartialAstraDatabaseInfo, error) {
+	if !d.client.dataAPIBackend.IsAstra() {
+		return nil, fmt.Errorf("info() is only available for Astra databases")
+	}
+
+	admin, err := d.DatabaseAdmin()
+	if err != nil {
+		return nil, err
+	}
+
+	astraAdmin, ok := admin.(*AstraDatabaseAdmin)
+	if !ok {
+		return nil, fmt.Errorf("expected AstraDatabaseAdmin, got %T", admin)
+	}
+
+	info, err := astraAdmin.Info(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	region, err := d.Region()
+	if err != nil {
+		return nil, err
+	}
+
+	return &PartialAstraDatabaseInfo{
+		BaseAstraDatabaseInfo: info.BaseAstraDatabaseInfo,
+		Region:                region,
+		APIEndpoint:           d.Endpoint(),
+	}, nil
+}
+
 // endregion

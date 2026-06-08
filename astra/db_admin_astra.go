@@ -64,7 +64,7 @@ func (d *AstraDatabaseAdmin) ID() string {
 //
 //	info, err := dbAdmin.Info(ctx)
 //	fmt.Println("Status:", info.Status)
-func (d *AstraDatabaseAdmin) Info(ctx context.Context) (*DatabaseInfo, error) {
+func (d *AstraDatabaseAdmin) Info(ctx context.Context) (*FullAstraDatabaseInfo, error) {
 	return d.admin.GetDatabase(ctx, d.ID())
 }
 

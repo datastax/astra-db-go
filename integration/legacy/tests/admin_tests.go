@@ -96,7 +96,7 @@ func AdminListDatabasesPaginated(e *harness.TestEnv) error {
 
 	// Using low page-size to try to  ensure pagination is exercised in tests.
 	pageSize := 5
-	var all []astra.DatabaseInfo
+	var all []astra.FullAstraDatabaseInfo
 	opts := options.ListDatabases().SetInclude(options.DatabaseStatusAll).SetLimit(pageSize)
 
 	for page := 1; ; page++ {

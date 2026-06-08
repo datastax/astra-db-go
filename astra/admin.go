@@ -91,9 +91,8 @@ const (
 	DatabaseStatusAll           = options.DatabaseStatusAll
 )
 
-// DatabaseInfo is the curated view of an Astra database, flattening
-// and simplifying the raw DevOps API response.
-type DatabaseInfo struct {
+// BaseAstraDatabaseInfo contains the common properties shared by both PartialAstraDatabaseInfo and FullAstraDatabaseInfo.
+type BaseAstraDatabaseInfo struct {
 	// ID is the unique database identifier.
 	ID string
 	// Name is the database name.
@@ -104,11 +103,19 @@ type DatabaseInfo struct {
 	Keyspaces []string
 	// CloudProvider is the cloud provider (e.g., "aws", "gcp", "azure").
 	CloudProvider string
+	// Environment is the Astra environment.
+	Environment options.AstraEnvironment
+	// Raw is the raw DevOps API response, provided as an escape hatch
+	// for fields not in the curated view.
+	Raw *rawDatabaseResponse
+}
+
+// FullAstraDatabaseInfo is the complete metadata returned for an Astra database, flattening and simplifying the raw DevOps API response.
+type FullAstraDatabaseInfo struct {
+	BaseAstraDatabaseInfo
 	// Regions contains information about the regions where the database is deployed.
 	// It will have at least one value, and may have more for multi-region deployments.
 	Regions []AstraDatabaseRegionInfo
-	// Environment is the Astra environment.
-	Environment options.AstraEnvironment
 	// CreatedAt is when the database was created.
 	CreatedAt time.Time
 	// LastUsed is when the database was last used (zero if unknown).
@@ -117,16 +124,22 @@ type DatabaseInfo struct {
 	OrgID string
 	// OwnerID is the owner's identifier.
 	OwnerID string
-	// Raw is the raw DevOps API response, provided as an escape hatch
-	// for fields not in the curated view.
-	Raw *rawDatabaseResponse
+}
+
+// PartialAstraDatabaseInfo is the partial metadata of a database, as returned from Db.Info, flattening and simplifying the raw DevOps API response.
+type PartialAstraDatabaseInfo struct {
+	BaseAstraDatabaseInfo
+	// Region is the region being used by the [Db] instance.
+	Region string
+	// APIEndpoint is the API endpoint for the region.
+	APIEndpoint string
 }
 
 // AstraDatabaseRegionInfo represents information about a region in which an Astra database is hosted.
 //
 // This includes the region name, the API endpoint to use when interacting with that region, and the created-at timestamp.
 //
-// Used within the regions field of DatabaseInfo or similar types, which may include multiple region entries for multi-region databases.
+// Used within the regions field of FullAstraDatabaseInfo or similar types, which may include multiple region entries for multi-region databases.
 type AstraDatabaseRegionInfo struct {
 	// Name is the name of the region where the database is hosted, e.g. "us-east1".
 	Name string `json:"name"`
@@ -137,7 +150,7 @@ type AstraDatabaseRegionInfo struct {
 }
 
 // rawDatabaseResponse represents the full database response from the DevOps API.
-// Used internally for JSON deserialization; the curated [DatabaseInfo] is the public type.
+// Used internally for JSON deserialization; the curated [FullAstraDatabaseInfo] is the public type.
 type rawDatabaseResponse struct {
 	AvailableActions []string `json:"availableActions"`
 	Cost             struct {
@@ -218,8 +231,8 @@ type rawDatabaseResponse struct {
 	TerminationTime time.Time `json:"terminationTime"`
 }
 
-// toDatabaseInfo converts a raw DevOps API response to the curated DatabaseInfo.
-func (r *rawDatabaseResponse) toDatabaseInfo(env options.AstraEnvironment) *DatabaseInfo {
+// toDatabaseInfo converts a raw DevOps API response to the curated FullAstraDatabaseInfo.
+func (r *rawDatabaseResponse) toDatabaseInfo(env options.AstraEnvironment) *FullAstraDatabaseInfo {
 	var keyspaces []string
 	if r.Info.Keyspace != "" {
 		keyspaces = append(keyspaces, r.Info.Keyspace)
@@ -235,19 +248,21 @@ func (r *rawDatabaseResponse) toDatabaseInfo(env options.AstraEnvironment) *Data
 		}
 	}
 
-	return &DatabaseInfo{
-		ID:            r.ID,
-		Name:          r.Info.Name,
-		Status:        r.Status,
-		Keyspaces:     keyspaces,
-		CloudProvider: r.Info.CloudProvider,
-		Regions:       regions,
-		Environment:   env,
-		CreatedAt:     r.CreationTime,
-		LastUsed:      r.LastUsageTime,
-		OrgID:         r.OrgID,
-		OwnerID:       r.OwnerID,
-		Raw:           r,
+	return &FullAstraDatabaseInfo{
+		BaseAstraDatabaseInfo: BaseAstraDatabaseInfo{
+			ID:            r.ID,
+			Name:          r.Info.Name,
+			Status:        r.Status,
+			Keyspaces:     keyspaces,
+			CloudProvider: r.Info.CloudProvider,
+			Environment:   env,
+			Raw:           r,
+		},
+		Regions:   regions,
+		CreatedAt: r.CreationTime,
+		LastUsed:  r.LastUsageTime,
+		OrgID:     r.OrgID,
+		OwnerID:   r.OwnerID,
 	}
 }
 
@@ -335,7 +350,7 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.F
 //		}
 //		return all, nil
 //	}
-func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListDatabasesOption) ([]DatabaseInfo, error) {
+func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListDatabasesOption) ([]FullAstraDatabaseInfo, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
@@ -366,7 +381,7 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 		return nil, fmt.Errorf("failed to parse databases response: %w", err)
 	}
 
-	databases := make([]DatabaseInfo, len(raw))
+	databases := make([]FullAstraDatabaseInfo, len(raw))
 	for i := range raw {
 		databases[i] = *raw[i].toDatabaseInfo(a.astraEnvironment)
 	}
@@ -384,7 +399,7 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 //	    log.Fatal(err)
 //	}
 //	fmt.Println("Status:", db.Status)
-func (a *AstraAdmin) GetDatabase(ctx context.Context, databaseID string) (*DatabaseInfo, error) {
+func (a *AstraAdmin) GetDatabase(ctx context.Context, databaseID string) (*FullAstraDatabaseInfo, error) {
 	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil, nil)
 	resp, err := cmd.Execute(ctx)
 	if err != nil {
