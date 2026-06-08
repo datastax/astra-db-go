@@ -30,11 +30,17 @@ func TestCreateDatabase_Defaults(t *testing.T) {
 	if opts == nil {
 		t.Fatal("expected non-nil options")
 	}
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking default true, got %v", opts.Blocking)
+	if opts.Blocking != nil {
+		t.Errorf("expected Blocking to be nil on struct, got %v", opts.Blocking)
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != options.DefaultDatabasePollInterval {
-		t.Errorf("expected PollInterval default %v, got %v", options.DefaultDatabasePollInterval, opts.PollInterval)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() default true, got %v", opts.GetBlocking())
+	}
+	if opts.PollInterval != nil {
+		t.Errorf("expected PollInterval to be nil on struct, got %v", opts.PollInterval)
+	}
+	if opts.GetPollInterval() != options.DefaultDatabasePollInterval {
+		t.Errorf("expected GetPollInterval() default %v, got %v", options.DefaultDatabasePollInterval, opts.GetPollInterval())
 	}
 	if opts.Keyspace != nil {
 		t.Errorf("expected Keyspace to be nil, got %v", opts.Keyspace)
@@ -46,11 +52,17 @@ func TestDropDatabase_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking default true, got %v", opts.Blocking)
+	if opts.Blocking != nil {
+		t.Errorf("expected Blocking to be nil on struct, got %v", opts.Blocking)
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != options.DefaultDatabasePollInterval {
-		t.Errorf("expected PollInterval default %v, got %v", options.DefaultDatabasePollInterval, opts.PollInterval)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() default true, got %v", opts.GetBlocking())
+	}
+	if opts.PollInterval != nil {
+		t.Errorf("expected PollInterval to be nil on struct, got %v", opts.PollInterval)
+	}
+	if opts.GetPollInterval() != options.DefaultDatabasePollInterval {
+		t.Errorf("expected GetPollInterval() default %v, got %v", options.DefaultDatabasePollInterval, opts.GetPollInterval())
 	}
 }
 
@@ -59,11 +71,17 @@ func TestCreateKeyspace_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking default true, got %v", opts.Blocking)
+	if opts.Blocking != nil {
+		t.Errorf("expected Blocking to be nil on struct, got %v", opts.Blocking)
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != options.DefaultKeyspacePollInterval {
-		t.Errorf("expected PollInterval default %v, got %v", options.DefaultKeyspacePollInterval, opts.PollInterval)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() default true, got %v", opts.GetBlocking())
+	}
+	if opts.PollInterval != nil {
+		t.Errorf("expected PollInterval to be nil on struct, got %v", opts.PollInterval)
+	}
+	if opts.GetPollInterval() != options.DefaultKeyspacePollInterval {
+		t.Errorf("expected GetPollInterval() default %v, got %v", options.DefaultKeyspacePollInterval, opts.GetPollInterval())
 	}
 	if opts.ReplicationFactor != nil {
 		t.Errorf("expected ReplicationFactor to be nil, got %v", opts.ReplicationFactor)
@@ -75,11 +93,17 @@ func TestDropKeyspace_Defaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to merge options: %v", err)
 	}
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking default true, got %v", opts.Blocking)
+	if opts.Blocking != nil {
+		t.Errorf("expected Blocking to be nil on struct, got %v", opts.Blocking)
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != options.DefaultKeyspacePollInterval {
-		t.Errorf("expected PollInterval default %v, got %v", options.DefaultKeyspacePollInterval, opts.PollInterval)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() default true, got %v", opts.GetBlocking())
+	}
+	if opts.PollInterval != nil {
+		t.Errorf("expected PollInterval to be nil on struct, got %v", opts.PollInterval)
+	}
+	if opts.GetPollInterval() != options.DefaultKeyspacePollInterval {
+		t.Errorf("expected GetPollInterval() default %v, got %v", options.DefaultKeyspacePollInterval, opts.GetPollInterval())
 	}
 }
 
@@ -139,11 +163,11 @@ func TestDropKeyspace_MergeMultiple(t *testing.T) {
 		t.Fatal("expected non-nil options")
 	}
 
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking to be true, got %v", opts.Blocking)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() to be true, got %v", opts.GetBlocking())
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != 5*time.Second {
-		t.Errorf("expected PollInterval to be 5s, got %v", opts.PollInterval)
+	if opts.GetPollInterval() != 5*time.Second {
+		t.Errorf("expected GetPollInterval() to be 5s, got %v", opts.GetPollInterval())
 	}
 }
 
@@ -158,11 +182,11 @@ func TestDropKeyspace_WithDirectStruct(t *testing.T) {
 	if opts == nil {
 		t.Fatal("expected non-nil options")
 	}
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking to be true, got %v", opts.Blocking)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() to be true, got %v", opts.GetBlocking())
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != 10*time.Minute {
-		t.Errorf("expected PollInterval to be 10m, got %v", opts.PollInterval)
+	if opts.GetPollInterval() != 10*time.Minute {
+		t.Errorf("expected GetPollInterval() to be 10m, got %v", opts.GetPollInterval())
 	}
 }
 
@@ -180,11 +204,11 @@ func TestMultipleDirectStruct(t *testing.T) {
 	if opts == nil {
 		t.Fatal("expected non-nil options")
 	}
-	if opts.Blocking == nil || *opts.Blocking != false {
-		t.Errorf("expected Blocking to be false, got %v", opts.Blocking)
+	if opts.GetBlocking() != false {
+		t.Errorf("expected GetBlocking() to be false, got %v", opts.GetBlocking())
 	}
 	// Now verify even with multiple direct structs, the last one wins for overlapping fields
-	if opts.PollInterval == nil || *opts.PollInterval != 10*time.Minute {
-		t.Errorf("expected PollInterval to be 10m, got %v", opts.PollInterval)
+	if opts.GetPollInterval() != 10*time.Minute {
+		t.Errorf("expected GetPollInterval() to be 10m, got %v", opts.GetPollInterval())
 	}
 }

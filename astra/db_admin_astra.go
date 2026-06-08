@@ -126,12 +126,12 @@ func (d *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 		return err
 	}
 
-	if !*merged.Blocking {
+	if !merged.GetBlocking() {
 		return nil
 	}
 
 	awaitOpts := AwaitStatusOptions{
-		PollInterval: *merged.PollInterval,
+		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}
@@ -156,12 +156,12 @@ func (d *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 		return err
 	}
 
-	if !*merged.Blocking {
+	if !merged.GetBlocking() {
 		return nil
 	}
 
 	awaitOpts := AwaitStatusOptions{
-		PollInterval: *merged.PollInterval,
+		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
 	}

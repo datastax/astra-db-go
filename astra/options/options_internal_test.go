@@ -27,10 +27,10 @@ func TestMergeAndValidate_TypedNilBuilder(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// Should still get defaults as if no options were passed.
-	if opts.Blocking == nil || *opts.Blocking != true {
-		t.Errorf("expected Blocking default true, got %v", opts.Blocking)
+	if opts.GetBlocking() != true {
+		t.Errorf("expected GetBlocking() default true, got %v", opts.GetBlocking())
 	}
-	if opts.PollInterval == nil || *opts.PollInterval != DefaultKeyspacePollInterval {
-		t.Errorf("expected PollInterval default, got %v", opts.PollInterval)
+	if opts.GetPollInterval() != DefaultKeyspacePollInterval {
+		t.Errorf("expected GetPollInterval() default, got %v", opts.GetPollInterval())
 	}
 }

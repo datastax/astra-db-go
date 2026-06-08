@@ -587,12 +587,12 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabasePa
 
 	dbAdmin := a.DatabaseAdmin(dbID, region)
 
-	if !*merged.Blocking {
+	if !merged.GetBlocking() {
 		return dbAdmin, nil
 	}
 	// Poll until database is ACTIVE
 	awaitOpts := AwaitStatusOptions{
-		PollInterval: *merged.PollInterval,
+		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusInitializing, DatabaseStatusPending, DatabaseStatusAssociating},
 	}
@@ -633,12 +633,12 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 		return err
 	}
 
-	if !*merged.Blocking {
+	if !merged.GetBlocking() {
 		return nil
 	}
 	// Poll until database is terminated
 	awaitOpts := AwaitStatusOptions{
-		PollInterval: *merged.PollInterval,
+		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusTerminated,
 		LegalStates:  []DatabaseStatus{DatabaseStatusTerminating},
 	}

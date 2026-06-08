@@ -54,13 +54,3 @@ func (b *SimpleOptionsBuilder) SetBlocking(v bool) *SimpleOptionsBuilder {
 	return b
 }
 ```
-
-If you want to set option defaults, you can implement `Defaulter` on your options struct:
-
-```go
-// SetDefaults implements the Defaulter interface for SimpleOptions.
-func (o *SimpleOptions) SetDefaults() {
-    // Default blocking to true
-	o.Blocking = ptr.To(true)
-}
-```

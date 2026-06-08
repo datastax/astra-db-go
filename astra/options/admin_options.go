@@ -16,8 +16,6 @@ package options
 
 import (
 	"time"
-
-	"github.com/datastax/astra-db-go/astra/ptr"
 )
 
 // DefaultDatabasePollInterval is the default interval for polling database status.
@@ -120,10 +118,20 @@ type CreateDatabaseOptions struct {
 	PollInterval *time.Duration
 }
 
-// SetDefaults implements the Defaulter interface for CreateDatabaseOptions.
-func (o *CreateDatabaseOptions) SetDefaults() {
-	o.Blocking = ptr.To(true)
-	o.PollInterval = ptr.To(DefaultDatabasePollInterval)
+// GetBlocking returns the Blocking option or true if not set.
+func (o *CreateDatabaseOptions) GetBlocking() bool {
+	if o == nil || o.Blocking == nil {
+		return true
+	}
+	return *o.Blocking
+}
+
+// GetPollInterval returns the PollInterval option or DefaultDatabasePollInterval if not set.
+func (o *CreateDatabaseOptions) GetPollInterval() time.Duration {
+	if o == nil || o.PollInterval == nil {
+		return DefaultDatabasePollInterval
+	}
+	return *o.PollInterval
 }
 
 // DropDatabaseOptions represents options for the DropDatabase operation.
@@ -136,10 +144,20 @@ type DropDatabaseOptions struct {
 	PollInterval *time.Duration
 }
 
-// SetDefaults implements the Defaulter interface for DropDatabaseOptions.
-func (o *DropDatabaseOptions) SetDefaults() {
-	o.Blocking = ptr.To(true)
-	o.PollInterval = ptr.To(DefaultDatabasePollInterval)
+// GetBlocking returns the Blocking option or true if not set.
+func (o *DropDatabaseOptions) GetBlocking() bool {
+	if o == nil || o.Blocking == nil {
+		return true
+	}
+	return *o.Blocking
+}
+
+// GetPollInterval returns the PollInterval option or DefaultDatabasePollInterval if not set.
+func (o *DropDatabaseOptions) GetPollInterval() time.Duration {
+	if o == nil || o.PollInterval == nil {
+		return DefaultDatabasePollInterval
+	}
+	return *o.PollInterval
 }
 
 // ListKeyspacesOptions represents options for listing the keyspaces in a database.
@@ -169,10 +187,20 @@ type CreateKeyspaceOptions struct {
 	APIOptions *APIOptions
 }
 
-// SetDefaults implements the Defaulter interface for CreateKeyspaceOptions.
-func (o *CreateKeyspaceOptions) SetDefaults() {
-	o.Blocking = ptr.To(true)
-	o.PollInterval = ptr.To(DefaultKeyspacePollInterval)
+// GetBlocking returns the Blocking option or true if not set.
+func (o *CreateKeyspaceOptions) GetBlocking() bool {
+	if o == nil || o.Blocking == nil {
+		return true
+	}
+	return *o.Blocking
+}
+
+// GetPollInterval returns the PollInterval option or DefaultKeyspacePollInterval if not set.
+func (o *CreateKeyspaceOptions) GetPollInterval() time.Duration {
+	if o == nil || o.PollInterval == nil {
+		return DefaultKeyspacePollInterval
+	}
+	return *o.PollInterval
 }
 
 // DropKeyspaceOptions represents options for the DropKeyspace operation.
@@ -188,8 +216,18 @@ type DropKeyspaceOptions struct {
 	APIOptions *APIOptions
 }
 
-// SetDefaults implements the Defaulter interface for DropKeyspaceOptions.
-func (o *DropKeyspaceOptions) SetDefaults() {
-	o.Blocking = ptr.To(true)
-	o.PollInterval = ptr.To(DefaultKeyspacePollInterval)
+// GetBlocking returns the Blocking option or true if not set.
+func (o *DropKeyspaceOptions) GetBlocking() bool {
+	if o == nil || o.Blocking == nil {
+		return true
+	}
+	return *o.Blocking
+}
+
+// GetPollInterval returns the PollInterval option or DefaultKeyspacePollInterval if not set.
+func (o *DropKeyspaceOptions) GetPollInterval() time.Duration {
+	if o == nil || o.PollInterval == nil {
+		return DefaultKeyspacePollInterval
+	}
+	return *o.PollInterval
 }
