@@ -150,7 +150,6 @@ func TestHierarchyInheritance(t *testing.T) {
 	if resolved.GetRequestTimeout() != 10*time.Second {
 		t.Errorf("Coll timeout lost: got %v", resolved.GetRequestTimeout())
 	}
-	t.Log(resolved.Headers)
 	if len(resolved.Headers) != 3 {
 		t.Errorf("Headers not merged correctly: expected 3, got %d", len(resolved.Headers))
 	}
