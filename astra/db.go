@@ -148,9 +148,8 @@ func (d *Db) UseKeyspace(keyspace string) {
 //	coll := db.Collection("my_collection",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Collection(name string, opts ...options.GetCollectionOption) *Collection {
-	merged := options.Merge(opts...)
-	return &Collection{d, name, options.Join(d.options, merged.APIOptions)}
+func (d *Db) Collection(name string, opts ...options.APIOption) *Collection { // TODO need to entirely rework options because trying to use GetCollectionOption which wraps APIOption causes major issues w/ the options hierarchy
+	return &Collection{d, name, options.Join(d.options, opts...)}
 }
 
 // Table returns a Table object for the specified table name.
@@ -163,9 +162,8 @@ func (d *Db) Collection(name string, opts ...options.GetCollectionOption) *Colle
 //	tbl := db.Table("my_table",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Table(name string, opts ...options.GetTableOption) *Table {
-	merged := options.Merge(opts...)
-	return &Table{d, name, options.Join(d.options, merged.APIOptions)}
+func (d *Db) Table(name string, opts ...options.APIOption) *Table {
+	return &Table{d, name, options.Join(d.options, opts...)}
 }
 
 // endregion
@@ -215,7 +213,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 	return &Collection{
 		db:      d,
 		name:    name,
-		options: options.Join(d.options, merged.APIOptions),
+		options: options.Join(d.options, merged.APIOptions), // TODO this breaks things; will need to address as part of an options rework
 	}, nil
 }
 
