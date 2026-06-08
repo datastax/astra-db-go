@@ -29,6 +29,7 @@ import (
 
 	"github.com/datastax/astra-db-go/astra/filter"
 	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/astra/results"
 	"github.com/datastax/astra-db-go/astra/serdes"
 	"github.com/datastax/astra-db-go/astra/sort"
 	"github.com/datastax/astra-db-go/astra/table"
@@ -671,87 +672,13 @@ func TestCreateVectorIndexIfNotExistsCommandMarshal(t *testing.T) {
 	}
 }
 
-// This example was taken from the documentation here:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/list-index-metadata.html#example-names
-var exampleListIndexesNamesOnlyPayloadJSON = testlib.CleanString(`{
-  "listIndexes": {
-    "options": {
-      "explain": null
-    }
-  }
-}`)
-
-// TestListIndexesNamesOnlyCommandMarshal verifies that the resulting command from listIndexesCommand
-// with default options (no explain) matches the payload in the docs.
-func TestListIndexesNamesOnlyCommandMarshal(t *testing.T) {
-	cmd, err := listIndexesCommand(getTestTable(t))
-	if err != nil {
-		t.Fatalf("listIndexesCommand: %v", err)
-	}
-	cmdBytes, err := serdes.Serialize(cmd, serdes.TargetTable)
-	if err != nil {
-		t.Fatalf("serdes.Serialize: %v", err)
-	}
-
-	var got, expected map[string]interface{}
-	if err := json.Unmarshal(cmdBytes, &got); err != nil {
-		t.Fatalf("json.Unmarshal got: %v", err)
-	}
-	if err := json.Unmarshal([]byte(exampleListIndexesNamesOnlyPayloadJSON), &expected); err != nil {
-		t.Fatalf("json.Unmarshal expected: %v", err)
-	}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleListIndexesNamesOnlyPayloadJSON, string(cmdBytes))
-	}
-}
-
-// This example was taken from the documentation here:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/list-index-metadata.html#example-explain
-var exampleListIndexesExplainPayloadJSON = testlib.CleanString(`{
-  "listIndexes": {
-    "options": {
-      "explain": true
-    }
-  }
-}`)
-
-// TestListIndexesExplainCommandMarshal verifies that the resulting command from listIndexesCommand
-// with explain=true matches the payload in the docs.
-func TestListIndexesExplainCommandMarshal(t *testing.T) {
-	cmd, err := listIndexesCommand(getTestTable(t), options.ListIndexes().SetExplain(true))
-	if err != nil {
-		t.Fatalf("listIndexesCommand: %v", err)
-	}
-	cmdBytes, err := serdes.Serialize(cmd, serdes.TargetTable)
-	if err != nil {
-		t.Fatalf("serdes.Serialize: %v", err)
-	}
-	if string(cmdBytes) != exampleListIndexesExplainPayloadJSON {
-		t.Errorf("expected JSON:\n%s\nGot:\n%s", exampleListIndexesExplainPayloadJSON, string(cmdBytes))
-	}
-}
-
-// TestListIndexesCommandURL verifies that the listIndexesCommand URL
-// is correct (should hit the table endpoint).
-func TestListIndexesCommandURL(t *testing.T) {
-	cmd, err := listIndexesCommand(getTestTable(t))
-	if err != nil {
-		t.Fatalf("listIndexesCommand: %v", err)
-	}
-	postURL := cmd.URL()
-	// Verify the URL matches what example CURL command is expecting
-	expectedURL := "https://API_ENDPOINT/api/json/v1/some_keyspace/example_table"
-	if postURL != expectedURL {
-		t.Errorf("expected URL %s, got %s", expectedURL, postURL)
-	}
-}
-
 // TestListIndexesResponseUnmarshal tests unmarshaling the listIndexes response.
 func TestListIndexesResponseUnmarshal(t *testing.T) {
-	t.Run("names only response", func(t *testing.T) {
-		// When explain=false, the API returns an array of strings
+	t.Run("names only response (IndexDescriptor)", func(t *testing.T) {
+		// When explain=false, the API returns an array of strings.
+		// IndexDescriptor has a custom unmarshaler to handle this.
 		jsonResp := `{"status":{"indexes":["rating_idx","title_idx"]}}`
-		var resp listIndexesResponse
+		var resp listIndexesResponse[[]results.IndexDescriptor]
 		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
@@ -771,9 +698,28 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 		}
 	})
 
+	t.Run("names only response ([]string)", func(t *testing.T) {
+		// When using ListIndexNames, we expect []string
+		jsonResp := `{"status":{"indexes":["rating_idx","title_idx"]}}`
+		var resp listIndexesResponse[[]string]
+		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
+			t.Fatalf("failed to unmarshal: %v", err)
+		}
+
+		if len(resp.Status.Indexes) != 2 {
+			t.Errorf("expected 2 indexes, got %d", len(resp.Status.Indexes))
+		}
+		if resp.Status.Indexes[0] != "rating_idx" {
+			t.Errorf("expected index name 'rating_idx', got %s", resp.Status.Indexes[0])
+		}
+		if resp.Status.Indexes[1] != "title_idx" {
+			t.Errorf("expected index name 'title_idx', got %s", resp.Status.Indexes[1])
+		}
+	})
+
 	t.Run("explain response with regular index", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[{"name":"rating_idx","definition":{"column":"rating"},"indexType":"regular"}]}}`
-		var resp listIndexesResponse
+		var resp listIndexesResponse[[]results.IndexDescriptor]
 		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
@@ -798,7 +744,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 
 	t.Run("explain response with vector index", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[{"name":"embedding_idx","definition":{"column":"embedding","options":{"metric":"cosine","sourceModel":"other"}},"indexType":"vector"}]}}`
-		var resp listIndexesResponse
+		var resp listIndexesResponse[[]results.IndexDescriptor]
 		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}
@@ -832,7 +778,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 
 	t.Run("empty indexes", func(t *testing.T) {
 		jsonResp := `{"status":{"indexes":[]}}`
-		var resp listIndexesResponse
+		var resp listIndexesResponse[[]results.IndexDescriptor]
 		if err := serdes.Deserialize([]byte(jsonResp), &resp, nil, serdes.TargetTable); err != nil {
 			t.Fatalf("failed to unmarshal: %v", err)
 		}

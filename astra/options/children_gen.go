@@ -404,16 +404,6 @@ func (o *GetTableOptions) Children() []Validator {
 	return children
 }
 
-// Children implements ChildValidator for ListCollectionNamesOptions.
-// Returns all non-nil Validator fields.
-func (o *ListCollectionNamesOptions) Children() []Validator {
-	var children []Validator
-	if o.APIOptions != nil {
-		children = append(children, o.APIOptions)
-	}
-	return children
-}
-
 // Children implements ChildValidator for ListCollectionsOptions.
 // Returns all non-nil Validator fields.
 func (o *ListCollectionsOptions) Children() []Validator {
@@ -454,29 +444,9 @@ func (o *ListKeyspacesOptions) Children() []Validator {
 	return children
 }
 
-// Children implements ChildValidator for ListTableNamesOptions.
-// Returns all non-nil Validator fields.
-func (o *ListTableNamesOptions) Children() []Validator {
-	var children []Validator
-	if o.APIOptions != nil {
-		children = append(children, o.APIOptions)
-	}
-	return children
-}
-
 // Children implements ChildValidator for ListTablesOptions.
 // Returns all non-nil Validator fields.
 func (o *ListTablesOptions) Children() []Validator {
-	var children []Validator
-	if o.APIOptions != nil {
-		children = append(children, o.APIOptions)
-	}
-	return children
-}
-
-// Children implements ChildValidator for ListTypeNamesOptions.
-// Returns all non-nil Validator fields.
-func (o *ListTypeNamesOptions) Children() []Validator {
 	var children []Validator
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)

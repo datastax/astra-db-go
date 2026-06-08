@@ -448,7 +448,7 @@ func (d *Db) ListCollections(ctx context.Context, opts ...options.ListCollection
 //	}
 //
 // Options passed here override those set on the database.
-func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionNamesOption) ([]string, error) {
+func (d *Db) ListCollectionNames(ctx context.Context, opts ...options.ListCollectionsOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
@@ -516,7 +516,7 @@ func (d *Db) ListTables(ctx context.Context, opts ...options.ListTablesOption) (
 //	}
 //
 // Options passed here override those set on the database.
-func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTableNamesOption) ([]string, error) {
+func (d *Db) ListTableNames(ctx context.Context, opts ...options.ListTablesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
@@ -577,7 +577,7 @@ func (d *Db) ListTypes(ctx context.Context, opts ...options.ListTypesOption) ([]
 //	for _, name := range names {
 //	    fmt.Printf("UDT: %s\n", name)
 //	}
-func (d *Db) ListTypeNames(ctx context.Context, opts ...options.ListTypeNamesOption) ([]string, error) {
+func (d *Db) ListTypeNames(ctx context.Context, opts ...options.ListTypesOption) ([]string, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err

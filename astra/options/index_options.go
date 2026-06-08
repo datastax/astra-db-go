@@ -73,10 +73,6 @@ type CreateVectorIndexOptions struct {
 
 // ListIndexesOptions represents options for listing indexes.
 type ListIndexesOptions struct {
-	// Explain if true, returns full index metadata including definitions.
-	// If false (default), only returns index names.
-	Explain *bool
-
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`

@@ -123,7 +123,7 @@ func createAndListIndexes(ctx context.Context, tbl *astra.Table) {
 	fmt.Println("Created index: author_idx on column \"author\"")
 
 	logHeader("Listing Indexes")
-	indexes, err := tbl.ListIndexes(ctx, options.ListIndexes().SetExplain(true))
+	indexes, err := tbl.ListIndexes(ctx, options.ListIndexes())
 	if err != nil {
 		log.Fatal(err)
 	}
