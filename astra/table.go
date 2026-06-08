@@ -491,6 +491,58 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 	}, merged.APIOptions), nil
 }
 
+// CreateTextIndex creates a text index on a text column in the table.
+//
+// Example - basic text index:
+//
+//	err := tbl.CreateTextIndex(ctx, "content_idx", "content")
+//
+// Example - with analyzer:
+//
+//	err := tbl.CreateTextIndex(ctx, "content_idx", "content",
+//	    options.CreateTextIndex().SetAnalyzer("standard"))
+//
+// Example - with ifNotExists:
+//
+//	err := tbl.CreateTextIndex(ctx, "content_idx", "content",
+//	    options.CreateTextIndex().SetIfNotExists(true))
+func (t *Table) CreateTextIndex(ctx context.Context, name string, column string, opts ...options.CreateTextIndexOption) error {
+	cmd, err := createTextIndexCommand(t, name, column, opts...)
+	if err != nil {
+		return err
+	}
+	_, _, _, err = cmd.Execute(ctx)
+	return err
+}
+
+// createTextIndexCommand builds the createTextIndex command for the table
+func createTextIndexCommand(t *Table, name string, column string, opts ...options.CreateTextIndexOption) (command.DataAPI, error) {
+	if err := validateIndexName(name); err != nil {
+		return command.DataAPI{}, err
+	}
+	if err := validateIndexColumn(column); err != nil {
+		return command.DataAPI{}, err
+	}
+
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return command.DataAPI{}, err
+	}
+
+	return t.newCmd("createTextIndex", map[string]any{
+		"name": name,
+		"definition": map[string]any{
+			"column": column,
+			"options": map[string]any{
+				"analyzer": merged.Analyzer,
+			},
+		},
+		"options": map[string]any{
+			"ifNotExists": merged.IfNotExists,
+		},
+	}, merged.APIOptions), nil
+}
+
 // endregion
 
 // region Index Listing

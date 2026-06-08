@@ -44,7 +44,7 @@ type CreateIndexOptions struct {
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions
 }
 
 // CreateVectorIndexOptions represents options for creating a vector index.
@@ -68,12 +68,48 @@ type CreateVectorIndexOptions struct {
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions
+}
+
+// CreateTextIndexOptions represents options for creating a text index.
+type CreateTextIndexOptions struct {
+	// IfNotExists if true, the command will silently succeed even if an index
+	// with the given name already exists. This only checks index names, not definitions.
+	IfNotExists *bool
+
+	// Analyzer is the name of the analyzer to use for the index, or a configuration map.
+	Analyzer any
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+	APIOptions *APIOptions
+}
+
+// SetAnalyzer sets the built-in analyzer to use for the text index (e.g. "standard", "simple", "whitespace", etc.)
+func (b *createTextIndexOptionsBuilder) SetAnalyzer(v string) *createTextIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTextIndexOptions) {
+		o.Analyzer = v
+	})
+	return b
+}
+
+// SetCustomAnalyzer sets a custom analyzer configuration for the text index. The map should follow the structure defined by the API, e.g.:
+//
+//	{
+//	  "tokenizer": {...},
+//	  "filters": [...],
+//	  "charFilters": [...],
+//	}
+func (b *createTextIndexOptionsBuilder) SetCustomAnalyzer(v map[string]any) *createTextIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTextIndexOptions) {
+		o.Analyzer = v
+	})
+	return b
 }
 
 // ListIndexesOptions represents options for listing indexes.
 type ListIndexesOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Table→Command hierarchy.
-	APIOptions *APIOptions `json:"-"`
+	APIOptions *APIOptions
 }

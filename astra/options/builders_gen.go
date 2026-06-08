@@ -1853,6 +1853,63 @@ func (b *createTableOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *cre
 	return b
 }
 
+// CreateTextIndexOption configures a CreateTextIndex operation.
+// You can use the fluent-style builder or a pointer to [CreateTextIndexOptions] interchangeably.
+//
+// Example using the fluent builder ([CreateTextIndex]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.CreateTextIndex().SetIfNotExists(false)
+//
+// Example using a pointer to [CreateTextIndexOptions] without the fluent builder:
+//
+//	opts := &options.CreateTextIndexOptions{IfNotExists: ptr.To(false)}
+type CreateTextIndexOption = Builder[CreateTextIndexOptions]
+
+// Setters implements Builder[CreateTextIndexOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[CreateTextIndexOptions].
+func (o *CreateTextIndexOptions) Setters() []func(*CreateTextIndexOptions) {
+	return NoopBuilder(o)
+}
+
+// Validate implements Validator for CreateTextIndexOptions.
+func (o *CreateTextIndexOptions) Validate() error { return nil }
+
+// createTextIndexOptionsBuilder is a builder for CreateTextIndexOptions.
+type createTextIndexOptionsBuilder struct {
+	setters []func(*CreateTextIndexOptions)
+}
+
+// CreateTextIndex creates a new builder for [CreateTextIndexOptions].
+func CreateTextIndex() *createTextIndexOptionsBuilder {
+	return &createTextIndexOptionsBuilder{}
+}
+
+// Setters implements Builder[CreateTextIndexOptions].
+func (b *createTextIndexOptionsBuilder) Setters() []func(*CreateTextIndexOptions) {
+	return b.setters
+}
+
+// SetIfNotExists sets the IfNotExists option.
+// IfNotExists if true, the command will silently succeed even if an index
+// with the given name already exists. This only checks index names, not definitions.
+func (b *createTextIndexOptionsBuilder) SetIfNotExists(v bool) *createTextIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTextIndexOptions) {
+		o.IfNotExists = &v
+	})
+	return b
+}
+
+// SetAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Table→Command hierarchy.
+func (b *createTextIndexOptionsBuilder) SetAPIOptions(v ...Builder[APIOptions]) *createTextIndexOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateTextIndexOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // CreateTypeOption configures a CreateType operation.
 // You can use the fluent-style builder or a pointer to [CreateTypeOptions] interchangeably.
 //

@@ -274,6 +274,16 @@ func (o *CreateTableOptions) Children() []Validator {
 	return children
 }
 
+// Children implements ChildValidator for CreateTextIndexOptions.
+// Returns all non-nil Validator fields.
+func (o *CreateTextIndexOptions) Children() []Validator {
+	var children []Validator
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for CreateTypeOptions.
 // Returns all non-nil Validator fields.
 func (o *CreateTypeOptions) Children() []Validator {
