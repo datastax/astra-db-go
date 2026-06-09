@@ -14,7 +14,7 @@
 
 package results
 
-import "github.com/datastax/astra-db-go/astra/table"
+import "github.com/datastax/astra-db-go/v2/astra/table"
 
 // TableDescriptor represents the descriptor for a table, including its name and definition.
 type TableDescriptor struct {

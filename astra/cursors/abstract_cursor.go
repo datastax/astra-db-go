@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/datastax/astra-db-go/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
 )
 
 // ErrCursorClosed is returned when operations are attempted on a closed cursor.

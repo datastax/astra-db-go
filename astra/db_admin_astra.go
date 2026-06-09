@@ -18,9 +18,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 // AstraDatabaseAdmin provides admin operations for a specific Astra database

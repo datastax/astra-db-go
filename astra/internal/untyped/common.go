@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 func getDeepFromMap(m map[string]any, path ...string) (any, bool) {

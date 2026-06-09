@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/datastax/astra-db-go/astra/internal/utils"
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // InsertOneResult represents the result of an insertOne operation.

@@ -15,7 +15,7 @@
 package testlib
 
 import (
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // command is a proxy for unexported command in main package

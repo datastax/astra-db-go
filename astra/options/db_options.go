@@ -14,7 +14,7 @@
 
 package options
 
-import "github.com/datastax/astra-db-go/astra/internal/constants"
+import "github.com/datastax/astra-db-go/v2/astra/internal/constants"
 
 // ModelLifecycleStatus is the lifecycle status of an embedding provider model,
 // used to filter models returned by FindEmbeddingProviders.

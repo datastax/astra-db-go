@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"pgregory.net/rapid"
 )
 

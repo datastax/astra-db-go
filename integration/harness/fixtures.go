@@ -17,8 +17,8 @@ package harness
 import (
 	"context"
 
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 var Ctx = context.Background()

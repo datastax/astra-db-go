@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
 )
 
 // TimeOnly represents a time (hour, minute, second, nanosecond) without a date component,

@@ -19,15 +19,15 @@ import (
 	"errors"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/cursors"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/internal/command"
-	"github.com/datastax/astra-db-go/astra/internal/utils"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/update"
+	"github.com/datastax/astra-db-go/v2/astra/cursors"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/update"
 )
 
 // CollectionFilter is implemented by [filter.F] and [filter.Filter].
@@ -41,13 +41,13 @@ import (
 //
 //	f := filter.F{"num_pages": filter.F{"$gt": 300}}
 //
-// [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/filter
+// [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/filter
 type CollectionFilter = filter.Filterable
 
 // CollectionUpdate is implemented by [update.CollectionUpdateBuilder] and [update.U].
 // See the [update package] for more details.
 //
-// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/update
+// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/update
 type CollectionUpdate = update.CollectionUpdate
 
 // Collection represents a collection in an Astra DB database.

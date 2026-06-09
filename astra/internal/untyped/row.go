@@ -23,9 +23,9 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/table"
 )
 
 // Row represents an untyped row used for a table operation (as opposed to using a specific struct).

@@ -17,9 +17,9 @@ package serdes_test
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 )
 
 func TestSerdesLinkedMap(t *testing.T) {

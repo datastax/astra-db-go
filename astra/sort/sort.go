@@ -31,8 +31,8 @@
 package sort
 
 import (
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // Ascending is the sort order value for ascending (1).

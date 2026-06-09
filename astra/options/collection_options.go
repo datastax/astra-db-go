@@ -18,9 +18,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/internal/constants"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/sort"
+	"github.com/datastax/astra-db-go/v2/astra/internal/constants"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
 )
 
 // GetCollectionOptions represents options for getting a collection handle.

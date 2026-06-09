@@ -14,7 +14,7 @@
 
 package results
 
-import "github.com/datastax/astra-db-go/astra/serdes"
+import "github.com/datastax/astra-db-go/v2/astra/serdes"
 
 // IndexDescriptor describes an index on a table.
 // When listing indexes with explain=true, all fields are populated.

@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/internal/command"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
 )
 
 // DefaultAdminAPIVersion is the default version of the Astra DevOps API.

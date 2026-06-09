@@ -17,9 +17,9 @@ package sort_test
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/sort"
-	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 )
 
 // Compile-time interface checks

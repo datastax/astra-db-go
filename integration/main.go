@@ -17,11 +17,11 @@ package main
 import (
 	"os"
 
-	"github.com/datastax/astra-db-go/integration/harness"
-	"github.com/datastax/astra-db-go/integration/legacy"
+	"github.com/datastax/astra-db-go/v2/integration/harness"
+	"github.com/datastax/astra-db-go/v2/integration/legacy"
 
-	_ "github.com/datastax/astra-db-go/integration/tests/collection"
-	_ "github.com/datastax/astra-db-go/integration/tests/table"
+	_ "github.com/datastax/astra-db-go/v2/integration/tests/collection"
+	_ "github.com/datastax/astra-db-go/v2/integration/tests/table"
 )
 
 func main() {

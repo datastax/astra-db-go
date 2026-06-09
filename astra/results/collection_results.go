@@ -14,7 +14,7 @@
 
 package results
 
-import "github.com/datastax/astra-db-go/astra/internal/constants"
+import "github.com/datastax/astra-db-go/v2/astra/internal/constants"
 
 // CollectionDescriptor represents the descriptor for a collection, including its name and definition.
 type CollectionDescriptor struct {

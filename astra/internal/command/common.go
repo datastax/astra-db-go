@@ -19,8 +19,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/datastax/astra-db-go/astra/internal/constants"
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/internal/constants"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 func resolveToken(ctx context.Context, provider options.TokenProvider) (string, error) {

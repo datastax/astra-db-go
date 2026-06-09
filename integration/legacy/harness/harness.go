@@ -22,9 +22,9 @@ import (
 	"sync"
 
 	"github.com/DeanPDX/dotconfig"
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 // TestEnv represents our test environment.
@@ -36,7 +36,7 @@ type TestEnv struct {
 	// If set, will only run tests with names that start with prefix.
 	TestPrefix string `env:"TEST_PREFIX,optional"`
 	// The backend we are running this against. "astra", "hcd", etc. Defaults to "astra".
-	// See: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/options#DataAPIBackend
+	// See: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/options#DataAPIBackend
 	Backend string `env:"BACKEND" default:"astra"`
 }
 

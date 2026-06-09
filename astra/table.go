@@ -18,14 +18,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/datastax/astra-db-go/astra/cursors"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/internal/command"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/table"
-	"github.com/datastax/astra-db-go/astra/update"
+	"github.com/datastax/astra-db-go/v2/astra/cursors"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/table"
+	"github.com/datastax/astra-db-go/v2/astra/update"
 )
 
 // TableFilter is implemented by [filter.F] and [filter.Filter].
@@ -33,13 +33,13 @@ import (
 //
 //	f := filter.F{"num_pages": filter.F{"$gt": 300}}
 //
-// [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/filter
+// [filter package]: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/filter
 type TableFilter = filter.Filterable
 
 // TableUpdate is implemented by [update.TableUpdateBuilder] and [update.U].
 // See the [update package] for more details.
 //
-// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/astra/update
+// [update package]: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/update
 type TableUpdate = update.TableUpdate
 
 // Table represents a table in the Astra DB.

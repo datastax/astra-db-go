@@ -17,9 +17,9 @@ package update_test
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/update"
-	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/update"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 )
 
 // Example taken from:

@@ -22,9 +22,9 @@ import (
 	"slices"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/integration/legacy/harness"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/integration/legacy/harness"
 )
 
 func init() {

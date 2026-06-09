@@ -27,14 +27,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/sort"
-	"github.com/datastax/astra-db-go/astra/table"
-	"github.com/datastax/astra-db-go/astra/update"
-	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
+	"github.com/datastax/astra-db-go/v2/astra/table"
+	"github.com/datastax/astra-db-go/v2/astra/update"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 )
 
 func TestTableDefinitionMarshal(t *testing.T) {

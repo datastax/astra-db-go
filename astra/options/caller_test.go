@@ -21,9 +21,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/internal/command"
-	"github.com/datastax/astra-db-go/astra/internal/constants"
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/constants"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 type roundTripperFunc func(*http.Request) (*http.Response, error)

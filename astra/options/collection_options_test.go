@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 func TestIndexingOptionsValidation(t *testing.T) {

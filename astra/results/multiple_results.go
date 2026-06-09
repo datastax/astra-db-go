@@ -17,7 +17,7 @@ package results
 import (
 	"encoding/json"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // MultipleResult represents documents returned from an operation.

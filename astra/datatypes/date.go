@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
 )
 
 // DateOnly represents a date (year, month, day) without a time component,

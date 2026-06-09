@@ -18,7 +18,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 func TestDataAPIErrorAllMeta(t *testing.T) {

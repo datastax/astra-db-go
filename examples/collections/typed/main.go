@@ -6,9 +6,9 @@ import (
 	"log"
 
 	"github.com/DeanPDX/dotconfig"
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 // Config is a struct for retrieving configuration from environment variables.

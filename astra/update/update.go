@@ -25,7 +25,7 @@
 package update
 
 import (
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // CollectionUpdate is implemented by types that can be used as an update document

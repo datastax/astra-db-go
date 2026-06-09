@@ -17,8 +17,8 @@ package options_test
 import (
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
 )
 
 func BenchmarkMergeOptions_WithValidator(b *testing.B) {
