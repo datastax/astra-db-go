@@ -8,6 +8,11 @@ on:
         required: true
         type: boolean
         default: false
+      preview:
+        description: 'Is a preview release'
+        required: true
+        type: boolean
+        default: true
 
 jobs:
   validate:
@@ -20,14 +25,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get version from code
+      - name: Get and Verify version from code
         id: get_version
         run: |
-          VERSION=$(grep -E 'const LibVersion = "[0-9]+\.[0-9]+\.[0-9]+"' astra/internal/constants/version.go | cut -d'"' -f2)
+          VERSION=$(grep -E 'const LibVersion = "[^"]+"' astra/internal/constants/version.go | cut -d'"' -f2)
+          
           if [ -z "$VERSION" ]; then
-            echo "Error: Could not find valid LibVersion in astra/internal/constants/version.go"
+            echo "Error: Could not find LibVersion in astra/internal/constants/version.go"
             exit 1
           fi
+
+          if [ ${{ github.event.inputs.preview }}" = "true" ]; then
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+$ ]]; then
+              echo "Error: Preview release is enabled, but LibVersion '$VERSION' does not end in '-preview.x'"
+              exit 1
+            fi
+          else
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Error: Production release enabled, but LibVersion '$VERSION' contains prerelease tags."
+              exit 1
+            fi
+          fi
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Check if tag already exists
@@ -53,11 +72,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
       - name: Create Tag
         run: |
           VERSION=${{ needs.validate.outputs.version }}
           git tag "v$VERSION"
           git push origin "v$VERSION"
+
+      - name: Push to Preview Branch
+        if: github.event.inputs.preview == 'true'
+        run: |
+          git fetch origin preview:preview || git checkout -b preview
+          git checkout preview
+          git merge ${{ github.sha }} --no-edit
+          git push origin preview
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -66,4 +98,4 @@ jobs:
           name: Release v${{ needs.validate.outputs.version }}
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{github.event.inputs.preview}}
