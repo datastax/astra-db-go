@@ -1,7 +1,7 @@
 # astra-db-go
 
 [![License Apache2](https://img.shields.io/hexpm/l/plug.svg)](http://www.apache.org/licenses/LICENSE-2.0)
-[![Go Reference](https://pkg.go.dev/badge/github.com/datastax/astra-db-go.svg)](https://pkg.go.dev/github.com/datastax/astra-db-go/v2)
+[![Go Reference](https://pkg.go.dev/badge/github.com/datastax/astra-db-go.svg)](https://pkg.go.dev/github.com/datastax/astra-db-go)
 [![Documentation](https://img.shields.io/badge/Docs-datastax.com-blueviolet.svg)](https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html)
 
 `astra-db-go` is a Go client for interacting with [DataStax Astra DB](https://astra.datastax.com/) and Hyper-Converged Database.
