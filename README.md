@@ -39,7 +39,7 @@ import (
 )
 
 client := astra.NewClient(
-    options.WithToken("AstraCS:..."),
+    options.API().SetToken("AstraCS:..."),
 )
 ```
 
@@ -295,31 +295,32 @@ import "github.com/datastax/astra-db-go/v2/astra/options"
 
 // Client-level defaults
 client := astra.NewClient(
-    options.WithToken("AstraCS:..."),
-    options.WithTimeout(30 * time.Second),
-    options.WithKeyspace("my_keyspace"),
+    options.API().
+        SetToken("AstraCS:...").
+        SetRequestTimeout(30 * time.Second).
+        SetKeyspace("my_keyspace"),
 )
 
 // Override at the database level
 db := client.Database(endpoint,
-    options.WithKeyspace("another_keyspace"),
+    options.API().SetKeyspace("another_keyspace"),
 )
 
 // Custom HTTP client
 httpClient := &http.Client{Timeout: 60 * time.Second}
 client := astra.NewClient(
-    options.WithToken("AstraCS:..."),
-    options.WithHTTPClient(httpClient),
+    options.API().
+        SetToken("AstraCS:...").
+        SetHTTPClient(httpClient),
 )
 
 // Warning handler
 client := astra.NewClient(
-    options.WithToken("AstraCS:..."),
-    options.WithWarningHandler(func(warnings results.Warnings) {
-        for _, w := range warnings {
+    options.API().
+        SetToken("AstraCS:...").
+        SetWarningHandler(func(w results.Warning) {
             log.Printf("warning: %s", w.Message)
-        }
-    }),
+        }),
 )
 ```
 
