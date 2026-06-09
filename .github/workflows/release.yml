@@ -86,10 +86,8 @@ jobs:
       - name: Push to Preview Branch
         if: github.event.inputs.preview == 'true'
         run: |
-          git fetch origin preview:preview || git checkout -b preview
-          git checkout preview
-          git merge ${{ github.sha }} --no-edit
-          git push origin preview
+          git checkout -b preview ${{ github.sha }}
+          git push origin preview --force
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
