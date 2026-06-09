@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/DeanPDX/dotconfig"
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/fatih/color"
 )
 

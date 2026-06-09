@@ -21,7 +21,7 @@ import (
 	"reflect"
 	"unsafe"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 )
 
 // Misc

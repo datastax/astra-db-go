@@ -18,7 +18,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )

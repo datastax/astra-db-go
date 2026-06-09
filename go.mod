@@ -1,4 +1,4 @@
-module github.com/datastax/astra-db-go
+module github.com/datastax/astra-db-go/v2
 
 go 1.24.0
 

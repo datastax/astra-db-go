@@ -19,7 +19,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 func TestFlags_SortMapKeys(t *testing.T) {

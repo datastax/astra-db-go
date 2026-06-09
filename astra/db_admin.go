@@ -19,8 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 // DatabaseAdmin provides keyspace management operations for a database.

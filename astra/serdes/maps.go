@@ -20,7 +20,7 @@ import (
 	"sort"
 	"unsafe"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 )
 
 // Map serdes is complex enough to warrant its own file, as we're allowing for a Cartesian product of features:

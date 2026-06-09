@@ -22,7 +22,7 @@ import (
 	"testing"
 	"testing/quick"
 
-	"github.com/datastax/astra-db-go/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
 )
 
 type abstractCursorSourceImpl struct {

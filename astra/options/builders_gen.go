@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/sort"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
 )
 
 // Setters implements Builder[APIOptions] allowing the raw struct to be

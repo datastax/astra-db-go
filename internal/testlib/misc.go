@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 var whitespace = regexp.MustCompile(`\s+`)

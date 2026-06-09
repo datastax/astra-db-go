@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/table"
 )
 
 // mustGetCol returns the column with the given name, failing the test if missing.

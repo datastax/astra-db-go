@@ -16,7 +16,7 @@
 package filter
 
 import (
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // Filterable is implemented by types that can be used as query filters.

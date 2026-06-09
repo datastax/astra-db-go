@@ -15,9 +15,9 @@
 package cursors
 
 import (
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // CollectionFindAndRerankCursor is a cursor for iterating over documents returned by a collection findAndRerank operation.

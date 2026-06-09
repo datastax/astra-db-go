@@ -18,8 +18,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // cleanString removes all whitespace characters from a string.

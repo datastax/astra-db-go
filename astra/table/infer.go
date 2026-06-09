@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 )
 
 // Well-known reflect types for comparison in type mapping.

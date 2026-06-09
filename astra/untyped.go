@@ -15,9 +15,9 @@
 package astra
 
 import (
-	"github.com/datastax/astra-db-go/astra/internal/untyped"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/v2/astra/internal/untyped"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/table"
 )
 
 // Document represents an untyped document used for a collection operation (as opposed to using a specific struct).

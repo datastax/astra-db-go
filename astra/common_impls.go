@@ -22,14 +22,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/internal/command"
-	"github.com/datastax/astra-db-go/astra/internal/utils"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/sort"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
 )
 
 type mkCmd = func(name string, payload any, opts ...options.APIOption) command.DataAPI

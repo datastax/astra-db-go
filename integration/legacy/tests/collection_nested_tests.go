@@ -21,10 +21,10 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra/cursors"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/integration/legacy/harness"
+	"github.com/datastax/astra-db-go/v2/astra/cursors"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/integration/legacy/harness"
 
 	"github.com/google/go-cmp/cmp"
 )

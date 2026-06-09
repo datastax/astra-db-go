@@ -14,7 +14,7 @@
 
 package options
 
-import "github.com/datastax/astra-db-go/astra/sort"
+import "github.com/datastax/astra-db-go/v2/astra/sort"
 
 // GetTableOptions represents options for getting a table handle.
 type GetTableOptions struct {

@@ -17,10 +17,10 @@ package cursors
 import (
 	"context"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/sort"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
 )
 
 // FindAndRerankCursor is a lazy iterable over the results of a findAndRerank operation.

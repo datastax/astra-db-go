@@ -24,10 +24,10 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/datastax/astra-db-go/astra/internal/untyped"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/internal/untyped"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 var (

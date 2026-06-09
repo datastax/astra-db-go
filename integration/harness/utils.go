@@ -15,9 +15,9 @@
 package harness
 
 import (
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 )
 
 func (t *T) NoDiff(want, got any) {

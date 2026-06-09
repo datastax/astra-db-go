@@ -34,8 +34,8 @@ Import the package and create a client with your Application Token:
 
 ```go
 import (
-    "github.com/datastax/astra-db-go/astra"
-    "github.com/datastax/astra-db-go/astra/options"
+    "github.com/datastax/astra-db-go/v2/astra"
+    "github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 client := astra.NewClient(
@@ -94,7 +94,7 @@ _, err = coll.InsertMany(ctx, []Book{
 Use `FindOne` to retrieve a single document:
 
 ```go
-import "github.com/datastax/astra-db-go/astra/filter"
+import "github.com/datastax/astra-db-go/v2/astra/filter"
 
 var result Book
 err = coll.FindOne(ctx, filter.Eq("_id", "1")).Decode(&result)
@@ -144,7 +144,7 @@ count, err := coll.CountDocuments(ctx, filter.F{}, 1000)
 The `filter` package provides a composable set of operators for querying collections and tables.
 
 ```go
-import "github.com/datastax/astra-db-go/astra/filter"
+import "github.com/datastax/astra-db-go/v2/astra/filter"
 
 // Equality
 filter.Eq("status", "active")
@@ -179,7 +179,7 @@ Tables provide a structured, schema-enforced data model backed by Cassandra's CQ
 
 ```go
 import (
-    "github.com/datastax/astra-db-go/astra/table"
+    "github.com/datastax/astra-db-go/v2/astra/table"
 )
 
 definition := table.Definition{
@@ -291,7 +291,7 @@ dbAdmin, err := db.DatabaseAdmin()
 Options can be specified at the client, database, collection, or table level. More specific options override broader ones.
 
 ```go
-import "github.com/datastax/astra-db-go/astra/options"
+import "github.com/datastax/astra-db-go/v2/astra/options"
 
 // Client-level defaults
 client := astra.NewClient(

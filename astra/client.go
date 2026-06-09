@@ -17,7 +17,7 @@ package astra
 import (
 	"fmt"
 
-	"github.com/datastax/astra-db-go/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
 // DataAPIClient is a client for interacting with an Astra DB database.

@@ -27,7 +27,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/fatih/color"
 )
 

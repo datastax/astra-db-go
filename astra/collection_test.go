@@ -25,13 +25,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/sort"
-	"github.com/datastax/astra-db-go/astra/update"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/sort"
+	"github.com/datastax/astra-db-go/v2/astra/update"
 )
 
 // TODO: I captured these responses for future tests but if we don't end up using them, we should remove them.

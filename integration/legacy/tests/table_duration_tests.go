@@ -18,11 +18,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/filter"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/table"
-	"github.com/datastax/astra-db-go/integration/legacy/harness"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/filter"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/table"
+	"github.com/datastax/astra-db-go/v2/integration/legacy/harness"
 )
 
 func init() {

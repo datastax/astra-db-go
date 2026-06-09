@@ -16,8 +16,8 @@
 package table
 
 import (
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
 // Definition represents the full Schema for a table, including column names,

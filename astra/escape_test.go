@@ -19,7 +19,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra"
+	"github.com/datastax/astra-db-go/v2/astra"
 )
 
 func TestEscapeFieldNames(t *testing.T) {

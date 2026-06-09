@@ -18,11 +18,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/datastax/astra-db-go/astra"
-	"github.com/datastax/astra-db-go/astra/datatypes"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/table"
-	"github.com/datastax/astra-db-go/internal/testlib"
+	"github.com/datastax/astra-db-go/v2/astra"
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/table"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 	"pgregory.net/rapid"
 )
 

@@ -19,12 +19,12 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/datastax/astra-db-go/astra/internal/command"
-	"github.com/datastax/astra-db-go/astra/options"
-	"github.com/datastax/astra-db-go/astra/ptr"
-	"github.com/datastax/astra-db-go/astra/results"
-	"github.com/datastax/astra-db-go/astra/serdes"
-	"github.com/datastax/astra-db-go/astra/table"
+	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/ptr"
+	"github.com/datastax/astra-db-go/v2/astra/results"
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/astra/table"
 )
 
 // Db represents a connection to a specific Astra DB database.
