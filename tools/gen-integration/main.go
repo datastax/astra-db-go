@@ -53,6 +53,7 @@ import (
 `))
 
 func main() {
+	flag.Parse()
 	pkgs, err := packages.Load(&packages.Config{Mode: packages.NeedName}, flag.Args()...)
 	if err != nil {
 		fmt.Printf("load: %v\n", err)
