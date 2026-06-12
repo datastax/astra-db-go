@@ -129,7 +129,7 @@ func copyNonNilFields[T any](src, dst *T) {
 	for i := 0; i < srcVal.NumField(); i++ {
 		srcField := srcVal.Field(i)
 		switch srcField.Kind() {
-		case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface:
+		case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface, reflect.Func:
 			if !srcField.IsNil() {
 				if sm, ok := srcField.Interface().(ShouldMerge); ok {
 					dstSM := dstVal.Field(i).Interface().(ShouldMerge)

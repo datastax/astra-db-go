@@ -132,7 +132,7 @@ func (d *Db) Client() *DataAPIClient {
 //
 //	db.UseKeyspace("new_keyspace")
 func (d *Db) UseKeyspace(keyspace string) {
-	d.options = options.Merge(d.options, options.API().SetKeyspace(keyspace))
+	d.options = options.Merge[options.APIOptions](d.options, options.API().SetKeyspace(keyspace)) // MergeInto would technically work here I prefer immutability
 }
 
 // endregion
@@ -149,8 +149,8 @@ func (d *Db) UseKeyspace(keyspace string) {
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
 func (d *Db) Collection(name string, opts ...options.GetCollectionOption) *Collection {
-	collOpts := options.Merge(opts...)
-	return &Collection{d, name, options.Merge(d.options, collOpts.APIOptions)}
+	merged := options.Merge(opts...)
+	return &Collection{d, name, options.Merge[options.APIOptions](d.options, merged.APIOptions)}
 }
 
 // Table returns a Table object for the specified table name.
@@ -163,8 +163,9 @@ func (d *Db) Collection(name string, opts ...options.GetCollectionOption) *Colle
 //	tbl := db.Table("my_table",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{d, name, options.Merge(append([]options.APIOption{d.options}, opts...)...)}
+func (d *Db) Table(name string, opts ...options.GetTableOption) *Table {
+	merged := options.Merge(opts...)
+	return &Table{d, name, options.Merge[options.APIOptions](d.options, merged.APIOptions)}
 }
 
 // endregion
@@ -214,7 +215,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 	return &Collection{
 		db:      d,
 		name:    name,
-		options: options.Merge(d.options, merged.APIOptions),
+		options: options.Merge[options.APIOptions](d.options, merged.APIOptions),
 	}, nil
 }
 
@@ -258,7 +259,7 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	return &Table{
 		db:      d,
 		name:    name,
-		options: options.Merge(d.options, merged.APIOptions),
+		options: options.Merge[options.APIOptions](d.options, merged.APIOptions),
 	}, nil
 }
 
