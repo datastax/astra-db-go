@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package structutil
+package reflectutil
 
 import (
 	"reflect"
@@ -45,9 +45,8 @@ type PtrCycle struct {
 }
 
 type Unexported struct {
-	Exported   string
-	unexported string `json:"unexported,allowunexported"`
-	ignored    string `json:"-"`
+	Exported string
+	ignored  string `json:"hi"`
 }
 
 func TestGetFields_Shadowing(t *testing.T) {
@@ -97,15 +96,11 @@ func TestGetFields_Unexported(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(fields) != 2 {
-		t.Fatalf("expected 2 fields, got %d", len(fields))
+	if len(fields) != 1 {
+		t.Fatalf("expected 1 field, got %d", len(fields))
 	}
 
 	if fields[0].Name != "Exported" {
-		t.Errorf("expected first field 'Exported', got %s", fields[0].Name)
-	}
-
-	if fields[1].Name != "unexported" {
-		t.Errorf("expected second field 'unexported', got %s", fields[1].Name)
+		t.Errorf("expected field 'Exported', got %s", fields[0].Name)
 	}
 }

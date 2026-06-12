@@ -20,7 +20,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/datastax/astra-db-go/v2/internal/structutil"
+	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
 )
 
 // Serdes
@@ -38,10 +38,10 @@ func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool)
 	}
 }
 
-func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, allowed bool, offset uintptr, field codec) codec {
+func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
 	return codec{
 		mkEmbeddedStructPointerEncoder(field.encode),
-		mkEmbeddedStructPointerDecoder(t, unexported, allowed, offset, field.decode),
+		mkEmbeddedStructPointerDecoder(t, unexported, offset, field.decode),
 	}
 }
 
@@ -160,13 +160,13 @@ func mkStructDecoder(info *structInfo) decoder {
 	}
 }
 
-func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, allowed bool, offset uintptr, decode decoder) decoder {
+func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, offset uintptr, decode decoder) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		v := *(*unsafe.Pointer)(p)
 
 		if v == nil {
-			if unexported && !allowed {
-				return nil, &UnsupportedValueError{Msg: fmt.Sprintf("cannot set embedded pointer to unexported struct without the \"allowunexported\" struct tag: %s", t)}
+			if unexported {
+				return nil, &UnsupportedValueError{Msg: fmt.Sprintf("cannot set embedded pointer to unexported struct: %s", t)}
 			}
 			v = unsafe.Pointer(reflect.New(t).Pointer())
 			*(*unsafe.Pointer)(p) = v
@@ -194,9 +194,8 @@ type fieldInfo struct {
 }
 
 type jsonMeta struct {
-	name            string
-	omitempty       bool
-	allowUnexported bool
+	name      string
+	omitempty bool
 }
 
 func (i structInfo) String() string {
@@ -237,7 +236,7 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 }
 
 func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
-	metas, err := structutil.GetFields(t)
+	metas, err := reflectutil.GetFields(t)
 	if err != nil {
 		return nil, err
 	}
@@ -249,9 +248,8 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 		c, offset := resolveCodecInEmbeddedFields(t, meta.Index, c, meta)
 
 		jm := jsonMeta{
-			name:            meta.Name,
-			omitempty:       meta.OmitEmpty,
-			allowUnexported: meta.AllowUnexported,
+			name:      meta.Name,
+			omitempty: meta.OmitEmpty,
 		}
 
 		fields = append(fields, fieldInfo{
@@ -260,17 +258,14 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 			meta:   jm,
 			typ:    meta.Field.Type,
 			empty:  emptyFuncFor(meta.OmitEmpty, meta.Field.Type),
+			prefix: []byte(`,"` + jm.name + `":`),
 		})
 	}
-
-	for i := range fields {
-		fields[i].prefix = []byte(`,"` + fields[i].meta.name + `":`)
-	}
-
+	
 	return fields, nil
 }
 
-func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leafCodec codec, leafMeta structutil.FieldMeta) (codec, uintptr) {
+func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leafCodec codec, leafMeta reflectutil.FieldMeta) (codec, uintptr) {
 	f := parentType.Field(indexPath[0])
 
 	if len(indexPath) == 1 {
@@ -287,7 +282,7 @@ func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leaf
 
 	if isEmbeddedStructPtr {
 		unexported := len(f.PkgPath) != 0
-		wrappedCodec := mkEmbeddedStructPointerCodec(f.Type.Elem(), unexported, leafMeta.AllowUnexported, innerOffset, innerCodec)
+		wrappedCodec := mkEmbeddedStructPointerCodec(f.Type.Elem(), unexported, innerOffset, innerCodec)
 		return wrappedCodec, f.Offset
 	}
 

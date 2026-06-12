@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package structutil
+package reflectutil
 
 import (
 	"fmt"
@@ -23,70 +23,13 @@ import (
 
 // FieldMeta contains the fully parsed metadata for a single mapped field.
 type FieldMeta struct {
-	Name            string
-	OmitEmpty       bool
-	AllowUnexported bool
+	Name      string
+	OmitEmpty bool
 
 	Field reflect.StructField
 	Index []int // The sequence of struct field indices to reach this field
 
 	tagged bool
-}
-
-type embeddedAmbiguity int
-
-const (
-	unambiguous embeddedAmbiguity = iota
-	shadowed
-	ambiguous
-)
-
-// parseJSONTag parses standard encoding/json style struct tags.
-func parseJSONTag(f reflect.StructField) (name string, ignored, omitempty, tagged, allowUnexported bool) {
-	name = f.Name
-
-	if parts := strings.Split(f.Tag.Get("json"), ","); len(parts) != 0 {
-		if len(parts[0]) > 0 {
-			name = parts[0]
-			tagged = true
-		}
-
-		if name == "-" && len(parts) == 1 {
-			ignored = true
-			return
-		}
-
-		for _, opt := range parts[1:] {
-			switch opt {
-			case "omitempty":
-				omitempty = true
-			case "allowunexported":
-				allowUnexported = true
-			}
-		}
-	}
-
-	return
-}
-
-func resolveEmbeddedAmbiguity(name string, tagged bool, topLevelNames map[string]struct{}, nameCounts, tagCounts map[string]int) embeddedAmbiguity {
-	if _, exists := topLevelNames[name]; exists {
-		return shadowed // top level field with the same name exists so ignore this embedded field
-	}
-
-	if nameCounts[name] == 1 {
-		return unambiguous // no collisions so all good to go
-	}
-
-	if tagCounts[name] == 1 && tagged {
-		return unambiguous // multiple fields with the same name, so the field with the tag wins
-	}
-
-	if tagCounts[name] != 1 {
-		return ambiguous // zero or multiple tags w/ the same name so we can't resolve anything
-	}
-
-	return shadowed // field collided and lost to a tagged field.
 }
 
 // GetFields flattens a struct type, resolving embedded fields and name collisions.
@@ -146,13 +89,13 @@ func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []i
 		embedded := f.Anonymous
 		unexported := len(f.PkgPath) != 0
 
-		name, ignored, omitempty, tagged, allowUnexported := parseJSONTag(f)
+		name, ignored, omitempty, tagged := parseJSONTag(f)
 
 		if ignored {
 			continue
 		}
 
-		if unexported && !embedded && !allowUnexported {
+		if unexported && !embedded {
 			continue
 		}
 
@@ -182,7 +125,7 @@ func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []i
 				continue
 			}
 
-			if unexported && !allowUnexported {
+			if unexported {
 				continue
 			}
 		}
@@ -192,12 +135,11 @@ func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []i
 		idx = append(idx, i)
 
 		fields = append(fields, FieldMeta{
-			Name:            name,
-			OmitEmpty:       omitempty,
-			AllowUnexported: allowUnexported,
-			Field:           f,
-			Index:           idx,
-			tagged:          tagged,
+			Name:      name,
+			OmitEmpty: omitempty,
+			Field:     f,
+			Index:     idx,
+			tagged:    tagged,
 		})
 
 		topLevelNames[name] = struct{}{}
@@ -231,4 +173,58 @@ func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []i
 	}
 
 	return fields, nil
+}
+
+// parseJSONTag parses standard encoding/json style struct tags.
+func parseJSONTag(f reflect.StructField) (name string, ignored, omitempty, tagged bool) {
+	name = f.Name
+
+	if parts := strings.Split(f.Tag.Get("json"), ","); len(parts) != 0 {
+		if len(parts[0]) > 0 {
+			name = parts[0]
+			tagged = true
+		}
+
+		if name == "-" && len(parts) == 1 {
+			ignored = true
+			return
+		}
+
+		for _, opt := range parts[1:] {
+			switch opt {
+			case "omitempty":
+				omitempty = true
+			}
+		}
+	}
+
+	return
+}
+
+type embeddedAmbiguity int
+
+const (
+	unambiguous embeddedAmbiguity = iota
+	shadowed
+	ambiguous
+)
+
+func resolveEmbeddedAmbiguity(name string, tagged bool, topLevelNames map[string]struct{}, nameCounts, tagCounts map[string]int) embeddedAmbiguity {
+	if _, exists := topLevelNames[name]; exists {
+		return shadowed // top level field with the same name exists so ignore this embedded field
+	}
+
+	if nameCounts[name] == 1 {
+		return unambiguous // no collisions so all good to go
+	}
+
+	if tagCounts[name] == 1 && tagged {
+		return unambiguous // multiple fields with the same name, so the field with the tag wins
+	}
+
+	if tagCounts[name] != 1 {
+		return ambiguous // zero or multiple tags w/ the same name so we can't resolve anything
+	}
+
+	return shadowed // field collided and lost to a tagged field.
 }

@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
-	"github.com/datastax/astra-db-go/v2/internal/structutil"
+	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
 )
 
 // Well-known reflect types for comparison in type mapping.
@@ -57,7 +57,7 @@ func collectFields(t reflect.Type) ([]fieldData, error) {
 		return nil, fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
-	metas, err := structutil.GetFields(t)
+	metas, err := reflectutil.GetFields(t)
 	if err != nil {
 		return nil, err
 	}
