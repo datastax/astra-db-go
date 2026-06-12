@@ -57,7 +57,7 @@ func NewTestObjects() *TestObjects {
 		Client:      client,
 		Db:          db,
 		Collection:  db.Collection(DefaultCollectionName),
-		Collection_: db.Collection(DefaultCollectionName, options.API().SetKeyspace("other_keyspace")),
+		Collection_: db.Collection(DefaultCollectionName, options.GetCollection().SetKeyspace("other_keyspace")),
 		DbAdmin:     dbAdmin,
 		Table:       db.Table(DefaultTableName),
 		Table_:      db.Table(DefaultTableName, options.API().SetKeyspace("other_keyspace")),

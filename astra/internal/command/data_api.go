@@ -43,8 +43,7 @@ type DataAPI struct {
 	target  serdes.Target
 }
 
-func newDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, joined options.Joined[options.APIOptions], admin bool) DataAPI {
-	opts := options.Merge(joined...)
+func newDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts *options.APIOptions, admin bool) DataAPI {
 
 	var u string
 	if endpoint != "" {
@@ -64,11 +63,11 @@ func newDataAPICommand(endpoint, resourceName, name string, payload any, target 
 	}
 }
 
-func NewDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts options.Joined[options.APIOptions]) DataAPI {
+func NewDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts *options.APIOptions) DataAPI {
 	return newDataAPICommand(endpoint, resourceName, name, payload, target, opts, false)
 }
 
-func NewDataAPIAdminCommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts options.Joined[options.APIOptions]) DataAPI {
+func NewDataAPIAdminCommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts *options.APIOptions) DataAPI {
 	return newDataAPICommand(endpoint, resourceName, name, payload, target, opts, true)
 }
 

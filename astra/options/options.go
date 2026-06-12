@@ -40,20 +40,12 @@ type Builder[T any] interface {
 	Setters() []func(*T)
 }
 
-// Joined is a type-safe wrapper for a slice of builders.
-// It is returned by [Join] and should be used in structs that store
-// accumulated options to ensure [Join] is used for combination.
-type Joined[T any] []Builder[T]
-
-// Setters implements [Builder] for [Joined].
-func (j Joined[T]) Setters() []func(*T) {
-	var res []func(*T)
-	for _, b := range j {
-		if b != nil && !reflect.ValueOf(b).IsNil() {
-			res = append(res, b.Setters()...)
-		}
-	}
-	return res
+// ShouldMerge is implemented by options types whose pointer fields should
+// be merged sub-field-by-sub-field rather than replaced wholesale when
+// encountered during a copyNonNilFields pass.
+// Implementations must handle nil receivers gracefully.
+type ShouldMerge interface {
+	Merge(other ShouldMerge) ShouldMerge
 }
 
 // NoopBuilder returns a [Builder] implementation that just copies
@@ -64,19 +56,6 @@ func NoopBuilder[T any](src *T) []func(*T) {
 			copyNonNilFields(src, target)
 		},
 	}
-}
-
-// Join combines a base slice of builders with additional builders into a new
-// Joined slice. It always performs a copy to ensure that the original slice's
-// underlying array is never modified, making handle creation thread-safe.
-func Join[T any](base []Builder[T], additional ...Builder[T]) Joined[T] {
-	if len(additional) == 0 {
-		return base
-	}
-	res := make(Joined[T], 0, len(base)+len(additional))
-	res = append(res, base...)
-	res = append(res, additional...)
-	return res
 }
 
 // validateRecursive walks the ChildValidator tree depth-first, validating
@@ -104,11 +83,6 @@ func Merge[T any](opts ...Builder[T]) *T {
 		if opt == nil || reflect.ValueOf(opt).IsNil() {
 			continue
 		}
-		// If an option is wrapped in Replace, we reset the struct to defaults
-		// before applying that option's setters.
-		if isReplace(opt) {
-			*result = *new(T)
-		}
 
 		for _, setter := range opt.Setters() {
 			setter(result)
@@ -131,15 +105,11 @@ func MergeAndValidate[T any](opts ...Builder[T]) (*T, error) {
 
 // MergeInto merges multiple Builder options into an existing options struct.
 // It initializes the target if it is nil and applies each option's setters
-// sequentially. This function does NOT apply defaults unless it is a
-// Replace operation, ensuring hierarchical merging remains sparse.
+// sequentially.
 func MergeInto[T any](target **T, opts ...Builder[T]) {
 	for _, opt := range opts {
 		if opt == nil || reflect.ValueOf(opt).IsNil() {
 			continue
-		}
-		if isReplace(opt) {
-			*target = new(T)
 		}
 		if *target == nil {
 			*target = new(T)
@@ -148,23 +118,6 @@ func MergeInto[T any](target **T, opts ...Builder[T]) {
 			setter(*target)
 		}
 	}
-}
-
-// Replace wraps a Builder to signal that it should overwrite the existing
-// struct rather than merging into it when used with MergeInto.
-func Replace[T any](b Builder[T]) Builder[T] {
-	return &replaceBuilder[T]{Builder: b}
-}
-
-type replaceBuilder[T any] struct {
-	Builder[T]
-}
-
-func (b *replaceBuilder[T]) isReplace() {}
-
-func isReplace(b any) bool {
-	_, ok := b.(interface{ isReplace() })
-	return ok
 }
 
 // Used by options structs to implement Builder without manual field enumeration.
@@ -177,6 +130,11 @@ func copyNonNilFields[T any](src, dst *T) {
 		switch srcField.Kind() {
 		case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface:
 			if !srcField.IsNil() {
+				if sm, ok := srcField.Interface().(ShouldMerge); ok {
+					dstSM := dstVal.Field(i).Interface().(ShouldMerge)
+					dstVal.Field(i).Set(reflect.ValueOf(dstSM.Merge(sm)))
+					continue
+				}
 				dstVal.Field(i).Set(srcField)
 			}
 		}

@@ -88,11 +88,12 @@ func loadAndGenerateChildren(pkgDir string) {
 // ----- Package loading -----
 
 type loadedPkg struct {
-	name      string
-	types     *types.Package
-	validator *types.Interface // the Validator interface defined in this package
-	syntax    []*ast.File
-	fset      *token.FileSet
+	name        string
+	types       *types.Package
+	validator   *types.Interface // the Validator interface defined in this package
+	shouldMerge *types.Interface // the ShouldMerge interface defined in this package
+	syntax      []*ast.File
+	fset        *token.FileSet
 }
 
 func load(dir string) (*loadedPkg, error) {
@@ -115,7 +116,8 @@ func load(dir string) (*loadedPkg, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &loadedPkg{name: p.Name, types: p.Types, validator: iface, syntax: p.Syntax, fset: fset}, nil
+	smIface, _ := shouldMergeInterface(p.Types)
+	return &loadedPkg{name: p.Name, types: p.Types, validator: iface, shouldMerge: smIface, syntax: p.Syntax, fset: fset}, nil
 }
 
 func validatorInterface(pkg *types.Package) (*types.Interface, error) {
@@ -126,6 +128,18 @@ func validatorInterface(pkg *types.Package) (*types.Interface, error) {
 	iface, ok := obj.Type().Underlying().(*types.Interface)
 	if !ok {
 		return nil, fmt.Errorf("Validator is not an interface")
+	}
+	return iface, nil
+}
+
+func shouldMergeInterface(pkg *types.Package) (*types.Interface, error) {
+	obj := pkg.Scope().Lookup("ShouldMerge")
+	if obj == nil {
+		return nil, fmt.Errorf("ShouldMerge not found in package %q", pkg.Name())
+	}
+	iface, ok := obj.Type().Underlying().(*types.Interface)
+	if !ok {
+		return nil, fmt.Errorf("ShouldMerge is not an interface")
 	}
 	return iface, nil
 }
@@ -393,7 +407,7 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 			HasBuilder:  true,
 			BuilderType: unexportedName(builderName),
 			Constructor: constructor,
-			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
+			Setters:     settersFor(name, optsStruct, pkg.validator, pkg.shouldMerge, futureValidators, comments),
 		}
 
 		def.Alias = pickAliasExample(def.Setters)
@@ -419,7 +433,7 @@ func typeName(t types.Type) string {
 // settersFor inspects every field of s and returns a setterDef for each one we
 // know how to generate. Unrecognised field kinds are silently skipped — they can
 // be written by hand as convenience methods that delegate to the generated ones.
-func settersFor(structName string, s *types.Struct, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) []setterDef {
+func settersFor(structName string, s *types.Struct, validator, shouldMerge *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) []setterDef {
 	var setters []setterDef
 	for i := 0; i < s.NumFields(); i++ {
 		f := s.Field(i)
@@ -450,7 +464,7 @@ func settersFor(structName string, s *types.Struct, validator *types.Interface, 
 					}
 
 					found = true
-					if sd, ok := setterForField(nestedStructName, nf, validator, futureValidators, comments); ok {
+					if sd, ok := setterForField(nestedStructName, nf, validator, shouldMerge, futureValidators, comments); ok {
 						if alias != "" {
 							sd.Method = "Set" + alias
 						}
@@ -467,7 +481,7 @@ func settersFor(structName string, s *types.Struct, validator *types.Interface, 
 			}
 		}
 
-		if sd, ok := setterForField(structName, f, validator, futureValidators, comments); ok {
+		if sd, ok := setterForField(structName, f, validator, shouldMerge, futureValidators, comments); ok {
 			setters = append(setters, sd)
 		}
 	}
@@ -524,7 +538,7 @@ func fieldComments(pkg *loadedPkg) map[string]map[string]string {
 	return result
 }
 
-func setterForField(structName string, f *types.Var, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) (setterDef, bool) {
+func setterForField(structName string, f *types.Var, validator, shouldMerge *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) (setterDef, bool) {
 	method := "Set" + f.Name()
 	comment := ""
 	if structComments, ok := comments[structName]; ok {
@@ -536,11 +550,21 @@ func setterForField(structName string, f *types.Var, validator *types.Interface,
 	switch t := f.Type().(type) {
 
 	case *types.Pointer:
+		named, isNamed := t.Elem().(*types.Named)
+		if shouldMerge != nil && types.Implements(t, shouldMerge) && isNamed {
+			return setterDef{
+				Comment:           comment,
+				Method:            "Update" + f.Name(),
+				Field:             f.Name(),
+				ParamType:         fmt.Sprintf("Builder[%s]", named.Obj().Name()),
+				IsVariadicBuilder: true,
+			}, true
+		}
+
 		// *Validator child → variadic builder setter using Merge.
 		// On a clean first run the generated Validate() stubs don't exist
 		// yet, so types.Implements may return false for our own Options
 		// types. Fall back to futureValidators for those.
-		named, isNamed := t.Elem().(*types.Named)
 		isValidator := types.Implements(t, validator)
 		if !isValidator && isNamed {
 			isValidator = futureValidators[named.Obj().Name()]

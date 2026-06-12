@@ -74,16 +74,6 @@ func (b *apiOptionsBuilder) SetHTTPClient(v *http.Client) *apiOptionsBuilder {
 	return b
 }
 
-// SetHeaders sets the Headers option.
-// Headers contains custom headers to include in requests
-// (e.g., for embedding API keys like "x-embedding-api-key")
-func (b *apiOptionsBuilder) SetHeaders(v map[string]string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Headers = v
-	})
-	return b
-}
-
 // SetRequestTimeout sets the Request option.
 // Request is the timeout for individual HTTP requests (lifted from TimeoutOptions)
 func (b *apiOptionsBuilder) SetRequestTimeout(v time.Duration) *apiOptionsBuilder {
@@ -133,18 +123,18 @@ func (b *apiOptionsBuilder) SetGeneralMethodTimeout(v time.Duration) *apiOptions
 	return b
 }
 
-// SetTimeout sets the Timeout option.
+// UpdateTimeout sets the Timeout option.
 // Timeout contains timeout configuration
-func (b *apiOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) UpdateTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		MergeInto(&o.Timeout, v...)
 	})
 	return b
 }
 
-// SetSerdes sets the Serdes option.
+// UpdateSerdes sets the Serdes option.
 // Serdes contains serialization/deserialization options
-func (b *apiOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) UpdateSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		MergeInto(&o.Serdes, v...)
 	})
@@ -167,15 +157,6 @@ func (b *apiOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *apiOptionsB
 func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		o.DataAPIBackend = &v
-	})
-	return b
-}
-
-// SetCallers sets the Callers option.
-// Callers contains information about the application making the request
-func (b *apiOptionsBuilder) SetCallers(v ...Caller) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Callers = v
 	})
 	return b
 }

@@ -57,7 +57,7 @@ type CollectionUpdate = update.CollectionUpdate
 type Collection struct {
 	db      *Db
 	name    string
-	options options.Joined[options.APIOptions]
+	options *options.APIOptions
 }
 
 // region Meta
@@ -69,7 +69,7 @@ func (c *Collection) Name() string {
 
 // ClientOptions returns the collection's options as a resolved struct with defaults.
 func (c *Collection) ClientOptions() *options.APIOptions {
-	return options.Merge(c.options...)
+	return c.options
 }
 
 // Database returns the parent database.
@@ -79,7 +79,7 @@ func (c *Collection) Database() *Db {
 
 // newCmd creates a command for this collection.
 func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.NewDataAPICommand(c.db.endpoint, c.name, name, payload, serdes.TargetCollection, options.Join(c.options, opts...))
+	return command.NewDataAPICommand(c.db.endpoint, c.name, name, payload, serdes.TargetCollection, options.Merge(append([]options.APIOption{c.options}, opts...)...))
 }
 
 // resolveGeneralMethodTimeout returns the effective timeout for a paginated
