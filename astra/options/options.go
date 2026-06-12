@@ -30,7 +30,7 @@ type Validator interface {
 // ChildValidator, MergeAndValidate calls Validate on all children.
 // This will be codegen'd for any struct with nested [Validator] structs.
 type ChildValidator interface {
-	Children() []Validator
+	Children() []any
 }
 
 // Builder is an interface that wraps a Setters method to return a
@@ -61,7 +61,7 @@ func NoopBuilder[T any](src *T) []func(*T) {
 // validateRecursive walks the ChildValidator tree depth-first, validating
 // children before the parent. This ensures grandchildren (and deeper) are
 // validated even when MergeAndValidate only sees the top-level result.
-func validateRecursive(v Validator) error {
+func validateRecursive(v any) error {
 	if cv, ok := v.(ChildValidator); ok {
 		for _, child := range cv.Children() {
 			if err := validateRecursive(child); err != nil {
@@ -69,7 +69,10 @@ func validateRecursive(v Validator) error {
 			}
 		}
 	}
-	return v.Validate()
+	if val, ok := v.(Validator); ok {
+		return val.Validate()
+	}
+	return nil
 }
 
 // Merge merges multiple Builder options into a single options struct.
@@ -95,10 +98,8 @@ func Merge[T any](opts ...Builder[T]) *T {
 // and then recursively validates the result.
 func MergeAndValidate[T any](opts ...Builder[T]) (*T, error) {
 	result := Merge(opts...)
-	if v, ok := any(result).(Validator); ok {
-		if err := validateRecursive(v); err != nil {
-			return result, err
-		}
+	if err := validateRecursive(result); err != nil {
+		return result, err
 	}
 	return result, nil
 }
