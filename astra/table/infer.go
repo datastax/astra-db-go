@@ -50,9 +50,7 @@ type fieldData struct {
 }
 
 func collectFields(t reflect.Type) ([]fieldData, error) {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = reflectutil.UnwindPointerType(t)
 	if t.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("expected struct, got %s", t.Kind())
 	}
@@ -98,10 +96,7 @@ func collectFields(t reflect.Type) ([]fieldData, error) {
 
 // goTypeToColumn converts a Go reflect.Type to a table Column using tag metadata.
 func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
-	// Unwrap pointers
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = reflectutil.UnwindPointerType(t)
 
 	// jsonString — field is stored as a text column
 	if info.isJSONString {
@@ -213,9 +208,7 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 // wins and the Go element type is not consulted — callers are trusted to
 // serialize values compatibly.
 func resolveTypeExpr(expr typeExpr, t reflect.Type, info tagInfo) (Column, error) {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = reflectutil.UnwindPointerType(t)
 
 	switch expr.name {
 	case "infer":

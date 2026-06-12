@@ -18,7 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/internal/utils"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 

@@ -24,7 +24,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/internal/utils"
 )
 
 // UUID represents a universally unique identifier with Data API JSON serialization.

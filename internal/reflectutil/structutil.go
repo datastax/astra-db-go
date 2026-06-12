@@ -58,9 +58,7 @@ func fieldLessThan(f1, f2 []int) bool {
 }
 
 func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []int) ([]FieldMeta, error) {
-	if t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = UnwindPointerType(t)
 	if t.Kind() != reflect.Struct {
 		return nil, nil
 	}
