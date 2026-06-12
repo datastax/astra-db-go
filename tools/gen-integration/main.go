@@ -74,10 +74,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := os.WriteFile("integrations_gen.go", buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile("tests_gen.go", buf.Bytes(), 0644); err != nil {
 		fmt.Printf("write: %v\n", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("wrote integrations_gen.go\n")
+	fmt.Printf("wrote tests_gen.go\n")
 }
