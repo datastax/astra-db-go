@@ -27,36 +27,34 @@ type FieldMeta struct {
 	OmitEmpty bool
 
 	Field reflect.StructField
-	Index []int // The sequence of struct field indices to reach this field
+	Path  []int
 
 	tagged bool
 }
 
-// GetFields flattens a struct type, resolving embedded fields and name collisions.
-// It follows encoding/json shadowing and ambiguity rules.
-func GetFields(t reflect.Type) ([]FieldMeta, error) {
+func GetFlattenedFields(t reflect.Type) ([]FieldMeta, error) {
 	seen := make(map[reflect.Type]bool)
 	fields, err := getFieldsRecursive(t, seen, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// Sort fields lexicographically by their Index to preserve struct definition order
 	sort.Slice(fields, func(i, j int) bool {
-		a, b := fields[i].Index, fields[j].Index
-		minLen := len(a)
-		if len(b) < minLen {
-			minLen = len(b)
-		}
-		for k := 0; k < minLen; k++ {
-			if a[k] != b[k] {
-				return a[k] < b[k]
-			}
-		}
-		return len(a) < len(b)
+		return fieldLessThan(fields[i].Path, fields[j].Path)
 	})
 
 	return fields, nil
+}
+
+func fieldLessThan(f1, f2 []int) bool {
+	minLen := min(len(f1), len(f2))
+
+	for k := 0; k < minLen; k++ {
+		if f1[k] != f2[k] {
+			return f1[k] < f2[k]
+		}
+	}
+	return len(f1) < len(f2)
 }
 
 func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []int) ([]FieldMeta, error) {
@@ -138,15 +136,17 @@ func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []i
 			Name:      name,
 			OmitEmpty: omitempty,
 			Field:     f,
-			Index:     idx,
+			Path:      idx,
 			tagged:    tagged,
 		})
 
+		// seeds the counters so embedded fields know they are secondary
 		topLevelNames[name] = struct{}{}
 		ambiguousNames[name]++
 		ambiguousTags[name]++
 	}
 
+	// first pass to count the number of fields w/ each name so we can resolve ambiguities in the next pass
 	for _, embfield := range embeddedFields {
 		ambiguousNames[embfield.subfield.Name]++
 		if embfield.subfield.tagged {
@@ -175,7 +175,6 @@ func getFieldsRecursive(t reflect.Type, seen map[reflect.Type]bool, basePath []i
 	return fields, nil
 }
 
-// parseJSONTag parses standard encoding/json style struct tags.
 func parseJSONTag(f reflect.StructField) (name string, ignored, omitempty, tagged bool) {
 	name = f.Name
 

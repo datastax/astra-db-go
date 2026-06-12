@@ -55,7 +55,7 @@ func mkStructEncoder(info *structInfo) encoder {
 			f := &info.fields[i]
 			v := unsafe.Add(p, f.offset)
 
-			if f.meta.omitempty && f.empty(v) {
+			if f.omitempty && f.empty(v) {
 				continue
 			}
 
@@ -68,7 +68,7 @@ func mkStructEncoder(info *structInfo) encoder {
 				dst = append(dst, f.prefix...)
 			}
 
-			ctx.fieldHint = extractFieldHint(f.meta.name)
+			ctx.fieldHint = extractFieldHint(f.name)
 
 			var next []byte
 			var err error
@@ -79,7 +79,7 @@ func mkStructEncoder(info *structInfo) encoder {
 					continue
 				}
 
-				return dst[:start], wrapField(err, info.typ.Name(), f.meta.name)
+				return dst[:start], wrapField(err, info.typ.Name(), f.name)
 			}
 			dst = next
 		}
@@ -144,11 +144,11 @@ func mkStructDecoder(info *structInfo) decoder {
 				f := &info.fields[fieldIdx]
 
 				ptr := unsafe.Pointer(uintptr(p) + f.offset)
-				ctx.fieldHint = extractFieldHint(f.meta.name)
+				ctx.fieldHint = extractFieldHint(f.name)
 
 				src, err = f.codec.decode(ctx, src, ptr)
 				if err != nil {
-					return src, wrapField(err, info.typ.Name(), f.meta.name)
+					return src, wrapField(err, info.typ.Name(), f.name)
 				}
 			} else {
 				src, err = skipValue(ctx, src)
@@ -185,24 +185,20 @@ type structInfo struct {
 }
 
 type fieldInfo struct {
-	prefix []byte
-	typ    reflect.Type
-	codec  codec
-	offset uintptr
-	meta   jsonMeta
-	empty  func(unsafe.Pointer) bool
-}
-
-type jsonMeta struct {
+	prefix    []byte
+	typ       reflect.Type
+	codec     codec
+	offset    uintptr
 	name      string
 	omitempty bool
+	empty     func(unsafe.Pointer) bool
 }
 
 func (i structInfo) String() string {
 	var sb strings.Builder
 	_, _ = fmt.Fprintf(&sb, "struct %s {", i.typ.String())
 	for _, f := range i.fields {
-		_, _ = fmt.Fprintf(&sb, "\n  %s (offset: %d, type: %s, codec: %p)", f.meta.name, f.offset, f.typ.String(), f.codec.encode)
+		_, _ = fmt.Fprintf(&sb, "\n  %s (offset: %d, type: %s, codec: %p)", f.name, f.offset, f.typ.String(), f.codec.encode)
 	}
 	sb.WriteString("\n}")
 	return sb.String()
@@ -229,40 +225,36 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 
 	for i := range fields {
 		f := &fields[i]
-		info.offsets[f.meta.name] = i
+		info.offsets[f.name] = i
 	}
 
 	return info, nil
 }
 
 func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
-	metas, err := reflectutil.GetFields(t)
+	fields, err := reflectutil.GetFlattenedFields(t)
 	if err != nil {
-		return nil, err
+		return nil, &UnsupportedValueError{Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)}
 	}
 
-	fields := make([]fieldInfo, 0, len(metas))
+	ret := make([]fieldInfo, 0, len(fields))
 
-	for _, meta := range metas {
-		c := resolveCodec(ctx, meta.Field.Type, seen, canAddr)
-		c, offset := resolveCodecInEmbeddedFields(t, meta.Index, c, meta)
+	for _, f := range fields {
+		c := resolveCodec(ctx, f.Field.Type, seen, canAddr)
+		c, offset := resolveCodecInEmbeddedFields(t, f.Path, c, f)
 
-		jm := jsonMeta{
-			name:      meta.Name,
-			omitempty: meta.OmitEmpty,
-		}
-
-		fields = append(fields, fieldInfo{
-			codec:  c,
-			offset: offset,
-			meta:   jm,
-			typ:    meta.Field.Type,
-			empty:  emptyFuncFor(meta.OmitEmpty, meta.Field.Type),
-			prefix: []byte(`,"` + jm.name + `":`),
+		ret = append(ret, fieldInfo{
+			codec:     c,
+			offset:    offset,
+			name:      f.Name,
+			omitempty: f.OmitEmpty,
+			typ:       f.Field.Type,
+			empty:     emptyFuncFor(f.OmitEmpty, f.Field.Type),
+			prefix:    []byte(`,"` + f.Name + `":`),
 		})
 	}
-	
-	return fields, nil
+
+	return ret, nil
 }
 
 func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leafCodec codec, leafMeta reflectutil.FieldMeta) (codec, uintptr) {

@@ -43,10 +43,10 @@ var (
 
 // fieldData holds processed metadata about a single struct field.
 type fieldData struct {
-	columnName string
-	goType     reflect.Type
-	tag        tagInfo
-	fieldIdx   int // position for stable ordering
+	name string
+	typ  reflect.Type
+	tag  tagInfo
+	ord  int // position for stable ordering
 }
 
 func collectFields(t reflect.Type) ([]fieldData, error) {
@@ -57,7 +57,7 @@ func collectFields(t reflect.Type) ([]fieldData, error) {
 		return nil, fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
-	metas, err := reflectutil.GetFields(t)
+	fields, err := reflectutil.GetFlattenedFields(t)
 	if err != nil {
 		return nil, err
 	}
@@ -65,31 +65,31 @@ func collectFields(t reflect.Type) ([]fieldData, error) {
 	seen := make(map[string]bool)
 	var result []fieldData
 
-	for i, meta := range metas {
+	for i, f := range fields {
 		// Skip $-prefixed fields (API metadata: $similarity, $vector, $vectorize)
-		if strings.HasPrefix(meta.Name, "$") {
+		if strings.HasPrefix(f.Name, "$") {
 			continue
 		}
 
-		tag, err := parseAstraTag(meta.Field.Tag.Get("astra"))
+		tag, err := parseAstraTag(f.Field.Tag.Get("astra"))
 		if err != nil {
-			return nil, fmt.Errorf("field %q: %w", meta.Field.Name, err)
+			return nil, fmt.Errorf("field %q: %w", f.Field.Name, err)
 		}
 
 		if tag.skip {
 			continue
 		}
 
-		if seen[meta.Name] {
-			return nil, fmt.Errorf("duplicate column name %q", meta.Name)
+		if seen[f.Name] {
+			return nil, fmt.Errorf("duplicate column name %q", f.Name)
 		}
-		seen[meta.Name] = true
+		seen[f.Name] = true
 
 		result = append(result, fieldData{
-			columnName: meta.Name,
-			goType:     meta.Field.Type,
-			tag:        tag,
-			fieldIdx:   i,
+			name: f.Name,
+			typ:  f.Field.Type,
+			tag:  tag,
+			ord:  i,
 		})
 	}
 
@@ -207,7 +207,7 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 }
 
 // resolveTypeExpr walks a parsed typeExpr and produces a Column. It consults
-// goType only at "infer" leaves and at container boundaries where the Go
+// typ only at "infer" leaves and at container boundaries where the Go
 // type's shape (slice / map) governs how values will be marshaled. For
 // container leaves declared explicitly (e.g. set[ascii]), the declared leaf
 // wins and the Go element type is not consulted — callers are trusted to
@@ -302,10 +302,10 @@ var scalarFactories = map[string]func() Column{
 
 // keyField is used during primary key assembly.
 type keyField struct {
-	name    string
-	ordinal int
-	idx     int  // struct field index for stable ordering
-	desc    bool // clustering key: true = descending
+	name     string
+	pkOrd    int
+	fieldOrd int  // struct field index for stable ordering
+	desc     bool // clustering key: true = descending
 }
 
 // buildPrimaryKey assembles the PrimaryKey from collected partition and clustering key fields.
@@ -317,7 +317,7 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 	// Determine ordering strategy: all ordinals or all struct-order
 	hasOrd, noOrd := false, false
 	for _, pk := range pks {
-		if pk.ordinal > 0 {
+		if pk.pkOrd > 0 {
 			hasOrd = true
 		} else {
 			noOrd = true
@@ -328,12 +328,12 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 	}
 
 	if hasOrd {
-		sort.Slice(pks, func(i, j int) bool { return pks[i].ordinal < pks[j].ordinal })
+		sort.Slice(pks, func(i, j int) bool { return pks[i].pkOrd < pks[j].pkOrd })
 		if err := validateOrdinals("partition key", pks); err != nil {
 			return PrimaryKey{}, err
 		}
 	} else {
-		sort.Slice(pks, func(i, j int) bool { return pks[i].idx < pks[j].idx })
+		sort.Slice(pks, func(i, j int) bool { return pks[i].fieldOrd < pks[j].fieldOrd })
 	}
 
 	partitionBy := make([]string, len(pks))
@@ -343,7 +343,7 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 
 	var partitionSort PartitionSort
 	if len(cks) > 0 {
-		sort.Slice(cks, func(i, j int) bool { return cks[i].ordinal < cks[j].ordinal })
+		sort.Slice(cks, func(i, j int) bool { return cks[i].pkOrd < cks[j].pkOrd })
 		if err := validateOrdinals("clustering key", cks); err != nil {
 			return PrimaryKey{}, err
 		}
@@ -368,11 +368,11 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 // with no duplicates.
 func validateOrdinals(label string, keys []keyField) error {
 	for i, k := range keys {
-		if i > 0 && k.ordinal == keys[i-1].ordinal {
-			return fmt.Errorf("duplicate %s ordinal %d: %q and %q", label, k.ordinal, keys[i-1].name, k.name)
+		if i > 0 && k.pkOrd == keys[i-1].pkOrd {
+			return fmt.Errorf("duplicate %s ordinal %d: %q and %q", label, k.pkOrd, keys[i-1].name, k.name)
 		}
-		if k.ordinal != i+1 {
-			return fmt.Errorf("%s ordinals must be contiguous starting from 1 (expected %d, got %d for %q)", label, i+1, k.ordinal, k.name)
+		if k.pkOrd != i+1 {
+			return fmt.Errorf("%s ordinals must be contiguous starting from 1 (expected %d, got %d for %q)", label, i+1, k.pkOrd, k.name)
 		}
 	}
 	return nil
@@ -427,18 +427,18 @@ func Infer[T any]() (Definition, error) {
 	columns := make(Columns, 0, len(fields))
 	var pks, cks []keyField
 
-	for _, fd := range fields {
-		col, err := goTypeToColumn(fd.goType, fd.tag)
+	for _, f := range fields {
+		col, err := goTypeToColumn(f.typ, f.tag)
 		if err != nil {
-			return Definition{}, fmt.Errorf("table.Infer[%s]: field %q: %w", t.Name(), fd.columnName, err)
+			return Definition{}, fmt.Errorf("table.Infer[%s]: field %q: %w", t.Name(), f.name, err)
 		}
-		columns = append(columns, NamedColumn{Name: fd.columnName, Column: col})
+		columns = append(columns, NamedColumn{Name: f.name, Column: col})
 
-		if fd.tag.isPK {
-			pks = append(pks, keyField{name: fd.columnName, ordinal: fd.tag.pkOrdinal, idx: fd.fieldIdx})
+		if f.tag.isPK {
+			pks = append(pks, keyField{name: f.name, pkOrd: f.tag.pkOrdinal, fieldOrd: f.ord})
 		}
-		if fd.tag.isCK {
-			cks = append(cks, keyField{name: fd.columnName, ordinal: fd.tag.ckOrdinal, idx: fd.fieldIdx, desc: fd.tag.ckDescending})
+		if f.tag.isCK {
+			cks = append(cks, keyField{name: f.name, pkOrd: f.tag.ckOrdinal, fieldOrd: f.ord, desc: f.tag.ckDescending})
 		}
 	}
 
@@ -482,11 +482,11 @@ func InferUDT[T any]() (UDTDefinition, error) { // TODO somehow try to check if 
 
 	columns := make(Columns, 0, len(fields))
 	for _, fd := range fields {
-		col, err := goTypeToColumn(fd.goType, fd.tag)
+		col, err := goTypeToColumn(fd.typ, fd.tag)
 		if err != nil {
-			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.columnName, err)
+			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.name, err)
 		}
-		columns = append(columns, NamedColumn{Name: fd.columnName, Column: col})
+		columns = append(columns, NamedColumn{Name: fd.name, Column: col})
 	}
 
 	return UDTDefinition{

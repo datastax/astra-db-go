@@ -50,7 +50,7 @@ type Unexported struct {
 }
 
 func TestGetFields_Shadowing(t *testing.T) {
-	fields, err := GetFields(reflect.TypeOf(TopShadow{}))
+	fields, err := GetFlattenedFields(reflect.TypeOf(TopShadow{}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -59,24 +59,24 @@ func TestGetFields_Shadowing(t *testing.T) {
 		t.Fatalf("expected 2 fields, got %d", len(fields))
 	}
 
-	if fields[0].Name != "b" || len(fields[0].Index) != 2 {
-		t.Errorf("expected first field 'b' from embedded E1, got %s with index %v", fields[0].Name, fields[0].Index)
+	if fields[0].Name != "b" || len(fields[0].Path) != 2 {
+		t.Errorf("expected first field 'b' from embedded E1, got %s with index %v", fields[0].Name, fields[0].Path)
 	}
 
-	if fields[1].Name != "a" || len(fields[1].Index) != 1 {
-		t.Errorf("expected second field 'a' from top level, got %s with index %v", fields[1].Name, fields[1].Index)
+	if fields[1].Name != "a" || len(fields[1].Path) != 1 {
+		t.Errorf("expected second field 'a' from top level, got %s with index %v", fields[1].Name, fields[1].Path)
 	}
 }
 
 func TestGetFields_Ambiguous(t *testing.T) {
-	_, err := GetFields(reflect.TypeOf(TopAmbiguous{}))
+	_, err := GetFlattenedFields(reflect.TypeOf(TopAmbiguous{}))
 	if err == nil {
 		t.Fatal("expected error due to ambiguous field 'b', got nil")
 	}
 }
 
 func TestGetFields_PtrCycle(t *testing.T) {
-	fields, err := GetFields(reflect.TypeOf(PtrCycle{}))
+	fields, err := GetFlattenedFields(reflect.TypeOf(PtrCycle{}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestGetFields_PtrCycle(t *testing.T) {
 }
 
 func TestGetFields_Unexported(t *testing.T) {
-	fields, err := GetFields(reflect.TypeOf(Unexported{}))
+	fields, err := GetFlattenedFields(reflect.TypeOf(Unexported{}))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
