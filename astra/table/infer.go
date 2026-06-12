@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/internal/structutil"
 )
 
 // Well-known reflect types for comparison in type mapping.
@@ -48,11 +49,6 @@ type fieldData struct {
 	fieldIdx   int // position for stable ordering
 }
 
-// collectFields iterates over the fields of a struct type (including promoted
-// fields from embedded structs at any depth) and returns their processed
-// metadata. Outer fields shadow embedded fields with the same column name,
-// matching encoding/json promotion semantics. Two direct fields on the outer
-// struct with the same column name are rejected as a user error.
 func collectFields(t reflect.Type) ([]fieldData, error) {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
@@ -61,107 +57,43 @@ func collectFields(t reflect.Type) ([]fieldData, error) {
 		return nil, fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
-	seen := make(map[string]bool)
-	var result []fieldData
-	var queue []reflect.Type
-
-	// Direct fields on the outer struct. Duplicate column names here are a
-	// user error (two fields with the same json tag on the same struct).
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-		if f.Anonymous {
-			if ft := derefStruct(f.Type); ft != nil {
-				queue = append(queue, ft)
-			}
-			continue
-		}
-		fd, skip, err := processField(f, i)
-		if err != nil {
-			return nil, err
-		}
-		if skip {
-			continue
-		}
-		if seen[fd.columnName] {
-			return nil, fmt.Errorf("duplicate column name %q", fd.columnName)
-		}
-		seen[fd.columnName] = true
-		result = append(result, fd)
+	metas, err := structutil.GetFields(t)
+	if err != nil {
+		return nil, err
 	}
 
-	// BFS over embedded types: outer-most level wins, nested embeds are
-	// descended into so promotion works at arbitrary depth.
-	baseOffset := t.NumField()
-	for len(queue) > 0 {
-		et := queue[0]
-		queue = queue[1:]
-		for i := 0; i < et.NumField(); i++ {
-			f := et.Field(i)
-			if !f.IsExported() {
-				continue
-			}
-			if f.Anonymous {
-				if ft := derefStruct(f.Type); ft != nil {
-					queue = append(queue, ft)
-				}
-				continue
-			}
-			fd, skip, err := processField(f, baseOffset+i)
-			if err != nil {
-				return nil, err
-			}
-			if skip || seen[fd.columnName] {
-				continue
-			}
-			seen[fd.columnName] = true
-			result = append(result, fd)
+	seen := make(map[string]bool)
+	var result []fieldData
+
+	for i, meta := range metas {
+		// Skip $-prefixed fields (API metadata: $similarity, $vector, $vectorize)
+		if strings.HasPrefix(meta.Name, "$") {
+			continue
 		}
-		baseOffset += et.NumField()
+
+		tag, err := parseAstraTag(meta.Field.Tag.Get("astra"))
+		if err != nil {
+			return nil, fmt.Errorf("field %q: %w", meta.Field.Name, err)
+		}
+
+		if tag.skip {
+			continue
+		}
+
+		if seen[meta.Name] {
+			return nil, fmt.Errorf("duplicate column name %q", meta.Name)
+		}
+		seen[meta.Name] = true
+
+		result = append(result, fieldData{
+			columnName: meta.Name,
+			goType:     meta.Field.Type,
+			tag:        tag,
+			fieldIdx:   i,
+		})
 	}
 
 	return result, nil
-}
-
-// derefStruct unwraps pointer types and returns the underlying struct type,
-// or nil if t does not resolve to a struct.
-func derefStruct(t reflect.Type) reflect.Type {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t.Kind() == reflect.Struct {
-		return t
-	}
-	return nil
-}
-
-// processField extracts fieldData from a single struct field.
-func processField(f reflect.StructField, idx int) (fieldData, bool, error) {
-	name, include := columnName(f)
-	if !include {
-		return fieldData{}, true, nil
-	}
-	// Skip $-prefixed fields (API metadata: $similarity, $vector, $vectorize)
-	if strings.HasPrefix(name, "$") {
-		return fieldData{}, true, nil
-	}
-
-	tag, err := parseAstraTag(f.Tag.Get("astra"))
-	if err != nil {
-		return fieldData{}, false, fmt.Errorf("field %q: %w", f.Name, err)
-	}
-	if tag.skip {
-		return fieldData{}, true, nil
-	}
-
-	return fieldData{
-		columnName: name,
-		goType:     f.Type,
-		tag:        tag,
-		fieldIdx:   idx,
-	}, false, nil
 }
 
 // goTypeToColumn converts a Go reflect.Type to a table Column using tag metadata.

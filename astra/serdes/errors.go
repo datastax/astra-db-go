@@ -338,7 +338,7 @@ func (e InvalidUnmarshalError) Error() string {
 	return "serdes: Deserialize(nil " + e.Type.String() + ")"
 }
 
-func nextType(src []byte) string {
+func nextJsonType(src []byte) string {
 	src = skipWS(src)
 	if len(src) == 0 {
 		return "EOF"
