@@ -460,7 +460,7 @@ func TestResolveGeneralMethodTimeoutFromAPIOverride(t *testing.T) {
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
 		options.CollectionDeleteMany().
 			SetAPIOptions(
-				options.API().SetTimeout(
+				options.API().UpdateTimeout(
 					options.Timeout().SetGeneralMethod(250*time.Millisecond),
 				),
 			),

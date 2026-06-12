@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/options"
+	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 func TestDefaultAPIOptions(t *testing.T) {
@@ -47,7 +48,6 @@ func TestNewAPIOptions(t *testing.T) {
 	token := "test-token"
 	keyspace := "my_keyspace"
 
-	// Merge is for resolution.
 	opts := options.Merge(
 		options.API().SetToken(token),
 		options.API().SetKeyspace(keyspace),
@@ -63,7 +63,6 @@ func TestNewAPIOptions(t *testing.T) {
 
 func TestMerge_SingleLayer(t *testing.T) {
 	token := "layer-token"
-	// Use builder for layer
 	layer := options.API().SetToken(token)
 
 	result := options.Merge(layer)
@@ -71,7 +70,6 @@ func TestMerge_SingleLayer(t *testing.T) {
 	if gotToken, _ := result.TokenProvider.Token(context.Background()); gotToken != token {
 		t.Errorf("expected token %q, got %q", token, gotToken)
 	}
-	// Should have defaults for unset values
 	if result.GetKeyspace() != "default_keyspace" {
 		t.Errorf("expected default keyspace, got %q", result.GetKeyspace())
 	}
@@ -82,22 +80,18 @@ func TestMerge_MultipleLayers(t *testing.T) {
 	dbKeyspace := "db_keyspace"
 	collectionTimeout := 60 * time.Second
 
-	// Use builders for layers to avoid clobbering with intermediate defaults
 	clientOpts := options.API().SetToken(clientToken)
 	dbOpts := options.API().SetKeyspace(dbKeyspace)
 	collOpts := options.API().SetRequestTimeout(collectionTimeout)
 
 	result := options.Merge(clientOpts, dbOpts, collOpts)
 
-	// Token from client layer
 	if gotToken, _ := result.TokenProvider.Token(context.Background()); gotToken != clientToken {
 		t.Errorf("expected token %q, got %q", clientToken, gotToken)
 	}
-	// Keyspace from db layer
 	if result.GetKeyspace() != dbKeyspace {
 		t.Errorf("expected keyspace %q, got %q", dbKeyspace, result.GetKeyspace())
 	}
-	// Timeout from collection layer
 	if result.GetRequestTimeout() != collectionTimeout {
 		t.Errorf("expected timeout %v, got %v", collectionTimeout, result.GetRequestTimeout())
 	}
@@ -112,7 +106,6 @@ func TestMerge_LaterLayerOverrides(t *testing.T) {
 
 	result := options.Merge(clientOpts, dbOpts)
 
-	// DB keyspace should override client keyspace
 	if result.GetKeyspace() != dbKeyspace {
 		t.Errorf("expected keyspace %q from db layer to override, got %q", dbKeyspace, result.GetKeyspace())
 	}
@@ -122,7 +115,6 @@ func TestMerge_NilLayers(t *testing.T) {
 	token := "my-token"
 	opts := options.API().SetToken(token)
 
-	// Should handle nil layers gracefully
 	result := options.Merge(nil, opts, nil)
 
 	if gotToken, _ := result.TokenProvider.Token(context.Background()); gotToken != token {
@@ -132,23 +124,20 @@ func TestMerge_NilLayers(t *testing.T) {
 
 func TestMerge_Headers(t *testing.T) {
 	clientOpts := options.API().
-		SetHeader("X-Client-Header", "client-value").
-		SetHeader("X-Shared-Header", "client-shared")
+		AddHeader("X-Client-Header", "client-value").
+		AddHeader("X-Shared-Header", "client-shared")
 	dbOpts := options.API().
-		SetHeader("X-DB-Header", "db-value").
-		SetHeader("X-Shared-Header", "db-shared") // Override
+		AddHeader("X-DB-Header", "db-value").
+		AddHeader("X-Shared-Header", "db-shared") // Override
 
 	result := options.Merge(clientOpts, dbOpts)
 
-	// Client header preserved
 	if result.Headers["X-Client-Header"] != "client-value" {
 		t.Errorf("expected client header to be preserved")
 	}
-	// DB header added
 	if result.Headers["X-DB-Header"] != "db-value" {
 		t.Errorf("expected db header to be added")
 	}
-	// Shared header overridden by db layer
 	if result.Headers["X-Shared-Header"] != "db-shared" {
 		t.Errorf("expected shared header to be overridden by db layer, got %q", result.Headers["X-Shared-Header"])
 	}
@@ -190,7 +179,6 @@ func TestWithAPIVersion(t *testing.T) {
 func TestGetters_NilSafety(t *testing.T) {
 	var nilOpts *options.APIOptions
 
-	// All getters should be safe to call on nil and return default-values
 	if nilOpts.GetTokenProvider() != nil {
 		t.Error("expected nil token provider for nil options")
 	}
@@ -213,36 +201,29 @@ func TestMerge_FullHierarchy(t *testing.T) {
 	clientOpts := options.API().
 		SetToken("client-token").
 		SetKeyspace("client_keyspace").
-		SetHeader("X-Client", "true")
+		AddHeader("X-Client", "true")
 
 	dbOpts := options.API().
 		SetKeyspace("db_keyspace") // Override
 
 	collOpts := options.API().
 		SetRequestTimeout(60*time.Second).
-		SetHeader("X-Collection", "true")
+		AddHeader("X-Collection", "true")
 
 	cmdOpts := options.API().
-		SetRequestTimeout(5 * time.Second) // Override for specific command
+		SetRequestTimeout(5 * time.Second) // Override
 
 	result := options.Merge(clientOpts, dbOpts, collOpts, cmdOpts)
 
-	// Token from client (unchanged)
 	if gotToken, _ := result.GetTokenProvider().Token(context.Background()); gotToken != "client-token" {
 		t.Errorf("expected client token, got %q", gotToken)
 	}
-
-	// Keyspace from db (overridden)
 	if result.GetKeyspace() != "db_keyspace" {
 		t.Errorf("expected db keyspace, got %q", result.GetKeyspace())
 	}
-
-	// Timeout from command (overridden)
 	if result.GetRequestTimeout() != 5*time.Second {
 		t.Errorf("expected command timeout 5s, got %v", result.GetRequestTimeout())
 	}
-
-	// Both headers preserved
 	if result.Headers["X-Client"] != "true" {
 		t.Error("expected client header to be preserved")
 	}
@@ -259,7 +240,7 @@ func TestTimeoutOptions(t *testing.T) {
 	opts := options.Merge(
 		options.API().SetConnectionTimeout(connTimeout),
 		options.API().SetRequestTimeout(reqTimeout),
-		options.API().SetBulkOperationTimeout(bulkTimeout),
+		options.API().UpdateTimeout(options.Timeout().SetBulkOperation(bulkTimeout)),
 	)
 
 	if opts.Timeout == nil {
@@ -312,7 +293,6 @@ func TestGeneralMethodTimeoutMerge(t *testing.T) {
 }
 
 func TestGeneralMethodTimeoutMergePreservesNil(t *testing.T) {
-	// When no layer sets GeneralMethod, it should remain nil
 	clientOpts := options.API().SetToken("t")
 	result := options.Merge(clientOpts)
 
@@ -328,21 +308,23 @@ func TestGetGeneralMethodTimeoutNilSafety(t *testing.T) {
 	}
 }
 
-func TestWithHeaders(t *testing.T) {
-	headers := map[string]string{
-		"X-Header-1": "value1",
-		"X-Header-2": "value2",
+func TestMerge_WarningHandler(t *testing.T) {
+	called := false
+	handler := func(w results.Warning) {
+		called = true
 	}
 
-	opts := options.Merge(options.API().SetHeaders(headers))
+	opt1 := options.API().SetWarningHandler(handler)
+	opt2 := options.API().SetKeyspace("test")
 
-	if len(opts.Headers) != 2 {
-		t.Errorf("expected 2 headers, got %d", len(opts.Headers))
+	merged := options.Merge(opt1, opt2)
+
+	if merged.WarningHandler == nil {
+		t.Fatal("expected WarningHandler to be preserved, but got nil")
 	}
-	if opts.Headers["X-Header-1"] != "value1" {
-		t.Error("expected header 1 to be set")
-	}
-	if opts.Headers["X-Header-2"] != "value2" {
-		t.Error("expected header 2 to be set")
+
+	merged.WarningHandler(results.Warning{})
+	if !called {
+		t.Fatal("expected WarningHandler to be called")
 	}
 }

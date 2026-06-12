@@ -14,8 +14,8 @@
 
 // gen-options generates boilerplate for the options package:
 //
-//  1. Children() methods — for each struct with *Validator fields, emits a
-//     Children() []Validator method so MergeAndValidate can recursively validate them.
+//  1. Children() methods — for each struct with nested option fields, emits a
+//     Children() []any method so MergeAndValidate can recursively validate them.
 //
 //  2. Builder implementations — for each XxxOptions struct that has a corresponding
 //     XxxOptionsBuilder struct, emits the builder struct definition, constructor,
@@ -88,11 +88,11 @@ func loadAndGenerateChildren(pkgDir string) {
 // ----- Package loading -----
 
 type loadedPkg struct {
-	name      string
-	types     *types.Package
-	validator *types.Interface // the Validator interface defined in this package
-	syntax    []*ast.File
-	fset      *token.FileSet
+	name        string
+	types       *types.Package
+	shouldMerge *types.Interface // the ShouldMerge interface defined in this package
+	syntax      []*ast.File
+	fset        *token.FileSet
 }
 
 func load(dir string) (*loadedPkg, error) {
@@ -111,54 +111,20 @@ func load(dir string) (*loadedPkg, error) {
 	}
 	p := pkgs[0]
 
-	iface, err := validatorInterface(p.Types)
-	if err != nil {
-		return nil, err
-	}
-	return &loadedPkg{name: p.Name, types: p.Types, validator: iface, syntax: p.Syntax, fset: fset}, nil
+	smIface, _ := shouldMergeInterface(p.Types)
+	return &loadedPkg{name: p.Name, types: p.Types, shouldMerge: smIface, syntax: p.Syntax, fset: fset}, nil
 }
 
-func validatorInterface(pkg *types.Package) (*types.Interface, error) {
-	obj := pkg.Scope().Lookup("Validator")
+func shouldMergeInterface(pkg *types.Package) (*types.Interface, error) {
+	obj := pkg.Scope().Lookup("ShouldMerge")
 	if obj == nil {
-		return nil, fmt.Errorf("Validator not found in package %q", pkg.Name())
+		return nil, fmt.Errorf("ShouldMerge not found in package %q", pkg.Name())
 	}
 	iface, ok := obj.Type().Underlying().(*types.Interface)
 	if !ok {
-		return nil, fmt.Errorf("Validator is not an interface")
+		return nil, fmt.Errorf("ShouldMerge is not an interface")
 	}
 	return iface, nil
-}
-
-// handWrittenMethods scans non-generated source files and returns a set of
-// "ReceiverType.MethodName" strings for all methods found.
-func handWrittenMethods(pkg *loadedPkg) map[string]bool {
-	methods := make(map[string]bool)
-	for _, file := range pkg.syntax {
-		filename := filepath.Base(pkg.fset.File(file.Pos()).Name())
-		if strings.Contains(filename, "_gen") {
-			continue
-		}
-		for _, decl := range file.Decls {
-			fn, ok := decl.(*ast.FuncDecl)
-			if !ok || fn.Recv == nil || len(fn.Recv.List) == 0 {
-				continue
-			}
-			var recvName string
-			switch t := fn.Recv.List[0].Type.(type) {
-			case *ast.StarExpr:
-				if ident, ok := t.X.(*ast.Ident); ok {
-					recvName = ident.Name
-				}
-			case *ast.Ident:
-				recvName = t.Name
-			}
-			if recvName != "" {
-				methods[recvName+"."+fn.Name.Name] = true
-			}
-		}
-	}
-	return methods
 }
 
 // handWrittenTypes scans non-generated source files and returns a set of
@@ -189,10 +155,10 @@ func handWrittenTypes(pkg *loadedPkg) map[string]bool {
 
 // ----- Children generation -----
 
-// childStruct is an options struct that has at least one *Validator field.
+// childStruct is an options struct that has at least one nested options field.
 type childStruct struct {
 	Name   string   // e.g. "CreateCollectionOptions"
-	Fields []string // names of *Validator pointer fields
+	Fields []string // names of nested options pointer fields
 }
 
 func childrenSrc(pkg *loadedPkg) renderJob {
@@ -202,7 +168,7 @@ func childrenSrc(pkg *loadedPkg) renderJob {
 		if !ok {
 			continue
 		}
-		fields := validatorPtrFields(s, pkg.validator)
+		fields := optionsPtrFields(s)
 		if len(fields) > 0 {
 			structs = append(structs, childStruct{Name: name, Fields: fields})
 		}
@@ -210,13 +176,15 @@ func childrenSrc(pkg *loadedPkg) renderJob {
 	return renderJob{PkgName: pkg.name, Tmpl: childrenTmpl, Data: structs}
 }
 
-// validatorPtrFields returns field names whose type is *T where T implements Validator.
-func validatorPtrFields(s *types.Struct, validator *types.Interface) []string {
+// optionsPtrFields returns field names whose type is *T where T is an Options struct.
+func optionsPtrFields(s *types.Struct) []string {
 	var names []string
 	for i := range s.NumFields() {
 		f := s.Field(i)
-		if ptr, ok := f.Type().(*types.Pointer); ok && types.Implements(ptr, validator) {
-			names = append(names, f.Name())
+		if ptr, ok := f.Type().(*types.Pointer); ok {
+			if named, ok := ptr.Elem().(*types.Named); ok && strings.HasSuffix(named.Obj().Name(), "Options") {
+				names = append(names, f.Name())
+			}
 		}
 	}
 	return names
@@ -227,7 +195,6 @@ func validatorPtrFields(s *types.Struct, validator *types.Interface) []string {
 // optsDef describes an options type and its optional builder.
 type optsDef struct {
 	OptsType    string // e.g. "CreateCollectionOptions"
-	GenValidate bool   // true → generate trivial Validate()
 	GenAlias    bool   // true → generate type alias (e.g. CreateCollectionOption)
 	HasBuilder  bool   // true → generate builder struct, constructor, setters
 	BuilderType string // e.g. "createCollectionOptionsBuilder"
@@ -352,23 +319,20 @@ func pickAliasExample(setters []setterDef) aliasDef {
 }
 
 func buildersSrc(pkg *loadedPkg) renderJob {
-	hwMethods := handWrittenMethods(pkg)
 	hwTypes := handWrittenTypes(pkg)
 	comments := fieldComments(pkg)
 	scope := pkg.types.Scope()
 
-	// Pre-scan: collect all Options struct names. Every Options type gets a
-	// Validate() method (either hand-written or generated), so they will all
-	// satisfy the Validator interface once codegen completes. This set lets
-	// setterForField fall back to builder-style setters even on a clean first
-	// run when the generated Validate() stubs don't exist yet.
-	futureValidators := make(map[string]bool)
+	// Pre-scan: collect all Options struct names.
+	// This set lets setterForField generate builder-style setters
+	// for fields that embed other options structs.
+	futureOptions := make(map[string]bool)
 	for _, name := range scope.Names() {
 		if !strings.HasSuffix(name, "Options") || strings.HasSuffix(name, "OptionsBuilder") {
 			continue
 		}
 		if _, ok := namedStruct(scope.Lookup(name)); ok {
-			futureValidators[name] = true
+			futureOptions[name] = true
 		}
 	}
 
@@ -388,12 +352,11 @@ func buildersSrc(pkg *loadedPkg) renderJob {
 		aliasName := constructor + "Option"
 		def := optsDef{
 			OptsType:    name,
-			GenValidate: !hwMethods[name+".Validate"],
 			GenAlias:    !hwTypes[aliasName],
 			HasBuilder:  true,
 			BuilderType: unexportedName(builderName),
 			Constructor: constructor,
-			Setters:     settersFor(name, optsStruct, pkg.validator, futureValidators, comments),
+			Setters:     settersFor(name, optsStruct, pkg.shouldMerge, futureOptions, comments),
 		}
 
 		def.Alias = pickAliasExample(def.Setters)
@@ -419,7 +382,7 @@ func typeName(t types.Type) string {
 // settersFor inspects every field of s and returns a setterDef for each one we
 // know how to generate. Unrecognised field kinds are silently skipped — they can
 // be written by hand as convenience methods that delegate to the generated ones.
-func settersFor(structName string, s *types.Struct, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) []setterDef {
+func settersFor(structName string, s *types.Struct, shouldMerge *types.Interface, futureOptions map[string]bool, comments map[string]map[string]string) []setterDef {
 	var setters []setterDef
 	for i := 0; i < s.NumFields(); i++ {
 		f := s.Field(i)
@@ -450,7 +413,7 @@ func settersFor(structName string, s *types.Struct, validator *types.Interface, 
 					}
 
 					found = true
-					if sd, ok := setterForField(nestedStructName, nf, validator, futureValidators, comments); ok {
+					if sd, ok := setterForField(nestedStructName, nf, shouldMerge, futureOptions, comments); ok {
 						if alias != "" {
 							sd.Method = "Set" + alias
 						}
@@ -467,7 +430,7 @@ func settersFor(structName string, s *types.Struct, validator *types.Interface, 
 			}
 		}
 
-		if sd, ok := setterForField(structName, f, validator, futureValidators, comments); ok {
+		if sd, ok := setterForField(structName, f, shouldMerge, futureOptions, comments); ok {
 			setters = append(setters, sd)
 		}
 	}
@@ -524,7 +487,7 @@ func fieldComments(pkg *loadedPkg) map[string]map[string]string {
 	return result
 }
 
-func setterForField(structName string, f *types.Var, validator *types.Interface, futureValidators map[string]bool, comments map[string]map[string]string) (setterDef, bool) {
+func setterForField(structName string, f *types.Var, shouldMerge *types.Interface, futureOptions map[string]bool, comments map[string]map[string]string) (setterDef, bool) {
 	method := "Set" + f.Name()
 	comment := ""
 	if structComments, ok := comments[structName]; ok {
@@ -536,16 +499,23 @@ func setterForField(structName string, f *types.Var, validator *types.Interface,
 	switch t := f.Type().(type) {
 
 	case *types.Pointer:
-		// *Validator child → variadic builder setter using Merge.
-		// On a clean first run the generated Validate() stubs don't exist
-		// yet, so types.Implements may return false for our own Options
-		// types. Fall back to futureValidators for those.
 		named, isNamed := t.Elem().(*types.Named)
-		isValidator := types.Implements(t, validator)
-		if !isValidator && isNamed {
-			isValidator = futureValidators[named.Obj().Name()]
+		if shouldMerge != nil && types.Implements(t, shouldMerge) && isNamed {
+			return setterDef{
+				Comment:           comment,
+				Method:            "Update" + f.Name(),
+				Field:             f.Name(),
+				ParamType:         fmt.Sprintf("Builder[%s]", named.Obj().Name()),
+				IsVariadicBuilder: true,
+			}, true
 		}
-		if isValidator && isNamed {
+
+		// Nested Options child → variadic builder setter using Merge.
+		isOption := false
+		if isNamed {
+			isOption = futureOptions[named.Obj().Name()]
+		}
+		if isOption {
 			return setterDef{
 				Comment:           comment,
 				Method:            method,
@@ -709,9 +679,9 @@ var childrenTmpl = template.Must(template.New("children").Parse(boilerplate + `
 package {{ .PkgName }}
 {{ range .Data }}
 // Children implements ChildValidator for {{ .Name }}.
-// Returns all non-nil Validator fields.
-func (o *{{ .Name }}) Children() []Validator {
-	var children []Validator
+// Returns all non-nil option fields.
+func (o *{{ .Name }}) Children() []any {
+	var children []any
 	{{- range .Fields }}
 	if o.{{ . }} != nil {
 		children = append(children, o.{{ . }})
@@ -735,10 +705,6 @@ package {{ .PkgName }}
 func (o *{{ .OptsType }}) Setters() []func(*{{ .OptsType }}) {
 	return NoopBuilder(o)
 }
-{{ if .GenValidate }}
-// Validate implements Validator for {{ .OptsType }}.
-func (o *{{ .OptsType }}) Validate() error { return nil }
-{{ end }}
 {{- if .HasBuilder }}
 // {{ .BuilderType }} is a builder for {{ .OptsType }}.
 type {{ .BuilderType }} struct {

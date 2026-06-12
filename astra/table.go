@@ -49,7 +49,7 @@ type TableUpdate = update.TableUpdate
 type Table struct {
 	db      *Db
 	name    string
-	options options.Joined[options.APIOptions]
+	options *options.APIOptions
 }
 
 // region Meta
@@ -61,7 +61,7 @@ func (t *Table) Name() string {
 
 // ClientOptions returns the table's options as a resolved struct with defaults.
 func (t *Table) ClientOptions() *options.APIOptions {
-	return options.Merge(t.options...)
+	return t.options
 }
 
 // Database returns the parent database.
@@ -72,7 +72,7 @@ func (t *Table) Database() *Db {
 // newCmd creates a command for this table. Will merge opts (if any) and apply them
 // as command-level options.
 func (t *Table) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.NewDataAPICommand(t.db.endpoint, t.name, name, payload, serdes.TargetTable, options.Join(t.options, opts...))
+	return command.NewDataAPICommand(t.db.endpoint, t.name, name, payload, serdes.TargetTable, options.Merge(append([]options.APIOption{t.options}, opts...)...))
 }
 
 // endregion

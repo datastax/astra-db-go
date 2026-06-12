@@ -29,9 +29,6 @@ func (o *APIOptions) Setters() []func(*APIOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for APIOptions.
-func (o *APIOptions) Validate() error { return nil }
-
 // apiOptionsBuilder is a builder for APIOptions.
 type apiOptionsBuilder struct {
 	setters []func(*APIOptions)
@@ -70,16 +67,6 @@ func (b *apiOptionsBuilder) SetAPIVersion(v string) *apiOptionsBuilder {
 func (b *apiOptionsBuilder) SetHTTPClient(v *http.Client) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		o.HTTPClient = v
-	})
-	return b
-}
-
-// SetHeaders sets the Headers option.
-// Headers contains custom headers to include in requests
-// (e.g., for embedding API keys like "x-embedding-api-key")
-func (b *apiOptionsBuilder) SetHeaders(v map[string]string) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Headers = v
 	})
 	return b
 }
@@ -133,18 +120,18 @@ func (b *apiOptionsBuilder) SetGeneralMethodTimeout(v time.Duration) *apiOptions
 	return b
 }
 
-// SetTimeout sets the Timeout option.
+// UpdateTimeout sets the Timeout option.
 // Timeout contains timeout configuration
-func (b *apiOptionsBuilder) SetTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) UpdateTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		MergeInto(&o.Timeout, v...)
 	})
 	return b
 }
 
-// SetSerdes sets the Serdes option.
+// UpdateSerdes sets the Serdes option.
 // Serdes contains serialization/deserialization options
-func (b *apiOptionsBuilder) SetSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) UpdateSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		MergeInto(&o.Serdes, v...)
 	})
@@ -171,15 +158,6 @@ func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuild
 	return b
 }
 
-// SetCallers sets the Callers option.
-// Callers contains information about the application making the request
-func (b *apiOptionsBuilder) SetCallers(v ...Caller) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Callers = v
-	})
-	return b
-}
-
 // AlterTableOption configures a AlterTable operation.
 // You can use the fluent-style builder or a pointer to [AlterTableOptions] interchangeably.
 //
@@ -197,9 +175,6 @@ type AlterTableOption = Builder[AlterTableOptions]
 func (o *AlterTableOptions) Setters() []func(*AlterTableOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for AlterTableOptions.
-func (o *AlterTableOptions) Validate() error { return nil }
 
 // alterTableOptionsBuilder is a builder for AlterTableOptions.
 type alterTableOptionsBuilder struct {
@@ -244,9 +219,6 @@ type AlterTypeOption = Builder[AlterTypeOptions]
 func (o *AlterTypeOptions) Setters() []func(*AlterTypeOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for AlterTypeOptions.
-func (o *AlterTypeOptions) Validate() error { return nil }
 
 // alterTypeOptionsBuilder is a builder for AlterTypeOptions.
 type alterTypeOptionsBuilder struct {
@@ -303,9 +275,6 @@ func (o *CollectionCountDocumentsOptions) Setters() []func(*CollectionCountDocum
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionCountDocumentsOptions.
-func (o *CollectionCountDocumentsOptions) Validate() error { return nil }
-
 // collectionCountDocumentsOptionsBuilder is a builder for CollectionCountDocumentsOptions.
 type collectionCountDocumentsOptionsBuilder struct {
 	setters []func(*CollectionCountDocumentsOptions)
@@ -348,9 +317,6 @@ type CollectionDefaultIdOption = Builder[CollectionDefaultIdOptions]
 func (o *CollectionDefaultIdOptions) Setters() []func(*CollectionDefaultIdOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionDefaultIdOptions.
-func (o *CollectionDefaultIdOptions) Validate() error { return nil }
 
 // collectionDefaultIdOptionsBuilder is a builder for CollectionDefaultIdOptions.
 type collectionDefaultIdOptionsBuilder struct {
@@ -396,9 +362,6 @@ type CollectionDeleteManyOption = Builder[CollectionDeleteManyOptions]
 func (o *CollectionDeleteManyOptions) Setters() []func(*CollectionDeleteManyOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionDeleteManyOptions.
-func (o *CollectionDeleteManyOptions) Validate() error { return nil }
 
 // collectionDeleteManyOptionsBuilder is a builder for CollectionDeleteManyOptions.
 type collectionDeleteManyOptionsBuilder struct {
@@ -453,9 +416,6 @@ func (o *CollectionDeleteOneOptions) Setters() []func(*CollectionDeleteOneOption
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionDeleteOneOptions.
-func (o *CollectionDeleteOneOptions) Validate() error { return nil }
-
 // collectionDeleteOneOptionsBuilder is a builder for CollectionDeleteOneOptions.
 type collectionDeleteOneOptionsBuilder struct {
 	setters []func(*CollectionDeleteOneOptions)
@@ -508,9 +468,6 @@ type CollectionEstimatedDocumentCountOption = Builder[CollectionEstimatedDocumen
 func (o *CollectionEstimatedDocumentCountOptions) Setters() []func(*CollectionEstimatedDocumentCountOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionEstimatedDocumentCountOptions.
-func (o *CollectionEstimatedDocumentCountOptions) Validate() error { return nil }
 
 // collectionEstimatedDocumentCountOptionsBuilder is a builder for CollectionEstimatedDocumentCountOptions.
 type collectionEstimatedDocumentCountOptionsBuilder struct {
@@ -671,9 +628,6 @@ func (o *CollectionFindOneAndDeleteOptions) Setters() []func(*CollectionFindOneA
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionFindOneAndDeleteOptions.
-func (o *CollectionFindOneAndDeleteOptions) Validate() error { return nil }
-
 // collectionFindOneAndDeleteOptionsBuilder is a builder for CollectionFindOneAndDeleteOptions.
 type collectionFindOneAndDeleteOptionsBuilder struct {
 	setters []func(*CollectionFindOneAndDeleteOptions)
@@ -735,9 +689,6 @@ type CollectionFindOneAndReplaceOption = Builder[CollectionFindOneAndReplaceOpti
 func (o *CollectionFindOneAndReplaceOptions) Setters() []func(*CollectionFindOneAndReplaceOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionFindOneAndReplaceOptions.
-func (o *CollectionFindOneAndReplaceOptions) Validate() error { return nil }
 
 // collectionFindOneAndReplaceOptionsBuilder is a builder for CollectionFindOneAndReplaceOptions.
 type collectionFindOneAndReplaceOptionsBuilder struct {
@@ -819,9 +770,6 @@ func (o *CollectionFindOneAndUpdateOptions) Setters() []func(*CollectionFindOneA
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionFindOneAndUpdateOptions.
-func (o *CollectionFindOneAndUpdateOptions) Validate() error { return nil }
-
 // collectionFindOneAndUpdateOptionsBuilder is a builder for CollectionFindOneAndUpdateOptions.
 type collectionFindOneAndUpdateOptionsBuilder struct {
 	setters []func(*CollectionFindOneAndUpdateOptions)
@@ -902,9 +850,6 @@ func (o *CollectionFindOneOptions) Setters() []func(*CollectionFindOneOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionFindOneOptions.
-func (o *CollectionFindOneOptions) Validate() error { return nil }
-
 // collectionFindOneOptionsBuilder is a builder for CollectionFindOneOptions.
 type collectionFindOneOptionsBuilder struct {
 	setters []func(*CollectionFindOneOptions)
@@ -976,9 +921,6 @@ type CollectionFindOption = Builder[CollectionFindOptions]
 func (o *CollectionFindOptions) Setters() []func(*CollectionFindOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionFindOptions.
-func (o *CollectionFindOptions) Validate() error { return nil }
 
 // collectionFindOptionsBuilder is a builder for CollectionFindOptions.
 type collectionFindOptionsBuilder struct {
@@ -1159,9 +1101,6 @@ func (o *CollectionInsertOneOptions) Setters() []func(*CollectionInsertOneOption
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionInsertOneOptions.
-func (o *CollectionInsertOneOptions) Validate() error { return nil }
-
 // collectionInsertOneOptionsBuilder is a builder for CollectionInsertOneOptions.
 type collectionInsertOneOptionsBuilder struct {
 	setters []func(*CollectionInsertOneOptions)
@@ -1204,9 +1143,6 @@ type CollectionOptionsOption = Builder[CollectionOptionsOptions]
 func (o *CollectionOptionsOptions) Setters() []func(*CollectionOptionsOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionOptionsOptions.
-func (o *CollectionOptionsOptions) Validate() error { return nil }
 
 // collectionOptionsOptionsBuilder is a builder for CollectionOptionsOptions.
 type collectionOptionsOptionsBuilder struct {
@@ -1251,9 +1187,6 @@ type CollectionReplaceOneOption = Builder[CollectionReplaceOneOptions]
 func (o *CollectionReplaceOneOptions) Setters() []func(*CollectionReplaceOneOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionReplaceOneOptions.
-func (o *CollectionReplaceOneOptions) Validate() error { return nil }
 
 // collectionReplaceOneOptionsBuilder is a builder for CollectionReplaceOneOptions.
 type collectionReplaceOneOptionsBuilder struct {
@@ -1316,9 +1249,6 @@ type CollectionUpdateManyOption = Builder[CollectionUpdateManyOptions]
 func (o *CollectionUpdateManyOptions) Setters() []func(*CollectionUpdateManyOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CollectionUpdateManyOptions.
-func (o *CollectionUpdateManyOptions) Validate() error { return nil }
 
 // collectionUpdateManyOptionsBuilder is a builder for CollectionUpdateManyOptions.
 type collectionUpdateManyOptionsBuilder struct {
@@ -1383,9 +1313,6 @@ func (o *CollectionUpdateOneOptions) Setters() []func(*CollectionUpdateOneOption
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CollectionUpdateOneOptions.
-func (o *CollectionUpdateOneOptions) Validate() error { return nil }
-
 // collectionUpdateOneOptionsBuilder is a builder for CollectionUpdateOneOptions.
 type collectionUpdateOneOptionsBuilder struct {
 	setters []func(*CollectionUpdateOneOptions)
@@ -1448,9 +1375,6 @@ type CreateCollectionOption = Builder[CreateCollectionOptions]
 func (o *CreateCollectionOptions) Setters() []func(*CreateCollectionOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CreateCollectionOptions.
-func (o *CreateCollectionOptions) Validate() error { return nil }
 
 // createCollectionOptionsBuilder is a builder for CreateCollectionOptions.
 type createCollectionOptionsBuilder struct {
@@ -1553,9 +1477,6 @@ func (o *CreateDatabaseOptions) Setters() []func(*CreateDatabaseOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CreateDatabaseOptions.
-func (o *CreateDatabaseOptions) Validate() error { return nil }
-
 // createDatabaseOptionsBuilder is a builder for CreateDatabaseOptions.
 type createDatabaseOptionsBuilder struct {
 	setters []func(*CreateDatabaseOptions)
@@ -1628,9 +1549,6 @@ type CreateIndexOption = Builder[CreateIndexOptions]
 func (o *CreateIndexOptions) Setters() []func(*CreateIndexOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CreateIndexOptions.
-func (o *CreateIndexOptions) Validate() error { return nil }
 
 // createIndexOptionsBuilder is a builder for CreateIndexOptions.
 type createIndexOptionsBuilder struct {
@@ -1716,9 +1634,6 @@ func (o *CreateKeyspaceOptions) Setters() []func(*CreateKeyspaceOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CreateKeyspaceOptions.
-func (o *CreateKeyspaceOptions) Validate() error { return nil }
-
 // createKeyspaceOptionsBuilder is a builder for CreateKeyspaceOptions.
 type createKeyspaceOptionsBuilder struct {
 	setters []func(*CreateKeyspaceOptions)
@@ -1803,9 +1718,6 @@ func (o *CreateTableOptions) Setters() []func(*CreateTableOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CreateTableOptions.
-func (o *CreateTableOptions) Validate() error { return nil }
-
 // createTableOptionsBuilder is a builder for CreateTableOptions.
 type createTableOptionsBuilder struct {
 	setters []func(*CreateTableOptions)
@@ -1872,9 +1784,6 @@ func (o *CreateTextIndexOptions) Setters() []func(*CreateTextIndexOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for CreateTextIndexOptions.
-func (o *CreateTextIndexOptions) Validate() error { return nil }
-
 // createTextIndexOptionsBuilder is a builder for CreateTextIndexOptions.
 type createTextIndexOptionsBuilder struct {
 	setters []func(*CreateTextIndexOptions)
@@ -1928,9 +1837,6 @@ type CreateTypeOption = Builder[CreateTypeOptions]
 func (o *CreateTypeOptions) Setters() []func(*CreateTypeOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CreateTypeOptions.
-func (o *CreateTypeOptions) Validate() error { return nil }
 
 // createTypeOptionsBuilder is a builder for CreateTypeOptions.
 type createTypeOptionsBuilder struct {
@@ -1997,9 +1903,6 @@ type CreateVectorIndexOption = Builder[CreateVectorIndexOptions]
 func (o *CreateVectorIndexOptions) Setters() []func(*CreateVectorIndexOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for CreateVectorIndexOptions.
-func (o *CreateVectorIndexOptions) Validate() error { return nil }
 
 // createVectorIndexOptionsBuilder is a builder for CreateVectorIndexOptions.
 type createVectorIndexOptionsBuilder struct {
@@ -2079,9 +1982,6 @@ func (o *DatabaseInfoOptions) Setters() []func(*DatabaseInfoOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for DatabaseInfoOptions.
-func (o *DatabaseInfoOptions) Validate() error { return nil }
-
 // databaseInfoOptionsBuilder is a builder for DatabaseInfoOptions.
 type databaseInfoOptionsBuilder struct {
 	setters []func(*DatabaseInfoOptions)
@@ -2125,9 +2025,6 @@ type DropCollectionOption = Builder[DropCollectionOptions]
 func (o *DropCollectionOptions) Setters() []func(*DropCollectionOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for DropCollectionOptions.
-func (o *DropCollectionOptions) Validate() error { return nil }
 
 // dropCollectionOptionsBuilder is a builder for DropCollectionOptions.
 type dropCollectionOptionsBuilder struct {
@@ -2184,9 +2081,6 @@ type DropDatabaseOption = Builder[DropDatabaseOptions]
 func (o *DropDatabaseOptions) Setters() []func(*DropDatabaseOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for DropDatabaseOptions.
-func (o *DropDatabaseOptions) Validate() error { return nil }
 
 // dropDatabaseOptionsBuilder is a builder for DropDatabaseOptions.
 type dropDatabaseOptionsBuilder struct {
@@ -2252,9 +2146,6 @@ func (o *DropKeyspaceOptions) Setters() []func(*DropKeyspaceOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for DropKeyspaceOptions.
-func (o *DropKeyspaceOptions) Validate() error { return nil }
-
 // dropKeyspaceOptionsBuilder is a builder for DropKeyspaceOptions.
 type dropKeyspaceOptionsBuilder struct {
 	setters []func(*DropKeyspaceOptions)
@@ -2318,9 +2209,6 @@ type DropTableIndexOption = Builder[DropTableIndexOptions]
 func (o *DropTableIndexOptions) Setters() []func(*DropTableIndexOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for DropTableIndexOptions.
-func (o *DropTableIndexOptions) Validate() error { return nil }
 
 // dropTableIndexOptionsBuilder is a builder for DropTableIndexOptions.
 type dropTableIndexOptionsBuilder struct {
@@ -2388,9 +2276,6 @@ func (o *DropTableOptions) Setters() []func(*DropTableOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for DropTableOptions.
-func (o *DropTableOptions) Validate() error { return nil }
-
 // dropTableOptionsBuilder is a builder for DropTableOptions.
 type dropTableOptionsBuilder struct {
 	setters []func(*DropTableOptions)
@@ -2456,9 +2341,6 @@ type DropTypeOption = Builder[DropTypeOptions]
 func (o *DropTypeOptions) Setters() []func(*DropTypeOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for DropTypeOptions.
-func (o *DropTypeOptions) Validate() error { return nil }
 
 // dropTypeOptionsBuilder is a builder for DropTypeOptions.
 type dropTypeOptionsBuilder struct {
@@ -2526,9 +2408,6 @@ func (o *FindAvailableRegionsOptions) Setters() []func(*FindAvailableRegionsOpti
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for FindAvailableRegionsOptions.
-func (o *FindAvailableRegionsOptions) Validate() error { return nil }
-
 // findAvailableRegionsOptionsBuilder is a builder for FindAvailableRegionsOptions.
 type findAvailableRegionsOptionsBuilder struct {
 	setters []func(*FindAvailableRegionsOptions)
@@ -2582,9 +2461,6 @@ type FindEmbeddingProvidersOption = Builder[FindEmbeddingProvidersOptions]
 func (o *FindEmbeddingProvidersOptions) Setters() []func(*FindEmbeddingProvidersOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for FindEmbeddingProvidersOptions.
-func (o *FindEmbeddingProvidersOptions) Validate() error { return nil }
 
 // findEmbeddingProvidersOptionsBuilder is a builder for FindEmbeddingProvidersOptions.
 type findEmbeddingProvidersOptionsBuilder struct {
@@ -2666,9 +2542,6 @@ func (o *GetCollectionOptions) Setters() []func(*GetCollectionOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for GetCollectionOptions.
-func (o *GetCollectionOptions) Validate() error { return nil }
-
 // getCollectionOptionsBuilder is a builder for GetCollectionOptions.
 type getCollectionOptionsBuilder struct {
 	setters []func(*GetCollectionOptions)
@@ -2724,9 +2597,6 @@ type GetTableOption = Builder[GetTableOptions]
 func (o *GetTableOptions) Setters() []func(*GetTableOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for GetTableOptions.
-func (o *GetTableOptions) Validate() error { return nil }
 
 // getTableOptionsBuilder is a builder for GetTableOptions.
 type getTableOptionsBuilder struct {
@@ -2837,9 +2707,6 @@ func (o *LexicalOptions) Setters() []func(*LexicalOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for LexicalOptions.
-func (o *LexicalOptions) Validate() error { return nil }
-
 // lexicalOptionsBuilder is a builder for LexicalOptions.
 type lexicalOptionsBuilder struct {
 	setters []func(*LexicalOptions)
@@ -2882,9 +2749,6 @@ type ListCollectionsOption = Builder[ListCollectionsOptions]
 func (o *ListCollectionsOptions) Setters() []func(*ListCollectionsOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for ListCollectionsOptions.
-func (o *ListCollectionsOptions) Validate() error { return nil }
 
 // listCollectionsOptionsBuilder is a builder for ListCollectionsOptions.
 type listCollectionsOptionsBuilder struct {
@@ -2941,9 +2805,6 @@ type ListDatabasesOption = Builder[ListDatabasesOptions]
 func (o *ListDatabasesOptions) Setters() []func(*ListDatabasesOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for ListDatabasesOptions.
-func (o *ListDatabasesOptions) Validate() error { return nil }
 
 // listDatabasesOptionsBuilder is a builder for ListDatabasesOptions.
 type listDatabasesOptionsBuilder struct {
@@ -3025,9 +2886,6 @@ func (o *ListIndexesOptions) Setters() []func(*ListIndexesOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for ListIndexesOptions.
-func (o *ListIndexesOptions) Validate() error { return nil }
-
 // listIndexesOptionsBuilder is a builder for ListIndexesOptions.
 type listIndexesOptionsBuilder struct {
 	setters []func(*ListIndexesOptions)
@@ -3070,9 +2928,6 @@ type ListKeyspacesOption = Builder[ListKeyspacesOptions]
 func (o *ListKeyspacesOptions) Setters() []func(*ListKeyspacesOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for ListKeyspacesOptions.
-func (o *ListKeyspacesOptions) Validate() error { return nil }
 
 // listKeyspacesOptionsBuilder is a builder for ListKeyspacesOptions.
 type listKeyspacesOptionsBuilder struct {
@@ -3117,9 +2972,6 @@ type ListTablesOption = Builder[ListTablesOptions]
 func (o *ListTablesOptions) Setters() []func(*ListTablesOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for ListTablesOptions.
-func (o *ListTablesOptions) Validate() error { return nil }
 
 // listTablesOptionsBuilder is a builder for ListTablesOptions.
 type listTablesOptionsBuilder struct {
@@ -3177,9 +3029,6 @@ func (o *ListTypesOptions) Setters() []func(*ListTypesOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for ListTypesOptions.
-func (o *ListTypesOptions) Validate() error { return nil }
-
 // listTypesOptionsBuilder is a builder for ListTypesOptions.
 type listTypesOptionsBuilder struct {
 	setters []func(*ListTypesOptions)
@@ -3236,9 +3085,6 @@ func (o *RerankOptions) Setters() []func(*RerankOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for RerankOptions.
-func (o *RerankOptions) Validate() error { return nil }
-
 // rerankOptionsBuilder is a builder for RerankOptions.
 type rerankOptionsBuilder struct {
 	setters []func(*RerankOptions)
@@ -3290,9 +3136,6 @@ type RerankServiceOption = Builder[RerankServiceOptions]
 func (o *RerankServiceOptions) Setters() []func(*RerankServiceOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for RerankServiceOptions.
-func (o *RerankServiceOptions) Validate() error { return nil }
 
 // rerankServiceOptionsBuilder is a builder for RerankServiceOptions.
 type rerankServiceOptionsBuilder struct {
@@ -3364,9 +3207,6 @@ type SerdesOption = Builder[SerdesOptions]
 func (o *SerdesOptions) Setters() []func(*SerdesOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for SerdesOptions.
-func (o *SerdesOptions) Validate() error { return nil }
 
 // serdesOptionsBuilder is a builder for SerdesOptions.
 type serdesOptionsBuilder struct {
@@ -3475,9 +3315,6 @@ func (o *TableDefinitionOptions) Setters() []func(*TableDefinitionOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for TableDefinitionOptions.
-func (o *TableDefinitionOptions) Validate() error { return nil }
-
 // tableDefinitionOptionsBuilder is a builder for TableDefinitionOptions.
 type tableDefinitionOptionsBuilder struct {
 	setters []func(*TableDefinitionOptions)
@@ -3520,9 +3357,6 @@ type TableDeleteManyOption = Builder[TableDeleteManyOptions]
 func (o *TableDeleteManyOptions) Setters() []func(*TableDeleteManyOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for TableDeleteManyOptions.
-func (o *TableDeleteManyOptions) Validate() error { return nil }
 
 // tableDeleteManyOptionsBuilder is a builder for TableDeleteManyOptions.
 type tableDeleteManyOptionsBuilder struct {
@@ -3567,9 +3401,6 @@ func (o *TableDeleteOneOptions) Setters() []func(*TableDeleteOneOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for TableDeleteOneOptions.
-func (o *TableDeleteOneOptions) Validate() error { return nil }
-
 // tableDeleteOneOptionsBuilder is a builder for TableDeleteOneOptions.
 type tableDeleteOneOptionsBuilder struct {
 	setters []func(*TableDeleteOneOptions)
@@ -3613,9 +3444,6 @@ type TableFindOneOption = Builder[TableFindOneOptions]
 func (o *TableFindOneOptions) Setters() []func(*TableFindOneOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for TableFindOneOptions.
-func (o *TableFindOneOptions) Validate() error { return nil }
 
 // tableFindOneOptionsBuilder is a builder for TableFindOneOptions.
 type tableFindOneOptionsBuilder struct {
@@ -3688,9 +3516,6 @@ type TableFindOption = Builder[TableFindOptions]
 func (o *TableFindOptions) Setters() []func(*TableFindOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for TableFindOptions.
-func (o *TableFindOptions) Validate() error { return nil }
 
 // tableFindOptionsBuilder is a builder for TableFindOptions.
 type tableFindOptionsBuilder struct {
@@ -3806,9 +3631,6 @@ func (o *TableInsertManyOptions) Setters() []func(*TableInsertManyOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for TableInsertManyOptions.
-func (o *TableInsertManyOptions) Validate() error { return nil }
-
 // tableInsertManyOptionsBuilder is a builder for TableInsertManyOptions.
 type tableInsertManyOptionsBuilder struct {
 	setters []func(*TableInsertManyOptions)
@@ -3876,9 +3698,6 @@ func (o *TableInsertOneOptions) Setters() []func(*TableInsertOneOptions) {
 	return NoopBuilder(o)
 }
 
-// Validate implements Validator for TableInsertOneOptions.
-func (o *TableInsertOneOptions) Validate() error { return nil }
-
 // tableInsertOneOptionsBuilder is a builder for TableInsertOneOptions.
 type tableInsertOneOptionsBuilder struct {
 	setters []func(*TableInsertOneOptions)
@@ -3921,9 +3740,6 @@ type TableUpdateOneOption = Builder[TableUpdateOneOptions]
 func (o *TableUpdateOneOptions) Setters() []func(*TableUpdateOneOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for TableUpdateOneOptions.
-func (o *TableUpdateOneOptions) Validate() error { return nil }
 
 // tableUpdateOneOptionsBuilder is a builder for TableUpdateOneOptions.
 type tableUpdateOneOptionsBuilder struct {
@@ -3968,9 +3784,6 @@ type TimeoutOption = Builder[TimeoutOptions]
 func (o *TimeoutOptions) Setters() []func(*TimeoutOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for TimeoutOptions.
-func (o *TimeoutOptions) Validate() error { return nil }
 
 // timeoutOptionsBuilder is a builder for TimeoutOptions.
 type timeoutOptionsBuilder struct {
@@ -4042,9 +3855,6 @@ type VectorOption = Builder[VectorOptions]
 func (o *VectorOptions) Setters() []func(*VectorOptions) {
 	return NoopBuilder(o)
 }
-
-// Validate implements Validator for VectorOptions.
-func (o *VectorOptions) Validate() error { return nil }
 
 // vectorOptionsBuilder is a builder for VectorOptions.
 type vectorOptionsBuilder struct {

@@ -44,36 +44,16 @@ func TestAdditiveMerging(t *testing.T) {
 	}
 }
 
-func TestExplicitReplace(t *testing.T) {
-	// Test that Replace overwrites instead of merging
-	opts := options.ListCollections().
-		SetAPIOptions(options.API().SetToken("token1").SetKeyspace("ks1")).
-		SetAPIOptions(options.Replace(options.API().SetToken("token2")))
-
-	merged := options.Merge(opts)
-
-	if merged.APIOptions == nil {
-		t.Fatal("expected APIOptions to be non-nil")
-	}
-	if gotToken, _ := merged.APIOptions.GetTokenProvider().Token(context.Background()); gotToken != "token2" {
-		t.Errorf("expected token2, got %q", gotToken)
-	}
-	// Keyspace should have been wiped and then set to default by Merge initializing new APIOptions
-	if merged.APIOptions.GetKeyspace() != "default_keyspace" {
-		t.Errorf("expected default keyspace after replace, got %q", merged.APIOptions.GetKeyspace())
-	}
-}
-
 func TestAdditiveHeaderMerging(t *testing.T) {
 	// Proves that map merging works across multiple builder applications
-	// when using the manual SetHeader override.
+	// when using AddHeader.
 	opts := options.API().
-		SetHeader("X-A", "1").
-		SetHeader("X-B", "2")
+		AddHeader("X-A", "1").
+		AddHeader("X-B", "2")
 
 	moreOpts := options.API().
-		SetHeader("X-C", "3").
-		SetHeader("X-A", "overridden")
+		AddHeader("X-C", "3").
+		AddHeader("X-A", "overridden")
 
 	resolved := options.Merge(opts, moreOpts)
 
@@ -85,23 +65,8 @@ func TestAdditiveHeaderMerging(t *testing.T) {
 	}
 }
 
-func TestMapOverwriteRule(t *testing.T) {
-	// Proves that SetHeaders (plural) overwrites the entire map.
-	opts := options.API().SetHeader("X-A", "1")
-	overwrite := options.API().SetHeaders(map[string]string{"X-B": "2"})
-
-	resolved := options.Merge(opts, overwrite)
-
-	if len(resolved.Headers) != 1 {
-		t.Errorf("expected map to be overwritten, got length %d", len(resolved.Headers))
-	}
-	if resolved.Headers["X-B"] != "2" {
-		t.Error("expected only X-B to be present")
-	}
-}
-
 func TestNestedInitialization(t *testing.T) {
-	// Verifies that "lifted" fields deep in a command struct correctly
+	// Verifies that fields deep in a command struct correctly
 	// initialize their container structs (APIOptions, TimeoutOptions).
 	opts := options.ListCollections().SetAPIOptions(options.API().SetRequestTimeout(45 * time.Second))
 
@@ -122,19 +87,19 @@ func TestHierarchyInheritance(t *testing.T) {
 	// 1. Client sets a token and a global header
 	client := astra.NewClient(
 		options.API().SetToken("client-token"),
-		options.API().SetHeader("X-Global", "true"),
+		options.API().AddHeader("X-Global", "true"),
 	)
 
 	// 2. Database overrides keyspace and adds a header
 	db := client.Database("https://db.astra.com",
 		options.API().SetKeyspace("db-keyspace"),
-		options.API().SetHeader("X-DB", "true"),
+		options.API().AddHeader("X-DB", "true"),
 	)
 
-	// 3. Collection adds a timeout and another header
-	coll := db.Collection("my-coll", options.API().
-		SetTimeout(options.Timeout().SetRequest(10*time.Second)).
-		SetHeader("X-Coll", "true"),
+	// 3. Collection adds a timeout and another header — use builder path for additive headers
+	coll := db.Collection("my-coll",
+		options.GetCollection().SetAPIOptions(options.API().SetRequestTimeout(10*time.Second)),
+		options.GetCollection().SetAPIOptions(options.API().AddHeader("X-Coll", "true")),
 	)
 
 	// 4. Resolve at the final level
@@ -172,7 +137,7 @@ func genAPIOption(t *rapid.T) options.APIOption {
 		rapid.Custom(func(t *rapid.T) options.APIOption {
 			k := rapid.StringMatching(`^[a-zA-Z0-9-]+$`).Draw(t, "headerKey")
 			v := rapid.String().Draw(t, "headerVal")
-			return options.API().SetHeader(k, v)
+			return options.API().AddHeader(k, v)
 		}),
 	).Draw(t, "apiOption")
 }
@@ -211,8 +176,8 @@ func TestProperty_AdditiveHeaderMerging(t *testing.T) {
 		h2_k := rapid.StringMatching(`^[a-zA-Z0-9-]+$`).Filter(func(s string) bool { return s != h1_k }).Draw(t, "h2_k")
 		h2_v := rapid.String().Draw(t, "h2_v")
 
-		opt1 := options.API().SetHeader(h1_k, h1_v)
-		opt2 := options.API().SetHeader(h2_k, h2_v)
+		opt1 := options.API().AddHeader(h1_k, h1_v)
+		opt2 := options.API().AddHeader(h2_k, h2_v)
 
 		resolved := options.Merge(opt1, opt2)
 
@@ -221,21 +186,6 @@ func TestProperty_AdditiveHeaderMerging(t *testing.T) {
 		}
 		if resolved.Headers[h2_k] != h2_v {
 			t.Errorf("header 2 lost: expected %q, got %q", h2_v, resolved.Headers[h2_k])
-		}
-	})
-}
-
-func TestProperty_ReplaceLaw(t *testing.T) {
-	// Property: Merge(A, Replace(B)) == Merge(B)
-	rapid.Check(t, func(t *rapid.T) {
-		optA := rapid.SliceOf(rapid.Custom(genAPIOption)).Draw(t, "optA")
-		optB := rapid.Custom(genAPIOption).Draw(t, "optB")
-
-		res1 := options.Merge(append(optA, options.Replace(optB))...)
-		res2 := options.Merge(optB)
-
-		if diff := testlib.Diff(t, res1, res2); diff != "" {
-			t.Errorf("Replace law violated (-merged_with_replace +merged_directly):\n%s", diff)
 		}
 	})
 }

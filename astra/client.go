@@ -26,7 +26,7 @@ import (
 // Options set on the client are inherited by all databases, collections,
 // tables, and commands created from it, unless overridden at a lower level.
 type DataAPIClient struct {
-	options        options.Joined[options.APIOptions]
+	options        *options.APIOptions
 	dataAPIBackend options.DataAPIBackend
 }
 
@@ -45,17 +45,16 @@ type DataAPIClient struct {
 //	    options.API().SetDataAPIBackend(options.DataAPIBackendHCD),
 //	)
 func NewClient(opts ...options.APIOption) *DataAPIClient {
-	// We still need to resolve once to determine the default backend.
 	resolved := options.Merge(opts...)
 	return &DataAPIClient{
-		options:        options.Join(nil, opts...),
+		options:        resolved,
 		dataAPIBackend: resolved.GetDataAPIBackend(),
 	}
 }
 
 // ClientOptions returns the client's options as a resolved struct with defaults.
 func (c *DataAPIClient) ClientOptions() *options.APIOptions {
-	return options.Merge(c.options...)
+	return c.options
 }
 
 // Database returns a handle for the given database endpoint.
@@ -68,7 +67,7 @@ func (c *DataAPIClient) ClientOptions() *options.APIOptions {
 //	    options.API().SetKeyspace("my_keyspace"),
 //	)
 func (c *DataAPIClient) Database(endpoint string, opts ...options.APIOption) *Db {
-	return newDbFromEndpoint(endpoint, c, options.Join(c.options, opts...))
+	return newDbFromEndpoint(endpoint, c, options.Merge(append([]options.APIOption{c.options}, opts...)...))
 }
 
 // Admin returns an AstraAdmin handle for DevOps API operations.
@@ -87,9 +86,8 @@ func (c *DataAPIClient) Admin(opts ...options.APIOption) (*AstraAdmin, error) {
 	if !c.dataAPIBackend.IsAstra() {
 		return nil, fmt.Errorf("Admin is only available with the Astra backend (current: %s)", c.dataAPIBackend)
 	}
-	combined := options.Join(c.options, opts...)
-	// We resolve once to get the environment for the handle.
-	env := options.Merge(combined...).GetAstraEnvironment()
+	combined := options.Merge(append([]options.APIOption{c.options}, opts...)...)
+	env := combined.GetAstraEnvironment()
 	return &AstraAdmin{
 		client:           c,
 		options:          combined,

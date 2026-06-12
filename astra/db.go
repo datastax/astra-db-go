@@ -37,16 +37,16 @@ type Db struct {
 	region   *string
 	env      options.AstraEnvironment
 	client   *DataAPIClient
-	options  options.Joined[options.APIOptions]
+	options  *options.APIOptions
 }
 
 // Constructors
 
-func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, opts options.Joined[options.APIOptions]) *Db {
+func newDbFromID(id, region string, env options.AstraEnvironment, client *DataAPIClient, opts *options.APIOptions) *Db {
 	return &Db{env.AstraDBEndpoint(id, region), ptr.To(id), ptr.To(region), env, client, opts}
 }
 
-func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Joined[options.APIOptions]) *Db {
+func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts *options.APIOptions) *Db {
 	id, region, env := options.ParseAstraEndpoint(endpoint)
 	if id != "" {
 		return &Db{endpoint, ptr.To(id), ptr.To(region), env, client, opts}
@@ -58,12 +58,12 @@ func newDbFromEndpoint(endpoint string, client *DataAPIClient, opts options.Join
 
 // newCmd creates a database-level command.
 func (d *Db) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.NewDataAPICommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Join(d.options, opts...))
+	return command.NewDataAPICommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Merge(append([]options.APIOption{d.options}, opts...)...))
 }
 
 // newAdminCmd creates a database-level admin command.
 func (d *Db) newAdminCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
-	return command.NewDataAPIAdminCommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Join(d.options, opts...))
+	return command.NewDataAPIAdminCommand(d.endpoint, "", name, payload, serdes.TargetNone, options.Merge(append([]options.APIOption{d.options}, opts...)...))
 }
 
 // Endpoint returns the database API endpoint.
@@ -115,7 +115,7 @@ func (d *Db) Region() (string, error) {
 
 // ClientOptions returns the database's options as a resolved struct with defaults.
 func (d *Db) ClientOptions() *options.APIOptions {
-	return options.Merge(d.options...)
+	return d.options
 }
 
 // Client returns the parent DataAPIClient.
@@ -132,7 +132,7 @@ func (d *Db) Client() *DataAPIClient {
 //
 //	db.UseKeyspace("new_keyspace")
 func (d *Db) UseKeyspace(keyspace string) {
-	d.options = options.Join(d.options, options.API().SetKeyspace(keyspace))
+	d.options = options.Merge[options.APIOptions](d.options, options.API().SetKeyspace(keyspace)) // MergeInto would technically work here I prefer immutability
 }
 
 // endregion
@@ -148,8 +148,9 @@ func (d *Db) UseKeyspace(keyspace string) {
 //	coll := db.Collection("my_collection",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Collection(name string, opts ...options.APIOption) *Collection { // TODO need to entirely rework options because trying to use GetCollectionOption which wraps APIOption causes major issues w/ the options hierarchy
-	return &Collection{d, name, options.Join(d.options, opts...)}
+func (d *Db) Collection(name string, opts ...options.GetCollectionOption) *Collection {
+	merged := options.Merge(opts...)
+	return &Collection{d, name, options.Merge[options.APIOptions](d.options, merged.APIOptions)}
 }
 
 // Table returns a Table object for the specified table name.
@@ -162,8 +163,9 @@ func (d *Db) Collection(name string, opts ...options.APIOption) *Collection { //
 //	tbl := db.Table("my_table",
 //	    options.API().SetRequestTimeout(60 * time.Second),
 //	)
-func (d *Db) Table(name string, opts ...options.APIOption) *Table {
-	return &Table{d, name, options.Join(d.options, opts...)}
+func (d *Db) Table(name string, opts ...options.GetTableOption) *Table {
+	merged := options.Merge(opts...)
+	return &Table{d, name, options.Merge[options.APIOptions](d.options, merged.APIOptions)}
 }
 
 // endregion
@@ -213,7 +215,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 	return &Collection{
 		db:      d,
 		name:    name,
-		options: options.Join(d.options, merged.APIOptions), // TODO this breaks things; will need to address as part of an options rework
+		options: options.Merge[options.APIOptions](d.options, merged.APIOptions),
 	}, nil
 }
 
@@ -257,7 +259,7 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 	return &Table{
 		db:      d,
 		name:    name,
-		options: options.Join(d.options, merged.APIOptions),
+		options: options.Merge[options.APIOptions](d.options, merged.APIOptions),
 	}, nil
 }
 

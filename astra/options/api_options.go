@@ -42,7 +42,7 @@ type APIOptions struct {
 
 	// Headers contains custom headers to include in requests
 	// (e.g., for embedding API keys like "x-embedding-api-key")
-	Headers map[string]string
+	Headers Headers
 
 	// Timeout contains timeout configuration
 	Timeout *TimeoutOptions `optlift:"Request:RequestTimeout,Connection:ConnectionTimeout,BulkOperation:BulkOperationTimeout,GeneralMethod:GeneralMethodTimeout"`
@@ -63,7 +63,7 @@ type APIOptions struct {
 	DataAPIBackend *DataAPIBackend
 
 	// Callers contains information about the application making the request
-	Callers []Caller
+	Callers Callers
 
 	// EmbeddingHeaderProvider provides headers for embedding services (e.g. $vectorize).
 	EmbeddingHeadersProvider EmbeddingHeadersProvider
@@ -76,6 +76,30 @@ type APIOptions struct {
 type Caller struct {
 	Name    string
 	Version string
+}
+
+// Headers is a custom map type that implements ShouldMerge to accumulate headers additively.
+type Headers map[string]string
+
+// Merge implements ShouldMerge for Headers.
+func (h Headers) Merge(other ShouldMerge) ShouldMerge {
+	otherHeaders := other.(Headers)
+	res := make(Headers, len(h)+len(otherHeaders))
+	maps.Copy(res, h)
+	maps.Copy(res, otherHeaders)
+	return res
+}
+
+// Callers is a custom slice type that implements ShouldMerge to accumulate callers additively.
+type Callers []Caller
+
+// Merge implements ShouldMerge for Callers.
+func (c Callers) Merge(other ShouldMerge) ShouldMerge {
+	otherCallers := other.(Callers)
+	res := make(Callers, 0, len(c)+len(otherCallers))
+	res = append(res, c...)
+	res = append(res, otherCallers...)
+	return res
 }
 
 // SerdesOptions contains options for serialization and deserialization behavior.
@@ -92,6 +116,43 @@ type SerdesOptions struct {
 	DesNoCache           *bool
 	ExtendedErrorContext *bool
 	UseJSONUnmarshal     *bool
+}
+
+// Merge implements ShouldMerge for SerdesOptions.
+func (o *SerdesOptions) Merge(other ShouldMerge) ShouldMerge {
+	otherSerdes := other.(*SerdesOptions)
+	result := &SerdesOptions{}
+	if o != nil {
+		*result = *o
+	}
+	if otherSerdes.TrustRawMessage != nil {
+		result.TrustRawMessage = otherSerdes.TrustRawMessage
+	}
+	if otherSerdes.SortMapKeys != nil {
+		result.SortMapKeys = otherSerdes.SortMapKeys
+	}
+	if otherSerdes.SerNoCache != nil {
+		result.SerNoCache = otherSerdes.SerNoCache
+	}
+	if otherSerdes.UseJSONMarshal != nil {
+		result.UseJSONMarshal = otherSerdes.UseJSONMarshal
+	}
+	if otherSerdes.SparseRows != nil {
+		result.SparseRows = otherSerdes.SparseRows
+	}
+	if otherSerdes.UseNumber != nil {
+		result.UseNumber = otherSerdes.UseNumber
+	}
+	if otherSerdes.DesNoCache != nil {
+		result.DesNoCache = otherSerdes.DesNoCache
+	}
+	if otherSerdes.ExtendedErrorContext != nil {
+		result.ExtendedErrorContext = otherSerdes.ExtendedErrorContext
+	}
+	if otherSerdes.UseJSONUnmarshal != nil {
+		result.UseJSONUnmarshal = otherSerdes.UseJSONUnmarshal
+	}
+	return result
 }
 
 // GetSerFlags returns the aggregated serialization flags.
@@ -148,6 +209,28 @@ type TimeoutOptions struct {
 	// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
 	// When set, the entire multi-page operation must complete within this duration.
 	GeneralMethod *time.Duration
+}
+
+// Merge implements ShouldMerge for TimeoutOptions.
+func (o *TimeoutOptions) Merge(other ShouldMerge) ShouldMerge {
+	otherTimeout := other.(*TimeoutOptions)
+	result := &TimeoutOptions{}
+	if o != nil {
+		*result = *o
+	}
+	if otherTimeout.Request != nil {
+		result.Request = otherTimeout.Request
+	}
+	if otherTimeout.Connection != nil {
+		result.Connection = otherTimeout.Connection
+	}
+	if otherTimeout.BulkOperation != nil {
+		result.BulkOperation = otherTimeout.BulkOperation
+	}
+	if otherTimeout.GeneralMethod != nil {
+		result.GeneralMethod = otherTimeout.GeneralMethod
+	}
+	return result
 }
 
 // GetRequest returns the request timeout or 30 seconds if not set.
@@ -237,9 +320,9 @@ type WarningHandler func(w results.Warning)
 // APIOption is a Builder that modifies APIOptions.
 type APIOption = Builder[APIOptions]
 
-func (b *apiOptionsBuilder) SetHeader(key, value string) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) AddHeader(key, value string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		newHeaders := make(map[string]string, len(o.Headers)+1)
+		newHeaders := make(Headers, len(o.Headers)+1)
 		maps.Copy(newHeaders, o.Headers)
 		newHeaders[key] = value
 		o.Headers = newHeaders
@@ -273,7 +356,7 @@ func (b *apiOptionsBuilder) SetTokenProvider(provider TokenProvider) *apiOptions
 // AddCaller adds caller information to the existing list.
 func (b *apiOptionsBuilder) AddCaller(name, version string) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		o.Callers = append(o.Callers, Caller{Name: name, Version: version})
+		o.Callers = append(append([]Caller(nil), o.Callers...), Caller{Name: name, Version: version})
 	})
 	return b
 }
