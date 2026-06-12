@@ -23,7 +23,6 @@ import (
 	"github.com/datastax/astra-db-go/v2/astra/sort"
 )
 
-
 // GetCollectionOptions represents options for getting a collection handle.
 type GetCollectionOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
