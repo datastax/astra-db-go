@@ -22,12 +22,12 @@ import (
 	"github.com/datastax/astra-db-go/v2/astra/cursors"
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
-	"github.com/datastax/astra-db-go/v2/internal/utils"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 	"github.com/datastax/astra-db-go/v2/astra/update"
+	"github.com/datastax/astra-db-go/v2/internal/utils"
 )
 
 // CollectionFilter is implemented by [filter.F] and [filter.Filter].

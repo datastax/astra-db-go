@@ -24,12 +24,12 @@ import (
 
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
-	"github.com/datastax/astra-db-go/v2/internal/utils"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 	"github.com/datastax/astra-db-go/v2/astra/sort"
+	"github.com/datastax/astra-db-go/v2/internal/utils"
 )
 
 type mkCmd = func(name string, payload any, opts ...options.APIOption) command.DataAPI
