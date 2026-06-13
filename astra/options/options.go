@@ -40,12 +40,12 @@ type Builder[T any] interface {
 	Setters() []func(*T)
 }
 
-// ShouldMerge is implemented by options types whose pointer fields should
+// shouldMerge is implemented by options types whose pointer fields should
 // be merged sub-field-by-sub-field rather than replaced wholesale when
 // encountered during a copyNonNilFields pass.
 // Implementations must handle nil receivers gracefully.
-type ShouldMerge interface {
-	Merge(other ShouldMerge) ShouldMerge
+type shouldMerge interface {
+	merge(other shouldMerge) shouldMerge
 }
 
 // NoopBuilder returns a [Builder] implementation that just copies
@@ -131,9 +131,9 @@ func copyNonNilFields[T any](src, dst *T) {
 		switch srcField.Kind() {
 		case reflect.Pointer, reflect.Slice, reflect.Map, reflect.Interface, reflect.Func:
 			if !srcField.IsNil() {
-				if sm, ok := srcField.Interface().(ShouldMerge); ok {
-					dstSM := dstVal.Field(i).Interface().(ShouldMerge)
-					dstVal.Field(i).Set(reflect.ValueOf(dstSM.Merge(sm)))
+				if sm, ok := srcField.Interface().(shouldMerge); ok {
+					dstSM := dstVal.Field(i).Interface().(shouldMerge)
+					dstVal.Field(i).Set(reflect.ValueOf(dstSM.merge(sm)))
 					continue
 				}
 				dstVal.Field(i).Set(srcField)

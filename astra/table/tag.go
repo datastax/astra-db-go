@@ -16,7 +16,6 @@ package table
 
 import (
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 )
@@ -128,21 +127,4 @@ func parseAstraTag(raw string) (tagInfo, error) {
 	}
 
 	return info, nil
-}
-
-// columnName extracts the column name from a struct field's json tag,
-// falling back to the field name if no json tag is present.
-func columnName(f reflect.StructField) (name string, include bool) {
-	jt := f.Tag.Get("json")
-	if jt == "" {
-		return f.Name, true
-	}
-	name, _, _ = strings.Cut(jt, ",")
-	if name == "-" {
-		return "", false
-	}
-	if name == "" {
-		return f.Name, true
-	}
-	return name, true
 }

@@ -1240,7 +1240,7 @@ func CollectionVectorCreate(e *harness.TestEnv) error {
 
 	// Create a collection with vector support
 	_, err := db.CreateCollection(ctx, vectorCollectionName,
-		options.CreateCollection().SetVector(&options.VectorOptions{
+		options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(vectorDimension),
 			Metric:    ptr.To("cosine"),
 		}))

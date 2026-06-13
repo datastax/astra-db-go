@@ -17,9 +17,10 @@ package serdes
 import (
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 	"unsafe"
+
+	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
 )
 
 // Serdes
@@ -37,10 +38,10 @@ func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool)
 	}
 }
 
-func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, allowed bool, offset uintptr, field codec) codec {
+func mkEmbeddedStructPointerCodec(t reflect.Type, unexported bool, offset uintptr, field codec) codec {
 	return codec{
 		mkEmbeddedStructPointerEncoder(field.encode),
-		mkEmbeddedStructPointerDecoder(t, unexported, allowed, offset, field.decode),
+		mkEmbeddedStructPointerDecoder(t, unexported, offset, field.decode),
 	}
 }
 
@@ -54,7 +55,7 @@ func mkStructEncoder(info *structInfo) encoder {
 			f := &info.fields[i]
 			v := unsafe.Add(p, f.offset)
 
-			if f.meta.omitempty && f.empty(v) {
+			if f.omitempty && f.empty(v) {
 				continue
 			}
 
@@ -67,7 +68,7 @@ func mkStructEncoder(info *structInfo) encoder {
 				dst = append(dst, f.prefix...)
 			}
 
-			ctx.fieldHint = extractFieldHint(f.meta.name)
+			ctx.fieldHint = extractFieldHint(f.name)
 
 			var next []byte
 			var err error
@@ -78,7 +79,7 @@ func mkStructEncoder(info *structInfo) encoder {
 					continue
 				}
 
-				return dst[:start], wrapField(err, info.typ.Name(), f.meta.name)
+				return dst[:start], wrapField(err, info.typ.Name(), f.name)
 			}
 			dst = next
 		}
@@ -143,11 +144,11 @@ func mkStructDecoder(info *structInfo) decoder {
 				f := &info.fields[fieldIdx]
 
 				ptr := unsafe.Pointer(uintptr(p) + f.offset)
-				ctx.fieldHint = extractFieldHint(f.meta.name)
+				ctx.fieldHint = extractFieldHint(f.name)
 
 				src, err = f.codec.decode(ctx, src, ptr)
 				if err != nil {
-					return src, wrapField(err, info.typ.Name(), f.meta.name)
+					return src, wrapField(err, info.typ.Name(), f.name)
 				}
 			} else {
 				src, err = skipValue(ctx, src)
@@ -159,13 +160,13 @@ func mkStructDecoder(info *structInfo) decoder {
 	}
 }
 
-func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, allowed bool, offset uintptr, decode decoder) decoder {
+func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, offset uintptr, decode decoder) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		v := *(*unsafe.Pointer)(p)
 
 		if v == nil {
-			if unexported && !allowed {
-				return nil, &UnsupportedValueError{Msg: fmt.Sprintf("cannot set embedded pointer to unexported struct without the \"allowunexported\" struct tag: %s", t)}
+			if unexported {
+				return nil, &UnsupportedValueError{Msg: fmt.Sprintf("cannot set embedded pointer to unexported struct: %s", t)}
 			}
 			v = unsafe.Pointer(reflect.New(t).Pointer())
 			*(*unsafe.Pointer)(p) = v
@@ -184,28 +185,20 @@ type structInfo struct {
 }
 
 type fieldInfo struct {
-	prefix []byte
-	typ    reflect.Type
-	codec  codec
-	offset uintptr
-	ord    int
-	meta   jsonMeta
-	empty  func(unsafe.Pointer) bool
-}
-
-type jsonMeta struct {
-	name            string
-	omitempty       bool
-	ignored         bool
-	tagged          bool
-	allowUnexported bool
+	prefix    []byte
+	typ       reflect.Type
+	codec     codec
+	offset    uintptr
+	name      string
+	omitempty bool
+	empty     func(unsafe.Pointer) bool
 }
 
 func (i structInfo) String() string {
 	var sb strings.Builder
 	_, _ = fmt.Fprintf(&sb, "struct %s {", i.typ.String())
 	for _, f := range i.fields {
-		_, _ = fmt.Fprintf(&sb, "\n  %s (offset: %d, type: %s, codec: %p)", f.meta.name, f.offset, f.typ.String(), f.codec.encode)
+		_, _ = fmt.Fprintf(&sb, "\n  %s (offset: %d, type: %s, codec: %p)", f.name, f.offset, f.typ.String(), f.codec.encode)
 	}
 	sb.WriteString("\n}")
 	return sb.String()
@@ -232,196 +225,60 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 
 	for i := range fields {
 		f := &fields[i]
-		info.offsets[f.meta.name] = i
+		info.offsets[f.name] = i
 	}
 
 	return info, nil
 }
 
 func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
-	type embeddedField struct {
-		ord        int
-		offset     uintptr
-		pointer    bool
-		unexported bool
-		subtype    *structInfo
-		subfield   *fieldInfo
+	fields, err := reflectutil.GetFlattenedFields(t)
+	if err != nil {
+		return nil, &UnsupportedValueError{Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)}
 	}
 
-	topLevelNames := make(map[string]struct{})
-	ambiguousNames := make(map[string]int)
-	ambiguousTags := make(map[string]int)
+	ret := make([]fieldInfo, 0, len(fields))
 
-	fields := make([]fieldInfo, 0, t.NumField())
-	embeddedFields := make([]embeddedField, 0, 5)
+	for _, f := range fields {
+		c := resolveCodec(ctx, f.Field.Type, seen, canAddr)
+		c, offset := resolveCodecInEmbeddedFields(t, f.Path, c, f)
 
-	for i := range t.NumField() {
-		f := t.Field(i)
-
-		var (
-			embedded   = f.Anonymous
-			unexported = len(f.PkgPath) != 0
-		)
-
-		meta := parseJsonMeta(f)
-
-		if meta.ignored {
-			continue
-		}
-
-		if unexported && !embedded && !meta.allowUnexported {
-			continue
-		}
-
-		if embedded && !meta.tagged { // embedded w/out a tagged name
-			typ := f.Type
-			ptr := f.Type.Kind() == reflect.Ptr
-
-			if ptr {
-				typ = typ.Elem()
-			}
-
-			if typ.Kind() == reflect.Struct {
-				subtype, err := compileStructInfo(ctx, typ, seen, canAddr)
-				if err != nil {
-					return nil, err
-				}
-
-				for j := range subtype.fields {
-					embeddedFields = append(embeddedFields, embeddedField{
-						ord:        i<<32 | j,
-						offset:     f.Offset,
-						pointer:    ptr,
-						unexported: unexported,
-						subtype:    subtype,
-						subfield:   &subtype.fields[j],
-					})
-				}
-
-				continue
-			}
-
-			if unexported && !meta.allowUnexported { // ignore unallowed unexported non-struct types
-				continue
-			}
-		}
-
-		c := resolveCodec(ctx, f.Type, seen, canAddr)
-
-		fields = append(fields, fieldInfo{
-			codec:  c,
-			offset: f.Offset,
-			meta:   meta,
-			ord:    i << 32,
-			typ:    f.Type,
-			empty:  emptyFuncFor(meta.omitempty, f.Type),
+		ret = append(ret, fieldInfo{
+			codec:     c,
+			offset:    offset,
+			name:      f.Name,
+			omitempty: f.OmitEmpty,
+			typ:       f.Field.Type,
+			empty:     emptyFuncFor(f.OmitEmpty, f.Field.Type),
+			prefix:    []byte(`,"` + f.Name + `":`),
 		})
-
-		// seeds the counters so embedded fields know they are secondary
-		topLevelNames[meta.name] = struct{}{}
-		ambiguousNames[meta.name]++
-		ambiguousTags[meta.name]++
 	}
 
-	// first pass to count the number of fields w/ each name so we can resolve ambiguities in the next pass
-	for _, embfield := range embeddedFields {
-		ambiguousNames[embfield.subfield.meta.name]++
-		if embfield.subfield.meta.tagged {
-			ambiguousTags[embfield.subfield.meta.name]++
-		}
-	}
-
-	for _, embfield := range embeddedFields {
-		subfield := *embfield.subfield
-
-		switch resolveEmbeddedAmbiguity(subfield.meta, topLevelNames, ambiguousNames, ambiguousTags) {
-		case shadowed:
-			continue
-		case ambiguous:
-			return nil, &UnsupportedValueError{Msg: fmt.Sprintf("unresolvable ambiguity for field %q in struct %s", subfield.meta.name, t.String())}
-		case unambiguous:
-			// all good
-		}
-
-		if embfield.pointer {
-			subfield.codec = mkEmbeddedStructPointerCodec(embfield.subtype.typ, embfield.unexported, subfield.meta.allowUnexported, subfield.offset, subfield.codec)
-			subfield.offset = embfield.offset
-		} else {
-			subfield.offset += embfield.offset
-		}
-
-		// prevents dominant flags more than one level below the embedded one
-		subfield.meta.tagged = false
-
-		// ensures order of the fields is the same is in the struct type
-		subfield.ord = embfield.ord
-
-		fields = append(fields, subfield)
-	}
-
-	for i := range fields {
-		fields[i].prefix = []byte(`,"` + fields[i].meta.name + `":`)
-	}
-
-	sort.Slice(fields, func(i, j int) bool { return fields[i].ord < fields[j].ord })
-
-	return fields, nil
+	return ret, nil
 }
 
-func parseJsonMeta(f reflect.StructField) jsonMeta {
-	var info jsonMeta
-	info.name = f.Name
+func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leafCodec codec, leafMeta reflectutil.FieldMeta) (codec, uintptr) {
+	f := parentType.Field(indexPath[0])
 
-	if parts := strings.Split(f.Tag.Get("json"), ","); len(parts) != 0 {
-		if len(parts[0]) > 0 {
-			info.name = parts[0]
-			info.tagged = true
-		}
-
-		if info.name == "-" && len(parts) == 1 {
-			info.ignored = true
-			return info
-		}
-
-		for _, opt := range parts[1:] { // TODO do we want to somehow warn if 'string' is used as an option since I don't want to support it?
-			switch opt {
-			case "omitempty":
-				info.omitempty = true
-			case "allowunexported":
-				info.allowUnexported = true
-			}
-		}
+	if len(indexPath) == 1 {
+		return leafCodec, f.Offset
 	}
 
-	return info
-}
-
-type embeddedAmbiguity int
-
-const (
-	unambiguous embeddedAmbiguity = iota
-	shadowed
-	ambiguous
-)
-
-func resolveEmbeddedAmbiguity(meta jsonMeta, topLevelNames map[string]struct{}, nameCounts, tagCounts map[string]int) embeddedAmbiguity {
-	if _, exists := topLevelNames[meta.name]; exists {
-		return shadowed // top level field with the same name exists so ignore this embedded field
+	embeddedType := f.Type
+	isEmbeddedStructPtr := embeddedType.Kind() == reflect.Pointer
+	if isEmbeddedStructPtr {
+		embeddedType = embeddedType.Elem()
 	}
 
-	if nameCounts[meta.name] == 1 {
-		return unambiguous // no collisions so all good to go
+	innerCodec, innerOffset := resolveCodecInEmbeddedFields(embeddedType, indexPath[1:], leafCodec, leafMeta)
+
+	if isEmbeddedStructPtr {
+		unexported := len(f.PkgPath) != 0
+		wrappedCodec := mkEmbeddedStructPointerCodec(f.Type.Elem(), unexported, innerOffset, innerCodec)
+		return wrappedCodec, f.Offset
 	}
 
-	if tagCounts[meta.name] == 1 && meta.tagged {
-		return unambiguous // multiple fields with the same name, so the field with the tag wins
-	}
-
-	if tagCounts[meta.name] != 1 {
-		return ambiguous // zero or multiple tags w/ the same name so we can't resolve anything
-	}
-
-	return shadowed // field collided and lost to a tagged field.
+	return innerCodec, innerOffset + f.Offset
 }
 
 // vendored from segmentio/encode/json

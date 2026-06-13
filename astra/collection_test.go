@@ -386,7 +386,7 @@ func TestDeleteManyAPIOptionsOverrideToken(t *testing.T) {
 
 	_, err := coll.DeleteMany(ctx, filter.F{"x": 1},
 		options.CollectionDeleteMany().
-			SetAPIOptions(options.API().SetToken("override-token")),
+			UpdateAPIOptions(options.API().SetToken("override-token")),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -410,7 +410,7 @@ func TestDeleteOneAPIOptionsOverrideToken(t *testing.T) {
 
 	_, err := coll.DeleteOne(ctx, filter.F{"x": 1},
 		options.CollectionDeleteOne().
-			SetAPIOptions(options.API().SetToken("override-token")),
+			UpdateAPIOptions(options.API().SetToken("override-token")),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -434,7 +434,7 @@ func TestUpdateOneAPIOptionsOverrideToken(t *testing.T) {
 
 	_, err := coll.UpdateOne(ctx, filter.F{"x": 1}, update.Coll().Set("x", 2),
 		options.CollectionUpdateOne().
-			SetAPIOptions(options.API().SetToken("override-token")),
+			UpdateAPIOptions(options.API().SetToken("override-token")),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -459,7 +459,7 @@ func TestResolveGeneralMethodTimeoutFromAPIOverride(t *testing.T) {
 	// Set GeneralMethod timeout via APIOptions override
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
 		options.CollectionDeleteMany().
-			SetAPIOptions(
+			UpdateAPIOptions(
 				options.API().UpdateTimeout(
 					options.Timeout().SetGeneralMethod(250*time.Millisecond),
 				),

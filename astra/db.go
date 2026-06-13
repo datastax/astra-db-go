@@ -181,7 +181,7 @@ func (d *Db) Table(name string, opts ...options.GetTableOption) *Table {
 //
 //	// With vector options
 //	coll, err := db.CreateCollection(ctx, "my_collection",
-//	    options.CreateCollection().SetVector(&options.VectorOptions{
+//	    options.CreateCollection().UpdateVector(&options.VectorOptions{
 //	        Dimension: 1024,
 //	        Metric:    "cosine",
 //	    })

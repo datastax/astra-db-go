@@ -24,7 +24,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/datastax/astra-db-go/v2/astra/internal/utils"
+	"github.com/datastax/astra-db-go/v2/internal/utils"
 )
 
 // ObjectId represents an ObjectId that can be used as an _id in the DataAPI.

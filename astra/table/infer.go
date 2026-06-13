@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
 )
 
 // Well-known reflect types for comparison in type mapping.
@@ -42,134 +43,60 @@ var (
 
 // fieldData holds processed metadata about a single struct field.
 type fieldData struct {
-	columnName string
-	goType     reflect.Type
-	tag        tagInfo
-	fieldIdx   int // position for stable ordering
+	name string
+	typ  reflect.Type
+	tag  tagInfo
+	ord  int // position for stable ordering
 }
 
-// collectFields iterates over the fields of a struct type (including promoted
-// fields from embedded structs at any depth) and returns their processed
-// metadata. Outer fields shadow embedded fields with the same column name,
-// matching encoding/json promotion semantics. Two direct fields on the outer
-// struct with the same column name are rejected as a user error.
 func collectFields(t reflect.Type) ([]fieldData, error) {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = reflectutil.UnwindPointerType(t)
 	if t.Kind() != reflect.Struct {
 		return nil, fmt.Errorf("expected struct, got %s", t.Kind())
 	}
 
-	seen := make(map[string]bool)
-	var result []fieldData
-	var queue []reflect.Type
-
-	// Direct fields on the outer struct. Duplicate column names here are a
-	// user error (two fields with the same json tag on the same struct).
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-		if f.Anonymous {
-			if ft := derefStruct(f.Type); ft != nil {
-				queue = append(queue, ft)
-			}
-			continue
-		}
-		fd, skip, err := processField(f, i)
-		if err != nil {
-			return nil, err
-		}
-		if skip {
-			continue
-		}
-		if seen[fd.columnName] {
-			return nil, fmt.Errorf("duplicate column name %q", fd.columnName)
-		}
-		seen[fd.columnName] = true
-		result = append(result, fd)
+	fields, err := reflectutil.GetFlattenedFields(t)
+	if err != nil {
+		return nil, err
 	}
 
-	// BFS over embedded types: outer-most level wins, nested embeds are
-	// descended into so promotion works at arbitrary depth.
-	baseOffset := t.NumField()
-	for len(queue) > 0 {
-		et := queue[0]
-		queue = queue[1:]
-		for i := 0; i < et.NumField(); i++ {
-			f := et.Field(i)
-			if !f.IsExported() {
-				continue
-			}
-			if f.Anonymous {
-				if ft := derefStruct(f.Type); ft != nil {
-					queue = append(queue, ft)
-				}
-				continue
-			}
-			fd, skip, err := processField(f, baseOffset+i)
-			if err != nil {
-				return nil, err
-			}
-			if skip || seen[fd.columnName] {
-				continue
-			}
-			seen[fd.columnName] = true
-			result = append(result, fd)
+	seen := make(map[string]bool)
+	var result []fieldData
+
+	for i, f := range fields {
+		// Skip $-prefixed fields (API metadata: $similarity, $vector, $vectorize)
+		if strings.HasPrefix(f.Name, "$") {
+			continue
 		}
-		baseOffset += et.NumField()
+
+		tag, err := parseAstraTag(f.Field.Tag.Get("astra"))
+		if err != nil {
+			return nil, fmt.Errorf("field %q: %w", f.Field.Name, err)
+		}
+
+		if tag.skip {
+			continue
+		}
+
+		if seen[f.Name] {
+			return nil, fmt.Errorf("duplicate column name %q", f.Name)
+		}
+		seen[f.Name] = true
+
+		result = append(result, fieldData{
+			name: f.Name,
+			typ:  f.Field.Type,
+			tag:  tag,
+			ord:  i,
+		})
 	}
 
 	return result, nil
 }
 
-// derefStruct unwraps pointer types and returns the underlying struct type,
-// or nil if t does not resolve to a struct.
-func derefStruct(t reflect.Type) reflect.Type {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	if t.Kind() == reflect.Struct {
-		return t
-	}
-	return nil
-}
-
-// processField extracts fieldData from a single struct field.
-func processField(f reflect.StructField, idx int) (fieldData, bool, error) {
-	name, include := columnName(f)
-	if !include {
-		return fieldData{}, true, nil
-	}
-	// Skip $-prefixed fields (API metadata: $similarity, $vector, $vectorize)
-	if strings.HasPrefix(name, "$") {
-		return fieldData{}, true, nil
-	}
-
-	tag, err := parseAstraTag(f.Tag.Get("astra"))
-	if err != nil {
-		return fieldData{}, false, fmt.Errorf("field %q: %w", f.Name, err)
-	}
-	if tag.skip {
-		return fieldData{}, true, nil
-	}
-
-	return fieldData{
-		columnName: name,
-		goType:     f.Type,
-		tag:        tag,
-		fieldIdx:   idx,
-	}, false, nil
-}
-
 // goTypeToColumn converts a Go reflect.Type to a table Column using tag metadata.
 func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
-	// Unwrap pointers
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = reflectutil.UnwindPointerType(t)
 
 	// jsonString — field is stored as a text column
 	if info.isJSONString {
@@ -275,15 +202,13 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 }
 
 // resolveTypeExpr walks a parsed typeExpr and produces a Column. It consults
-// goType only at "infer" leaves and at container boundaries where the Go
+// typ only at "infer" leaves and at container boundaries where the Go
 // type's shape (slice / map) governs how values will be marshaled. For
 // container leaves declared explicitly (e.g. set[ascii]), the declared leaf
 // wins and the Go element type is not consulted — callers are trusted to
 // serialize values compatibly.
 func resolveTypeExpr(expr typeExpr, t reflect.Type, info tagInfo) (Column, error) {
-	for t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
+	t = reflectutil.UnwindPointerType(t)
 
 	switch expr.name {
 	case "infer":
@@ -370,10 +295,10 @@ var scalarFactories = map[string]func() Column{
 
 // keyField is used during primary key assembly.
 type keyField struct {
-	name    string
-	ordinal int
-	idx     int  // struct field index for stable ordering
-	desc    bool // clustering key: true = descending
+	name     string
+	pkOrd    int
+	fieldOrd int  // struct field index for stable ordering
+	desc     bool // clustering key: true = descending
 }
 
 // buildPrimaryKey assembles the PrimaryKey from collected partition and clustering key fields.
@@ -385,7 +310,7 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 	// Determine ordering strategy: all ordinals or all struct-order
 	hasOrd, noOrd := false, false
 	for _, pk := range pks {
-		if pk.ordinal > 0 {
+		if pk.pkOrd > 0 {
 			hasOrd = true
 		} else {
 			noOrd = true
@@ -396,12 +321,12 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 	}
 
 	if hasOrd {
-		sort.Slice(pks, func(i, j int) bool { return pks[i].ordinal < pks[j].ordinal })
+		sort.Slice(pks, func(i, j int) bool { return pks[i].pkOrd < pks[j].pkOrd })
 		if err := validateOrdinals("partition key", pks); err != nil {
 			return PrimaryKey{}, err
 		}
 	} else {
-		sort.Slice(pks, func(i, j int) bool { return pks[i].idx < pks[j].idx })
+		sort.Slice(pks, func(i, j int) bool { return pks[i].fieldOrd < pks[j].fieldOrd })
 	}
 
 	partitionBy := make([]string, len(pks))
@@ -411,7 +336,7 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 
 	var partitionSort PartitionSort
 	if len(cks) > 0 {
-		sort.Slice(cks, func(i, j int) bool { return cks[i].ordinal < cks[j].ordinal })
+		sort.Slice(cks, func(i, j int) bool { return cks[i].pkOrd < cks[j].pkOrd })
 		if err := validateOrdinals("clustering key", cks); err != nil {
 			return PrimaryKey{}, err
 		}
@@ -436,11 +361,11 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 // with no duplicates.
 func validateOrdinals(label string, keys []keyField) error {
 	for i, k := range keys {
-		if i > 0 && k.ordinal == keys[i-1].ordinal {
-			return fmt.Errorf("duplicate %s ordinal %d: %q and %q", label, k.ordinal, keys[i-1].name, k.name)
+		if i > 0 && k.pkOrd == keys[i-1].pkOrd {
+			return fmt.Errorf("duplicate %s ordinal %d: %q and %q", label, k.pkOrd, keys[i-1].name, k.name)
 		}
-		if k.ordinal != i+1 {
-			return fmt.Errorf("%s ordinals must be contiguous starting from 1 (expected %d, got %d for %q)", label, i+1, k.ordinal, k.name)
+		if k.pkOrd != i+1 {
+			return fmt.Errorf("%s ordinals must be contiguous starting from 1 (expected %d, got %d for %q)", label, i+1, k.pkOrd, k.name)
 		}
 	}
 	return nil
@@ -495,18 +420,18 @@ func Infer[T any]() (Definition, error) {
 	columns := make(Columns, 0, len(fields))
 	var pks, cks []keyField
 
-	for _, fd := range fields {
-		col, err := goTypeToColumn(fd.goType, fd.tag)
+	for _, f := range fields {
+		col, err := goTypeToColumn(f.typ, f.tag)
 		if err != nil {
-			return Definition{}, fmt.Errorf("table.Infer[%s]: field %q: %w", t.Name(), fd.columnName, err)
+			return Definition{}, fmt.Errorf("table.Infer[%s]: field %q: %w", t.Name(), f.name, err)
 		}
-		columns = append(columns, NamedColumn{Name: fd.columnName, Column: col})
+		columns = append(columns, NamedColumn{Name: f.name, Column: col})
 
-		if fd.tag.isPK {
-			pks = append(pks, keyField{name: fd.columnName, ordinal: fd.tag.pkOrdinal, idx: fd.fieldIdx})
+		if f.tag.isPK {
+			pks = append(pks, keyField{name: f.name, pkOrd: f.tag.pkOrdinal, fieldOrd: f.ord})
 		}
-		if fd.tag.isCK {
-			cks = append(cks, keyField{name: fd.columnName, ordinal: fd.tag.ckOrdinal, idx: fd.fieldIdx, desc: fd.tag.ckDescending})
+		if f.tag.isCK {
+			cks = append(cks, keyField{name: f.name, pkOrd: f.tag.ckOrdinal, fieldOrd: f.ord, desc: f.tag.ckDescending})
 		}
 	}
 
@@ -550,11 +475,11 @@ func InferUDT[T any]() (UDTDefinition, error) { // TODO somehow try to check if 
 
 	columns := make(Columns, 0, len(fields))
 	for _, fd := range fields {
-		col, err := goTypeToColumn(fd.goType, fd.tag)
+		col, err := goTypeToColumn(fd.typ, fd.tag)
 		if err != nil {
-			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.columnName, err)
+			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.name, err)
 		}
-		columns = append(columns, NamedColumn{Name: fd.columnName, Column: col})
+		columns = append(columns, NamedColumn{Name: fd.name, Column: col})
 	}
 
 	return UDTDefinition{

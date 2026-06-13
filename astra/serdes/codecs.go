@@ -54,7 +54,7 @@ func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
 }
 
 func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
-	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src, c.Flags)}
+	return &UnmarshalTypeError{Value: nextJsonType(src), Type: t, Snippet: errorSnippet(src, c.Flags)}
 }
 
 func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
@@ -62,7 +62,7 @@ func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value str
 }
 
 func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
-	return &UnmarshalTypeError{Value: nextType(src), Type: t, Snippet: errorSnippet(src, c.Flags), Err: err}
+	return &UnmarshalTypeError{Value: nextJsonType(src), Type: t, Snippet: errorSnippet(src, c.Flags), Err: err}
 }
 
 func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {

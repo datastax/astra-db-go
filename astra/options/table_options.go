@@ -34,8 +34,8 @@ func (b *getTableOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *getTableOpti
 	return b
 }
 
-// SetRerankingAPIKey sets the API key to use for reranking generation for this table.
-func (b *getTableOptionsBuilder) SetRerankingAPIKey(apiKey string) *getTableOptionsBuilder {
+// UpdateRerankingAPIKey sets the API key to use for reranking generation for this table.
+func (b *getTableOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *getTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetTableOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
@@ -67,8 +67,8 @@ func (b *createTableOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *createTab
 	return b
 }
 
-// SetRerankingAPIKey sets the API key to use for reranking generation for this table.
-func (b *createTableOptionsBuilder) SetRerankingAPIKey(apiKey string) *createTableOptionsBuilder {
+// UpdateRerankingAPIKey sets the API key to use for reranking generation for this table.
+func (b *createTableOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *createTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTableOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}

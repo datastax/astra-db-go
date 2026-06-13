@@ -95,7 +95,7 @@ func (a *AstraDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...options.
 		return nil, err
 	}
 
-	db, err := a.admin.DatabaseInfo(ctx, a.ID(), options.DatabaseInfo().SetAPIOptions(merged.APIOptions))
+	db, err := a.admin.DatabaseInfo(ctx, a.ID(), options.DatabaseInfo().UpdateAPIOptions(merged.APIOptions))
 	if err != nil {
 		return nil, err
 	}

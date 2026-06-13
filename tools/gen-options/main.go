@@ -21,7 +21,7 @@
 //     XxxOptionsBuilder struct, emits the builder struct definition, constructor,
 //     Setters(), and all Set* methods. Also emits the options struct's Setters() method
 //     and trivial Validate() stubs (when no hand-written Validate exists).
-//     Hand-written convenience methods (e.g. SetIndexingAllow) are left alone in their
+//     Hand-written convenience methods (e.g. UpdateIndexingAllow) are left alone in their
 //     original files and simply layer on top of the generated setters.
 //
 // Usage (via go:generate in options/options.go):
@@ -111,20 +111,20 @@ func load(dir string) (*loadedPkg, error) {
 	}
 	p := pkgs[0]
 
-	smIface, _ := shouldMergeInterface(p.Types)
+	smIface := shouldMergeInterface(p.Types)
 	return &loadedPkg{name: p.Name, types: p.Types, shouldMerge: smIface, syntax: p.Syntax, fset: fset}, nil
 }
 
-func shouldMergeInterface(pkg *types.Package) (*types.Interface, error) {
-	obj := pkg.Scope().Lookup("ShouldMerge")
+func shouldMergeInterface(pkg *types.Package) *types.Interface {
+	obj := pkg.Scope().Lookup("shouldMerge")
 	if obj == nil {
-		return nil, fmt.Errorf("ShouldMerge not found in package %q", pkg.Name())
+		log.Fatalf("shouldMerge not found in package %q", pkg.Name())
 	}
 	iface, ok := obj.Type().Underlying().(*types.Interface)
 	if !ok {
-		return nil, fmt.Errorf("ShouldMerge is not an interface")
+		log.Fatalf("shouldMerge is not an interface")
 	}
-	return iface, nil
+	return iface
 }
 
 // handWrittenTypes scans non-generated source files and returns a set of
@@ -500,25 +500,16 @@ func setterForField(structName string, f *types.Var, shouldMerge *types.Interfac
 
 	case *types.Pointer:
 		named, isNamed := t.Elem().(*types.Named)
-		if shouldMerge != nil && types.Implements(t, shouldMerge) && isNamed {
-			return setterDef{
-				Comment:           comment,
-				Method:            "Update" + f.Name(),
-				Field:             f.Name(),
-				ParamType:         fmt.Sprintf("Builder[%s]", named.Obj().Name()),
-				IsVariadicBuilder: true,
-			}, true
-		}
 
 		// Nested Options child → variadic builder setter using Merge.
 		isOption := false
 		if isNamed {
 			isOption = futureOptions[named.Obj().Name()]
 		}
-		if isOption {
+		if isOption || (types.Implements(t, shouldMerge) && isNamed) {
 			return setterDef{
 				Comment:           comment,
-				Method:            method,
+				Method:            "Update" + f.Name(),
 				Field:             f.Name(),
 				ParamType:         fmt.Sprintf("Builder[%s]", named.Obj().Name()),
 				IsVariadicBuilder: true,

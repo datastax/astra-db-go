@@ -95,7 +95,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	})
 
 	t.Run("with vector", func(t *testing.T) {
-		opts := options.CreateCollection().SetVector(&options.VectorOptions{
+		opts := options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(1024),
 			Metric:    ptr.To("cosine"),
 		})
@@ -112,11 +112,11 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	})
 
 	t.Run("multiple builders merged", func(t *testing.T) {
-		opts := options.CreateCollection().SetVector(&options.VectorOptions{
+		opts := options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(512),
 			Metric:    ptr.To("euclidean"),
 		})
-		opts.SetVector(&options.VectorOptions{
+		opts.UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(1024),
 			Metric:    ptr.To("cosine"),
 		})

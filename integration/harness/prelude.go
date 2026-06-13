@@ -96,12 +96,12 @@ func startCreateCollections(db *astra.Db) {
 
 			builder := options.CreateCollection().SetKeyspace(ks)
 			if ks == TestKeyspaces[0] {
-				builder.SetVector(&options.VectorOptions{
+				builder.UpdateVector(&options.VectorOptions{
 					Dimension: ptr.To(5),
 					Metric:    ptr.To("cosine"),
 				})
 			} else {
-				builder.SetVector(&options.VectorOptions{
+				builder.UpdateVector(&options.VectorOptions{
 					Dimension: ptr.To(1024),
 					Service: &options.VectorServiceOptions{
 						Provider:  ptr.To("openai"),
@@ -113,7 +113,7 @@ func startCreateCollections(db *astra.Db) {
 			coll, err := db.CreateCollection(Ctx, DefaultCollectionName, builder)
 			testlib.PanicIfErr(err, "failed to create collection %s in keyspace %s", DefaultCollectionName, ks)
 
-			_, err = coll.DeleteMany(Ctx, filter.F{}, options.CollectionDeleteMany().SetAPIOptions(options.API().SetKeyspace(ks)))
+			_, err = coll.DeleteMany(Ctx, filter.F{}, options.CollectionDeleteMany().UpdateAPIOptions(options.API().SetKeyspace(ks)))
 			testlib.PanicIfErr(err, "failed to clear collection %s in keyspace %s", DefaultCollectionName, ks)
 		}(keyspace)
 	}
@@ -135,15 +135,15 @@ func startCreateTables(db *astra.Db) {
 			tbl, err := db.CreateTable(Ctx, DefaultTableName, schema, options.CreateTable().SetIfNotExists(true).SetKeyspace(ks))
 			testlib.PanicIfErr(err, "failed to create table %s in keyspace %s", DefaultTableName, ks)
 
-			err = tbl.DeleteMany(Ctx, filter.F{}, options.TableDeleteMany().SetAPIOptions(options.API().SetKeyspace(ks)))
+			err = tbl.DeleteMany(Ctx, filter.F{}, options.TableDeleteMany().UpdateAPIOptions(options.API().SetKeyspace(ks)))
 			testlib.PanicIfErr(err, "failed to clear table %s in keyspace %s", DefaultTableName, ks)
 
 			if ks == TestKeyspaces[0] {
-				err = tbl.CreateVectorIndex(Ctx, fmt.Sprintf("vector_idx_%s", ks), "vector", options.CreateVectorIndex().SetMetric(options.MetricDotProduct).SetIfNotExists(true).SetAPIOptions(options.API().SetKeyspace(ks)))
+				err = tbl.CreateVectorIndex(Ctx, fmt.Sprintf("vector_idx_%s", ks), "vector", options.CreateVectorIndex().SetMetric(options.MetricDotProduct).SetIfNotExists(true).UpdateAPIOptions(options.API().SetKeyspace(ks)))
 				testlib.PanicIfErr(err, "failed to create vector index in keyspace %s", ks)
 			}
 
-			err = tbl.CreateIndex(Ctx, fmt.Sprintf("bigint_idx_%s", ks), "bigint", options.CreateIndex().SetIfNotExists(true).SetAPIOptions(options.API().SetKeyspace(ks)))
+			err = tbl.CreateIndex(Ctx, fmt.Sprintf("bigint_idx_%s", ks), "bigint", options.CreateIndex().SetIfNotExists(true).UpdateAPIOptions(options.API().SetKeyspace(ks)))
 			testlib.PanicIfErr(err, "failed to create bigint index in keyspace %s", ks)
 		}(keyspace)
 	}

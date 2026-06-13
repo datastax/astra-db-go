@@ -68,7 +68,7 @@ const methodOnlyExample = `// CreateCollectionOption configures a CreateCollecti
 // 
 // Example using the fluent builder ([CreateCollection]):
 //
-//	opts := options.CreateCollection().SetDefaultId(...)
+//	opts := options.CreateCollection().UpdateDefaultId(...)
 //
 // Example using a pointer to [CreateCollectionOptions] without the fluent builder:
 //
@@ -101,7 +101,7 @@ func TestAliasExampleString(t *testing.T) {
 				Alias:       "CreateCollectionOption",
 				Constructor: "CreateCollection",
 				OptsType:    "CreateCollectionOptions",
-				Method:      "SetDefaultId",
+				Method:      "UpdateDefaultId",
 			},
 			want: methodOnlyExample,
 		},
@@ -134,7 +134,7 @@ func TestPickAliasExample(t *testing.T) {
 		{
 			name: "picks first simple field",
 			setters: []setterDef{
-				{Method: "SetVector", Field: "Vector", IsVariadicBuilder: true},
+				{Method: "UpdateVector", Field: "Vector", IsVariadicBuilder: true},
 				{Method: "SetBlocking", Field: "Blocking", ParamType: "bool"},
 				{Method: "SetLimit", Field: "Limit", ParamType: "int"},
 			},
@@ -149,9 +149,9 @@ func TestPickAliasExample(t *testing.T) {
 		{
 			name: "fallback to first setter when no simple field",
 			setters: []setterDef{
-				{Method: "SetVector", Field: "Vector", IsVariadicBuilder: true},
+				{Method: "UpdateVector", Field: "Vector", IsVariadicBuilder: true},
 			},
-			want: aliasDef{Method: "SetVector"},
+			want: aliasDef{Method: "UpdateVector"},
 		},
 		{
 			name:    "empty setters",

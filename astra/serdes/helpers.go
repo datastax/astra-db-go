@@ -39,7 +39,7 @@ func parseInt(ctx DecodeCtx, src []byte) ([]byte, int64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected int64 but found "+nextType(src))
+		return src, 0, ctx.syntaxError(src, "expected int64 but found "+nextJsonType(src))
 	}
 
 	num, err := strconv.ParseInt(unsafeString(src[:end]), 10, 64)
@@ -57,7 +57,7 @@ func parseUint(ctx DecodeCtx, src []byte) ([]byte, uint64, error) {
 	}
 
 	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected uint64 but found "+nextType(src))
+		return src, 0, ctx.syntaxError(src, "expected uint64 but found "+nextJsonType(src))
 	}
 
 	num, err := strconv.ParseUint(unsafeString(src[:end]), 10, 64)
@@ -76,7 +76,7 @@ var floatChars = [256]uint8{
 func parseFloat(ctx DecodeCtx, src []byte) ([]byte, float64, error) {
 	src, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src, 0, ctx.syntaxError(src, "expected float64 but found "+nextType(src))
+		return src, 0, ctx.syntaxError(src, "expected float64 but found "+nextJsonType(src))
 	}
 
 	f, err := strconv.ParseFloat(unsafeString(numStr), 64)

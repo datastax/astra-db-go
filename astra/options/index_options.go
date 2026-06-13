@@ -85,8 +85,8 @@ type CreateTextIndexOptions struct {
 	APIOptions *APIOptions
 }
 
-// SetAnalyzer sets the built-in analyzer to use for the text index (e.g. "standard", "simple", "whitespace", etc.)
-func (b *createTextIndexOptionsBuilder) SetAnalyzer(v string) *createTextIndexOptionsBuilder {
+// UpdateAnalyzer sets the built-in analyzer to use for the text index (e.g. "standard", "simple", "whitespace", etc.)
+func (b *createTextIndexOptionsBuilder) UpdateAnalyzer(v string) *createTextIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTextIndexOptions) {
 		o.Analyzer = v
 	})
