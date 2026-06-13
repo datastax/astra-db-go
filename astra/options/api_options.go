@@ -78,11 +78,11 @@ type Caller struct {
 	Version string
 }
 
-// Headers is a custom map type that implements ShouldMerge to accumulate headers additively.
+// Headers is a custom map type that implements shouldMerge to accumulate headers additively.
 type Headers map[string]string
 
-// Merge implements ShouldMerge for Headers.
-func (h Headers) Merge(other ShouldMerge) ShouldMerge {
+// Merge implements shouldMerge for Headers.
+func (h Headers) merge(other shouldMerge) shouldMerge {
 	otherHeaders := other.(Headers)
 	res := make(Headers, len(h)+len(otherHeaders))
 	maps.Copy(res, h)
@@ -90,11 +90,11 @@ func (h Headers) Merge(other ShouldMerge) ShouldMerge {
 	return res
 }
 
-// Callers is a custom slice type that implements ShouldMerge to accumulate callers additively.
+// Callers is a custom slice type that implements shouldMerge to accumulate callers additively.
 type Callers []Caller
 
-// Merge implements ShouldMerge for Callers.
-func (c Callers) Merge(other ShouldMerge) ShouldMerge {
+// Merge implements shouldMerge for Callers.
+func (c Callers) merge(other shouldMerge) shouldMerge {
 	otherCallers := other.(Callers)
 	res := make(Callers, 0, len(c)+len(otherCallers))
 	res = append(res, c...)
@@ -118,41 +118,10 @@ type SerdesOptions struct {
 	UseJSONUnmarshal     *bool
 }
 
-// Merge implements ShouldMerge for SerdesOptions.
-func (o *SerdesOptions) Merge(other ShouldMerge) ShouldMerge {
-	otherSerdes := other.(*SerdesOptions)
-	result := &SerdesOptions{}
-	if o != nil {
-		*result = *o
-	}
-	if otherSerdes.TrustRawMessage != nil {
-		result.TrustRawMessage = otherSerdes.TrustRawMessage
-	}
-	if otherSerdes.SortMapKeys != nil {
-		result.SortMapKeys = otherSerdes.SortMapKeys
-	}
-	if otherSerdes.SerNoCache != nil {
-		result.SerNoCache = otherSerdes.SerNoCache
-	}
-	if otherSerdes.UseJSONMarshal != nil {
-		result.UseJSONMarshal = otherSerdes.UseJSONMarshal
-	}
-	if otherSerdes.SparseRows != nil {
-		result.SparseRows = otherSerdes.SparseRows
-	}
-	if otherSerdes.UseNumber != nil {
-		result.UseNumber = otherSerdes.UseNumber
-	}
-	if otherSerdes.DesNoCache != nil {
-		result.DesNoCache = otherSerdes.DesNoCache
-	}
-	if otherSerdes.ExtendedErrorContext != nil {
-		result.ExtendedErrorContext = otherSerdes.ExtendedErrorContext
-	}
-	if otherSerdes.UseJSONUnmarshal != nil {
-		result.UseJSONUnmarshal = otherSerdes.UseJSONUnmarshal
-	}
-	return result
+// Merge implements shouldMerge for SerdesOptions.
+func (o *SerdesOptions) merge(other shouldMerge) shouldMerge {
+	casted, _ := other.(*SerdesOptions)
+	return Merge[SerdesOptions](o, casted)
 }
 
 // GetSerFlags returns the aggregated serialization flags.
@@ -211,26 +180,10 @@ type TimeoutOptions struct {
 	GeneralMethod *time.Duration
 }
 
-// Merge implements ShouldMerge for TimeoutOptions.
-func (o *TimeoutOptions) Merge(other ShouldMerge) ShouldMerge {
-	otherTimeout := other.(*TimeoutOptions)
-	result := &TimeoutOptions{}
-	if o != nil {
-		*result = *o
-	}
-	if otherTimeout.Request != nil {
-		result.Request = otherTimeout.Request
-	}
-	if otherTimeout.Connection != nil {
-		result.Connection = otherTimeout.Connection
-	}
-	if otherTimeout.BulkOperation != nil {
-		result.BulkOperation = otherTimeout.BulkOperation
-	}
-	if otherTimeout.GeneralMethod != nil {
-		result.GeneralMethod = otherTimeout.GeneralMethod
-	}
-	return result
+// Merge implements shouldMerge for TimeoutOptions.
+func (o *TimeoutOptions) merge(other shouldMerge) shouldMerge {
+	casted, _ := other.(*TimeoutOptions)
+	return Merge[TimeoutOptions](o, casted)
 }
 
 // GetRequest returns the request timeout or 30 seconds if not set.
@@ -443,4 +396,10 @@ func (o *APIOptions) GetDesFlags() serdes.DesFlags {
 		return 0
 	}
 	return o.Serdes.GetDesFlags()
+}
+
+// Merge implements shouldMerge for APIOptions.
+func (o *APIOptions) merge(other shouldMerge) shouldMerge {
+	casted, _ := other.(*APIOptions)
+	return Merge[APIOptions](o, casted)
 }

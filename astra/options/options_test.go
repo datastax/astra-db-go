@@ -26,10 +26,10 @@ import (
 )
 
 func TestAdditiveMerging(t *testing.T) {
-	// Test that multiple SetAPIOptions calls merge additively
+	// Test that multiple UpdateAPIOptions calls merge additively
 	opts := options.ListCollections().
-		SetAPIOptions(options.API().SetToken("token1")).
-		SetAPIOptions(options.API().SetKeyspace("ks1"))
+		UpdateAPIOptions(options.API().SetToken("token1")).
+		UpdateAPIOptions(options.API().SetKeyspace("ks1"))
 
 	merged := options.Merge(opts)
 
@@ -68,7 +68,7 @@ func TestAdditiveHeaderMerging(t *testing.T) {
 func TestNestedInitialization(t *testing.T) {
 	// Verifies that fields deep in a command struct correctly
 	// initialize their container structs (APIOptions, TimeoutOptions).
-	opts := options.ListCollections().SetAPIOptions(options.API().SetRequestTimeout(45 * time.Second))
+	opts := options.ListCollections().UpdateAPIOptions(options.API().SetRequestTimeout(45 * time.Second))
 
 	resolved := options.Merge(opts)
 
@@ -98,8 +98,8 @@ func TestHierarchyInheritance(t *testing.T) {
 
 	// 3. Collection adds a timeout and another header — use builder path for additive headers
 	coll := db.Collection("my-coll",
-		options.GetCollection().SetAPIOptions(options.API().SetRequestTimeout(10*time.Second)),
-		options.GetCollection().SetAPIOptions(options.API().AddHeader("X-Coll", "true")),
+		options.GetCollection().UpdateAPIOptions(options.API().SetRequestTimeout(10*time.Second)),
+		options.GetCollection().UpdateAPIOptions(options.API().AddHeader("X-Coll", "true")),
 	)
 
 	// 4. Resolve at the final level

@@ -31,21 +31,21 @@ func TestIndexingOptionsValidation(t *testing.T) {
 	}{
 		{
 			name: "allow only",
-			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
 				Allow: []string{"field1", "field2"},
 			}),
 			wantErr: false,
 		},
 		{
 			name: "deny only",
-			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
 				Deny: []string{"field3", "field4"},
 			}),
 			wantErr: false,
 		},
 		{
 			name: "allow and deny",
-			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
 				Allow: []string{"field1"},
 				Deny:  []string{"field2"},
 			}),
@@ -53,12 +53,12 @@ func TestIndexingOptionsValidation(t *testing.T) {
 		},
 		{
 			name:    "fluent version with allow",
-			opts:    options.CreateCollection().SetIndexingAllow("field1", "field2"),
+			opts:    options.CreateCollection().UpdateIndexingAllow("field1", "field2"),
 			wantErr: false,
 		},
 		{
 			name:    "fluent version with allow and deny",
-			opts:    options.CreateCollection().SetIndexingAllow("field1", "field2").SetIndexingDeny("field3", "field4"),
+			opts:    options.CreateCollection().UpdateIndexingAllow("field1", "field2").UpdateIndexingDeny("field3", "field4"),
 			wantErr: true,
 		},
 		{
@@ -104,8 +104,8 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 	}{
 		{
 			name: "both provider and modelName set",
-			opts: options.CreateCollection().SetVector(
-				options.Vector().SetDimension(1024).SetService(
+			opts: options.CreateCollection().UpdateVector(
+				options.Vector().SetDimension(1024).UpdateService(
 					options.VectorService().SetProvider("openai").SetModelName("text-embedding-3-small"),
 				),
 			),
@@ -113,8 +113,8 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 		},
 		{
 			name: "neither provider nor modelName set",
-			opts: options.CreateCollection().SetVector(
-				options.Vector().SetDimension(1024).SetService(
+			opts: options.CreateCollection().UpdateVector(
+				options.Vector().SetDimension(1024).UpdateService(
 					options.VectorService(),
 				),
 			),
@@ -122,8 +122,8 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 		},
 		{
 			name: "provider only",
-			opts: options.CreateCollection().SetVector(
-				options.Vector().SetDimension(1024).SetService(
+			opts: options.CreateCollection().UpdateVector(
+				options.Vector().SetDimension(1024).UpdateService(
 					options.VectorService().SetProvider("openai"),
 				),
 			),
@@ -131,8 +131,8 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 		},
 		{
 			name: "modelName only",
-			opts: options.CreateCollection().SetVector(
-				options.Vector().SetDimension(1024).SetService(
+			opts: options.CreateCollection().UpdateVector(
+				options.Vector().SetDimension(1024).UpdateService(
 					options.VectorService().SetModelName("text-embedding-3-small"),
 				),
 			),
@@ -140,7 +140,7 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 		},
 		{
 			name: "no service at all",
-			opts: options.CreateCollection().SetVector(
+			opts: options.CreateCollection().UpdateVector(
 				options.Vector().SetDimension(1024),
 			),
 			wantErr: false,
@@ -216,11 +216,11 @@ func TestDeleteManyOptionsTimeoutNotSerialized(t *testing.T) {
 	}
 }
 
-func TestSetAPIOptionsBuilder(t *testing.T) {
+func TestUpdateAPIOptionsBuilder(t *testing.T) {
 	// Builder style
 	opts, err := options.MergeAndValidate(
 		options.CollectionDeleteMany().
-			SetAPIOptions(options.API().SetToken("override-token")),
+			UpdateAPIOptions(options.API().SetToken("override-token")),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -233,11 +233,11 @@ func TestSetAPIOptionsBuilder(t *testing.T) {
 	}
 }
 
-func TestSetAPIOptionsRawStruct(t *testing.T) {
+func TestUpdateAPIOptionsRawStruct(t *testing.T) {
 	token := "raw-token"
 	opts, err := options.MergeAndValidate(
 		options.CollectionDeleteMany().
-			SetAPIOptions(&options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}),
+			UpdateAPIOptions(&options.APIOptions{TokenProvider: options.NewStaticTokenProvider(token)}),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -272,13 +272,13 @@ func TestAPIOptionsNotSerialized(t *testing.T) {
 	}
 }
 
-func TestSetAPIOptionsAllBuilders(t *testing.T) {
-	// Verify SetAPIOptions works on all 6 collection builders
+func TestUpdateAPIOptionsAllBuilders(t *testing.T) {
+	// Verify UpdateAPIOptions works on all 6 collection builders
 	token := "t"
 	apiOpt := options.API().SetToken(token)
 
 	// CollectionFind
-	f, err := options.MergeAndValidate(options.CollectionFind().SetAPIOptions(apiOpt))
+	f, err := options.MergeAndValidate(options.CollectionFind().UpdateAPIOptions(apiOpt))
 	if err != nil {
 		t.Fatalf("CollectionFind: %v", err)
 	}
@@ -290,7 +290,7 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	}
 
 	// CollectionUpdateOne
-	u1, err := options.MergeAndValidate(options.CollectionUpdateOne().SetAPIOptions(apiOpt))
+	u1, err := options.MergeAndValidate(options.CollectionUpdateOne().UpdateAPIOptions(apiOpt))
 	if err != nil {
 		t.Fatalf("CollectionUpdateOne: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	}
 
 	// CollectionUpdateMany
-	um, err := options.MergeAndValidate(options.CollectionUpdateMany().SetAPIOptions(apiOpt))
+	um, err := options.MergeAndValidate(options.CollectionUpdateMany().UpdateAPIOptions(apiOpt))
 	if err != nil {
 		t.Fatalf("CollectionUpdateMany: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	}
 
 	// CollectionDeleteOne
-	d1, err := options.MergeAndValidate(options.CollectionDeleteOne().SetAPIOptions(apiOpt))
+	d1, err := options.MergeAndValidate(options.CollectionDeleteOne().UpdateAPIOptions(apiOpt))
 	if err != nil {
 		t.Fatalf("CollectionDeleteOne: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	}
 
 	// CollectionDeleteMany
-	dm, err := options.MergeAndValidate(options.CollectionDeleteMany().SetAPIOptions(apiOpt))
+	dm, err := options.MergeAndValidate(options.CollectionDeleteMany().UpdateAPIOptions(apiOpt))
 	if err != nil {
 		t.Fatalf("CollectionDeleteMany: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestSetAPIOptionsAllBuilders(t *testing.T) {
 	}
 
 	// CollectionFindOneAndUpdate
-	fu, err := options.MergeAndValidate(options.CollectionFindOneAndUpdate().SetAPIOptions(apiOpt))
+	fu, err := options.MergeAndValidate(options.CollectionFindOneAndUpdate().UpdateAPIOptions(apiOpt))
 	if err != nil {
 		t.Fatalf("CollectionFindOneAndUpdate: %v", err)
 	}

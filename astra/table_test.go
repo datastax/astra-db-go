@@ -1025,7 +1025,7 @@ func TestTableUpdateOne_APIOptionsOverrideToken(t *testing.T) {
 	err := tbl.UpdateOne(context.Background(),
 		filter.F{"pk": 1},
 		update.Table().Set("x", 2),
-		options.TableUpdateOne().SetAPIOptions(options.API().SetToken("override-token")),
+		options.TableUpdateOne().UpdateAPIOptions(options.API().SetToken("override-token")),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

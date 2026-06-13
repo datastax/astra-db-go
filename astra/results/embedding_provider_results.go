@@ -87,8 +87,8 @@ type EmbeddingProviderInfo struct {
 	//   - "SHARED_SECRET": Authentication tied to a collection at collection creation time using the Astra KMS.
 	//
 	//	    _, err = db.CreateCollection(ctx, "my_coll",
-	//	        options.CreateCollection().SetVector(
-	//	            options.Vector().SetService(
+	//	        options.CreateCollection().UpdateVector(
+	//	            options.Vector().UpdateService(
 	//	                options.VectorService().
 	//	                    SetProvider("openai").
 	//	                    SetModelName("text-embedding-3-small").
@@ -103,8 +103,8 @@ type EmbeddingProviderInfo struct {
 	//     No key or credential is needed when creating or using the collection.
 	//
 	//	    _, err = db.CreateCollection(ctx, "my_coll",
-	//	        options.CreateCollection().SetVector(
-	//	            options.Vector().SetService(
+	//	        options.CreateCollection().UpdateVector(
+	//	            options.Vector().UpdateService(
 	//	                options.VectorService().
 	//	                    SetProvider("nvidia").
 	//	                    SetModelName("NV-Embed-QA"),

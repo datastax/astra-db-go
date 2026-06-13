@@ -41,8 +41,8 @@ func (b *getCollectionOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *getColl
 	return b
 }
 
-// SetRerankingAPIKey sets the API key to use for reranking generation for this collection.
-func (b *getCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *getCollectionOptionsBuilder {
+// UpdateRerankingAPIKey sets the API key to use for reranking generation for this collection.
+func (b *getCollectionOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *getCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetCollectionOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
@@ -85,8 +85,8 @@ func (b *createCollectionOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *crea
 	return b
 }
 
-// SetRerankingAPIKey sets the API key to use for reranking generation for this collection.
-func (b *createCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *createCollectionOptionsBuilder {
+// UpdateRerankingAPIKey sets the API key to use for reranking generation for this collection.
+func (b *createCollectionOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
@@ -96,9 +96,9 @@ func (b *createCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *crea
 	return b
 }
 
-// SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
-// Mutually exclusive with SetIndexingDeny.
-func (b *createCollectionOptionsBuilder) SetIndexingAllow(v ...string) *createCollectionOptionsBuilder {
+// UpdateIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
+// Mutually exclusive with UpdateIndexingDeny.
+func (b *createCollectionOptionsBuilder) UpdateIndexingAllow(v ...string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
@@ -108,9 +108,9 @@ func (b *createCollectionOptionsBuilder) SetIndexingAllow(v ...string) *createCo
 	return b
 }
 
-// SetIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
-// disable indexing entirely. Mutually exclusive with SetIndexingAllow.
-func (b *createCollectionOptionsBuilder) SetIndexingDeny(v ...string) *createCollectionOptionsBuilder {
+// UpdateIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
+// disable indexing entirely. Mutually exclusive with UpdateIndexingAllow.
+func (b *createCollectionOptionsBuilder) UpdateIndexingDeny(v ...string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
@@ -267,8 +267,8 @@ type RerankServiceOptions struct {
 	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
-// SetAnalyzer sets the analyzer name for lexical search (e.g., "standard").
-func (b *lexicalOptionsBuilder) SetAnalyzer(v string) *lexicalOptionsBuilder {
+// UpdateAnalyzer sets the analyzer name for lexical search (e.g., "standard").
+func (b *lexicalOptionsBuilder) UpdateAnalyzer(v string) *lexicalOptionsBuilder {
 	b.setters = append(b.setters, func(o *LexicalOptions) {
 		o.Analyzer = v
 	})

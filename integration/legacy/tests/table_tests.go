@@ -223,7 +223,7 @@ func TableFind(e *harness.TestEnv) error {
 	db := e.DefaultDb()
 	warningHandlerRun := false
 
-	tbl := db.Table(tableName, options.GetTable().SetAPIOptions(
+	tbl := db.Table(tableName, options.GetTable().UpdateAPIOptions(
 		options.API().SetWarningHandler(func(w results.Warning) {
 			warningHandlerRun = true
 		}),

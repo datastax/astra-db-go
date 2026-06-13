@@ -520,7 +520,7 @@ func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts Aw
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-ticker.C:
-			db, err := a.DatabaseInfo(ctx, databaseID, options.DatabaseInfo().SetAPIOptions(opts.APIOptions))
+			db, err := a.DatabaseInfo(ctx, databaseID, options.DatabaseInfo().UpdateAPIOptions(opts.APIOptions))
 			if err != nil {
 				return err
 			}
