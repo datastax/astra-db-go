@@ -233,6 +233,11 @@ func TestRow_UnmarshalAstraRaw_InvalidJSON(t *testing.T) {
 func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		s := rapid.StringMatching(`-?[0-9]{1,50}`).Draw(t, "digits")
+
+		if s[0] == '0' || s[0] == '-' && s[1] == '0' {
+			return // invalid json
+		}
+
 		raw := json.RawMessage(s)
 		col := table.Column{Type: table.TypeVarint}
 
@@ -259,6 +264,11 @@ func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		s := rapid.StringMatching(`-?[0-9]{1,20}(\.[0-9]{1,20})?`).Draw(t, "digits")
+
+		if s[0] == '0' || s[0] == '-' && s[1] == '0' {
+			return // invalid json
+		}
+
 		raw := json.RawMessage(s)
 		col := table.Column{Type: table.TypeDecimal}
 

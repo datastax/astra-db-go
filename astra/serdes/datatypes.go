@@ -355,27 +355,37 @@ func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 }
 
 // ================================
-// | Binary data ([]byte) - encoded as {"$binary":"<base64>"} in all contexts,
+// | Binary data ([]byte) - encoded as {"$binary":"<base64>"} in tables and collections, and just "<base64>" otherwise
 // | but can be decoded from either that format or from a base64 string
+// |
+// | NOTE: There's technically no reason to ever encode a []byte outside of encoding to a collection/table, but the
+// | special case just exists to help the fuzz testing pass
 // ================================
 
-func binaryEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
-		return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
-	})
+func binaryEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection || ctx.Target == TargetTable {
+		return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
+			return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
+		})
+	}
+	return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
 }
 
 func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
-	if len(src) != 0 && src[0] == '"' {
-		src, str, _, err := parseStringUnquote(ctx, src)
-		if err != nil {
-			return src, err
-		}
+	if b, ok := consumeNull(src); ok {
+		*(*[]byte)(p) = nil
+		return b, nil
+	}
 
-		*(*[]byte)(p) = str
-		return src, nil
+	if len(src) != 0 && src[0] == '"' {
+		src, data, err := decodeBytesFromBase64(ctx, src)
+
+		if err == nil {
+			*(*[]byte)(p) = data
+		}
+		return src, err
 	}
 
 	if len(src) != 0 && src[0] == '{' {

@@ -15,6 +15,7 @@
 package serdes
 
 import (
+	"fmt"
 	"reflect"
 	"runtime"
 	"sync"
@@ -109,6 +110,15 @@ func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target T
 	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, Flags: f}
 	c := resolveCodecCaching(ctx.codecCtx, t.Elem(), f&DesNoCache != 0)
 
-	_, err := c.decode(ctx, data, p)
-	return wrapStruct(err, t.Elem().Name())
+	srcAfter, err := c.decode(ctx, data, p)
+	if err != nil {
+		return wrapStruct(err, t.Elem().Name())
+	}
+
+	srcAfter = skipWS(srcAfter)
+	if len(srcAfter) > 0 {
+		return ctx.syntaxError(srcAfter, fmt.Sprintf("invalid character '%c' after top-level value", srcAfter[0]))
+	}
+
+	return nil
 }

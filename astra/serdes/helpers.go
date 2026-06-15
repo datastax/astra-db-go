@@ -99,7 +99,37 @@ func parseNumber(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 		return src, nil, ctx.syntaxError(src, "expected number")
 	}
 
-	return src[end:], src[:end], nil
+	num := src[:end]
+	if num[0] == '+' {
+		return src, nil, ctx.syntaxError(src, "invalid leading '+' in number")
+	}
+
+	start := 0
+	if num[0] == '-' {
+		start = 1
+	}
+
+	if start >= len(num) {
+		return src, nil, ctx.syntaxError(src, "expected digit after '-'")
+	}
+
+	// No leading zero unless followed by decimal or exponent
+	if len(num)-start > 1 && num[start] == '0' {
+		next := num[start+1]
+		if next != '.' && next != 'e' && next != 'E' {
+			return src, nil, ctx.syntaxError(src, "invalid leading zero in number")
+		}
+	}
+
+	// Validate decimal placement
+	if dot := bytes.IndexByte(num, '.'); dot >= 0 {
+		// Cannot be first char, last char, and MUST be followed by a digit
+		if dot == start || dot == len(num)-1 || num[dot+1] < '0' || num[dot+1] > '9' {
+			return src, nil, ctx.syntaxError(src, "invalid decimal point in number")
+		}
+	}
+
+	return src[end:], num, nil
 }
 
 type stringKind int
@@ -197,8 +227,8 @@ func parseStringUnquote(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error)
 }
 
 func skipWS(src []byte) []byte {
-	for i := range src {
-		if src[i] > ' ' {
+	for i, c := range src {
+		if c != ' ' && c != '\n' && c != '\t' && c != '\r' {
 			return src[i:]
 		}
 	}
@@ -207,7 +237,8 @@ func skipWS(src []byte) []byte {
 
 func skipWSRev(src []byte) []byte {
 	for i := len(src) - 1; i >= 0; i-- {
-		if src[i] > ' ' {
+		c := src[i]
+		if c != ' ' && c != '\n' && c != '\t' && c != '\r' {
 			return src[:i+1]
 		}
 	}
@@ -262,6 +293,9 @@ func skipValue(ctx DecodeCtx, src []byte) ([]byte, error) {
 		for i < len(src) && src[i] != ',' && src[i] != '}' && src[i] != ']' {
 			i++
 		}
+		if i == 0 {
+			return src, ctx.syntaxError(src, "expected a value")
+		}
 		return src[i:], nil
 	}
 }
@@ -290,6 +324,10 @@ func appendString(dst []byte, s string) []byte {
 			dst = append(dst, '\\', '"')
 		case '\\':
 			dst = append(dst, '\\', '\\')
+		case '\b':
+			dst = append(dst, '\\', 'b')
+		case '\f':
+			dst = append(dst, '\\', 'f')
 		case '\n':
 			dst = append(dst, '\\', 'n')
 		case '\r':

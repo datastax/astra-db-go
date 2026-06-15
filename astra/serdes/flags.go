@@ -50,4 +50,8 @@ const (
 	// UseJSONUnmarshal can be used to recognize the standard library's json.Unmarshaler interface.
 	// Custom Astra unmarshalers still take precedence.
 	UseJSONUnmarshal
+
+	// CaseInsensitiveFieldMatching can be used to fallback to case-insensitive
+	// struct field lookups if an exact match isn't found.
+	CaseInsensitiveFieldMatching
 )

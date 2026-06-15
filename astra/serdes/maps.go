@@ -132,6 +132,7 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',', maker)
 
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		src = skipWS(src)
 		// we'll just delegate the `null` case to the normal decoder
 		// since it can handle it, and we don't want to duplicate that logic
 		if len(src) > 0 && (src[0] == '{' || src[0] == 'n') {
@@ -211,6 +212,8 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 
 func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, open, close, sep byte, maker mapMaker) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		src = skipWS(src)
+
 		if b, ok := consumeNull(src); ok {
 			*(*unsafe.Pointer)(p) = nil
 			return b, nil

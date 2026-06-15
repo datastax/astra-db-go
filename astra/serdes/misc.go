@@ -105,6 +105,10 @@ func stringEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func stringDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if b, ok := consumeNull(src); ok {
+		return b, nil
+	}
+
 	srcAfter, str, isNew, err := parseStringUnquote(ctx, src)
 	if err != nil {
 		return srcAfter, err
@@ -461,7 +465,7 @@ func rawMessageEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, err
 
 	if ctx.Flags&TrustRawMessage == 0 {
 		var throwaway any
-		_, err := emptyInterfaceDecoder(DecodeCtx{}, v, unsafe.Pointer(&throwaway))
+		_, err := emptyInterfaceDecoder(DecodeCtx{Flags: UseNumber}, v, unsafe.Pointer(&throwaway))
 		if err != nil {
 			return dst, &MarshalerError{Type: rawMessageType, Err: err}
 		}

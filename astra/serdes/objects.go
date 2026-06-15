@@ -140,7 +140,13 @@ func mkStructDecoder(info *structInfo) decoder {
 			}
 			src = skipWS(src[1:])
 
-			if fieldIdx, ok := info.offsets[unsafeString(key)]; ok {
+			fieldIdx, ok := info.offsets[unsafeString(key)]
+
+			if !ok && (ctx.Flags&CaseInsensitiveFieldMatching) != 0 {
+				fieldIdx, ok = info.ciOffsets[strings.ToLower(unsafeString(key))]
+			}
+
+			if ok {
 				f := &info.fields[fieldIdx]
 
 				ptr := unsafe.Pointer(uintptr(p) + f.offset)
@@ -179,9 +185,10 @@ func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, offset uint
 // Struct parsing
 
 type structInfo struct {
-	fields  []fieldInfo
-	offsets map[string]int
-	typ     reflect.Type
+	fields    []fieldInfo
+	offsets   map[string]int
+	ciOffsets map[string]int
+	typ       reflect.Type
 }
 
 type fieldInfo struct {
@@ -210,8 +217,9 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 	}
 
 	info := &structInfo{
-		typ:     t,
-		offsets: make(map[string]int, t.NumField()),
+		typ:       t,
+		offsets:   make(map[string]int, t.NumField()),
+		ciOffsets: make(map[string]int, t.NumField()),
 	}
 	seen[t] = info
 
@@ -226,6 +234,11 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 	for i := range fields {
 		f := &fields[i]
 		info.offsets[f.name] = i
+
+		folded := strings.ToLower(f.name)
+		if _, ok := info.ciOffsets[folded]; !ok {
+			info.ciOffsets[folded] = i
+		}
 	}
 
 	return info, nil

@@ -56,7 +56,8 @@ func init() {
 }
 
 func intEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendInt(dst, int64(*(*int)(p)), 10), nil
+	
+    return strconv.AppendInt(dst, int64(*(*int)(p)), 10), nil
 }
 
 func intDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -78,7 +79,8 @@ func intDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func int8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendInt(dst, int64(*(*int8)(p)), 10), nil
+	
+    return strconv.AppendInt(dst, int64(*(*int8)(p)), 10), nil
 }
 
 func int8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -100,7 +102,8 @@ func int8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func int16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendInt(dst, int64(*(*int16)(p)), 10), nil
+	
+    return strconv.AppendInt(dst, int64(*(*int16)(p)), 10), nil
 }
 
 func int16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -122,7 +125,8 @@ func int16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func int32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendInt(dst, int64(*(*int32)(p)), 10), nil
+	
+    return strconv.AppendInt(dst, int64(*(*int32)(p)), 10), nil
 }
 
 func int32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -144,7 +148,8 @@ func int32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func int64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendInt(dst, int64(*(*int64)(p)), 10), nil
+	
+    return strconv.AppendInt(dst, int64(*(*int64)(p)), 10), nil
 }
 
 func int64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -166,7 +171,8 @@ func int64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func uintEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendUint(dst, uint64(*(*uint)(p)), 10), nil
+	
+    return strconv.AppendUint(dst, uint64(*(*uint)(p)), 10), nil
 }
 
 func uintDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -188,7 +194,8 @@ func uintDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func uint8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendUint(dst, uint64(*(*uint8)(p)), 10), nil
+	
+    return strconv.AppendUint(dst, uint64(*(*uint8)(p)), 10), nil
 }
 
 func uint8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -210,7 +217,8 @@ func uint8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 }
 
 func uint16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendUint(dst, uint64(*(*uint16)(p)), 10), nil
+	
+    return strconv.AppendUint(dst, uint64(*(*uint16)(p)), 10), nil
 }
 
 func uint16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -232,7 +240,8 @@ func uint16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 }
 
 func uint32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendUint(dst, uint64(*(*uint32)(p)), 10), nil
+	
+    return strconv.AppendUint(dst, uint64(*(*uint32)(p)), 10), nil
 }
 
 func uint32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -254,7 +263,8 @@ func uint32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 }
 
 func uint64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendUint(dst, uint64(*(*uint64)(p)), 10), nil
+	
+    return strconv.AppendUint(dst, uint64(*(*uint64)(p)), 10), nil
 }
 
 func uint64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -276,7 +286,8 @@ func uint64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 }
 
 func uintptrEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendUint(dst, uint64(*(*uintptr)(p)), 10), nil
+	
+    return strconv.AppendUint(dst, uint64(*(*uintptr)(p)), 10), nil
 }
 
 func uintptrDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -298,7 +309,23 @@ func uintptrDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 }
 
 func float32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendFloat(dst, float64(*(*float32)(p)), 'g', -1, 32), nil
+	f := float64(*(*float32)(p))
+	abs := math.Abs(f)
+	fmtCh := byte('f')
+	if abs != 0 {
+		if float32(abs) < 1e-6 || float32(abs) >= 1e21 {
+			fmtCh = 'e'
+		}
+	}
+	dst = strconv.AppendFloat(dst, f, fmtCh, -1, 32)
+	if fmtCh == 'e' {
+		n := len(dst)
+		if n >= 4 && dst[n-4] == 'e' && dst[n-3] == '-' && dst[n-2] == '0' {
+			dst[n-2] = dst[n-1]
+			dst = dst[:n-1]
+		}
+	}
+	return dst, nil
 }
 
 func float32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
@@ -320,7 +347,23 @@ func float32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 }
 
 func float64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.AppendFloat(dst, float64(*(*float64)(p)), 'g', -1, 64), nil
+	f := float64(*(*float64)(p))
+	abs := math.Abs(f)
+	fmtCh := byte('f')
+	if abs != 0 {
+		if float64(abs) < 1e-6 || float64(abs) >= 1e21 {
+			fmtCh = 'e'
+		}
+	}
+	dst = strconv.AppendFloat(dst, f, fmtCh, -1, 64)
+	if fmtCh == 'e' {
+		n := len(dst)
+		if n >= 4 && dst[n-4] == 'e' && dst[n-3] == '-' && dst[n-2] == '0' {
+			dst[n-2] = dst[n-1]
+			dst = dst[:n-1]
+		}
+	}
+	return dst, nil
 }
 
 func float64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
