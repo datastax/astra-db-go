@@ -75,8 +75,7 @@ func {{.Type}}Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error)
 		}
 	}
 	return dst, nil
-{{else}}	
-    return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)), 10), nil
+{{else}}	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)), 10), nil
 {{end}}}
 
 func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
