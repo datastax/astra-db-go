@@ -110,9 +110,9 @@ type findResponse struct {
 	Data struct {
 		Documents     []json.RawMessage `json:"documents"`
 		NextPageState *string           `json:"nextPageState"`
-		SortVector    *datatypes.Vector `json:"sortVector,omitempty"`
 	} `json:"data"`
 	Status *struct {
+		SortVector        *datatypes.Vector `json:"sortVector,omitempty"`
 		DocumentResponses []struct {
 			Scores map[string]float32 `json:"scores"`
 		} `json:"documentResponses"`
