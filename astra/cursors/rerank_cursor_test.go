@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
@@ -30,6 +31,7 @@ func TestFindAndRerankCursorImpl_MapPage(t *testing.T) {
 		json.RawMessage(`{"_id": "2"}`),
 	}
 	resp.Status = &struct {
+		SortVector        *datatypes.Vector `json:"sortVector,omitempty"`
 		DocumentResponses []struct {
 			Scores map[string]float32 `json:"scores"`
 		} `json:"documentResponses"`

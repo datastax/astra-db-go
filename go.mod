@@ -2,6 +2,8 @@ module github.com/datastax/astra-db-go/v2
 
 go 1.24.0
 
+replace github.com/datastax/astra-db-go/v2 => ./
+
 // test deps
 require (
 	github.com/DeanPDX/dotconfig v1.0.2
