@@ -90,7 +90,7 @@ var oidTag = []byte("objectId")
 
 func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return dst, &UnsupportedValueError{Msg: "ObjectId is only supported for collections"}
+		return dst, ctx.unsupportedValueError("ObjectId is only supported for collections")
 	}
 
 	return encodeDollarDatatype(dst, oidTag, func(dst []byte) ([]byte, error) {
@@ -103,7 +103,7 @@ func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func objectIdDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return src, &UnsupportedValueError{Msg: "ObjectId is only supported for collections"}
+		return src, ctx.unsupportedValueError(src, "ObjectId is only supported for collections")
 	}
 
 	src, oid, err := parseDollarDatatype(ctx, src, oidTag, func(ctx DecodeCtx, b []byte) ([]byte, datatypes.ObjectId, error) {
@@ -179,7 +179,7 @@ func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "DateOnly is not supported for collections"}
+		return nil, ctx.unsupportedValueError("DateOnly is not supported for collections")
 	}
 
 	d := (*datatypes.DateOnly)(p)
@@ -191,7 +191,7 @@ func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, &UnsupportedValueError{Msg: "DateOnly is not supported for collections"}
+		return src, ctx.unsupportedValueError(src, "DateOnly is not supported for collections")
 	}
 
 	srcAfter, str, _, err := parseStringUnquote(ctx, src)
@@ -214,7 +214,7 @@ func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "TimeOnly is not supported for collections"}
+		return nil, ctx.unsupportedValueError("TimeOnly is not supported for collections")
 	}
 
 	t := (*datatypes.TimeOnly)(p)
@@ -226,7 +226,7 @@ func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, &UnsupportedValueError{Msg: "TimeOnly is not supported for collections"}
+		return src, ctx.unsupportedValueError(src, "TimeOnly is not supported for collections")
 	}
 
 	srcAfter, str, _, err := parseStringUnquote(ctx, src)
@@ -454,7 +454,7 @@ func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 
 func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
+		return nil, ctx.unsupportedValueError("Duration is not supported for collections")
 	}
 	d := (*datatypes.Duration)(p)
 	dst = append(dst, '"')
@@ -465,7 +465,7 @@ func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
+		return src, ctx.unsupportedValueError(src, "Duration is not supported for collections")
 	}
 	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {

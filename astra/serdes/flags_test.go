@@ -219,7 +219,7 @@ func TestFlags_ExtendedErrorContext(t *testing.T) {
 	}
 	msg1 := err.Error()
 	// Snippet is max 16 chars. Opening quote + 15 x's = 16 chars.
-	expectedSnippet1 := `"` + strings.Repeat("x", 15) + `...`
+	expectedSnippet1 := `»"xxxxxxxxxxxxxx...`
 	if !strings.Contains(msg1, expectedSnippet1) {
 		t.Errorf("Default snippet: expected to contain '%s', got '%s'", expectedSnippet1, msg1)
 	}
@@ -231,7 +231,7 @@ func TestFlags_ExtendedErrorContext(t *testing.T) {
 	}
 	msg2 := err.Error()
 	// Opening quote + 60 x's + closing quote = 62 chars. 62 < 64, so NO truncation.
-	expectedSnippet2 := `"` + longStr + `"`
+	expectedSnippet2 := `»"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...`
 	if !strings.Contains(msg2, expectedSnippet2) {
 		t.Errorf("ExtendedErrorContext snippet: expected to contain '%s', got '%s'", expectedSnippet2, msg2)
 	}

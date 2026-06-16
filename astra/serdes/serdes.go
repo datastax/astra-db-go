@@ -92,7 +92,7 @@ func SerializeInto(data any, target Target, dst []byte, flags ...SerFlags) ([]by
 
 func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target Target, flags ...DesFlags) error {
 	if res == nil {
-		return &InvalidUnmarshalError{Type: nil}
+		return &DecodeError{Action: DecodeActionInvalid}
 	}
 
 	var f DesFlags
@@ -104,10 +104,10 @@ func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target T
 	p := (*iface)(unsafe.Pointer(&res)).ptr
 
 	if t.Kind() != reflect.Ptr {
-		return &InvalidUnmarshalError{Type: t}
+		return &DecodeError{Action: DecodeActionInvalid, Type: t}
 	}
 
-	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, Flags: f}
+	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, Flags: f, payload: &data}
 	c := resolveCodecCaching(ctx.codecCtx, t.Elem(), f&DesNoCache != 0)
 
 	srcAfter, err := c.decode(ctx, data, p)

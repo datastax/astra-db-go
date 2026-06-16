@@ -335,9 +335,6 @@ func appendString(dst []byte, s string) []byte {
 		case '\t':
 			dst = append(dst, '\\', 't')
 		default:
-			// 3. Simplified hex escape for control characters (0x00 - 0x1F)
-			// JSON spec requires \u00xx for these.
-			// Replacing strconv.QuoteRune with a manual hex append is much faster.
 			dst = append(dst, '\\', 'u', '0', '0', hexTable[b>>4], hexTable[b&0x0f])
 		}
 		start = i + 1

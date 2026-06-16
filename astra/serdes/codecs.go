@@ -43,30 +43,7 @@ type DecodeCtx struct {
 	Target    Target
 	TargetCtx TargetDecodeCtx
 	Flags     DesFlags
-}
-
-func (c DecodeCtx) syntaxError(src []byte, msg string) error {
-	return &SyntaxError{msg: msg, Snippet: errorSnippet(src, c.Flags)}
-}
-
-func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
-	return &SyntaxError{msg: msg, Snippet: errorSnippet(src, c.Flags), Err: err}
-}
-
-func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
-	return &UnmarshalTypeError{Value: nextJsonType(src), Type: t, Snippet: errorSnippet(src, c.Flags)}
-}
-
-func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
-	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src, c.Flags)}
-}
-
-func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
-	return &UnmarshalTypeError{Value: nextJsonType(src), Type: t, Snippet: errorSnippet(src, c.Flags), Err: err}
-}
-
-func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {
-	return &UnmarshalTypeError{Value: value, Type: t, Snippet: errorSnippet(src, c.Flags), Err: err}
+	payload   *[]byte
 }
 
 type AstraMarshaler interface {
@@ -220,7 +197,7 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		c = mkSomeInterfaceCodec(t)
 	default:
 		if c.encode == nil {
-			c = mkErroredCodec(&UnsupportedTypeError{Type: t})
+			c = mkErroredCodec(&EncodeError{Action: EncodeActionUnsupportedType, Type: t})
 		}
 	}
 

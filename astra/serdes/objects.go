@@ -29,7 +29,7 @@ func mkStructCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool)
 	info, err := compileStructInfo(ctx, t, seen, canAddr)
 
 	if err != nil {
-		return mkErroredCodec(&UnsupportedValueError{Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)})
+		return mkErroredCodec(&EncodeError{Action: EncodeActionUnsupportedValue, Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)})
 	}
 
 	return codec{
@@ -172,7 +172,7 @@ func mkEmbeddedStructPointerDecoder(t reflect.Type, unexported bool, offset uint
 
 		if v == nil {
 			if unexported {
-				return nil, &UnsupportedValueError{Msg: fmt.Sprintf("cannot set embedded pointer to unexported struct: %s", t)}
+				return nil, ctx.unsupportedValueError(src, fmt.Sprintf("cannot set embedded pointer to unexported struct: %s", t))
 			}
 			v = unsafe.Pointer(reflect.New(t).Pointer())
 			*(*unsafe.Pointer)(p) = v
@@ -247,7 +247,7 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
 	fields, err := reflectutil.GetFlattenedFields(t)
 	if err != nil {
-		return nil, &UnsupportedValueError{Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)}
+		return nil, &EncodeError{Action: EncodeActionUnsupportedValue, Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)}
 	}
 
 	ret := make([]fieldInfo, 0, len(fields))

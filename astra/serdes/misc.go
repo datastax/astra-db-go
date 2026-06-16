@@ -150,7 +150,7 @@ func mkPointerEncoder(encode encoder) encoder {
 				ctx.ptrSeen = make(map[unsafe.Pointer]struct{})
 			}
 			if _, seen := ctx.ptrSeen[p]; seen {
-				return dst, &UnsupportedValueError{Msg: fmt.Sprintf("encountered a cycle via pointer %p", p)}
+				return dst, ctx.unsupportedValueError(fmt.Sprintf("encountered a cycle via pointer %p", p))
 			}
 			ctx.ptrSeen[p] = struct{}{}
 			defer delete(ctx.ptrSeen, p)
@@ -197,7 +197,7 @@ func mkAstraMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 
 		res, err := v.Interface().(AstraMarshaler).MarshalAstra(ctx)
 		if err != nil {
-			return dst, &MarshalerError{Type: t, Err: err}
+			return dst, ctx.customMarshalerError(t, err)
 		}
 		return emptyInterfaceEncoder(ctx, dst, unsafe.Pointer(&res))
 	}
@@ -217,7 +217,7 @@ func mkAstraRawMarshalerEncoder(t reflect.Type, isPtr bool) encoder {
 
 		res, err := v.Interface().(AstraRawMarshaler).MarshalAstraRaw(ctx, dst)
 		if err != nil {
-			return res, &MarshalerError{Type: t, Err: err}
+			return res, ctx.customMarshalerError(t, err)
 		}
 		return res, nil
 	}
@@ -238,7 +238,7 @@ func mkJSONMarshalerEncoder(t reflect.Type, isPtr bool, fallback encoder) encode
 
 			res, err := v.Interface().(json.Marshaler).MarshalJSON()
 			if err != nil {
-				return dst, &MarshalerError{Type: t, Err: err}
+				return dst, ctx.customMarshalerError(t, err)
 			}
 
 			return append(dst, res...), nil
@@ -263,7 +263,7 @@ func mkAstraUnmarshalerDecoder(t reflect.Type) decoder {
 
 		err = u.Interface().(AstraUnmarshaler).UnmarshalAstra(ctx, intermediate)
 		if err != nil {
-			return srcAfter, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src, ctx.Flags)}
+			return srcAfter, ctx.customUnmarshalerError(src, t, err)
 		}
 		return srcAfter, nil
 	}
@@ -286,7 +286,7 @@ func mkAstraRawUnmarshalerDecoder(t reflect.Type) decoder {
 
 		err = u.Interface().(AstraRawUnmarshaler).UnmarshalAstraRaw(ctx, src[:splitPoint])
 		if err != nil {
-			return srcAfter, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src, ctx.Flags)}
+			return srcAfter, ctx.customUnmarshalerError(src, t, err)
 		}
 		return srcAfter, nil
 	}
@@ -310,7 +310,7 @@ func mkJSONUnmarshalerDecoder(t reflect.Type, fallback decoder) decoder {
 
 			err = u.Interface().(json.Unmarshaler).UnmarshalJSON(src[:splitPoint])
 			if err != nil {
-				return src, &UnmarshalerError{Type: t, Err: err, Snippet: errorSnippet(src, ctx.Flags)}
+				return src, ctx.customUnmarshalerError(src, t, err)
 			}
 
 			return srcAfter, nil
@@ -465,9 +465,9 @@ func rawMessageEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, err
 
 	if ctx.Flags&TrustRawMessage == 0 {
 		var throwaway any
-		_, err := emptyInterfaceDecoder(DecodeCtx{Flags: UseNumber}, v, unsafe.Pointer(&throwaway))
+		_, err := emptyInterfaceDecoder(DecodeCtx{Flags: UseNumber, payload: &v}, v, unsafe.Pointer(&throwaway))
 		if err != nil {
-			return dst, &MarshalerError{Type: rawMessageType, Err: err}
+			return dst, ctx.customMarshalerError(rawMessageType, err)
 		}
 	}
 

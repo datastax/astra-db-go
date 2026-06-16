@@ -123,7 +123,7 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 			return encodeArrayMap(ctx, dst, p)
 		}
 
-		return dst, &UnsupportedValueError{Msg: "maps with non-string keys are only supported for tables"}
+		return dst, ctx.unsupportedValueError("maps with non-string keys are only supported for tables")
 	}
 }
 
