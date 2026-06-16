@@ -101,12 +101,12 @@ func (c *findLikeCursorImpl[Raw]) GetSortVector(ctx context.Context) *datatypes.
 		// Note: we intentionally do NOT change state to CursorStateStarted here
 		// so that the first Next() call will not consume the first item
 	}
-	
+
 	// Cache the sort vector from current page if available
 	if c.currentPage != nil && c.currentPage.SortVector != nil {
 		c.sortVector = c.currentPage.SortVector
 	}
-	
+
 	return c.sortVector
 }
 
@@ -157,7 +157,7 @@ func (c *findLikeCursorImpl[Raw]) fetchNextPage(ctx context.Context) (bool, erro
 	}
 
 	c.currentPage = c.fcs.mapPage(&resp, schema)
-	
+
 	// Cache the sort vector from the first page
 	if c.sortVector == nil && c.currentPage.SortVector != nil {
 		c.sortVector = c.currentPage.SortVector
