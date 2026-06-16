@@ -319,12 +319,20 @@ func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.buffered() > 0 {
+	// Only consume an item if we're already positioned at one (cursor has started)
+	// On the first call (CursorStateIdle), we don't consume anything
+	if c.state == CursorStateStarted && c.buffered() > 0 {
 		*c.acs.buffer() = (*c.acs.buffer())[1:]
 	}
 
 	if c.buffered() == 0 {
 		return c.fetchIfEmpty(ctx)
+	}
+
+	// If we have items and cursor was idle, transition to started
+	// (this handles the case where GetSortVector pre-fetched the first page)
+	if c.state == CursorStateIdle {
+		c.state = CursorStateStarted
 	}
 
 	return true
