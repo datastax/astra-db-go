@@ -167,6 +167,8 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return codec{durationEncoder, durationDecoder}
 	case timeType:
 		return codec{timeEncoder, timeDecoder}
+	case ipType:
+		return codec{ipEncoder, ipDecoder}
 	}
 
 	if c.encode != nil {

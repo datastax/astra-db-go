@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	"net"
 	"reflect"
 	"strconv"
 	"time"
@@ -477,6 +478,37 @@ func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	}
 	*(*datatypes.Duration)(p) = d
 	return src, nil
+}
+
+// ================================
+// | net.IP - encoded as a plain quoted string in all contexts
+// ================================
+
+func ipEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return nil, ctx.unsupportedValueError("net.IP is not supported for collections")
+	}
+	ip := (*net.IP)(p)
+	dst = append(dst, '"')
+	dst = append(dst, ip.String()...)
+	dst = append(dst, '"')
+	return dst, nil
+}
+
+func ipDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return src, ctx.unsupportedValueError(src, "Duration is not supported for collections")
+	}
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
+	if err != nil {
+		return srcAfter, err
+	}
+	ip := net.ParseIP(unsafeString(str))
+	if ip == nil {
+		return srcAfter, ctx.syntaxError(src, "invalid IP string")
+	}
+	*(*net.IP)(p) = ip
+	return srcAfter, nil
 }
 
 // ================================
