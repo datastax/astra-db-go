@@ -115,7 +115,7 @@ func mkStructDecoder(info *structInfo) decoder {
 			src = skipWS(src)
 
 			if len(src) == 0 {
-				return src, ctx.syntaxError(src, "unexpected end of JSON")
+				return src, ctx.syntaxError(src, "unexpected end of input")
 			}
 
 			if src[0] == '}' {

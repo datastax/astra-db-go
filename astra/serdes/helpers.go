@@ -32,39 +32,29 @@ func consumeNull(src []byte) ([]byte, bool) {
 }
 
 func parseInt(ctx DecodeCtx, src []byte) ([]byte, int64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] == '-' || (src[end] >= '0' && src[end] <= '9')) {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected int64 but found "+nextJsonType(src))
-	}
-
-	num, err := strconv.ParseInt(unsafeString(src[:end]), 10, 64)
+	srcAfter, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid int64", err)
+		return srcAfter, 0, ctx.syntaxError(src, "expected int64 but found "+nextJsonType(src))
 	}
-	return src[end:], num, nil
+
+	num, err := strconv.ParseInt(unsafeString(numStr), 10, 64)
+	if err != nil {
+		return srcAfter, 0, ctx.syntaxErrorWrap(src, "invalid int64", err)
+	}
+	return srcAfter, num, nil
 }
 
 func parseUint(ctx DecodeCtx, src []byte) ([]byte, uint64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] >= '0' && src[end] <= '9') {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected uint64 but found "+nextJsonType(src))
-	}
-
-	num, err := strconv.ParseUint(unsafeString(src[:end]), 10, 64)
+	srcAfter, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid uint64", err)
+		return srcAfter, 0, ctx.syntaxError(src, "expected uint64 but found "+nextJsonType(src))
 	}
-	return src[end:], num, nil
+
+	num, err := strconv.ParseUint(unsafeString(numStr), 10, 64)
+	if err != nil {
+		return srcAfter, 0, ctx.syntaxErrorWrap(src, "invalid uint64", err)
+	}
+	return srcAfter, num, nil
 }
 
 var floatChars = [256]uint8{
@@ -146,11 +136,8 @@ const (
 func parseString(ctx DecodeCtx, src []byte) ([]byte, []byte, stringKind, error) {
 	src = skipWS(src)
 
-	if len(src) < 2 {
-		return src[len(src):], nil, erroredString, ctx.syntaxError(src, "expected string")
-	}
-	if src[0] != '"' {
-		return src, nil, erroredString, ctx.syntaxError(src, "expected '\"' at the beginning of a string value")
+	if len(src) == 0 || src[0] != '"' {
+		return src, nil, erroredString, ctx.syntaxError(src, "expected string but found "+nextJsonType(src))
 	}
 
 	var n int

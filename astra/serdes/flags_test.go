@@ -203,7 +203,7 @@ func TestFlags_JSONPrecedence(t *testing.T) {
 	}
 }
 
-func TestFlags_ExtendedErrorContext(t *testing.T) {
+func TestFlags_ExtendedErrorSnippet(t *testing.T) {
 	// Unmarshal a long string into an int to trigger UnmarshalTypeError
 	longStr := "x" + strings.Repeat("x", 58) + "x" // 60 chars
 	data := []byte(`{"a": "` + longStr + `"}`)
@@ -218,22 +218,20 @@ func TestFlags_ExtendedErrorContext(t *testing.T) {
 		t.Fatal("expected error")
 	}
 	msg1 := err.Error()
-	// Snippet is max 16 chars. Opening quote + 15 x's = 16 chars.
-	expectedSnippet1 := `»"xxxxxxxxxxxxxx...`
+	expectedSnippet1 := `{"a": "xxxxxxxxx...`
 	if !strings.Contains(msg1, expectedSnippet1) {
 		t.Errorf("Default snippet: expected to contain '%s', got '%s'", expectedSnippet1, msg1)
 	}
 
-	// ExtendedErrorContext: 64 chars snippet
-	err = serdes.Deserialize(data, &res1, nil, serdes.TargetNone, serdes.ExtendedErrorContext)
+	// ExtendedErrorSnippet: 64 chars snippet
+	err = serdes.Deserialize(data, &res1, nil, serdes.TargetNone, serdes.ExtendedErrorSnippet)
 	if err == nil {
 		t.Fatal("expected error")
 	}
 	msg2 := err.Error()
-	// Opening quote + 60 x's + closing quote = 62 chars. 62 < 64, so NO truncation.
-	expectedSnippet2 := `»"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...`
+	expectedSnippet2 := `{"a": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx...`
 	if !strings.Contains(msg2, expectedSnippet2) {
-		t.Errorf("ExtendedErrorContext snippet: expected to contain '%s', got '%s'", expectedSnippet2, msg2)
+		t.Errorf("ExtendedErrorSnippet snippet: expected to contain '%s', got '%s'", expectedSnippet2, msg2)
 	}
 }
 

@@ -37,7 +37,7 @@ func (p pathContext) fullPath() string {
 
 func (p pathContext) formatPath() string {
 	if path := p.fullPath(); path != "" {
-		return " in '" + path + "'"
+		return " parsing '" + path + "'"
 	}
 	return ""
 }
@@ -104,9 +104,9 @@ type DecodeError struct {
 	Value   string
 	Type    reflect.Type
 	Snippet string
+	Offset  int64
 	Err     error
 }
-
 
 func (e *DecodeError) diagnostic() string {
 	var diag string
@@ -173,8 +173,8 @@ func (e *DecodeError) Error() string {
 
 	case DecodeActionSyntax:
 		msg += "syntax error"
-		if path := e.formatPath(); path != "" {
-			msg += path
+		if path := e.fullPath(); path != "" {
+			msg += " parsing '" + path + "'"
 		}
 	}
 
@@ -274,9 +274,9 @@ func errorSnippet(c DecodeCtx, src []byte) string {
 	payload := *c.payload
 	offset := len(payload) - len(src)
 
-	ctxLen := 15
-	if c.Flags&ExtendedErrorContext != 0 {
-		ctxLen = 60
+	ctxLen := 10
+	if c.Flags&ExtendedErrorSnippet != 0 {
+		ctxLen = 32
 	}
 
 	start := offset - ctxLen
@@ -298,12 +298,29 @@ func errorSnippet(c DecodeCtx, src []byte) string {
 	if start > 0 {
 		res += "..."
 	}
-	res += before + "»" + after
+	if offset == len(payload) {
+		res += before + "<EOF>"
+	} else {
+		res += before + after
+	}
 	if end < len(payload) {
 		res += "..."
 	}
 
 	return res
+}
+
+func innermostOffset(err error) int64 {
+	var offset int64 = -1
+	for err != nil {
+		if de, ok := err.(*DecodeError); ok {
+			if de.Offset >= 0 {
+				offset = de.Offset
+			}
+		}
+		err = errors.Unwrap(err)
+	}
+	return offset
 }
 
 func innermostSnippet(err error) string {
@@ -320,8 +337,11 @@ func innermostSnippet(err error) string {
 }
 
 func withSnippet(err error, msg string) string {
-	if s := innermostSnippet(err); s != "" && !strings.Contains(msg, "near: '"+s+"'") {
-		return msg + " near: '" + s + "'"
+	if s := innermostSnippet(err); s != "" && !strings.Contains(msg, " near '"+s+"'") {
+		msg += " near '" + s + "'"
+	}
+	if o := innermostOffset(err); o >= 0 && !strings.Contains(msg, " (offset") {
+		msg += fmt.Sprintf(" (offset %d)", o)
 	}
 	return msg
 }
@@ -376,36 +396,43 @@ func nextJsonType(src []byte) string {
 	}
 }
 
+func errorOffset(c DecodeCtx, src []byte) int64 {
+	if c.payload == nil {
+		return -1
+	}
+	return int64(len(*c.payload) - len(src))
+}
+
 func (c DecodeCtx) syntaxError(src []byte, msg string) error {
-	return &DecodeError{Action: DecodeActionSyntax, Msg: msg, Snippet: errorSnippet(c, src)}
+	return &DecodeError{Action: DecodeActionSyntax, Msg: msg, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
 }
 
 func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
-	return &DecodeError{Action: DecodeActionSyntax, Msg: msg, Snippet: errorSnippet(c, src), Err: err}
+	return &DecodeError{Action: DecodeActionSyntax, Msg: msg, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src), Err: err}
 }
 
 func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
-	return &DecodeError{Action: DecodeActionTypeMismatch, Value: nextJsonType(src), Type: t, Snippet: errorSnippet(c, src)}
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: nextJsonType(src), Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
 }
 
 func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
-	return &DecodeError{Action: DecodeActionTypeMismatch, Value: value, Type: t, Snippet: errorSnippet(c, src)}
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: value, Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
 }
 
 func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
-	return &DecodeError{Action: DecodeActionTypeMismatch, Value: nextJsonType(src), Type: t, Snippet: errorSnippet(c, src), Err: err}
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: nextJsonType(src), Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src), Err: err}
 }
 
 func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {
-	return &DecodeError{Action: DecodeActionTypeMismatch, Value: value, Type: t, Snippet: errorSnippet(c, src), Err: err}
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: value, Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src), Err: err}
 }
 
 func (c DecodeCtx) unsupportedValueError(src []byte, msg string) error {
-	return &DecodeError{Action: DecodeActionUnsupported, Msg: msg, Snippet: errorSnippet(c, src)}
+	return &DecodeError{Action: DecodeActionUnsupported, Msg: msg, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
 }
 
 func (c DecodeCtx) customUnmarshalerError(src []byte, t reflect.Type, err error) error {
-	return &DecodeError{Action: DecodeActionCustomUnmarshaler, Type: t, Err: err, Snippet: errorSnippet(c, src)}
+	return &DecodeError{Action: DecodeActionCustomUnmarshaler, Type: t, Err: err, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
 }
 
 func (c EncodeCtx) unsupportedTypeError(t reflect.Type) error {

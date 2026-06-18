@@ -184,7 +184,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 
 			var next []byte
 			if next, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
-				return dst[:start], wrapPath(err, "key")
+				return dst[:start], wrapPath(err, "<key>")
 			}
 			dst = next
 
@@ -219,7 +219,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 			return b, nil
 		}
 
-		if len(src) < 2 || src[0] != open {
+		if len(src) == 0 || src[0] != open {
 			msg := "expected '{' at the start of an object"
 			if open == '[' {
 				msg = "expected '[' at the start of an array"
@@ -253,7 +253,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			if i != 0 {
 				if len(src) == 0 {
-					return src, ctx.syntaxError(src, "unexpected end of JSON")
+					return src, ctx.syntaxError(src, "unexpected end of input")
 				}
 				if src[0] != ',' {
 					return src, ctx.syntaxError(src, fmt.Sprintf("expected ',' but found '%c'", src[0]))
@@ -273,7 +273,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			srcAfter, err := decodeKey(ctx, src, kptr)
 			if err != nil {
-				return srcAfter, wrapPath(err, "key")
+				return srcAfter, wrapPath(err, "<key>")
 			}
 			src = skipWS(srcAfter)
 

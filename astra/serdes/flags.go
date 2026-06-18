@@ -42,10 +42,10 @@ const (
 	// DesNoCache can be used to disable the serdes cache for deserialization.
 	DesNoCache
 
-	// ExtendedErrorContext can be used to include more of the JSON snippet in error messages (default is 16 chars, ExtendedErrorContext allows up to 64 chars).
+	// ExtendedErrorSnippet can be used to include more of the JSON snippet in error messages (default is 16 chars, ExtendedErrorSnippet allows up to 64 chars).
 	//
 	// Note that extending the error context has a higher chance of leaking sensitive data in error messages; be mindful of its usage.
-	ExtendedErrorContext
+	ExtendedErrorSnippet
 
 	// UseJSONUnmarshal can be used to recognize the standard library's json.Unmarshaler interface.
 	// Custom Astra unmarshalers still take precedence.

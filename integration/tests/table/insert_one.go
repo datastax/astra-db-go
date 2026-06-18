@@ -39,7 +39,7 @@ func init() {
 
 		testlib.AwaitAll(t, types, func(ty any) (any, error) {
 			_, err := t.Table_.InsertOne(t.Ctx, astra.NewRow{"val": ty})
-			testlib.ErrMustBe[*serdes.UnsupportedValueError](t, err, "expected %T insertion to fail", ty)
+			testlib.ErrMustBe[*serdes.DecodeError](t, err, "expected %T insertion to fail", ty)
 			return nil, nil
 		})
 	})
