@@ -37,7 +37,7 @@ func (p pathContext) fullPath() string {
 
 func (p pathContext) formatPath() string {
 	if path := p.fullPath(); path != "" {
-		return " in '" + path + "'"
+		return " parsing '" + path + "'"
 	}
 	return ""
 }
@@ -87,73 +87,167 @@ func wrapField(err error, structName, fieldName string) error {
 	return wrapPath(err, fieldName)
 }
 
-// A SyntaxError is a description of a JSON/BSON syntax error.
-type SyntaxError struct {
+type DecodeAction int
+
+const (
+	DecodeActionSyntax DecodeAction = iota
+	DecodeActionTypeMismatch
+	DecodeActionCustomUnmarshaler
+	DecodeActionUnsupported
+	DecodeActionInvalid
+)
+
+type DecodeError struct {
 	pathContext
-	msg     string // description of error
-	Snippet string // snippet of JSON near the error
-	Err     error  // underlying error
+	Action  DecodeAction
+	Msg     string
+	Value   string
+	Type    reflect.Type
+	Snippet string
+	Offset  int64
+	Err     error
 }
 
-func (e SyntaxError) GetSnippet() string { return e.Snippet }
+func (e *DecodeError) diagnostic() string {
+	var diag string
+	if e.Action == DecodeActionSyntax && e.Msg != "" {
+		diag = e.Msg
+	}
 
-func (e SyntaxError) diagnostic() string {
-	msg := e.msg
 	if e.Err != nil {
-		msg += ": " + displayError(e.Err)
-	}
-	return msg
-}
-
-func (e SyntaxError) Error() string {
-	msg := "serdes: syntax error"
-	if path := e.formatPath(); path != "" {
-		msg += path
-	}
-	msg += ": " + e.diagnostic()
-	return withSnippet(e, msg)
-}
-
-func (e SyntaxError) Unwrap() error { return e.Err }
-
-// An UnmarshalTypeError describes a JSON/BSON value that was
-// not appropriate for a value of a specific Go type.
-type UnmarshalTypeError struct {
-	pathContext
-	Value   string       // description of JSON/BSON value - "bool", "array", "number -5"
-	Type    reflect.Type // type of Go value it could not be assigned to
-	Snippet string       // snippet of JSON near the error
-	Err     error        // underlying error
-}
-
-func (e UnmarshalTypeError) GetSnippet() string { return e.Snippet }
-
-func (e UnmarshalTypeError) diagnostic() string {
-	if e.Err != nil {
-		return displayError(e.Err)
-	}
-	return ""
-}
-
-func (e UnmarshalTypeError) Error() string {
-	msg := "serdes: cannot unmarshal " + e.Value
-	path := e.fullPath()
-	if path != "" && path != e.Type.String() && path != e.Type.Name() {
-		msg += " into '" + path + "' (type " + e.Type.String() + ")"
-	} else {
-		msg += " into type " + e.Type.String()
-	}
-
-	if diag := e.diagnostic(); diag != "" {
-		// Suppress redundant "expected [type]" if it matches the target type
-		typeName := getValueName(e.Type)
-		if !strings.Contains(diag, "expected "+e.Type.String()) && !strings.Contains(diag, "expected "+typeName) {
-			msg += ": " + diag
+		if innerDiag := displayError(e.Err); innerDiag != "" {
+			if diag != "" {
+				diag += ": " + innerDiag
+			} else {
+				diag = innerDiag
+			}
 		}
 	}
 
+	if e.Action == DecodeActionTypeMismatch {
+		typeName := getValueName(e.Type)
+		if strings.Contains(diag, "expected "+e.Type.String()) || strings.Contains(diag, "expected "+typeName) {
+			return ""
+		}
+	}
+	return diag
+}
+
+func (e *DecodeError) Error() string {
+	msg := "serdes: "
+
+	switch e.Action {
+	case DecodeActionInvalid:
+		if e.Type == nil {
+			return msg + "Deserialize(nil)"
+		}
+		if e.Type.Kind() != reflect.Ptr {
+			return msg + "Deserialize(non-pointer " + e.Type.String() + ")"
+		}
+		return msg + "Deserialize(nil " + e.Type.String() + ")"
+
+	case DecodeActionUnsupported:
+		msg += "unsupported value"
+		if e.Msg != "" {
+			msg += ": " + e.Msg
+		}
+		return msg + e.formatPath()
+
+	case DecodeActionTypeMismatch:
+		msg += "cannot unmarshal " + e.Value
+		path := e.fullPath()
+		if path != "" && path != e.Type.String() && path != e.Type.Name() {
+			msg += " into '" + path + "' (type " + e.Type.String() + ")"
+		} else {
+			msg += " into type " + e.Type.String()
+		}
+
+	case DecodeActionCustomUnmarshaler:
+		msg += "error calling UnmarshalAstra"
+		path := e.fullPath()
+		if path != "" && path != e.Type.String() && path != e.Type.Name() {
+			msg += " in '" + path + "'"
+		} else {
+			msg += " for type " + e.Type.String()
+		}
+
+	case DecodeActionSyntax:
+		msg += "syntax error"
+		if path := e.fullPath(); path != "" {
+			msg += " parsing '" + path + "'"
+		}
+	}
+
+	if diag := e.diagnostic(); diag != "" {
+		msg += ": " + diag
+	}
+
 	return withSnippet(e, msg)
 }
+
+func (e *DecodeError) Unwrap() error { return e.Err }
+
+type EncodeAction int
+
+const (
+	EncodeActionCustomMarshaler EncodeAction = iota
+	EncodeActionUnsupportedValue
+	EncodeActionUnsupportedType
+)
+
+type EncodeError struct {
+	pathContext
+	Action EncodeAction
+	Msg    string
+	Type   reflect.Type
+	Err    error
+}
+
+func (e *EncodeError) diagnostic() string {
+	return displayError(e.Err)
+}
+
+func (e *EncodeError) Error() string {
+	msg := "serdes: "
+
+	switch e.Action {
+	case EncodeActionUnsupportedType:
+		return msg + "unsupported type: " + e.Type.String() + e.formatPath()
+
+	case EncodeActionUnsupportedValue:
+		msg += "unsupported value"
+		if e.Msg != "" {
+			msg += ": " + e.Msg
+		}
+		return msg + e.formatPath()
+
+	case EncodeActionCustomMarshaler:
+		msg += "error calling MarshalAstra"
+		path := e.fullPath()
+		if path != "" && path != e.Type.String() && path != e.Type.Name() {
+			msg += " in '" + path + "'"
+		} else {
+			msg += " for type " + e.Type.String()
+		}
+		if e.Err != nil {
+			msg += ": " + e.diagnostic()
+		}
+		return msg
+	}
+
+	return msg
+}
+
+func escapeControlChars(s string) string {
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, "\r", `\r`)
+	s = strings.ReplaceAll(s, "\t", `\t`)
+	s = strings.ReplaceAll(s, "\b", `\b`)
+	s = strings.ReplaceAll(s, "\f", `\f`)
+	return s
+}
+
+func (e *EncodeError) Unwrap() error { return e.Err }
 
 func getValueName(t reflect.Type) string {
 	switch t.Kind() {
@@ -172,31 +266,68 @@ func getValueName(t reflect.Type) string {
 	}
 }
 
-func (e UnmarshalTypeError) Unwrap() error { return e.Err }
-
-func errorSnippet(b []byte, flags DesFlags) string {
-	if len(b) == 0 {
+func errorSnippet(c DecodeCtx, src []byte) string {
+	if c.payload == nil || len(*c.payload) == 0 {
 		return ""
 	}
-	ctx := 16
-	if flags&ExtendedErrorContext != 0 {
-		ctx = 64
+
+	payload := *c.payload
+	offset := len(payload) - len(src)
+
+	ctxLen := 10
+	if c.Flags&ExtendedErrorSnippet != 0 {
+		ctxLen = 32
 	}
-	if len(b) > ctx {
-		return string(b[:ctx]) + "..."
+
+	start := offset - ctxLen
+	if start < 0 {
+		start = 0
 	}
-	return string(b)
+	end := offset + ctxLen
+	if end > len(payload) {
+		end = len(payload)
+	}
+
+	before := string(payload[start:offset])
+	after := string(payload[offset:end])
+
+	before = escapeControlChars(before)
+	after = escapeControlChars(after)
+
+	res := ""
+	if start > 0 {
+		res += "..."
+	}
+	if offset == len(payload) {
+		res += before + "<EOF>"
+	} else {
+		res += before + after
+	}
+	if end < len(payload) {
+		res += "..."
+	}
+
+	return res
 }
 
-type snippetError interface {
-	GetSnippet() string
+func innermostOffset(err error) int64 {
+	var offset int64 = -1
+	for err != nil {
+		if de, ok := err.(*DecodeError); ok {
+			if de.Offset >= 0 {
+				offset = de.Offset
+			}
+		}
+		err = errors.Unwrap(err)
+	}
+	return offset
 }
 
 func innermostSnippet(err error) string {
 	var snippet string
 	for err != nil {
-		if se, ok := err.(snippetError); ok {
-			if s := se.GetSnippet(); s != "" {
+		if de, ok := err.(*DecodeError); ok {
+			if s := de.Snippet; s != "" {
 				snippet = s
 			}
 		}
@@ -206,92 +337,13 @@ func innermostSnippet(err error) string {
 }
 
 func withSnippet(err error, msg string) string {
-	if s := innermostSnippet(err); s != "" && !strings.Contains(msg, "near: '"+s+"'") {
-		return msg + " near: '" + s + "'"
+	if s := innermostSnippet(err); s != "" && !strings.Contains(msg, " near '"+s+"'") {
+		msg += " near '" + s + "'"
+	}
+	if o := innermostOffset(err); o >= 0 && !strings.Contains(msg, " (offset") {
+		msg += fmt.Sprintf(" (offset %d)", o)
 	}
 	return msg
-}
-
-// A MarshalerError represents an error from calling a MarshalAstra method.
-type MarshalerError struct {
-	pathContext
-	Type reflect.Type
-	Err  error
-}
-
-func (e MarshalerError) diagnostic() string {
-	return displayError(e.Err)
-}
-
-func (e MarshalerError) Error() string {
-	msg := "serdes: error calling MarshalAstra"
-	path := e.fullPath()
-	if path != "" && path != e.Type.String() && path != e.Type.Name() {
-		msg += " in '" + path + "'"
-	} else {
-		msg += " for type " + e.Type.String()
-	}
-	msg += ": " + e.diagnostic()
-	return msg
-}
-
-func (e MarshalerError) Unwrap() error {
-	return e.Err
-}
-
-// An UnmarshalerError represents an error from calling an UnmarshalAstra method.
-type UnmarshalerError struct {
-	pathContext
-	Type    reflect.Type
-	Snippet string
-	Err     error
-}
-
-func (e UnmarshalerError) GetSnippet() string { return e.Snippet }
-
-func (e UnmarshalerError) diagnostic() string {
-	return displayError(e.Err)
-}
-
-func (e UnmarshalerError) Error() string {
-	msg := "serdes: error calling UnmarshalAstra"
-	path := e.fullPath()
-	if path != "" && path != e.Type.String() && path != e.Type.Name() {
-		msg += " in '" + path + "'"
-	} else {
-		msg += " for type " + e.Type.String()
-	}
-	msg += ": " + e.diagnostic()
-	return withSnippet(e, msg)
-}
-
-func (e UnmarshalerError) Unwrap() error { return e.Err }
-
-// An UnsupportedValueError is returned when a value is not supported by Astra,
-// such as a cycle, a missing tag, or a target mismatch.
-type UnsupportedValueError struct {
-	pathContext
-	Value any
-	Msg   string
-}
-
-func (e UnsupportedValueError) Error() string {
-	msg := "serdes: unsupported value"
-	if e.Msg != "" {
-		msg += ": " + e.Msg
-	}
-	return msg + e.formatPath()
-}
-
-// An UnsupportedTypeError is returned when attempting to marshal
-// an unsupported type.
-type UnsupportedTypeError struct {
-	pathContext
-	Type reflect.Type
-}
-
-func (e UnsupportedTypeError) Error() string {
-	return "serdes: unsupported type: " + e.Type.String() + e.formatPath()
 }
 
 func displayError(err error) string {
@@ -321,23 +373,6 @@ func joinPath(part, current string) string {
 	return part + "." + current
 }
 
-// An InvalidUnmarshalError describes an invalid argument passed to Deserialize.
-// (The argument to Deserialize must be a non-nil pointer.)
-type InvalidUnmarshalError struct {
-	Type reflect.Type
-}
-
-func (e InvalidUnmarshalError) Error() string {
-	if e.Type == nil {
-		return "serdes: Deserialize(nil)"
-	}
-
-	if e.Type.Kind() != reflect.Ptr {
-		return "serdes: Deserialize(non-pointer " + e.Type.String() + ")"
-	}
-	return "serdes: Deserialize(nil " + e.Type.String() + ")"
-}
-
 func nextJsonType(src []byte) string {
 	src = skipWS(src)
 	if len(src) == 0 {
@@ -359,4 +394,55 @@ func nextJsonType(src []byte) string {
 	default:
 		return "unknown"
 	}
+}
+
+func errorOffset(c DecodeCtx, src []byte) int64 {
+	if c.payload == nil {
+		return -1
+	}
+	return int64(len(*c.payload) - len(src))
+}
+
+func (c DecodeCtx) syntaxError(src []byte, msg string) error {
+	return &DecodeError{Action: DecodeActionSyntax, Msg: msg, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
+}
+
+func (c DecodeCtx) syntaxErrorWrap(src []byte, msg string, err error) error {
+	return &DecodeError{Action: DecodeActionSyntax, Msg: msg, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src), Err: err}
+}
+
+func (c DecodeCtx) unmarshalTypeError(src []byte, t reflect.Type) error {
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: nextJsonType(src), Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
+}
+
+func (c DecodeCtx) unmarshalValueTypeError(src []byte, t reflect.Type, value string) error {
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: value, Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
+}
+
+func (c DecodeCtx) unmarshalTypeErrorWrap(src []byte, t reflect.Type, err error) error {
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: nextJsonType(src), Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src), Err: err}
+}
+
+func (c DecodeCtx) unmarshalValueTypeErrorWrap(src []byte, t reflect.Type, value string, err error) error {
+	return &DecodeError{Action: DecodeActionTypeMismatch, Value: value, Type: t, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src), Err: err}
+}
+
+func (c DecodeCtx) unsupportedValueError(src []byte, msg string) error {
+	return &DecodeError{Action: DecodeActionUnsupported, Msg: msg, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
+}
+
+func (c DecodeCtx) customUnmarshalerError(src []byte, t reflect.Type, err error) error {
+	return &DecodeError{Action: DecodeActionCustomUnmarshaler, Type: t, Err: err, Snippet: errorSnippet(c, src), Offset: errorOffset(c, src)}
+}
+
+func (c EncodeCtx) unsupportedTypeError(t reflect.Type) error {
+	return &EncodeError{Action: EncodeActionUnsupportedType, Type: t}
+}
+
+func (c EncodeCtx) unsupportedValueError(msg string) error {
+	return &EncodeError{Action: EncodeActionUnsupportedValue, Msg: msg}
+}
+
+func (c EncodeCtx) customMarshalerError(t reflect.Type, err error) error {
+	return &EncodeError{Action: EncodeActionCustomMarshaler, Type: t, Err: err}
 }

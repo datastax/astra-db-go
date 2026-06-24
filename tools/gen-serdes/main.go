@@ -58,8 +58,25 @@ func init() {
 }
 {{range .}}
 func {{.Type}}Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)){{.SerArgs}}), nil
-}
+{{if .IsFloat}}	f := float64(*(*{{.Type}})(p))
+	abs := math.Abs(f)
+	fmtCh := byte('f')
+	if abs != 0 {
+		if {{.Type}}(abs) < 1e-6 || {{.Type}}(abs) >= 1e21 {
+			fmtCh = 'e'
+		}
+	}
+	dst = strconv.AppendFloat(dst, f, fmtCh, -1, {{.Bits}})
+	if fmtCh == 'e' {
+		n := len(dst)
+		if n >= 4 && dst[n-4] == 'e' && dst[n-3] == '-' && dst[n-2] == '0' {
+			dst[n-2] = dst[n-1]
+			dst = dst[:n-1]
+		}
+	}
+	return dst, nil
+{{else}}	return strconv.{{.SerFunc}}(dst, {{.Cast}}(*(*{{.Type}})(p)), 10), nil
+{{end}}}
 
 func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if b, ok := consumeNull(src); ok {
@@ -81,7 +98,11 @@ func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 {{end}}`))
 
 func main() {
-	type spec struct{ Type, Cast, SerFunc, DesFunc, BoundsCheck, SerArgs string }
+	type spec struct {
+		Type, Cast, SerFunc, DesFunc, BoundsCheck string
+		IsFloat                                   bool
+		Bits                                      int
+	}
 
 	var specs []spec
 	for _, t := range []string{"int", "int8", "int16", "int32", "int64"} {
@@ -91,7 +112,6 @@ func main() {
 			SerFunc:     "AppendInt",
 			DesFunc:     "parseInt",
 			BoundsCheck: fmt.Sprintf("num < math.Min%s || num > math.Max%s", title(t), title(t)),
-			SerArgs:     ", 10",
 		})
 	}
 
@@ -102,7 +122,6 @@ func main() {
 			SerFunc:     "AppendUint",
 			DesFunc:     "parseUint",
 			BoundsCheck: fmt.Sprintf("num < 0 || num > math.Max%s", title(t)),
-			SerArgs:     ", 10",
 		})
 	}
 
@@ -112,17 +131,16 @@ func main() {
 		SerFunc:     "AppendUint",
 		DesFunc:     "parseUint",
 		BoundsCheck: "num < 0 || num > uint64(maxUintptr)",
-		SerArgs:     ", 10",
 	})
 
 	for _, t := range []int{32, 64} {
 		specs = append(specs, spec{
 			Type:        fmt.Sprintf("float%d", t),
 			Cast:        "float64",
-			SerFunc:     "AppendFloat",
 			DesFunc:     "parseFloat",
 			BoundsCheck: "false",
-			SerArgs:     fmt.Sprintf(", 'g', -1, %d", t),
+			IsFloat:     true,
+			Bits:        t,
 		})
 	}
 

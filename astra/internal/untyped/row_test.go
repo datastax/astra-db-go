@@ -121,7 +121,7 @@ func TestRow_UnmarshalAstraRaw(t *testing.T) {
 				{Name: "ip", Column: table.Column{Type: table.TypeInet}},
 				{Name: "blob", Column: table.Column{Type: table.TypeBlob}},
 			},
-			jsonData: `{"uuid": "550e8400-e29b-41d4-a716-446655440000", "ip": [192, 168, 1, 1], "blob": {"$binary": "aGVsbG8="}}`,
+			jsonData: `{"uuid": "550e8400-e29b-41d4-a716-446655440000", "ip": "192.168.1.1", "blob": {"$binary": "aGVsbG8="}}`,
 			validate: func(t *testing.T, row Row) {
 				data := row.ToMap()
 				if _, ok := data["uuid"].(datatypes.UUID); !ok {
@@ -233,6 +233,11 @@ func TestRow_UnmarshalAstraRaw_InvalidJSON(t *testing.T) {
 func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		s := rapid.StringMatching(`-?[0-9]{1,50}`).Draw(t, "digits")
+
+		if s[0] == '0' || s[0] == '-' && s[1] == '0' {
+			return // invalid json
+		}
+
 		raw := json.RawMessage(s)
 		col := table.Column{Type: table.TypeVarint}
 
@@ -259,6 +264,11 @@ func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		s := rapid.StringMatching(`-?[0-9]{1,20}(\.[0-9]{1,20})?`).Draw(t, "digits")
+
+		if s[0] == '0' || s[0] == '-' && s[1] == '0' {
+			return // invalid json
+		}
+
 		raw := json.RawMessage(s)
 		col := table.Column{Type: table.TypeDecimal}
 
@@ -574,7 +584,10 @@ func genValueForColumn(col table.Column) *rapid.Generator[any] {
 		case table.TypeUUID, table.TypeTimeUUID:
 			return datatypes.MustParseUUID(rapid.StringMatching(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`).Draw(t, "uuid"))
 		case table.TypeInet:
-			return net.IP(rapid.SliceOfN(rapid.Byte(), 4, 16).Draw(t, "ip_bytes"))
+			if rapid.Bool().Draw(t, "is_ipv4") {
+				return net.IP(rapid.SliceOfN(rapid.Byte(), 4, 4).Draw(t, "ipv4_bytes"))
+			}
+			return net.IP(rapid.SliceOfN(rapid.Byte(), 16, 16).Draw(t, "ipv6_bytes"))
 		case table.TypeBlob:
 			return rapid.SliceOf(rapid.Byte()).Draw(t, "blob")
 		case table.TypeDecimal:

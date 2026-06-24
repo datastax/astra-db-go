@@ -3281,10 +3281,10 @@ func (b *serdesOptionsBuilder) SetDesNoCache(v bool) *serdesOptionsBuilder {
 	return b
 }
 
-// SetExtendedErrorContext sets the ExtendedErrorContext option.
-func (b *serdesOptionsBuilder) SetExtendedErrorContext(v bool) *serdesOptionsBuilder {
+// SetExtendedErrorSnippet sets the ExtendedErrorSnippet option.
+func (b *serdesOptionsBuilder) SetExtendedErrorSnippet(v bool) *serdesOptionsBuilder {
 	b.setters = append(b.setters, func(o *SerdesOptions) {
-		o.ExtendedErrorContext = &v
+		o.ExtendedErrorSnippet = &v
 	})
 	return b
 }
@@ -3293,6 +3293,14 @@ func (b *serdesOptionsBuilder) SetExtendedErrorContext(v bool) *serdesOptionsBui
 func (b *serdesOptionsBuilder) SetUseJSONUnmarshal(v bool) *serdesOptionsBuilder {
 	b.setters = append(b.setters, func(o *SerdesOptions) {
 		o.UseJSONUnmarshal = &v
+	})
+	return b
+}
+
+// SetCaseInsensitiveFieldMatching sets the CaseInsensitiveFieldMatching option.
+func (b *serdesOptionsBuilder) SetCaseInsensitiveFieldMatching(v bool) *serdesOptionsBuilder {
+	b.setters = append(b.setters, func(o *SerdesOptions) {
+		o.CaseInsensitiveFieldMatching = &v
 	})
 	return b
 }

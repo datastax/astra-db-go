@@ -32,39 +32,29 @@ func consumeNull(src []byte) ([]byte, bool) {
 }
 
 func parseInt(ctx DecodeCtx, src []byte) ([]byte, int64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] == '-' || (src[end] >= '0' && src[end] <= '9')) {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected int64 but found "+nextJsonType(src))
-	}
-
-	num, err := strconv.ParseInt(unsafeString(src[:end]), 10, 64)
+	srcAfter, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid int64", err)
+		return srcAfter, 0, ctx.syntaxError(src, "expected int64 but found "+nextJsonType(src))
 	}
-	return src[end:], num, nil
+
+	num, err := strconv.ParseInt(unsafeString(numStr), 10, 64)
+	if err != nil {
+		return srcAfter, 0, ctx.syntaxErrorWrap(src, "invalid int64", err)
+	}
+	return srcAfter, num, nil
 }
 
 func parseUint(ctx DecodeCtx, src []byte) ([]byte, uint64, error) {
-	src = skipWS(src)
-	end := 0
-	for end < len(src) && (src[end] >= '0' && src[end] <= '9') {
-		end++
-	}
-
-	if end == 0 {
-		return src, 0, ctx.syntaxError(src, "expected uint64 but found "+nextJsonType(src))
-	}
-
-	num, err := strconv.ParseUint(unsafeString(src[:end]), 10, 64)
+	srcAfter, numStr, err := parseNumber(ctx, src)
 	if err != nil {
-		return src[end:], 0, ctx.syntaxErrorWrap(src, "invalid uint64", err)
+		return srcAfter, 0, ctx.syntaxError(src, "expected uint64 but found "+nextJsonType(src))
 	}
-	return src[end:], num, nil
+
+	num, err := strconv.ParseUint(unsafeString(numStr), 10, 64)
+	if err != nil {
+		return srcAfter, 0, ctx.syntaxErrorWrap(src, "invalid uint64", err)
+	}
+	return srcAfter, num, nil
 }
 
 var floatChars = [256]uint8{
@@ -99,7 +89,37 @@ func parseNumber(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 		return src, nil, ctx.syntaxError(src, "expected number")
 	}
 
-	return src[end:], src[:end], nil
+	num := src[:end]
+	if num[0] == '+' {
+		return src, nil, ctx.syntaxError(src, "invalid leading '+' in number")
+	}
+
+	start := 0
+	if num[0] == '-' {
+		start = 1
+	}
+
+	if start >= len(num) {
+		return src, nil, ctx.syntaxError(src, "expected digit after '-'")
+	}
+
+	// No leading zero unless followed by decimal or exponent
+	if len(num)-start > 1 && num[start] == '0' {
+		next := num[start+1]
+		if next != '.' && next != 'e' && next != 'E' {
+			return src, nil, ctx.syntaxError(src, "invalid leading zero in number")
+		}
+	}
+
+	// Validate decimal placement
+	if dot := bytes.IndexByte(num, '.'); dot >= 0 {
+		// Cannot be first char, last char, and MUST be followed by a digit
+		if dot == start || dot == len(num)-1 || num[dot+1] < '0' || num[dot+1] > '9' {
+			return src, nil, ctx.syntaxError(src, "invalid decimal point in number")
+		}
+	}
+
+	return src[end:], num, nil
 }
 
 type stringKind int
@@ -116,11 +136,8 @@ const (
 func parseString(ctx DecodeCtx, src []byte) ([]byte, []byte, stringKind, error) {
 	src = skipWS(src)
 
-	if len(src) < 2 {
-		return src[len(src):], nil, erroredString, ctx.syntaxError(src, "expected string")
-	}
-	if src[0] != '"' {
-		return src, nil, erroredString, ctx.syntaxError(src, "expected '\"' at the beginning of a string value")
+	if len(src) == 0 || src[0] != '"' {
+		return src, nil, erroredString, ctx.syntaxError(src, "expected string but found "+nextJsonType(src))
 	}
 
 	var n int
@@ -197,8 +214,8 @@ func parseStringUnquote(ctx DecodeCtx, src []byte) ([]byte, []byte, bool, error)
 }
 
 func skipWS(src []byte) []byte {
-	for i := range src {
-		if src[i] > ' ' {
+	for i, c := range src {
+		if c != ' ' && c != '\n' && c != '\t' && c != '\r' {
 			return src[i:]
 		}
 	}
@@ -207,7 +224,8 @@ func skipWS(src []byte) []byte {
 
 func skipWSRev(src []byte) []byte {
 	for i := len(src) - 1; i >= 0; i-- {
-		if src[i] > ' ' {
+		c := src[i]
+		if c != ' ' && c != '\n' && c != '\t' && c != '\r' {
 			return src[:i+1]
 		}
 	}
@@ -262,6 +280,9 @@ func skipValue(ctx DecodeCtx, src []byte) ([]byte, error) {
 		for i < len(src) && src[i] != ',' && src[i] != '}' && src[i] != ']' {
 			i++
 		}
+		if i == 0 {
+			return src, ctx.syntaxError(src, "expected a value")
+		}
 		return src[i:], nil
 	}
 }
@@ -290,6 +311,10 @@ func appendString(dst []byte, s string) []byte {
 			dst = append(dst, '\\', '"')
 		case '\\':
 			dst = append(dst, '\\', '\\')
+		case '\b':
+			dst = append(dst, '\\', 'b')
+		case '\f':
+			dst = append(dst, '\\', 'f')
 		case '\n':
 			dst = append(dst, '\\', 'n')
 		case '\r':
@@ -297,9 +322,6 @@ func appendString(dst []byte, s string) []byte {
 		case '\t':
 			dst = append(dst, '\\', 't')
 		default:
-			// 3. Simplified hex escape for control characters (0x00 - 0x1F)
-			// JSON spec requires \u00xx for these.
-			// Replacing strconv.QuoteRune with a manual hex append is much faster.
 			dst = append(dst, '\\', 'u', '0', '0', hexTable[b>>4], hexTable[b&0x0f])
 		}
 		start = i + 1

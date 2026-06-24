@@ -123,7 +123,7 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 			return encodeArrayMap(ctx, dst, p)
 		}
 
-		return dst, &UnsupportedValueError{Msg: "maps with non-string keys are only supported for tables"}
+		return dst, ctx.unsupportedValueError("maps with non-string keys are only supported for tables")
 	}
 }
 
@@ -132,6 +132,7 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 	decodeArrayMap := mkGenericMapDecoder(t, kt, vt, kz, vz, decodeKey, decodeValue, '[', ']', ',', maker)
 
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		src = skipWS(src)
 		// we'll just delegate the `null` case to the normal decoder
 		// since it can handle it, and we don't want to duplicate that logic
 		if len(src) > 0 && (src[0] == '{' || src[0] == 'n') {
@@ -183,7 +184,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 
 			var next []byte
 			if next, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
-				return dst[:start], wrapPath(err, "key")
+				return dst[:start], wrapPath(err, "<key>")
 			}
 			dst = next
 
@@ -211,12 +212,14 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 
 func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, open, close, sep byte, maker mapMaker) decoder {
 	return func(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+		src = skipWS(src)
+
 		if b, ok := consumeNull(src); ok {
 			*(*unsafe.Pointer)(p) = nil
 			return b, nil
 		}
 
-		if len(src) < 2 || src[0] != open {
+		if len(src) == 0 || src[0] != open {
 			msg := "expected '{' at the start of an object"
 			if open == '[' {
 				msg = "expected '[' at the start of an array"
@@ -250,7 +253,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			if i != 0 {
 				if len(src) == 0 {
-					return src, ctx.syntaxError(src, "unexpected end of JSON")
+					return src, ctx.syntaxError(src, "unexpected end of input")
 				}
 				if src[0] != ',' {
 					return src, ctx.syntaxError(src, fmt.Sprintf("expected ',' but found '%c'", src[0]))
@@ -270,7 +273,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			srcAfter, err := decodeKey(ctx, src, kptr)
 			if err != nil {
-				return srcAfter, wrapPath(err, "key")
+				return srcAfter, wrapPath(err, "<key>")
 			}
 			src = skipWS(srcAfter)
 

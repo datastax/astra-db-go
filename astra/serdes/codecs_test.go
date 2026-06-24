@@ -125,7 +125,7 @@ func TestCache_HeavyContention_Correctness(t *testing.T) {
 				// 4. Round-trip: Decode
 				valOut := reflect.New(typ).Elem()
 				ptrOut := unsafe.Pointer(valOut.UnsafeAddr())
-				_, err = c.decode(DecodeCtx{}, buf, ptrOut)
+				_, err = c.decode(DecodeCtx{payload: &buf}, buf, ptrOut)
 				if err != nil {
 					t.Errorf("worker %d: decode failed: %v", workerID, err)
 					continue

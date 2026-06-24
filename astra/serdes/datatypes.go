@@ -19,6 +19,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	"net"
 	"reflect"
 	"strconv"
 	"time"
@@ -90,7 +91,7 @@ var oidTag = []byte("objectId")
 
 func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return dst, &UnsupportedValueError{Msg: "ObjectId is only supported for collections"}
+		return dst, ctx.unsupportedValueError("ObjectId is only supported for collections")
 	}
 
 	return encodeDollarDatatype(dst, oidTag, func(dst []byte) ([]byte, error) {
@@ -103,7 +104,7 @@ func objectIdEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func objectIdDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target != TargetCollection {
-		return src, &UnsupportedValueError{Msg: "ObjectId is only supported for collections"}
+		return src, ctx.unsupportedValueError(src, "ObjectId is only supported for collections")
 	}
 
 	src, oid, err := parseDollarDatatype(ctx, src, oidTag, func(ctx DecodeCtx, b []byte) ([]byte, datatypes.ObjectId, error) {
@@ -179,7 +180,7 @@ func timeDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 
 func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "DateOnly is not supported for collections"}
+		return nil, ctx.unsupportedValueError("DateOnly is not supported for collections")
 	}
 
 	d := (*datatypes.DateOnly)(p)
@@ -191,7 +192,7 @@ func dateOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, &UnsupportedValueError{Msg: "DateOnly is not supported for collections"}
+		return src, ctx.unsupportedValueError(src, "DateOnly is not supported for collections")
 	}
 
 	srcAfter, str, _, err := parseStringUnquote(ctx, src)
@@ -214,7 +215,7 @@ func dateOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "TimeOnly is not supported for collections"}
+		return nil, ctx.unsupportedValueError("TimeOnly is not supported for collections")
 	}
 
 	t := (*datatypes.TimeOnly)(p)
@@ -226,7 +227,7 @@ func timeOnlyEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func timeOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, &UnsupportedValueError{Msg: "TimeOnly is not supported for collections"}
+		return src, ctx.unsupportedValueError(src, "TimeOnly is not supported for collections")
 	}
 
 	srcAfter, str, _, err := parseStringUnquote(ctx, src)
@@ -355,27 +356,37 @@ func vectorDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 }
 
 // ================================
-// | Binary data ([]byte) - encoded as {"$binary":"<base64>"} in all contexts,
+// | Binary data ([]byte) - encoded as {"$binary":"<base64>"} in tables and collections, and just "<base64>" otherwise
 // | but can be decoded from either that format or from a base64 string
+// |
+// | NOTE: There's technically no reason to ever encode a []byte outside of encoding to a collection/table, but the
+// | special case just exists to help the fuzz testing pass
 // ================================
 
-func binaryEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
-		return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
-	})
+func binaryEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection || ctx.Target == TargetTable {
+		return encodeDollarDatatype(dst, []byte("binary"), func(dst []byte) ([]byte, error) {
+			return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
+		})
+	}
+	return encodeBytesAsBase64(dst, *(*[]byte)(p)), nil
 }
 
 func binaryDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	src = skipWS(src)
 
-	if len(src) != 0 && src[0] == '"' {
-		src, str, _, err := parseStringUnquote(ctx, src)
-		if err != nil {
-			return src, err
-		}
+	if b, ok := consumeNull(src); ok {
+		*(*[]byte)(p) = nil
+		return b, nil
+	}
 
-		*(*[]byte)(p) = str
-		return src, nil
+	if len(src) != 0 && src[0] == '"' {
+		src, data, err := decodeBytesFromBase64(ctx, src)
+
+		if err == nil {
+			*(*[]byte)(p) = data
+		}
+		return src, err
 	}
 
 	if len(src) != 0 && src[0] == '{' {
@@ -444,7 +455,7 @@ func decodeBytesFromBase64(ctx DecodeCtx, src []byte) ([]byte, []byte, error) {
 
 func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return nil, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
+		return nil, ctx.unsupportedValueError("Duration is not supported for collections")
 	}
 	d := (*datatypes.Duration)(p)
 	dst = append(dst, '"')
@@ -455,7 +466,7 @@ func durationEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error
 
 func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, &UnsupportedValueError{Msg: "Duration is not supported for collections"}
+		return src, ctx.unsupportedValueError(src, "Duration is not supported for collections")
 	}
 	src, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {
@@ -467,6 +478,37 @@ func durationDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 	}
 	*(*datatypes.Duration)(p) = d
 	return src, nil
+}
+
+// ================================
+// | net.IP - encoded as a plain quoted string in all contexts
+// ================================
+
+func ipEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return nil, ctx.unsupportedValueError("net.IP is not supported for collections")
+	}
+	ip := (*net.IP)(p)
+	dst = append(dst, '"')
+	dst = append(dst, ip.String()...)
+	dst = append(dst, '"')
+	return dst, nil
+}
+
+func ipDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
+	if ctx.Target == TargetCollection {
+		return src, ctx.unsupportedValueError(src, "net.IP is not supported for collections")
+	}
+	srcAfter, str, _, err := parseStringUnquote(ctx, src)
+	if err != nil {
+		return srcAfter, err
+	}
+	ip := net.ParseIP(unsafeString(str))
+	if ip == nil {
+		return srcAfter, ctx.syntaxError(src, "invalid IP string")
+	}
+	*(*net.IP)(p) = ip
+	return srcAfter, nil
 }
 
 // ================================

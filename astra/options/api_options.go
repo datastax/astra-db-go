@@ -111,11 +111,12 @@ type SerdesOptions struct {
 	UseJSONMarshal  *bool
 
 	// Deserialization flags
-	SparseRows           *bool
-	UseNumber            *bool
-	DesNoCache           *bool
-	ExtendedErrorContext *bool
-	UseJSONUnmarshal     *bool
+	SparseRows                   *bool
+	UseNumber                    *bool
+	DesNoCache                   *bool
+	ExtendedErrorSnippet         *bool
+	UseJSONUnmarshal             *bool
+	CaseInsensitiveFieldMatching *bool
 }
 
 // Merge implements shouldMerge for SerdesOptions.
@@ -163,8 +164,9 @@ func (o *SerdesOptions) walkDesFlags(fn func(serdes.DesFlags, **bool)) {
 	fn(serdes.SparseRows, &o.SparseRows)
 	fn(serdes.UseNumber, &o.UseNumber)
 	fn(serdes.DesNoCache, &o.DesNoCache)
-	fn(serdes.ExtendedErrorContext, &o.ExtendedErrorContext)
+	fn(serdes.ExtendedErrorSnippet, &o.ExtendedErrorSnippet)
 	fn(serdes.UseJSONUnmarshal, &o.UseJSONUnmarshal)
+	fn(serdes.CaseInsensitiveFieldMatching, &o.CaseInsensitiveFieldMatching)
 }
 
 // TimeoutOptions contains timeout configuration for API operations.
