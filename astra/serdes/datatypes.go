@@ -497,7 +497,7 @@ func ipEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 
 func ipDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	if ctx.Target == TargetCollection {
-		return src, ctx.unsupportedValueError(src, "Duration is not supported for collections")
+		return src, ctx.unsupportedValueError(src, "net.IP is not supported for collections")
 	}
 	srcAfter, str, _, err := parseStringUnquote(ctx, src)
 	if err != nil {

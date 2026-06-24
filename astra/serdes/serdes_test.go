@@ -15,8 +15,11 @@
 package serdes_test
 
 import (
+	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/datastax/astra-db-go/v2/astra"
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 	"github.com/datastax/astra-db-go/v2/internal/testlib"
@@ -225,5 +228,88 @@ func TestSerdesCustom(t *testing.T) {
 	}
 	if dstPtr == nil || dstPtr.Value != "world" {
 		t.Errorf("CustomWithPointer deserialization: expected Value='world', got %#v", dstPtr)
+	}
+}
+
+type serdesTestCase struct {
+	Name        string
+	Target      serdes.Target
+	Value       any
+	DecodeValue any
+	Ptr         any
+	TargetCtx   serdes.TargetDecodeCtx
+	Encoded     string
+	SkipEncode  bool
+	SkipDecode  bool
+	EncodeErr   string
+	DecodeErr   string
+}
+
+func runSerdesTests(t *testing.T, cases []serdesTestCase) {
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			var encoded []byte
+			var err error
+
+			if !tc.SkipEncode && tc.Value != nil {
+				encoded, err = serdes.Serialize(tc.Value, tc.Target)
+				if tc.EncodeErr != "" {
+					testlib.FailIf(t, err == nil, "expected encode error containing %q, got nil", tc.EncodeErr)
+					testlib.FailIf(t, !strings.Contains(err.Error(), tc.EncodeErr), "expected encode error containing %q, got: %v", tc.EncodeErr, err)
+					return
+				}
+				testlib.FailIfErr(t, err, "unexpected encode error: %v", err)
+				if tc.Encoded != "" {
+					testlib.FailIf(t, string(encoded) != tc.Encoded, "encoded mismatch: expected %s, got %s", tc.Encoded, string(encoded))
+				}
+			} else {
+				encoded = []byte(tc.Encoded)
+			}
+
+			if tc.SkipDecode || tc.EncodeErr != "" || (tc.SkipEncode && tc.Encoded == "") {
+				return
+			}
+
+			var ptr any
+			if tc.Ptr != nil {
+				ptr = tc.Ptr
+			} else {
+				valType := tc.Value
+				if tc.DecodeValue != nil {
+					valType = tc.DecodeValue
+				}
+				if valType == nil {
+					t.Fatalf("cannot determine decode type")
+				}
+				ptr = reflect.New(reflect.TypeOf(valType)).Interface()
+			}
+
+			err = serdes.Deserialize(encoded, ptr, tc.TargetCtx, tc.Target)
+			if tc.DecodeErr != "" {
+				testlib.FailIf(t, err == nil, "expected decode error containing %q, got nil", tc.DecodeErr)
+				testlib.FailIf(t, !strings.Contains(err.Error(), tc.DecodeErr), "expected decode error containing %q, got: %v", tc.DecodeErr, err)
+				return
+			}
+			testlib.FailIfErr(t, err, "unexpected decode error: %v", err)
+
+			if tc.Name == "Untyped Row Table Target" || tc.Name == "UUID Untyped Row Table Target" {
+				decodedRow := (*ptr.(*astra.Row)).ToMap()
+				val, ok := decodedRow["id"]
+				testlib.FailIf(t, !ok, "missing 'id' field")
+				testlib.FailIf(t, val != tc.Value.(astra.NewRow)["id"], "mismatch: expected %v, got %v", tc.Value.(astra.NewRow)["id"], val)
+				return
+			}
+
+			actual := reflect.ValueOf(ptr).Elem().Interface()
+			if tc.DecodeValue != nil {
+				if diff := testlib.Diff(t, tc.DecodeValue, actual); diff != "" {
+					t.Errorf("mismatch (-want +got):\n%s", diff)
+				}
+			} else if tc.Value != nil {
+				if diff := testlib.Diff(t, tc.Value, actual); diff != "" {
+					t.Errorf("mismatch (-want +got):\n%s", diff)
+				}
+			}
+		})
 	}
 }
