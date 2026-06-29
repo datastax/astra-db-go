@@ -69,26 +69,26 @@ func (F) isFilter() {}
 //	}
 type A []any
 
-// FilterOperator represents the operation type (Eq, Gt, etc.)
-type FilterOperator string
+// Operator represents the operation type (Eq, Gt, etc.)
+type Operator string
 
 const (
-	OpAnd              FilterOperator = "$and"
-	OpOr               FilterOperator = "$or"
-	OpNot              FilterOperator = "$not"
-	OpGreaterThan      FilterOperator = "$gt"
-	OpGreaterThanEqual FilterOperator = "$gte"
-	OpLessThan         FilterOperator = "$lt"
-	OpLessThanEqual    FilterOperator = "$lte"
-	OpEqual            FilterOperator = "$eq"
-	OpNotEqual         FilterOperator = "$ne"
-	OpIn               FilterOperator = "$in"
-	OpNotIn            FilterOperator = "$nin"
-	OpExists           FilterOperator = "$exists"
-	OpAll              FilterOperator = "$all"
-	OpSize             FilterOperator = "$size"
-	OpLexical          FilterOperator = "$lexical"
-	OpMatch            FilterOperator = "$match"
+	OpAnd              Operator = "$and"
+	OpOr               Operator = "$or"
+	OpNot              Operator = "$not"
+	OpGreaterThan      Operator = "$gt"
+	OpGreaterThanEqual Operator = "$gte"
+	OpLessThan         Operator = "$lt"
+	OpLessThanEqual    Operator = "$lte"
+	OpEqual            Operator = "$eq"
+	OpNotEqual         Operator = "$ne"
+	OpIn               Operator = "$in"
+	OpNotIn            Operator = "$nin"
+	OpExists           Operator = "$exists"
+	OpAll              Operator = "$all"
+	OpSize             Operator = "$size"
+	OpLexical          Operator = "$lexical"
+	OpMatch            Operator = "$match"
 )
 
 // Filter represents a collection of filters. Compose filters with
@@ -106,33 +106,33 @@ const (
 //	)
 type Filter struct {
 	// The operator. Such as "$or"
-	op FilterOperator
+	op Operator
 	// The field to perform an operation on. Example: "_id".
 	field string
 	// The value to filter for based on `op`.
 	value any
 	// Child filters. Should never be populated if field/value are also populated.
-	children []Filter
+	children any
 }
 
 // Satisfy interface to allow Filter to be used as a filter.
 func (Filter) isFilter() {}
 
 // Construct a field filter operator. Used to reduce boilerplate.
-func fieldOp(op FilterOperator, field string, value any) Filter {
+func fieldOp(op Operator, field string, value any) Filter {
 	return Filter{op: op, field: field, value: value}
 }
 
 // Construct a slice filter operator. Used to reduce boilerplate.
-func sliceOp(op FilterOperator, field string, vals []any) Filter {
+func sliceOp(op Operator, field string, vals []any) Filter {
 	return Filter{op: op, field: field, value: vals}
 }
 
 func (f Filter) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
-	if len(f.children) > 0 {
+	if f.children != nil {
 		// We have child commands. Create a map and marshal them like this:
 		// "$or": [...]
-		filters := make(map[FilterOperator][]Filter)
+		filters := make(map[Operator]any)
 		filters[f.op] = f.children
 		return serdes.SerializeInto(filters, ctx.Target, dst, ctx.Flags)
 	}
@@ -146,8 +146,8 @@ func (f Filter) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error
 		}
 		// We have another op. Marshal it into something like:
 		// "number_of_pages": { "$lt": 300 }
-		filters := make(map[string]map[FilterOperator]any)
-		filters[f.field] = map[FilterOperator]any{f.op: f.value}
+		filters := make(map[string]map[Operator]any)
+		filters[f.field] = map[Operator]any{f.op: f.value}
 		return serdes.SerializeInto(filters, ctx.Target, dst, ctx.Flags)
 	}
 	return append(dst, "null"...), nil
@@ -182,7 +182,10 @@ func Or(children ...Filter) Filter {
 }
 
 func Not(child Filter) Filter {
-	return Filter{op: OpNot, children: []Filter{child}}
+	return Filter{
+		op:       OpNot,
+		children: child,
+	}
 }
 
 // LexicalMatch creates a filter that matches documents against the collection's
