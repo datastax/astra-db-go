@@ -38,8 +38,8 @@ func (p *staticHeadersProvider) GetRerankingHeaders(_ context.Context) (map[stri
 	return p.headers, nil
 }
 
-// NewEmbeddingAPIKeyHeadersProvider creates an EmbeddingHeadersProvider that returns the x-embedding-api-key header.
-func NewEmbeddingAPIKeyHeadersProvider(apiKey string) EmbeddingHeadersProvider {
+// NewEmbeddingAPIKeyHeaderProvider creates an EmbeddingHeadersProvider that returns the x-embedding-api-key header.
+func NewEmbeddingAPIKeyHeaderProvider(apiKey string) EmbeddingHeadersProvider {
 	return &staticHeadersProvider{
 		headers: map[string]string{"x-embedding-api-key": apiKey},
 	}
@@ -56,8 +56,8 @@ func NewAWSEmbeddingHeadersProvider(accessKeyID, secretAccessKey string) Embeddi
 	}
 }
 
-// NewRerankingAPIKeyHeadersProvider creates a RerankingHeadersProvider that returns the x-rerank-api-key header.
-func NewRerankingAPIKeyHeadersProvider(apiKey string) RerankingHeadersProvider {
+// NewRerankingAPIKeyHeaderProvider creates a RerankingHeadersProvider that returns the x-rerank-api-key header.
+func NewRerankingAPIKeyHeaderProvider(apiKey string) RerankingHeadersProvider {
 	return &staticHeadersProvider{
 		headers: map[string]string{"x-rerank-api-key": apiKey},
 	}

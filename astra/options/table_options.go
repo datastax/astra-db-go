@@ -25,22 +25,32 @@ type GetTableOptions struct {
 
 // SetEmbeddingAPIKey sets the API key to use for embedding generation for this table.
 func (b *getTableOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *getTableOptionsBuilder {
+	return b.SetEmbeddingHeadersProvider(NewEmbeddingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this table.
+func (b *getTableOptionsBuilder) SetRerankingAPIKey(apiKey string) *getTableOptionsBuilder {
+	return b.SetRerankingHeadersProvider(NewRerankingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetEmbeddingHeadersProvider sets the headers provider to use for embedding generation for this table.
+func (b *getTableOptionsBuilder) SetEmbeddingHeadersProvider(provider EmbeddingHeadersProvider) *getTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetTableOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.EmbeddingHeadersProvider = provider
 	})
 	return b
 }
 
-// UpdateRerankingAPIKey sets the API key to use for reranking generation for this table.
-func (b *getTableOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *getTableOptionsBuilder {
+// SetRerankingHeadersProvider sets the headers provider to use for reranking generation for this table.
+func (b *getTableOptionsBuilder) SetRerankingHeadersProvider(provider RerankingHeadersProvider) *getTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetTableOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.RerankingHeadersProvider = provider
 	})
 	return b
 }
@@ -58,22 +68,32 @@ type CreateTableOptions struct {
 
 // SetEmbeddingAPIKey sets the API key to use for embedding generation for this table.
 func (b *createTableOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *createTableOptionsBuilder {
+	return b.SetEmbeddingHeadersProvider(NewEmbeddingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this table.
+func (b *createTableOptionsBuilder) SetRerankingAPIKey(apiKey string) *createTableOptionsBuilder {
+	return b.SetRerankingHeadersProvider(NewRerankingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetEmbeddingHeadersProvider sets the headers provider to use for embedding generation for this table.
+func (b *createTableOptionsBuilder) SetEmbeddingHeadersProvider(provider EmbeddingHeadersProvider) *createTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTableOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.EmbeddingHeadersProvider = provider
 	})
 	return b
 }
 
-// UpdateRerankingAPIKey sets the API key to use for reranking generation for this table.
-func (b *createTableOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *createTableOptionsBuilder {
+// SetRerankingHeadersProvider sets the headers provider to use for reranking generation for this table.
+func (b *createTableOptionsBuilder) SetRerankingHeadersProvider(provider RerankingHeadersProvider) *createTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTableOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.RerankingHeadersProvider = provider
 	})
 	return b
 }
