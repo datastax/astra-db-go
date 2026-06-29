@@ -188,6 +188,9 @@ type VectorOptions struct {
 	// Default is "cosine".
 	Metric *string `json:"metric,omitempty"`
 
+	// SourceModel is the embedding generation model, enabling optimizations.
+	SourceModel *string `json:"sourceModel,omitempty"`
+
 	// Service configures automatic vector embedding generation (vectorize).
 	Service *VectorServiceOptions `json:"service,omitempty"`
 }
