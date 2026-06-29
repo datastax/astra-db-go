@@ -507,11 +507,16 @@ func setterForField(structName string, f *types.Var, shouldMerge *types.Interfac
 			isOption = futureOptions[named.Obj().Name()]
 		}
 		if isOption || (types.Implements(t, shouldMerge) && isNamed) {
+			paramType := fmt.Sprintf("Builder[%s]", named.Obj().Name())
+			if strings.HasSuffix(named.Obj().Name(), "Options") {
+				paramType = strings.TrimSuffix(named.Obj().Name(), "Options") + "Option"
+			}
+
 			return setterDef{
 				Comment:           comment,
 				Method:            "Update" + f.Name(),
 				Field:             f.Name(),
-				ParamType:         fmt.Sprintf("Builder[%s]", named.Obj().Name()),
+				ParamType:         paramType,
 				IsVariadicBuilder: true,
 			}, true
 		}
