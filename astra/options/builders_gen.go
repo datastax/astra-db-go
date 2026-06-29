@@ -122,7 +122,7 @@ func (b *apiOptionsBuilder) SetGeneralMethodTimeout(v time.Duration) *apiOptions
 
 // UpdateTimeout sets the Timeout option.
 // Timeout contains timeout configuration
-func (b *apiOptionsBuilder) UpdateTimeout(v ...Builder[TimeoutOptions]) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) UpdateTimeout(v ...TimeoutOption) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		MergeInto(&o.Timeout, v...)
 	})
@@ -131,7 +131,7 @@ func (b *apiOptionsBuilder) UpdateTimeout(v ...Builder[TimeoutOptions]) *apiOpti
 
 // UpdateSerdes sets the Serdes option.
 // Serdes contains serialization/deserialization options
-func (b *apiOptionsBuilder) UpdateSerdes(v ...Builder[SerdesOptions]) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) UpdateSerdes(v ...SerdesOption) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		MergeInto(&o.Serdes, v...)
 	})
@@ -194,7 +194,7 @@ func (b *alterTableOptionsBuilder) Setters() []func(*AlterTableOptions) {
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *alterTableOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *alterTableOptionsBuilder {
+func (b *alterTableOptionsBuilder) UpdateAPIOptions(v ...APIOption) *alterTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *AlterTableOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -250,7 +250,7 @@ func (b *alterTypeOptionsBuilder) SetKeyspace(v string) *alterTypeOptionsBuilder
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *alterTypeOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *alterTypeOptionsBuilder {
+func (b *alterTypeOptionsBuilder) UpdateAPIOptions(v ...APIOption) *alterTypeOptionsBuilder {
 	b.setters = append(b.setters, func(o *AlterTypeOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -293,7 +293,7 @@ func (b *collectionCountDocumentsOptionsBuilder) Setters() []func(*CollectionCou
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionCountDocumentsOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionCountDocumentsOptionsBuilder {
+func (b *collectionCountDocumentsOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionCountDocumentsOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionCountDocumentsOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -391,7 +391,7 @@ func (b *collectionDeleteManyOptionsBuilder) SetTimeout(v time.Duration) *collec
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionDeleteManyOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionDeleteManyOptionsBuilder {
+func (b *collectionDeleteManyOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionDeleteManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDeleteManyOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -444,7 +444,7 @@ func (b *collectionDeleteOneOptionsBuilder) SetSort(v sort.Sortable) *collection
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionDeleteOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionDeleteOneOptionsBuilder {
+func (b *collectionDeleteOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionDeleteOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDeleteOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -487,7 +487,7 @@ func (b *collectionEstimatedDocumentCountOptionsBuilder) Setters() []func(*Colle
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionEstimatedDocumentCountOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionEstimatedDocumentCountOptionsBuilder {
+func (b *collectionEstimatedDocumentCountOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionEstimatedDocumentCountOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionEstimatedDocumentCountOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -603,7 +603,7 @@ func (b *collectionFindAndRerankOptionsBuilder) SetInitialPageState(v string) *c
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command.
-func (b *collectionFindAndRerankOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionFindAndRerankOptionsBuilder {
+func (b *collectionFindAndRerankOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionFindAndRerankOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -664,7 +664,7 @@ func (b *collectionFindOneAndDeleteOptionsBuilder) SetProjection(v map[string]an
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionFindOneAndDeleteOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndDeleteOptionsBuilder {
+func (b *collectionFindOneAndDeleteOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionFindOneAndDeleteOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndDeleteOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -744,7 +744,7 @@ func (b *collectionFindOneAndReplaceOptionsBuilder) SetReturnDocument(v ReturnDo
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionFindOneAndReplaceOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndReplaceOptionsBuilder {
+func (b *collectionFindOneAndReplaceOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionFindOneAndReplaceOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndReplaceOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -824,7 +824,7 @@ func (b *collectionFindOneAndUpdateOptionsBuilder) SetReturnDocument(v ReturnDoc
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionFindOneAndUpdateOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionFindOneAndUpdateOptionsBuilder {
+func (b *collectionFindOneAndUpdateOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionFindOneAndUpdateOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneAndUpdateOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -896,7 +896,7 @@ func (b *collectionFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *collecti
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionFindOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionFindOneOptionsBuilder {
+func (b *collectionFindOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionFindOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1010,7 +1010,7 @@ func (b *collectionFindOptionsBuilder) SetInitialPageState(v string) *collection
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionFindOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionFindOptionsBuilder {
+func (b *collectionFindOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionFindOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1076,7 +1076,7 @@ func (b *collectionInsertManyOptionsBuilder) SetConcurrency(v int) *collectionIn
 }
 
 // UpdateAPIOptions sets the APIOptions option.
-func (b *collectionInsertManyOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionInsertManyOptionsBuilder {
+func (b *collectionInsertManyOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionInsertManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionInsertManyOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1119,7 +1119,7 @@ func (b *collectionInsertOneOptionsBuilder) Setters() []func(*CollectionInsertOn
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionInsertOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionInsertOneOptionsBuilder {
+func (b *collectionInsertOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionInsertOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionInsertOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1162,7 +1162,7 @@ func (b *collectionOptionsOptionsBuilder) Setters() []func(*CollectionOptionsOpt
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionOptionsOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionOptionsOptionsBuilder {
+func (b *collectionOptionsOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionOptionsOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionOptionsOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1224,7 +1224,7 @@ func (b *collectionReplaceOneOptionsBuilder) SetUpsert(v bool) *collectionReplac
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionReplaceOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionReplaceOneOptionsBuilder {
+func (b *collectionReplaceOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionReplaceOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionReplaceOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1287,7 +1287,7 @@ func (b *collectionUpdateManyOptionsBuilder) SetTimeout(v time.Duration) *collec
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionUpdateManyOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionUpdateManyOptionsBuilder {
+func (b *collectionUpdateManyOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionUpdateManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1350,7 +1350,7 @@ func (b *collectionUpdateOneOptionsBuilder) SetUpsert(v bool) *collectionUpdateO
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *collectionUpdateOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *collectionUpdateOneOptionsBuilder {
+func (b *collectionUpdateOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *collectionUpdateOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionUpdateOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1393,7 +1393,7 @@ func (b *createCollectionOptionsBuilder) Setters() []func(*CreateCollectionOptio
 
 // UpdateDefaultId sets the DefaultId option.
 // Settings for generating ids
-func (b *createCollectionOptionsBuilder) UpdateDefaultId(v ...Builder[CollectionDefaultIdOptions]) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateDefaultId(v ...CollectionDefaultIdOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.DefaultId, v...)
 	})
@@ -1402,7 +1402,7 @@ func (b *createCollectionOptionsBuilder) UpdateDefaultId(v ...Builder[Collection
 
 // UpdateVector sets the Vector option.
 // Vector specifications for the collection
-func (b *createCollectionOptionsBuilder) UpdateVector(v ...Builder[VectorOptions]) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateVector(v ...VectorOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Vector, v...)
 	})
@@ -1411,7 +1411,7 @@ func (b *createCollectionOptionsBuilder) UpdateVector(v ...Builder[VectorOptions
 
 // UpdateIndexing sets the Indexing option.
 // Overrides for document indexing
-func (b *createCollectionOptionsBuilder) UpdateIndexing(v ...Builder[IndexingOptions]) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateIndexing(v ...IndexingOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Indexing, v...)
 	})
@@ -1420,7 +1420,7 @@ func (b *createCollectionOptionsBuilder) UpdateIndexing(v ...Builder[IndexingOpt
 
 // UpdateLexical sets the Lexical option.
 // Lexical analysis options for the collection
-func (b *createCollectionOptionsBuilder) UpdateLexical(v ...Builder[LexicalOptions]) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateLexical(v ...LexicalOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Lexical, v...)
 	})
@@ -1429,7 +1429,7 @@ func (b *createCollectionOptionsBuilder) UpdateLexical(v ...Builder[LexicalOptio
 
 // UpdateRerank sets the Rerank option.
 // Reranking options for the collection
-func (b *createCollectionOptionsBuilder) UpdateRerank(v ...Builder[RerankOptions]) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateRerank(v ...RerankOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Rerank, v...)
 	})
@@ -1451,7 +1451,7 @@ func (b *createCollectionOptionsBuilder) SetKeyspace(v string) *createCollection
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *createCollectionOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1524,7 +1524,7 @@ func (b *createDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *createD
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→Admin hierarchy.
-func (b *createDatabaseOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createDatabaseOptionsBuilder {
+func (b *createDatabaseOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createDatabaseOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateDatabaseOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1608,7 +1608,7 @@ func (b *createIndexOptionsBuilder) SetCaseSensitive(v bool) *createIndexOptions
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *createIndexOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createIndexOptionsBuilder {
+func (b *createIndexOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateIndexOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1692,7 +1692,7 @@ func (b *createKeyspaceOptionsBuilder) SetUpdateDbKeyspace(v bool) *createKeyspa
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *createKeyspaceOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createKeyspaceOptionsBuilder {
+func (b *createKeyspaceOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createKeyspaceOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1758,7 +1758,7 @@ func (b *createTableOptionsBuilder) SetKeyspace(v string) *createTableOptionsBui
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *createTableOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createTableOptionsBuilder {
+func (b *createTableOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTableOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1812,7 +1812,7 @@ func (b *createTextIndexOptionsBuilder) SetIfNotExists(v bool) *createTextIndexO
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *createTextIndexOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createTextIndexOptionsBuilder {
+func (b *createTextIndexOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createTextIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTextIndexOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1878,7 +1878,7 @@ func (b *createTypeOptionsBuilder) SetKeyspace(v string) *createTypeOptionsBuild
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *createTypeOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createTypeOptionsBuilder {
+func (b *createTypeOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createTypeOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateTypeOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -1941,12 +1941,6 @@ func (b *createVectorIndexOptionsBuilder) SetMetric(v VectorMetric) *createVecto
 
 // SetSourceModel sets the SourceModel option.
 // SourceModel is the embedding generation model, enabling optimizations.
-// Valid values: "ada002", "bert", "cohere-v3", "gecko", "nv-qa-4",
-// "openai-v3-large", "openai-v3-small", "other" (default)
-//
-// NOTE: following the other libraries' patterns, we are using a enum-like option for Metric, but
-// this is a string. For reference:
-// https://docs.datastax.com/en/astra-db-serverless/api-reference/table-index-methods/create-vector-index.html#parameters
 func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVectorIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
 		o.SourceModel = &v
@@ -1957,7 +1951,7 @@ func (b *createVectorIndexOptionsBuilder) SetSourceModel(v string) *createVector
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *createVectorIndexOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *createVectorIndexOptionsBuilder {
+func (b *createVectorIndexOptionsBuilder) UpdateAPIOptions(v ...APIOption) *createVectorIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateVectorIndexOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2000,7 +1994,7 @@ func (b *databaseInfoOptionsBuilder) Setters() []func(*DatabaseInfoOptions) {
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→Admin hierarchy.
-func (b *databaseInfoOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *databaseInfoOptionsBuilder {
+func (b *databaseInfoOptionsBuilder) UpdateAPIOptions(v ...APIOption) *databaseInfoOptionsBuilder {
 	b.setters = append(b.setters, func(o *DatabaseInfoOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2056,7 +2050,7 @@ func (b *dropCollectionOptionsBuilder) SetKeyspace(v string) *dropCollectionOpti
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *dropCollectionOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *dropCollectionOptionsBuilder {
+func (b *dropCollectionOptionsBuilder) UpdateAPIOptions(v ...APIOption) *dropCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropCollectionOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2120,7 +2114,7 @@ func (b *dropDatabaseOptionsBuilder) SetPollInterval(v time.Duration) *dropDatab
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→Admin hierarchy.
-func (b *dropDatabaseOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *dropDatabaseOptionsBuilder {
+func (b *dropDatabaseOptionsBuilder) UpdateAPIOptions(v ...APIOption) *dropDatabaseOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropDatabaseOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2184,7 +2178,7 @@ func (b *dropKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *dropKeysp
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *dropKeyspaceOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *dropKeyspaceOptionsBuilder {
+func (b *dropKeyspaceOptionsBuilder) UpdateAPIOptions(v ...APIOption) *dropKeyspaceOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropKeyspaceOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2250,7 +2244,7 @@ func (b *dropTableIndexOptionsBuilder) SetKeyspace(v string) *dropTableIndexOpti
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *dropTableIndexOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *dropTableIndexOptionsBuilder {
+func (b *dropTableIndexOptionsBuilder) UpdateAPIOptions(v ...APIOption) *dropTableIndexOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropTableIndexOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2316,7 +2310,7 @@ func (b *dropTableOptionsBuilder) SetKeyspace(v string) *dropTableOptionsBuilder
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *dropTableOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *dropTableOptionsBuilder {
+func (b *dropTableOptionsBuilder) UpdateAPIOptions(v ...APIOption) *dropTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropTableOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2382,7 +2376,7 @@ func (b *dropTypeOptionsBuilder) SetKeyspace(v string) *dropTypeOptionsBuilder {
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *dropTypeOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *dropTypeOptionsBuilder {
+func (b *dropTypeOptionsBuilder) UpdateAPIOptions(v ...APIOption) *dropTypeOptionsBuilder {
 	b.setters = append(b.setters, func(o *DropTypeOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2436,7 +2430,7 @@ func (b *findAvailableRegionsOptionsBuilder) SetFilterByOrg(v bool) *findAvailab
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→Admin hierarchy.
-func (b *findAvailableRegionsOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *findAvailableRegionsOptionsBuilder {
+func (b *findAvailableRegionsOptionsBuilder) UpdateAPIOptions(v ...APIOption) *findAvailableRegionsOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindAvailableRegionsOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2516,7 +2510,7 @@ func (b *findEmbeddingProvidersOptionsBuilder) SetKeyspace(v string) *findEmbedd
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *findEmbeddingProvidersOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *findEmbeddingProvidersOptionsBuilder {
+func (b *findEmbeddingProvidersOptionsBuilder) UpdateAPIOptions(v ...APIOption) *findEmbeddingProvidersOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2572,7 +2566,7 @@ func (b *getCollectionOptionsBuilder) SetKeyspace(v string) *getCollectionOption
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
-func (b *getCollectionOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *getCollectionOptionsBuilder {
+func (b *getCollectionOptionsBuilder) UpdateAPIOptions(v ...APIOption) *getCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetCollectionOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2628,7 +2622,7 @@ func (b *getTableOptionsBuilder) SetKeyspace(v string) *getTableOptionsBuilder {
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *getTableOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *getTableOptionsBuilder {
+func (b *getTableOptionsBuilder) UpdateAPIOptions(v ...APIOption) *getTableOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetTableOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2780,7 +2774,7 @@ func (b *listCollectionsOptionsBuilder) SetKeyspace(v string) *listCollectionsOp
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *listCollectionsOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *listCollectionsOptionsBuilder {
+func (b *listCollectionsOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listCollectionsOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListCollectionsOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2861,7 +2855,7 @@ func (b *listDatabasesOptionsBuilder) SetStartingAfter(v string) *listDatabasesO
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→Admin hierarchy.
-func (b *listDatabasesOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *listDatabasesOptionsBuilder {
+func (b *listDatabasesOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listDatabasesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2904,7 +2898,7 @@ func (b *listIndexesOptionsBuilder) Setters() []func(*ListIndexesOptions) {
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *listIndexesOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *listIndexesOptionsBuilder {
+func (b *listIndexesOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listIndexesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListIndexesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -2947,7 +2941,7 @@ func (b *listKeyspacesOptionsBuilder) Setters() []func(*ListKeyspacesOptions) {
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *listKeyspacesOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *listKeyspacesOptionsBuilder {
+func (b *listKeyspacesOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listKeyspacesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListKeyspacesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3003,7 +2997,7 @@ func (b *listTablesOptionsBuilder) SetKeyspace(v string) *listTablesOptionsBuild
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *listTablesOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *listTablesOptionsBuilder {
+func (b *listTablesOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listTablesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListTablesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3059,7 +3053,7 @@ func (b *listTypesOptionsBuilder) SetKeyspace(v string) *listTypesOptionsBuilder
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Command hierarchy.
-func (b *listTypesOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *listTypesOptionsBuilder {
+func (b *listTypesOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listTypesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListTypesOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3111,7 +3105,7 @@ func (b *rerankOptionsBuilder) SetEnabled(v bool) *rerankOptionsBuilder {
 
 // UpdateService sets the Service option.
 // Service configures the reranking service.
-func (b *rerankOptionsBuilder) UpdateService(v ...Builder[RerankServiceOptions]) *rerankOptionsBuilder {
+func (b *rerankOptionsBuilder) UpdateService(v ...RerankServiceOption) *rerankOptionsBuilder {
 	b.setters = append(b.setters, func(o *RerankOptions) {
 		MergeInto(&o.Service, v...)
 	})
@@ -3341,7 +3335,7 @@ func (b *tableDefinitionOptionsBuilder) Setters() []func(*TableDefinitionOptions
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableDefinitionOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableDefinitionOptionsBuilder {
+func (b *tableDefinitionOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableDefinitionOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDefinitionOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3384,7 +3378,7 @@ func (b *tableDeleteManyOptionsBuilder) Setters() []func(*TableDeleteManyOptions
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableDeleteManyOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableDeleteManyOptionsBuilder {
+func (b *tableDeleteManyOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableDeleteManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDeleteManyOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3427,7 +3421,7 @@ func (b *tableDeleteOneOptionsBuilder) Setters() []func(*TableDeleteOneOptions) 
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableDeleteOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableDeleteOneOptionsBuilder {
+func (b *tableDeleteOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableDeleteOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableDeleteOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3499,7 +3493,7 @@ func (b *tableFindOneOptionsBuilder) SetIncludeSimilarity(v bool) *tableFindOneO
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableFindOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableFindOneOptionsBuilder {
+func (b *tableFindOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableFindOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3613,7 +3607,7 @@ func (b *tableFindOptionsBuilder) SetInitialPageState(v string) *tableFindOption
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableFindOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableFindOptionsBuilder {
+func (b *tableFindOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableFindOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableFindOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3681,7 +3675,7 @@ func (b *tableInsertManyOptionsBuilder) SetConcurrency(v int) *tableInsertManyOp
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableInsertManyOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableInsertManyOptionsBuilder {
+func (b *tableInsertManyOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableInsertManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableInsertManyOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3724,7 +3718,7 @@ func (b *tableInsertOneOptionsBuilder) Setters() []func(*TableInsertOneOptions) 
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableInsertOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableInsertOneOptionsBuilder {
+func (b *tableInsertOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableInsertOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableInsertOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3767,7 +3761,7 @@ func (b *tableUpdateOneOptionsBuilder) Setters() []func(*TableUpdateOneOptions) 
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
-func (b *tableUpdateOneOptionsBuilder) UpdateAPIOptions(v ...Builder[APIOptions]) *tableUpdateOneOptionsBuilder {
+func (b *tableUpdateOneOptionsBuilder) UpdateAPIOptions(v ...APIOption) *tableUpdateOneOptionsBuilder {
 	b.setters = append(b.setters, func(o *TableUpdateOneOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
@@ -3900,9 +3894,18 @@ func (b *vectorOptionsBuilder) SetMetric(v string) *vectorOptionsBuilder {
 	return b
 }
 
+// SetSourceModel sets the SourceModel option.
+// SourceModel is the embedding generation model, enabling optimizations.
+func (b *vectorOptionsBuilder) SetSourceModel(v string) *vectorOptionsBuilder {
+	b.setters = append(b.setters, func(o *VectorOptions) {
+		o.SourceModel = &v
+	})
+	return b
+}
+
 // UpdateService sets the Service option.
 // Service configures automatic vector embedding generation (vectorize).
-func (b *vectorOptionsBuilder) UpdateService(v ...Builder[VectorServiceOptions]) *vectorOptionsBuilder {
+func (b *vectorOptionsBuilder) UpdateService(v ...VectorServiceOption) *vectorOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorOptions) {
 		MergeInto(&o.Service, v...)
 	})

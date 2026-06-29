@@ -129,6 +129,18 @@ func TestOrSingleChild(t *testing.T) {
 	}
 }
 
+func TestNotSingleChild(t *testing.T) {
+	f := filter.Not(filter.Eq("x", 1))
+	got, err := serdes.Serialize(f, serdes.TargetCollection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `{"$not":{"x":1}}`
+	if string(got) != expected {
+		notExpected(t, expected, string(got))
+	}
+}
+
 func TestEmptyFilterMarshal(t *testing.T) {
 	f := filter.Filter{}
 	got, err := serdes.Serialize(f, serdes.TargetCollection)

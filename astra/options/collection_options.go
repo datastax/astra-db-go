@@ -32,22 +32,32 @@ type GetCollectionOptions struct {
 
 // SetEmbeddingAPIKey sets the API key to use for embedding generation for this collection.
 func (b *getCollectionOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *getCollectionOptionsBuilder {
+	return b.SetEmbeddingHeadersProvider(NewEmbeddingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this collection.
+func (b *getCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *getCollectionOptionsBuilder {
+	return b.SetRerankingHeadersProvider(NewRerankingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetEmbeddingHeadersProvider sets the headers provider to use for embedding generation for this collection.
+func (b *getCollectionOptionsBuilder) SetEmbeddingHeadersProvider(provider EmbeddingHeadersProvider) *getCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetCollectionOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.EmbeddingHeadersProvider = provider
 	})
 	return b
 }
 
-// UpdateRerankingAPIKey sets the API key to use for reranking generation for this collection.
-func (b *getCollectionOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *getCollectionOptionsBuilder {
+// SetRerankingHeadersProvider sets the headers provider to use for reranking generation for this collection.
+func (b *getCollectionOptionsBuilder) SetRerankingHeadersProvider(provider RerankingHeadersProvider) *getCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *GetCollectionOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.RerankingHeadersProvider = provider
 	})
 	return b
 }
@@ -76,22 +86,32 @@ type CreateCollectionOptions struct {
 
 // SetEmbeddingAPIKey sets the API key to use for embedding generation for this collection.
 func (b *createCollectionOptionsBuilder) SetEmbeddingAPIKey(apiKey string) *createCollectionOptionsBuilder {
+	return b.SetEmbeddingHeadersProvider(NewEmbeddingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetRerankingAPIKey sets the API key to use for reranking generation for this collection.
+func (b *createCollectionOptionsBuilder) SetRerankingAPIKey(apiKey string) *createCollectionOptionsBuilder {
+	return b.SetRerankingHeadersProvider(NewRerankingAPIKeyHeaderProvider(apiKey))
+}
+
+// SetEmbeddingHeadersProvider sets the headers provider to use for embedding generation for this collection.
+func (b *createCollectionOptionsBuilder) SetEmbeddingHeadersProvider(provider EmbeddingHeadersProvider) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.EmbeddingHeadersProvider = NewEmbeddingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.EmbeddingHeadersProvider = provider
 	})
 	return b
 }
 
-// UpdateRerankingAPIKey sets the API key to use for reranking generation for this collection.
-func (b *createCollectionOptionsBuilder) UpdateRerankingAPIKey(apiKey string) *createCollectionOptionsBuilder {
+// SetRerankingHeadersProvider sets the headers provider to use for reranking generation for this collection.
+func (b *createCollectionOptionsBuilder) SetRerankingHeadersProvider(provider RerankingHeadersProvider) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.APIOptions == nil {
 			o.APIOptions = &APIOptions{}
 		}
-		o.APIOptions.RerankingHeadersProvider = NewRerankingAPIKeyHeadersProvider(apiKey)
+		o.APIOptions.RerankingHeadersProvider = provider
 	})
 	return b
 }
@@ -167,6 +187,9 @@ type VectorOptions struct {
 	// Valid values are "cosine", "euclidean", or "dot_product".
 	// Default is "cosine".
 	Metric *string `json:"metric,omitempty"`
+
+	// SourceModel is the embedding generation model, enabling optimizations.
+	SourceModel *string `json:"sourceModel,omitempty"`
 
 	// Service configures automatic vector embedding generation (vectorize).
 	Service *VectorServiceOptions `json:"service,omitempty"`
