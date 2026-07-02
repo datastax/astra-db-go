@@ -67,6 +67,17 @@ type FindCursor interface {
 	//    // handle warnings
 	//  }
 	Warnings() results.Warnings
+	// NextPageState returns the page state for the next page of results, if available.
+	//
+	// This method returns the pagination token that can be used to resume iteration
+	// from the current position. It returns `nil` if there are no more pages available
+	// or if the cursor has not yet started iteration.
+	//
+	//  pageState := cursor.NextPageState()
+	//  if pageState != nil {
+	//    // save page state for later resumption
+	//  }
+	NextPageState() *string
 }
 
 // findCursorImpl provides the base implementation for find-like operations

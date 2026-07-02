@@ -99,6 +99,15 @@ func (c *findLikeCursorImpl[Raw]) Warnings() results.Warnings {
 	return c.warnings
 }
 
+func (c *findLikeCursorImpl[Raw]) NextPageState() *string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.currentPage == nil {
+		return nil
+	}
+	return c.currentPage.NextPageState
+}
+
 func (c *findLikeCursorImpl[Raw]) buffer() *[]Raw {
 	if c.currentPage == nil {
 		return &[]Raw{}
