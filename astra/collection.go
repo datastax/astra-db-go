@@ -379,8 +379,8 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		},
 	}, merged.APIOptions)
 
-	b, warnings, _, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
+	b, warnings, schema, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, schema, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
 // endregion
@@ -398,7 +398,7 @@ func (c *Collection) ReplaceOne(ctx context.Context, f CollectionFilter, replace
 		return nil, err
 	}
 
-	b, _, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
+	b, _, _, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
 		Sort:       merged.Sort,
 		Projection: map[string]any{"*": 0},
 		Upsert:     merged.Upsert,
@@ -436,7 +436,7 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
 
-	b, warnings, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
+	b, warnings, schema, err := c.findOneAndReplace(ctx, f, replacement, &options.CollectionFindOneAndReplaceOptions{
 		Sort:           merged.Sort,
 		Projection:     merged.Projection,
 		Upsert:         merged.Upsert,
@@ -444,10 +444,10 @@ func (c *Collection) FindOneAndReplace(ctx context.Context, f CollectionFilter, 
 		APIOptions:     merged.APIOptions,
 	})
 
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
+	return results.NewSingleResult(b, warnings, schema, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
-func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts *options.CollectionFindOneAndReplaceOptions) ([]byte, results.Warnings, error) {
+func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, replacement any, opts *options.CollectionFindOneAndReplaceOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 	cmd := c.newCmd("findOneAndReplace", map[string]any{
 		"filter":      f,
 		"replacement": replacement,
@@ -459,8 +459,8 @@ func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, 
 		},
 	}, opts.APIOptions)
 
-	b, warnings, _, err := cmd.Execute(ctx)
-	return b, warnings, err
+	b, warnings, schema, err := cmd.Execute(ctx)
+	return b, warnings, schema, err
 }
 
 // endregion
@@ -581,8 +581,8 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		"projection": utils.NonNilMap(merged.Projection),
 	}, merged.APIOptions)
 
-	b, warnings, _, err := cmd.Execute(ctx)
-	return results.NewSingleResult(b, warnings, nil, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
+	b, warnings, schema, err := cmd.Execute(ctx)
+	return results.NewSingleResult(b, warnings, schema, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
 // endregion
