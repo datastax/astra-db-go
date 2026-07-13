@@ -529,6 +529,10 @@ func createTextIndexCommand(t *Table, name string, column string, opts ...option
 		return command.DataAPI{}, err
 	}
 
+	if merged.Analyzer == nil {
+		merged.Analyzer = "standard"
+	}
+
 	return t.newCmd("createTextIndex", map[string]any{
 		"name": name,
 		"definition": map[string]any{
