@@ -405,12 +405,7 @@ func getTestTable(t *testing.T) *Table {
 var exampleIndexPayloadJSON = testlib.CleanString(`{
   "createIndex": {
     "definition": {
-      "column": "example_column",
-      "options": {
-        "ascii": null,
-        "caseSensitive": null,
-        "normalize": null
-      }
+      "column": "example_column"
     },
     "name": "example_index_name",
     "options": {
@@ -463,9 +458,7 @@ var exampleIndexASCIIPayloadJSON = testlib.CleanString(`{
     "definition": {
       "column": "example_column",
       "options": {
-        "ascii": true,
-        "caseSensitive": null,
-        "normalize": null
+        "ascii": true
       }
     },
     "name": "example_index_name",
@@ -506,11 +499,6 @@ var exampleIndexMapKeysPayloadJSON = testlib.CleanString(`{
     "definition": {
       "column": {
         "example_map_column": "$keys"
-      },
-      "options": {
-        "ascii": null,
-        "caseSensitive": null,
-        "normalize": null
       }
     },
     "name": "example_index_name",
@@ -804,7 +792,7 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		// Should not have "options" key when no options provided
 		var got, expected map[string]interface{}
 		json.Unmarshal(cmdBytes, &got)
-		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":null,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`), &expected)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col"},"name":"test_idx","options":{"ifNotExists":null}}}`), &expected)
 		if !reflect.DeepEqual(got, expected) {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
@@ -820,7 +808,7 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		cmdBytes, _ := serdes.Serialize(cmd, serdes.TargetTable)
 		var got, expected map[string]interface{}
 		json.Unmarshal(cmdBytes, &got)
-		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":null,"caseSensitive":true,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`), &expected)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"caseSensitive":true}},"name":"test_idx","options":{"ifNotExists":true}}}`), &expected)
 		if !reflect.DeepEqual(got, expected) {
 			t.Errorf("unexpected JSON: %s", string(cmdBytes))
 		}
@@ -843,9 +831,9 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		}
 		var got, exp map[string]interface{}
 		json.Unmarshal(cmdBytes, &got)
-		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`), &exp)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false}},"name":"test_idx","options":{"ifNotExists":true}}}`), &exp)
 		if !reflect.DeepEqual(got, exp) {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false,"normalize":null}},"name":"test_idx","options":{"ifNotExists":true}}}`, string(cmdBytes))
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":true,"caseSensitive":false}},"name":"test_idx","options":{"ifNotExists":true}}}`, string(cmdBytes))
 		}
 	})
 
@@ -863,9 +851,9 @@ func TestCreateIndexOptionsVarargs(t *testing.T) {
 		}
 		var got, exp map[string]interface{}
 		json.Unmarshal(cmdBytes, &got)
-		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`), &exp)
+		json.Unmarshal([]byte(`{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false}},"name":"test_idx","options":{"ifNotExists":null}}}`), &exp)
 		if !reflect.DeepEqual(got, exp) {
-			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false,"caseSensitive":null,"normalize":null}},"name":"test_idx","options":{"ifNotExists":null}}}`, string(cmdBytes))
+			t.Errorf("expected JSON:\n%s\nGot:\n%s", `{"createIndex":{"definition":{"column":"test_col","options":{"ascii":false}},"name":"test_idx","options":{"ifNotExists":null}}}`, string(cmdBytes))
 		}
 	})
 
