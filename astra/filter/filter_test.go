@@ -155,7 +155,7 @@ func TestEmptyFilterMarshal(t *testing.T) {
 // Docs example for lexical match operator:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/find-one.html#use-lexicographical-matching-to-find-a-document
 func TestLexicalMatch(t *testing.T) {
-	f := filter.LexicalMatch("tree hill")
+	f := filter.Coll().LexicalMatch("tree hill")
 	got, err := serdes.Serialize(f, serdes.TargetCollection)
 	if err != nil {
 		t.Fatal(err)
