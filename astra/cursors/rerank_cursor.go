@@ -113,10 +113,14 @@ func (c *findAndRerankCursorImpl) mapPage(resp *findResponse, targetCtx serdes.T
 		}
 	}
 
+	var sortVector *datatypes.Vector
+	if resp.Status != nil {
+		sortVector = resp.Status.SortVector
+	}
 	return &findLikePage[rawRerankedResult]{
 		NextPageState: resp.Data.NextPageState,
 		Results:       res,
-		SortVector:    resp.Data.SortVector,
+		SortVector:    sortVector,
 		targetCtx:     targetCtx,
 	}
 }
