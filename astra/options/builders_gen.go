@@ -2442,12 +2442,11 @@ func (b *findAvailableRegionsOptionsBuilder) UpdateAPIOptions(v ...APIOption) *f
 //
 // Example using the fluent builder ([FindEmbeddingProviders]):
 //
-//	// No need to use pointer for builder; the builder handles that for you.
-//	opts := options.FindEmbeddingProviders().SetKeyspace("value")
+//	opts := options.FindEmbeddingProviders().SetFilterModelStatus(...)
 //
 // Example using a pointer to [FindEmbeddingProvidersOptions] without the fluent builder:
 //
-//	opts := &options.FindEmbeddingProvidersOptions{Keyspace: ptr.To("value")}
+//	opts := &options.FindEmbeddingProvidersOptions{...}
 type FindEmbeddingProvidersOption = Builder[FindEmbeddingProvidersOptions]
 
 // Setters implements Builder[FindEmbeddingProvidersOptions] allowing the raw struct to be
@@ -2491,18 +2490,6 @@ func (b *findEmbeddingProvidersOptionsBuilder) Setters() []func(*FindEmbeddingPr
 func (b *findEmbeddingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findEmbeddingProvidersOptionsBuilder {
 	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
 		o.FilterModelStatus = &v
-	})
-	return b
-}
-
-// SetKeyspace sets the Keyspace option.
-// Keyspace is the keyspace to use for operations (lifted from APIOptions)
-func (b *findEmbeddingProvidersOptionsBuilder) SetKeyspace(v string) *findEmbeddingProvidersOptionsBuilder {
-	b.setters = append(b.setters, func(o *FindEmbeddingProvidersOptions) {
-		if o.APIOptions == nil {
-			o.APIOptions = &APIOptions{}
-		}
-		o.APIOptions.Keyspace = &v
 	})
 	return b
 }

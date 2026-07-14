@@ -419,16 +419,28 @@ func createIndexCommand(t *Table, name string, column any, opts ...options.Creat
 		return command.DataAPI{}, err
 	}
 
+	def := map[string]any{
+		"column": column,
+	}
+
+	// due to a data api bug (#2524)
+	idxOpts := map[string]any{}
+	if merged.CaseSensitive != nil {
+		idxOpts["caseSensitive"] = merged.CaseSensitive
+	}
+	if merged.Normalize != nil {
+		idxOpts["normalize"] = merged.Normalize
+	}
+	if merged.Ascii != nil {
+		idxOpts["ascii"] = merged.Ascii
+	}
+	if len(idxOpts) > 0 {
+		def["options"] = idxOpts
+	}
+
 	return t.newCmd("createIndex", map[string]any{
-		"name": name,
-		"definition": map[string]any{
-			"column": column,
-			"options": map[string]any{
-				"caseSensitive": merged.CaseSensitive,
-				"normalize":     merged.Normalize,
-				"ascii":         merged.Ascii,
-			},
-		},
+		"name":       name,
+		"definition": def,
 		"options": map[string]any{
 			"ifNotExists": merged.IfNotExists,
 		},
@@ -527,6 +539,10 @@ func createTextIndexCommand(t *Table, name string, column string, opts ...option
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return command.DataAPI{}, err
+	}
+
+	if merged.Analyzer == nil {
+		merged.Analyzer = "standard"
 	}
 
 	return t.newCmd("createTextIndex", map[string]any{

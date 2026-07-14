@@ -26,9 +26,8 @@ import (
 
 // findLikePage represents a page of results from a find-like operation.
 type findLikePage[Raw any] struct {
-	NextPageState *string           `json:"nextPageState"`
-	Results       []Raw             `json:"data"`
-	SortVector    *datatypes.Vector `json:"sortVector,omitempty"`
+	NextPageState *string `json:"nextPageState"`
+	Results       []Raw   `json:"data"`
 	targetCtx     serdes.TargetDecodeCtx
 }
 
@@ -55,7 +54,7 @@ type findLikeCursorImpl[Raw any] struct {
 	fcs         findLikeCursorSource[Raw]
 	currentPage *findLikePage[Raw]
 	initialPage *findLikePage[Raw]
-	sortVector  *datatypes.Vector // Cached sort vector, preserved even when cursor is closed
+	sortVector  *datatypes.Vector
 	warnings    results.Warnings
 	fetcher     findLikeCursorFetcher
 	target      serdes.Target
@@ -85,26 +84,13 @@ func (c *findLikeCursorImpl[Raw]) GetSortVector(ctx context.Context) *datatypes.
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// If we already have the sort vector cached, return it
 	if c.sortVector != nil {
 		return c.sortVector
 	}
 
-	// If cursor hasn't started yet and sort vector is requested, fetch the first page
-	// but keep the cursor in idle state so Next() doesn't skip the first item
 	if c.state == CursorStateIdle && c.fcs.includeSortVector() {
-		c.nextPage, c.err = c.acs.fetchNextPage(ctx)
-		if c.err != nil {
-			c.state = CursorStateClosed
-			c.nextPage = false
-		}
-		// Note: we intentionally do NOT change state to CursorStateStarted here
-		// so that the first Next() call will not consume the first item
-	}
-
-	// Cache the sort vector from current page if available
-	if c.currentPage != nil && c.currentPage.SortVector != nil {
-		c.sortVector = c.currentPage.SortVector
+		c.fetchIfEmpty(ctx)
+		c.prefetched = true
 	}
 
 	return c.sortVector
@@ -167,9 +153,8 @@ func (c *findLikeCursorImpl[Raw]) fetchNextPage(ctx context.Context) (bool, erro
 
 	c.currentPage = c.fcs.mapPage(&resp, schema)
 
-	// Cache the sort vector from the first page
-	if c.sortVector == nil && c.currentPage.SortVector != nil {
-		c.sortVector = c.currentPage.SortVector
+	if resp.Status != nil && resp.Status.SortVector != nil {
+		c.sortVector = resp.Status.SortVector
 	}
 
 	return c.currentPage.NextPageState != nil, nil
@@ -187,5 +172,4 @@ func (c *findLikeCursorImpl[Raw]) rewind() {
 
 func (c *findLikeCursorImpl[Raw]) close() {
 	c.currentPage = nil
-	// Note: sortVector is NOT cleared on close, so it remains accessible
 }
