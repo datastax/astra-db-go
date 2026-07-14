@@ -549,7 +549,8 @@ type RerankService struct {
 // AlterTypeOperation represents an operation to alter a user-defined type (UDT).
 type AlterTypeOperation interface {
 	isAlterTypeOp()
-	serdes.AstraRawMarshaler
+	// OpKey returns the JSON key used for this operation (e.g. "add", "rename").
+	OpKey() string
 }
 
 // AddTypeFields is the payload for the alterType "add" operation.
@@ -558,11 +559,7 @@ type AddTypeFields struct {
 }
 
 func (a AddTypeFields) isAlterTypeOp() {}
-
-func (a AddTypeFields) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
-	type alias AddTypeFields
-	return serdes.SerializeInto(map[string]any{"add": alias(a)}, ctx.Target, dst, ctx.Flags)
-}
+func (a AddTypeFields) OpKey() string  { return "add" }
 
 // RenameTypeFields is the payload for the alterType "rename" operation.
 type RenameTypeFields struct {
@@ -570,8 +567,4 @@ type RenameTypeFields struct {
 }
 
 func (r RenameTypeFields) isAlterTypeOp() {}
-
-func (r RenameTypeFields) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
-	type alias RenameTypeFields
-	return serdes.SerializeInto(map[string]any{"rename": alias(r)}, ctx.Target, dst, ctx.Flags)
-}
+func (r RenameTypeFields) OpKey() string  { return "rename" }

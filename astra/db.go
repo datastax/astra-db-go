@@ -293,8 +293,15 @@ func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDe
 
 // alterTypePayload is the payload for the alterType command.
 type alterTypePayload struct {
-	Name      string                   `json:"name"`
-	Operation table.AlterTypeOperation `json:"operation"`
+	Name string
+	Op   table.AlterTypeOperation
+}
+
+func (p alterTypePayload) MarshalAstra(_ serdes.EncodeCtx) (any, error) {
+	return map[string]any{
+		"name":       p.Name,
+		p.Op.OpKey(): p.Op,
+	}, nil
 }
 
 // AlterType alters an existing user-defined type (UDT) in the database.
@@ -313,8 +320,8 @@ func (d *Db) AlterType(ctx context.Context, name string, op table.AlterTypeOpera
 	}
 
 	cmd := d.newCmd("alterType", alterTypePayload{
-		Name:      name,
-		Operation: op,
+		Name: name,
+		Op:   op,
 	}, merged.APIOptions)
 
 	_, _, _, err = cmd.Execute(ctx)
