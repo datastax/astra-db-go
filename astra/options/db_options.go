@@ -56,7 +56,7 @@ type FindEmbeddingProvidersOptions struct {
 
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Command hierarchy.
-	APIOptions *APIOptions `json:"-" optlift:"Keyspace"`
+	APIOptions *APIOptions `json:"-"`
 }
 
 // ListCollectionsOptions represents options for listing collections in a database.
