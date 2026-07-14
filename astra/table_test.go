@@ -331,7 +331,7 @@ func TestTableFindOptions(t *testing.T) {
 				SetLimit(10).
 				SetSkip(5).
 				SetIncludeSimilarity(true).
-				SetPageState("some-page-state"),
+				SetInitialPageState("some-page-state"),
 		)
 		if err != nil {
 			t.Fatal(err)

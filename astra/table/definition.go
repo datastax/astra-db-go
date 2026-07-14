@@ -16,6 +16,11 @@
 package table
 
 import (
+	"math/big"
+	"net"
+	"reflect"
+	"time"
+
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
@@ -120,6 +125,61 @@ type Column struct {
 	// UDTDefinition is the definition of the UDT if this column is a user defined type.
 	// This is returned by the server; users should not set this themselves when defining a table schema.
 	UDTDefinition *UDTDefinition `json:"definition,omitempty"`
+}
+
+func (c Column) GoType() reflect.Type {
+	switch c.Type {
+	case TypeInt:
+		return reflect.TypeFor[int32]()
+	case TypeBigInt:
+		return reflect.TypeFor[int64]()
+	case TypeSmallInt:
+		return reflect.TypeFor[int16]()
+	case TypeTinyInt:
+		return reflect.TypeFor[int8]()
+	case TypeFloat:
+		return reflect.TypeFor[float32]()
+	case TypeDouble:
+		return reflect.TypeFor[float64]()
+	case TypeVarint:
+		return reflect.TypeFor[big.Int]()
+	case TypeDecimal:
+		return reflect.TypeFor[big.Float]()
+	case TypeText, TypeAscii:
+		return reflect.TypeFor[string]()
+	case TypeBoolean:
+		return reflect.TypeFor[bool]()
+	case TypeDate:
+		return reflect.TypeFor[datatypes.DateOnly]()
+	case TypeTime:
+		return reflect.TypeFor[datatypes.TimeOnly]()
+	case TypeTimestamp:
+		return reflect.TypeFor[time.Time]()
+	case TypeDuration:
+		return reflect.TypeFor[time.Duration]()
+	case TypeUUID, TypeTimeUUID:
+		return reflect.TypeFor[datatypes.UUID]()
+	case TypeBlob:
+		return reflect.TypeFor[[]byte]()
+	case TypeInet:
+		return reflect.TypeFor[net.IP]()
+	case TypeVector:
+		return reflect.TypeFor[datatypes.Vector]()
+	case TypeMap:
+		colType := Column{Type: *c.KeyType}.GoType()
+
+		if colType.Comparable() {
+			return reflect.MapOf(colType, c.ValueType.GoType())
+		}
+
+		return reflect.TypeFor[datatypes.SortedMap[any, any]]()
+	case TypeList, TypeSet:
+		return reflect.SliceOf(c.ValueType.GoType())
+	case TypeUDT:
+		return reflect.TypeFor[map[string]any]()
+	default:
+		return reflect.TypeFor[any]()
+	}
 }
 
 type UDTDefinition struct {
