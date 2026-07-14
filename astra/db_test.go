@@ -337,7 +337,7 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 	t.Run("add fields", func(t *testing.T) {
 		cmd := command.NewDataAPICommand("", "", "alterType", alterTypePayload{
 			Name: "address",
-			Operation: table.AddTypeFields{
+			Op: table.AddTypeFields{
 				Fields: table.Columns{
 					{Name: "country", Column: table.Text()},
 					{Name: "zip_code", Column: table.Int()},
@@ -350,7 +350,7 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 			t.Fatalf("failed to serialize: %v", err)
 		}
 
-		expected := `{"alterType":{"name":"address","operation":{"add":{"fields":{"country":{"type":"text"},"zip_code":{"type":"int"}}}}}}`
+		expected := `{"alterType":{"add":{"fields":{"country":{"type":"text"},"zip_code":{"type":"int"}}},"name":"address"}}`
 		if string(got) != expected {
 			t.Errorf("expected %s, got %s", expected, string(got))
 		}
@@ -359,7 +359,7 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 	t.Run("rename fields", func(t *testing.T) {
 		cmd := command.NewDataAPICommand("", "", "alterType", alterTypePayload{
 			Name: "address",
-			Operation: table.RenameTypeFields{
+			Op: table.RenameTypeFields{
 				Fields: map[string]string{
 					"street": "street_address",
 				},
@@ -371,7 +371,7 @@ func TestAlterTypeCommandMarshal(t *testing.T) {
 			t.Fatalf("failed to serialize: %v", err)
 		}
 
-		expected := `{"alterType":{"name":"address","operation":{"rename":{"fields":{"street":"street_address"}}}}}`
+		expected := `{"alterType":{"name":"address","rename":{"fields":{"street":"street_address"}}}}`
 		if string(got) != expected {
 			t.Errorf("expected %s, got %s", expected, string(got))
 		}
