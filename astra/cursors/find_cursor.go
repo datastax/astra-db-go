@@ -94,14 +94,9 @@ func newFindCursorImpl(source findLikeCursorSource[json.RawMessage], fetcher fin
 
 // mapPage implements findLikeCursorSource.mapPage
 func (c *findCursorImpl) mapPage(resp *findResponse, targetCtx serdes.TargetDecodeCtx) *findLikePage[json.RawMessage] {
-	var sortVector *datatypes.Vector
-	if resp.Status != nil {
-		sortVector = resp.Status.SortVector
-	}
 	return &findLikePage[json.RawMessage]{
 		NextPageState: resp.Data.NextPageState,
 		Results:       resp.Data.Documents,
-		SortVector:    sortVector,
 		targetCtx:     targetCtx,
 	}
 }

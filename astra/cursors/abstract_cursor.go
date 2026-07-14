@@ -275,6 +275,7 @@ type abstractCursorImpl[Raw any] struct {
 	nextPage   bool
 	err        error
 	persistErr bool // used for validation errors where the cursor is fully unusable, even if cloned or rewound
+	prefetched bool // true when a page was fetched before Next() was called (e.g. by GetSortVector)
 }
 
 // newAbstractCursorImpl creates a new abstractCursorImpl with the given source.
@@ -319,20 +320,13 @@ func (c *abstractCursorImpl[Raw]) Next(ctx context.Context) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Only consume an item if we're already positioned at one (cursor has started)
-	// On the first call (CursorStateIdle), we don't consume anything
-	if c.state == CursorStateStarted && c.buffered() > 0 {
+	if !c.prefetched && c.state == CursorStateStarted && c.buffered() > 0 {
 		*c.acs.buffer() = (*c.acs.buffer())[1:]
 	}
+	c.prefetched = false
 
 	if c.buffered() == 0 {
 		return c.fetchIfEmpty(ctx)
-	}
-
-	// If we have items and cursor was idle, transition to started
-	// (this handles the case where GetSortVector pre-fetched the first page)
-	if c.state == CursorStateIdle {
-		c.state = CursorStateStarted
 	}
 
 	return true
@@ -486,6 +480,7 @@ func (c *abstractCursorImpl[Raw]) Rewind() {
 
 	c.state = CursorStateIdle
 	c.nextPage = true
+	c.prefetched = false
 
 	if !c.persistErr {
 		c.err = nil
