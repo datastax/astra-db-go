@@ -45,3 +45,10 @@ func Diff(t HasFatal, a, b any, opts ...cmp.Option) string {
 	t.Helper()
 	return cmp.Diff(a, b, append(cmpOpts, opts...)...)
 }
+
+func NoDiff(t HasFatal, want, got any) {
+	t.Helper()
+	if diff := Diff(t, want, got); diff != "" {
+		t.Fatalf("mismatch (-want +got):\n%s", diff)
+	}
+}

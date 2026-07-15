@@ -16,6 +16,8 @@
 package filter
 
 import (
+	"fmt"
+
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
@@ -86,6 +88,8 @@ const (
 	OpNotIn            Operator = "$nin"
 	OpExists           Operator = "$exists"
 	OpAll              Operator = "$all"
+	OpKeys             Operator = "$keys"
+	OpValues           Operator = "$values"
 	OpSize             Operator = "$size"
 	OpLexical          Operator = "$lexical"
 	OpMatch            Operator = "$match"
@@ -130,44 +134,60 @@ func (Filter) isFilter() {}
 //
 //	filter.And(
 //		filter.Eq("genre", "fantasy"),
-//		filter.Coll().Size("tags", 3),
-//		filter.Coll().LexicalMatch("dragon"),
+//		filter.Coll.Size("tags", 3),
+//		filter.Coll.LexicalMatch("dragon"),
 //	)
 type CollFilter struct{}
 
-// Coll returns a [CollFilter] that provides access to collection-specific
-// filter operators such as [CollFilter.Size], [CollFilter.All], and
-// [CollFilter.LexicalMatch].
-func Coll() CollFilter { return CollFilter{} }
+// Coll is a [CollFilter] that provides access to collection-specific
+// filter operators
+var Coll CollFilter
+
+// Exists matches documents that have the specified field, even if the field value is null.
+// Collection-only.
+func (CollFilter) Exists(key string, val bool) Filter { return fieldOp(OpExists, key, val) }
 
 // Size filters documents where the array field has the given number of elements.
 // Collection-only.
 func (CollFilter) Size(key string, val int) Filter { return fieldOp(OpSize, key, val) }
 
-// All filters documents where the array field contains all the specified elements.
+// Not negates the given filter.
+// All Filterable types ([Filter], [F], [A]) are accepted.
 // Collection-only.
-func (CollFilter) All(key string, vals ...any) Filter { return sliceOp(OpAll, key, vals) }
+func (CollFilter) Not(child Filterable) Filter { return Filter{op: OpNot, children: child} }
 
 // LexicalMatch creates a filter that matches documents against the collection's
 // reserved $lexical field. Only available for collections with lexical enabled.
-func (CollFilter) LexicalMatch(val string) Filter {
-	return fieldOp(OpMatch, string(OpLexical), val)
-}
+func (CollFilter) LexicalMatch(val string) Filter { return fieldOp(OpMatch, string(OpLexical), val) }
 
 // TableFilter is a namespace for table-specific filter operators.
 // Obtain one via [Table]. The returned [Filter] values compose with [And],
 // [Or], and [Not] like any other filter.
+//
+// Example:
+//
+//	filter.And(
+//		filter.Eq("genre", "fantasy"),
+//		filter.Table.Keys(filter.In("metadata", "Language", "Edition")),
+//		filter.Table.LexicalMatch("dragon"),
+//	)
 type TableFilter struct{}
 
-// Table returns a [TableFilter] that provides access to table-specific
+// Table is a [TableFilter] that provides access to table-specific
 // filter operators.
-func Table() TableFilter { return TableFilter{} }
+var Table TableFilter
+
+// Keys works with In, All, and Nin to filter on map columns
+// Table-only.
+func (TableFilter) Keys(f Filter) Filter { return mapFieldOp(OpKeys, f) }
+
+// Values works with In, All, and Nin to filter on map columns
+// Table-only.
+func (TableFilter) Values(f Filter) Filter { return mapFieldOp(OpValues, f) }
 
 // LexicalMatch creates a filter that matches documents against a table column
 // with a text index associated.
-func (TableFilter) LexicalMatch(key string, val string) Filter {
-	return fieldOp(OpMatch, key, val)
-}
+func (TableFilter) LexicalMatch(key string, val string) Filter { return fieldOp(OpMatch, key, val) }
 
 // Construct a field filter operator. Used to reduce boilerplate.
 func fieldOp(op Operator, field string, value any) Filter {
@@ -176,7 +196,14 @@ func fieldOp(op Operator, field string, value any) Filter {
 
 // Construct a slice filter operator. Used to reduce boilerplate.
 func sliceOp(op Operator, field string, vals []any) Filter {
-	return Filter{op: op, field: field, value: vals}
+	return fieldOp(op, field, vals)
+}
+
+func mapFieldOp(op Operator, f Filter) Filter {
+	if f.op != OpIn && f.op != OpAll && f.op != OpNotIn {
+		panic(fmt.Sprintf("filter passed to %s must be In, All, or Nin; got %s", op, f.op))
+	}
+	return fieldOp(op, f.field, Filter{field: string(f.op), value: f.value}) // cheating by using the op as the field so it marshals properly
 }
 
 func (f Filter) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
@@ -211,10 +238,9 @@ func Lte(key string, val any) Filter { return fieldOp(OpLessThanEqual, key, val)
 func Gt(key string, val any) Filter  { return fieldOp(OpGreaterThan, key, val) }
 func Gte(key string, val any) Filter { return fieldOp(OpGreaterThanEqual, key, val) }
 
-func Exists(key string, val bool) Filter { return fieldOp(OpExists, key, val) }
-
 func In(key string, vals ...any) Filter  { return sliceOp(OpIn, key, vals) }
 func Nin(key string, vals ...any) Filter { return sliceOp(OpNotIn, key, vals) }
+func All(key string, vals ...any) Filter { return sliceOp(OpAll, key, vals) }
 
 // And combines the given filters with a logical AND.
 // All Filterable types ([Filter], [F], [A]) are accepted.
@@ -226,10 +252,4 @@ func And(children ...Filterable) Filter {
 // All Filterable types ([Filter], [F], [A]) are accepted.
 func Or(children ...Filterable) Filter {
 	return Filter{op: OpOr, children: children}
-}
-
-// Not negates the given filter.
-// All Filterable types ([Filter], [F], [A]) are accepted.
-func Not(child Filterable) Filter {
-	return Filter{op: OpNot, children: child}
 }
