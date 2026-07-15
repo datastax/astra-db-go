@@ -16,6 +16,7 @@ package datatypes
 
 import (
 	"cmp"
+	"encoding/json"
 	"fmt"
 	"iter"
 	"math/big"
@@ -302,6 +303,19 @@ func (m SortedMap[K, V]) AllRev(bounds ...K) iter.Seq2[K, V] {
 	}
 }
 
+func (m SortedMap[K, V]) Equals(other SortedMap[K, V], valCmp Comparator) bool {
+	if m.Len() != other.Len() {
+		return false
+	}
+	for k, v1 := range m.All() {
+		v2, ok := other.Get(k)
+		if !ok || valCmp(unsafe.Pointer(&v1), unsafe.Pointer(&v2)) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func (m SortedMap[K, V]) String() string {
 	var sb strings.Builder
 	sb.WriteString("{")
@@ -368,6 +382,8 @@ func ComparatorFor(t reflect.Type) Comparator {
 		return func(a, b unsafe.Pointer) int {
 			return (*big.Float)(a).Cmp((*big.Float)(b))
 		}
+	case jsonMsgType:
+		return func(a, b unsafe.Pointer) int { return strings.Compare(*(*string)(a), *(*string)(b)) }
 	}
 
 	switch t.Kind() {
@@ -406,5 +422,6 @@ var (
 	timeType       = reflect.TypeOf(time.Time{})
 	bigIntType     = reflect.TypeFor[big.Int]()
 	bigFloatType   = reflect.TypeFor[big.Float]()
+	jsonMsgType    = reflect.TypeFor[json.RawMessage]()
 	comparableType = reflect.TypeOf((*interface{ CompareTo(any) int })(nil)).Elem()
 )

@@ -147,12 +147,6 @@ type TableFindOptions struct {
 	APIOptions *APIOptions `json:"-"`
 }
 
-// SetPageState sets the initial page state for pagination.
-func (b *tableFindOptionsBuilder) SetPageState(pageState string) *tableFindOptionsBuilder {
-	b.setters = append(b.setters, func(o *TableFindOptions) { o.InitialPageState = &pageState })
-	return b
-}
-
 // TableInsertOneOptions represents options for inserting a single row in a table.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type TableInsertOneOptions struct {

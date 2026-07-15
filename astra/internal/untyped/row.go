@@ -184,11 +184,6 @@ func (r *ServerRow) ToMap() map[string]any {
 	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.Schema, Flags: r.Flags}
 
 	for name, rawValue := range r.Data {
-		if string(rawValue) == "null" {
-			result[name] = nil
-			continue
-		}
-
 		col, ok := schema.Get(name)
 		if ok {
 			val, err := deserializeColumn(ctx, rawValue, col)
@@ -199,7 +194,6 @@ func (r *ServerRow) ToMap() map[string]any {
 			continue
 		}
 
-		// Generic fallback for metadata fields OR schema mismatch
 		var val any
 		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetTable, r.Flags)
 		result[name] = val
@@ -207,8 +201,8 @@ func (r *ServerRow) ToMap() map[string]any {
 
 	if r.Flags&serdes.SparseRows == 0 {
 		for _, col := range schema {
-			if _, ok := result[col.Name]; !ok {
-				result[col.Name] = nil
+			if result[col.Name] == nil {
+				result[col.Name] = getDefaultValue(ctx, col.Column)
 			}
 		}
 	}
@@ -378,6 +372,24 @@ func getSubColumn(col table.Column, key string) (table.Column, bool) {
 	}
 }
 
+func getDefaultValue(ctx serdes.DecodeCtx, col table.Column) any {
+	switch col.Type {
+	case table.TypeUDT:
+		m := make(map[string]any)
+		for _, f := range col.UDTDefinition.Fields {
+			m[f.Name] = getDefaultValue(ctx, f.Column)
+		}
+		return m
+	case table.TypeList, table.TypeSet:
+		return reflect.MakeSlice(col.GoType(), 0, 0).Interface()
+	case table.TypeMap:
+		m, _ := deserializeMap(ctx, json.RawMessage("{}"), col)
+		return m
+	default:
+		return nil
+	}
+}
+
 func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
 	if string(raw) == "null" {
 		return nil, nil
@@ -385,7 +397,7 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 
 	switch col.Type {
 	case table.TypeInt:
-		var v int
+		var v int32
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
@@ -496,33 +508,66 @@ func deserializeListLike(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Co
 		return nil, err
 	}
 
-	result := make([]any, len(rawArray))
+	result := reflect.MakeSlice(col.GoType(), len(rawArray), len(rawArray))
 	for i, rawElem := range rawArray {
 		val, err := deserializeColumn(ctx, rawElem, *col.ValueType)
 		if err != nil {
 			return nil, fmt.Errorf("%s element %d: %w", col.Type, i, err)
 		}
-		result[i] = val
+		result.Index(i).Set(reflect.ValueOf(val))
 	}
 
-	return result, nil
+	return result.Interface(), nil
 }
 
 func deserializeMap(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
-	var rawMap map[string]json.RawMessage
+	if col.GoType() == reflect.TypeFor[datatypes.SortedMap[any, any]]() {
+		return deserializeSortedMap(ctx, raw, col)
+	}
+	return deserializeNativeMap(ctx, raw, col)
+}
+
+func deserializeNativeMap(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
+	rawMap := datatypes.NewSortedMap[json.RawMessage, json.RawMessage]()
 	if err := serdes.Deserialize(raw, &rawMap, nil, serdes.TargetTable, ctx.Flags); err != nil {
 		return nil, err
 	}
 
-	result := make(map[string]any, len(rawMap))
+	result := reflect.MakeMap(col.GoType())
 
-	for key, rawValue := range rawMap {
+	for rawKey, rawValue := range rawMap.All() {
+		key, err := deserializeColumn(ctx, rawKey, table.Column{Type: *col.KeyType})
+		if err != nil {
+			return nil, fmt.Errorf("map key: %w", err)
+		}
 		val, err := deserializeColumn(ctx, rawValue, *col.ValueType)
 		if err != nil {
 			return nil, fmt.Errorf("map value for key %s: %w", key, err)
 		}
+		result.SetMapIndex(reflect.ValueOf(key), reflect.ValueOf(val))
+	}
 
-		result[key] = val
+	return result.Interface(), nil
+}
+
+func deserializeSortedMap(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
+	rawMap := datatypes.NewSortedMap[json.RawMessage, json.RawMessage]()
+	if err := serdes.Deserialize(raw, &rawMap, nil, serdes.TargetTable, ctx.Flags); err != nil {
+		return nil, err
+	}
+
+	result := datatypes.NewSortedMapWithComparator[any, any](datatypes.ComparatorFor(table.Column{Type: *col.KeyType}.GoType()))
+
+	for rawKey, rawValue := range rawMap.All() {
+		key, err := deserializeColumn(ctx, rawKey, table.Column{Type: *col.KeyType})
+		if err != nil {
+			return nil, fmt.Errorf("map key: %w", err)
+		}
+		val, err := deserializeColumn(ctx, rawValue, *col.ValueType)
+		if err != nil {
+			return nil, fmt.Errorf("map value for key %s: %w", key, err)
+		}
+		result.Set(key, val)
 	}
 
 	return result, nil
@@ -531,9 +576,18 @@ func deserializeMap(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column)
 func deserializeUDT(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Column) (any, error) {
 	newCtx := ctx
 	newCtx.TargetCtx = &LazySchema{AsCols: col.UDTDefinition.Fields}
+
 	var r Row
 	if err := serdes.Deserialize(raw, &r, newCtx.TargetCtx, serdes.TargetTable, ctx.Flags); err != nil {
 		return nil, err
 	}
-	return r.ToMap(), nil
+	m := r.ToMap()
+
+	for _, c := range col.UDTDefinition.Fields {
+		if m[c.Name] == nil {
+			m[c.Name] = getDefaultValue(ctx, c.Column)
+		}
+	}
+
+	return m, nil
 }
