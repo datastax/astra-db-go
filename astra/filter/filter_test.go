@@ -20,6 +20,7 @@ import (
 
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
+	"github.com/datastax/astra-db-go/v2/internal/testlib"
 )
 
 // cleanString removes all whitespace characters from a string.
@@ -30,13 +31,9 @@ func cleanString(s string) string {
 	return re.ReplaceAllString(s, "")
 }
 
-func notExpected[T any](t *testing.T, expected T, got T) {
-	t.Errorf("\nExpected: %v\nGot: %v", expected, got)
-}
-
 // This is the example we are testing:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/filter-operator-collections.html#combine-operators-and-or
-const TestCombineOperatorsAndOrExpected = `{
+var TestCombineOperatorsAndOrExpected = cleanString(`{
     "$and": [
     	{
     		"$or": [
@@ -51,7 +48,7 @@ const TestCombineOperatorsAndOrExpected = `{
     		]
     	}
     ]
-}`
+}`)
 
 func TestCombineOperatorsAndOrF(t *testing.T) {
 	filters := filter.F{
@@ -67,13 +64,8 @@ func TestCombineOperatorsAndOrF(t *testing.T) {
 		},
 	}
 	got, err := serdes.Serialize(filters, serdes.TargetCollection)
-	if err != nil {
-		t.Error(err)
-	}
-	// When comparing, ignore whitespace.
-	if cleanString(string(got)) != cleanString(TestCombineOperatorsAndOrExpected) {
-		notExpected(t, TestCombineOperatorsAndOrExpected, string(got))
-	}
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got), TestCombineOperatorsAndOrExpected)
 }
 
 func TestCombineOperatorsAndOrStructured(t *testing.T) {
@@ -88,80 +80,74 @@ func TestCombineOperatorsAndOrStructured(t *testing.T) {
 		),
 	)
 	got, err := serdes.Serialize(filters, serdes.TargetCollection)
-	if err != nil {
-		t.Error(err)
-	}
-	// When comparing, ignore whitespace.
-	if cleanString(string(got)) != cleanString(TestCombineOperatorsAndOrExpected) {
-		notExpected(t, TestCombineOperatorsAndOrExpected, string(got))
-	}
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got), TestCombineOperatorsAndOrExpected)
 }
 
 func TestEqDefault(t *testing.T) {
-	composedFilters := filter.Eq("num_pages", 300)
 	filters := filter.F{"num_pages": 300}
-	got, err := serdes.Serialize(filters, serdes.TargetCollection)
-	if err != nil {
-		t.Error(err)
-	}
-	expected := `{"num_pages":300}`
-	if string(got) != expected {
-		notExpected(t, expected, string(got))
-	}
+	composedFilters := filter.Eq("num_pages", 300)
+
+	raw, err := serdes.Serialize(filters, serdes.TargetCollection)
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(raw), `{"num_pages":300}`)
+
 	composed, err := serdes.Serialize(composedFilters, serdes.TargetCollection)
-	if err != nil {
-		t.Error(err)
-	}
-	if string(composed) != expected {
-		notExpected(t, expected, string(composed))
-	}
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(composed), `{"num_pages":300}`)
 }
 
 func TestOrSingleChild(t *testing.T) {
 	f := filter.Or(filter.Eq("x", 1))
 	got, err := serdes.Serialize(f, serdes.TargetCollection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `{"$or":[{"x":1}]}`
-	if string(got) != expected {
-		notExpected(t, expected, string(got))
-	}
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got), `{"$or":[{"x":1}]}`)
 }
 
 func TestNotSingleChild(t *testing.T) {
-	f := filter.Not(filter.Eq("x", 1))
+	f := filter.Coll.Not(filter.Eq("x", 1))
 	got, err := serdes.Serialize(f, serdes.TargetCollection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `{"$not":{"x":1}}`
-	if string(got) != expected {
-		notExpected(t, expected, string(got))
-	}
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got), `{"$not":{"x":1}}`)
 }
 
 func TestEmptyFilterMarshal(t *testing.T) {
 	f := filter.Filter{}
 	got, err := serdes.Serialize(f, serdes.TargetCollection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(got) != "null" {
-		notExpected(t, "null", string(got))
-	}
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got), `null`)
 }
 
 // Docs example for lexical match operator:
 // https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/find-one.html#use-lexicographical-matching-to-find-a-document
 func TestLexicalMatch(t *testing.T) {
-	f := filter.Coll().LexicalMatch("tree hill")
-	got, err := serdes.Serialize(f, serdes.TargetCollection)
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := `{"$lexical":{"$match":"tree hill"}}`
-	if string(got) != expected {
-		notExpected(t, expected, string(got))
-	}
+	cf := filter.Coll.LexicalMatch("tree hill")
+	gotC, err := serdes.Serialize(cf, serdes.TargetCollection)
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(gotC), `{"$lexical":{"$match":"tree hill"}}`)
+
+	ct := filter.Table.LexicalMatch("field", "tree hill")
+	gotT, err := serdes.Serialize(ct, serdes.TargetTable)
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(gotT), `{"field":{"$match":"tree hill"}}`)
+}
+
+func TestTableKeysValues(t *testing.T) {
+	f1 := filter.Table.Keys(filter.In("metadata", "Language", "Edition"))
+	got1, err := serdes.Serialize(f1, serdes.TargetCollection)
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got1), `{"metadata":{"$keys":{"$in":["Language","Edition"]}}}`)
+
+	f2 := filter.Table.Values(filter.All("metadata", "Language", "Edition"))
+	got2, err := serdes.Serialize(f2, serdes.TargetCollection)
+	testlib.FailIfErr(t, err, "failed to serialize filter")
+	testlib.NoDiff(t, string(got2), `{"metadata":{"$values":{"$all":["Language","Edition"]}}}`)
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("filter.Table.Values(filter.Eq(...)) did not panic")
+		}
+	}()
+
+	_ = filter.Table.Values(filter.Eq("metadata", "Language"))
 }

@@ -22,9 +22,7 @@ import (
 
 func (t *T) NoDiff(want, got any) {
 	t.Helper()
-	if diff := testlib.Diff(t, want, got); diff != "" {
-		t.Fatalf("mismatch (-want +got):\n%s", diff)
-	}
+	testlib.NoDiff(t, want, got)
 }
 
 type tOrCSelect int

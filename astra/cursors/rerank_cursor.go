@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/results"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 	"github.com/datastax/astra-db-go/v2/astra/sort"
@@ -138,11 +139,12 @@ type findAndRerankPayload struct {
 }
 
 type findAndRerankOptions struct {
-	Limit             *int    `json:"limit,omitempty"`
-	HybridLimits      any     `json:"hybridLimits,omitempty"`
-	IncludeScores     *bool   `json:"includeScores,omitempty"`
-	IncludeSortVector *bool   `json:"includeSortVector,omitempty"`
-	RerankOn          *string `json:"rerankOn,omitempty"`
-	RerankQuery       *string `json:"rerankQuery,omitempty"`
-	PageState         *string `json:"pageState,omitempty"`
+	Limit             *int                          `json:"limit,omitempty"`
+	HybridLimits      any                           `json:"hybridLimits,omitempty"`
+	IncludeScores     *bool                         `json:"includeScores,omitempty"`
+	IncludeSortVector *bool                         `json:"includeSortVector,omitempty"`
+	RerankOn          *string                       `json:"rerankOn,omitempty"`
+	RerankQuery       *string                       `json:"rerankQuery,omitempty"`
+	PageState         *string                       `json:"pageState,omitempty"`
+	Rerank            *options.RerankServiceOptions `json:"rerank,omitempty"`
 }

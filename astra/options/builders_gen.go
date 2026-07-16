@@ -600,6 +600,15 @@ func (b *collectionFindAndRerankOptionsBuilder) SetInitialPageState(v string) *c
 	return b
 }
 
+// UpdateRerank sets the Rerank option.
+// Rerank overrides the rerank service configuration for this query.
+func (b *collectionFindAndRerankOptionsBuilder) UpdateRerank(v ...RerankServiceOption) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		MergeInto(&o.Rerank, v...)
+	})
+	return b
+}
+
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command.
@@ -2812,7 +2821,7 @@ func (b *listDatabasesOptionsBuilder) SetInclude(v DatabaseStatus) *listDatabase
 }
 
 // SetProvider sets the Provider option.
-// Provider filters databases by cloud provider. Defaults to [CloudProviderAll].
+// Provider filters databases by cloud provider. Defaults to [CloudProviderFilterAll].
 func (b *listDatabasesOptionsBuilder) SetProvider(v CloudProviderFilter) *listDatabasesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListDatabasesOptions) {
 		o.Provider = &v
@@ -2930,6 +2939,69 @@ func (b *listKeyspacesOptionsBuilder) Setters() []func(*ListKeyspacesOptions) {
 // for this command. These are merged into the Client→DB→Table→Command hierarchy.
 func (b *listKeyspacesOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listKeyspacesOptionsBuilder {
 	b.setters = append(b.setters, func(o *ListKeyspacesOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
+// ListPCUGroupsOption configures a ListPCUGroups operation.
+// You can use the fluent-style builder or a pointer to [ListPCUGroupsOptions] interchangeably.
+//
+// Example using the fluent builder ([ListPCUGroups]):
+//
+//	// No need to use pointer for builder; the builder handles that for you.
+//	opts := options.ListPCUGroups().SetRegion("value")
+//
+// Example using a pointer to [ListPCUGroupsOptions] without the fluent builder:
+//
+//	opts := &options.ListPCUGroupsOptions{Region: ptr.To("value")}
+type ListPCUGroupsOption = Builder[ListPCUGroupsOptions]
+
+// Setters implements Builder[ListPCUGroupsOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[ListPCUGroupsOptions].
+func (o *ListPCUGroupsOptions) Setters() []func(*ListPCUGroupsOptions) {
+	return NoopBuilder(o)
+}
+
+// listPCUGroupsOptionsBuilder is a builder for ListPCUGroupsOptions.
+type listPCUGroupsOptionsBuilder struct {
+	setters []func(*ListPCUGroupsOptions)
+}
+
+// ListPCUGroups creates a new builder for [ListPCUGroupsOptions].
+func ListPCUGroups() *listPCUGroupsOptionsBuilder {
+	return &listPCUGroupsOptionsBuilder{}
+}
+
+// Setters implements Builder[ListPCUGroupsOptions].
+func (b *listPCUGroupsOptionsBuilder) Setters() []func(*ListPCUGroupsOptions) {
+	return b.setters
+}
+
+// SetCloudProvider sets the CloudProvider option.
+// CloudProvider filters the returned PCU groups by cloud provider.
+func (b *listPCUGroupsOptionsBuilder) SetCloudProvider(v CloudProvider) *listPCUGroupsOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListPCUGroupsOptions) {
+		o.CloudProvider = &v
+	})
+	return b
+}
+
+// SetRegion sets the Region option.
+// Region filters the returned PCU groups by region.
+// If provided, CloudProvider must also be provided.
+func (b *listPCUGroupsOptionsBuilder) SetRegion(v string) *listPCUGroupsOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListPCUGroupsOptions) {
+		o.Region = &v
+	})
+	return b
+}
+
+// UpdateAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→Admin hierarchy.
+func (b *listPCUGroupsOptionsBuilder) UpdateAPIOptions(v ...APIOption) *listPCUGroupsOptionsBuilder {
+	b.setters = append(b.setters, func(o *ListPCUGroupsOptions) {
 		MergeInto(&o.APIOptions, v...)
 	})
 	return b

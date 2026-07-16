@@ -93,6 +93,9 @@ func (o *CollectionEstimatedDocumentCountOptions) Children() []any {
 // Returns all non-nil option fields.
 func (o *CollectionFindAndRerankOptions) Children() []any {
 	var children []any
+	if o.Rerank != nil {
+		children = append(children, o.Rerank)
+	}
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)
 	}
@@ -447,6 +450,16 @@ func (o *ListIndexesOptions) Children() []any {
 // Children implements ChildValidator for ListKeyspacesOptions.
 // Returns all non-nil option fields.
 func (o *ListKeyspacesOptions) Children() []any {
+	var children []any
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
+// Children implements ChildValidator for ListPCUGroupsOptions.
+// Returns all non-nil option fields.
+func (o *ListPCUGroupsOptions) Children() []any {
 	var children []any
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)

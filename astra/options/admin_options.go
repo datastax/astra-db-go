@@ -15,6 +15,7 @@
 package options
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -33,6 +34,28 @@ type FindAvailableRegionsOptions struct {
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→Admin hierarchy.
 	APIOptions *APIOptions
+}
+
+// ListPCUGroupsOptions represents options for the ListPCUGroups operation.
+type ListPCUGroupsOptions struct {
+	// CloudProvider filters the returned PCU groups by cloud provider.
+	CloudProvider *CloudProvider
+
+	// Region filters the returned PCU groups by region.
+	// If provided, CloudProvider must also be provided.
+	Region *string
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→Admin hierarchy.
+	APIOptions *APIOptions
+}
+
+// Validate ensures that Region is not set without CloudProvider.
+func (o *ListPCUGroupsOptions) Validate() error {
+	if o.Region != nil && o.CloudProvider == nil {
+		return fmt.Errorf("ListPCUGroups: if Region is provided, CloudProvider must also be provided")
+	}
+	return nil
 }
 
 // DatabaseStatus represents the status of an Astra database.
@@ -87,21 +110,33 @@ const (
 type CloudProviderFilter string
 
 const (
-	// CloudProviderAll returns databases from all cloud providers (default).
-	CloudProviderAll CloudProviderFilter = "ALL"
-	// CloudProviderGCP returns only GCP databases.
-	CloudProviderGCP CloudProviderFilter = "GCP"
-	// CloudProviderAWS returns only AWS databases.
-	CloudProviderAWS CloudProviderFilter = "AWS"
-	// CloudProviderAzure returns only Azure databases.
-	CloudProviderAzure CloudProviderFilter = "AZURE"
+	// CloudProviderFilterAll returns databases from all cloud providers (default).
+	CloudProviderFilterAll CloudProviderFilter = "ALL"
+	// CloudProviderFilterGCP returns only GCP databases.
+	CloudProviderFilterGCP CloudProviderFilter = CloudProviderFilter(CloudProviderGCP)
+	// CloudProviderFilterAWS returns only AWS databases.
+	CloudProviderFilterAWS CloudProviderFilter = CloudProviderFilter(CloudProviderAWS)
+	// CloudProviderFilterAzure returns only Azure databases.
+	CloudProviderFilterAzure CloudProviderFilter = CloudProviderFilter(CloudProviderAzure)
+)
+
+// CloudProvider represents a cloud provider hosting an Astra database.
+type CloudProvider string
+
+const (
+	// CloudProviderGCP represents Google Cloud Platform.
+	CloudProviderGCP CloudProvider = "GCP"
+	// CloudProviderAWS represents Amazon Web Services.
+	CloudProviderAWS CloudProvider = "AWS"
+	// CloudProviderAzure represents Microsoft Azure.
+	CloudProviderAzure CloudProvider = "AZURE"
 )
 
 // ListDatabasesOptions represents options for the ListDatabases operation.
 type ListDatabasesOptions struct {
 	// Include filters databases by status. Defaults to [DatabaseStatusNonTerminated].
 	Include *DatabaseStatus
-	// Provider filters databases by cloud provider. Defaults to [CloudProviderAll].
+	// Provider filters databases by cloud provider. Defaults to [CloudProviderFilterAll].
 	Provider *CloudProviderFilter
 	// Limit is the maximum number of databases to return (1-100). Defaults to 25.
 	Limit *int
