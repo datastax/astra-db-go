@@ -600,6 +600,15 @@ func (b *collectionFindAndRerankOptionsBuilder) SetInitialPageState(v string) *c
 	return b
 }
 
+// UpdateRerank sets the Rerank option.
+// Rerank overrides the rerank service configuration for this query.
+func (b *collectionFindAndRerankOptionsBuilder) UpdateRerank(v ...RerankServiceOption) *collectionFindAndRerankOptionsBuilder {
+	b.setters = append(b.setters, func(o *CollectionFindAndRerankOptions) {
+		MergeInto(&o.Rerank, v...)
+	})
+	return b
+}
+
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command.

@@ -93,6 +93,9 @@ func (o *CollectionEstimatedDocumentCountOptions) Children() []any {
 // Returns all non-nil option fields.
 func (o *CollectionFindAndRerankOptions) Children() []any {
 	var children []any
+	if o.Rerank != nil {
+		children = append(children, o.Rerank)
+	}
 	if o.APIOptions != nil {
 		children = append(children, o.APIOptions)
 	}

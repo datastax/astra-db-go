@@ -396,6 +396,9 @@ type CollectionFindAndRerankOptions struct {
 	// InitialPageState is used for pagination (if supported by the API in the future).
 	InitialPageState *string `json:"pageState,omitempty"`
 
+	// Rerank overrides the rerank service configuration for this query.
+	Rerank *RerankServiceOptions `json:"rerank,omitempty"`
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command.
 	APIOptions *APIOptions `json:"-"`

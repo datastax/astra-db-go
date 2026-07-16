@@ -78,6 +78,7 @@ func (c *CollectionFindAndRerankCursor) mkPayload(pageState *string) any {
 			RerankOn:          c.options.RerankOn,
 			RerankQuery:       c.options.RerankQuery,
 			PageState:         pageState,
+			Rerank:            c.options.Rerank,
 		},
 	}
 }
