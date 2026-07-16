@@ -147,17 +147,17 @@ func Lexical(text string) Sort {
 }
 
 // CollSort is a namespace for collection-specific sort operators.
-// Obtain one via [Coll]. The returned [Sort] values compose with the fluent
+// Access via [Coll]. The returned [Sort] values compose with the fluent
 // [Sort.Asc] / [Sort.Desc] / [Sort.By] methods like any other sort clause.
 //
 // Example:
 //
-//	sort.Coll().Vector(myVec).Asc("title")
+//	sort.Coll.Vector(myVec)
 type CollSort struct{}
 
-// Coll returns a [CollSort] that provides access to collection-specific sort
-// operators such as [CollSort.Vector], [CollSort.Vectorize], and [CollSort.Lexical].
-func Coll() CollSort { return CollSort{} }
+// Coll provides access to collection-specific sort operators such as
+// [CollSort.Vector], [CollSort.Vectorize], and [CollSort.Lexical].
+var Coll CollSort
 
 // Vector creates a Sort for vector similarity search using the collection's
 // reserved $vector field. Collection-only.
@@ -178,17 +178,17 @@ func (CollSort) Lexical(text string) Sort {
 }
 
 // TableSort is a namespace for table-specific sort operators.
-// Obtain one via [Table]. The returned [Sort] values compose with the fluent
+// Access via [Table]. The returned [Sort] values compose with the fluent
 // [Sort.Asc] / [Sort.Desc] / [Sort.By] methods like any other sort clause.
 //
 // Example:
 //
-//	sort.Table().Vector("embedding", myVec).Asc("title")
+//	sort.Table.Vector("embedding", myVec)
 type TableSort struct{}
 
-// Table returns a [TableSort] that provides access to table-specific sort
-// operators such as [TableSort.Vector], [TableSort.Vectorize], and [TableSort.Lexical].
-func Table() TableSort { return TableSort{} }
+// Table provides access to table-specific sort operators such as
+// [TableSort.Vector], [TableSort.Vectorize], and [TableSort.Lexical].
+var Table TableSort
 
 // Vector creates a Sort for vector similarity search on the given column.
 // Table-only.
