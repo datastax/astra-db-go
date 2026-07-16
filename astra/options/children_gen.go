@@ -454,6 +454,16 @@ func (o *ListKeyspacesOptions) Children() []any {
 	return children
 }
 
+// Children implements ChildValidator for ListPCUGroupsOptions.
+// Returns all non-nil option fields.
+func (o *ListPCUGroupsOptions) Children() []any {
+	var children []any
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for ListTablesOptions.
 // Returns all non-nil option fields.
 func (o *ListTablesOptions) Children() []any {

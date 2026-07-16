@@ -78,7 +78,7 @@ func AdminListDatabases(e *harness.TestEnv) error {
 		return fmt.Errorf("Admin() failed: %w", err)
 	}
 
-	databases, err := admin.ListDatabases(ctx, options.ListDatabases().SetProvider(options.CloudProviderAzure))
+	databases, err := admin.ListDatabases(ctx, options.ListDatabases().SetProvider(options.CloudProviderFilterAzure))
 	if err != nil {
 		return fmt.Errorf("ListDatabases failed: %w", err)
 	}
@@ -132,13 +132,12 @@ func AdminCreateDropDatabase(e *harness.TestEnv) error {
 
 	// Create a database (non-blocking to keep test fast)
 	params := astra.CreateDatabaseParams{
-		Name:          "go-sdk-integration-test",
 		CloudProvider: "aws",
 		Region:        "us-east-2",
 	}
 
-	slog.Info("Creating database", "name", params.Name, "provider", params.CloudProvider, "region", params.Region)
-	dbAdmin, err := admin.CreateDatabase(ctx, params,
+	slog.Info("Creating database", "name", "go-sdk-integration-test", "provider", params.CloudProvider, "region", params.Region)
+	dbAdmin, err := admin.CreateDatabase(ctx, "go-sdk-integration-test", params,
 		options.CreateDatabase())
 	if err != nil {
 		return fmt.Errorf("CreateDatabase failed: %w", err)

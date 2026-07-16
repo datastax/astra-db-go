@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
+
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
@@ -63,6 +63,9 @@ type Region struct {
 	ReservedForQualifiedUsers bool `json:"reservedForQualifiedUsers"`
 	// Zone is the geographic zone (e.g., "na", "eu", "apac").
 	Zone string `json:"zone"`
+	// PCUTypes lists the PCU types available in this region.
+	// May be nil if the region has no PCU type information.
+	PCUTypes []PCUGroupType `json:"pcu_types,omitempty"`
 }
 
 // DatabaseStatus is a type alias for options.DatabaseStatus, representing
@@ -147,6 +150,69 @@ type AstraDatabaseRegionInfo struct {
 	APIEndpoint string `json:"apiEndpoint"`
 	// CreatedAt is the timestamp representing when this region was created.
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// PCUGroupTypeDetails contains detailed hardware specifications for a PCU group type.
+type PCUGroupTypeDetails struct {
+	// VCPU is the number of virtual CPUs.
+	VCPU *int `json:"vCPU,omitempty"`
+	// Memory is the memory specification (e.g., "32GiB").
+	Memory *string `json:"memory,omitempty"`
+	// DiskCache is the disk cache specification.
+	DiskCache *string `json:"disk_cache,omitempty"`
+}
+
+// PCUGroupType describes the type/tier of a PCU group.
+type PCUGroupType struct {
+	// Type is the PCU type identifier.
+	Type string `json:"type"`
+	// Region is the region this type applies to.
+	Region *string `json:"region,omitempty"`
+	// CloudProvider is the cloud provider for this PCU type.
+	CloudProvider *options.CloudProvider `json:"provider,omitempty"`
+	// Details contains the hardware specifications for this PCU type.
+	Details *PCUGroupTypeDetails `json:"details,omitempty"`
+}
+
+// PCUGroup represents a Provisioned Capacity Unit (PCU) group in an Astra organization.
+//
+// PCU groups are used to attach databases to provisioned capacity during creation.
+// See: https://docs.datastax.com/en/astra-db-serverless/administration/provisioned-capacity-units.html
+type PCUGroup struct {
+	// ID is the unique identifier of the PCU group.
+	ID string `json:"id"`
+	// OrgID is the organization identifier.
+	OrgID *string `json:"orgId,omitempty"`
+	// Title is the human-readable name of the PCU group.
+	Title *string `json:"title,omitempty"`
+	// CloudProvider is the cloud provider for this PCU group (e.g., "aws", "gcp", "azure").
+	CloudProvider options.CloudProvider `json:"cloudProvider"`
+	// Region is the region where this PCU group is deployed.
+	Region string `json:"region"`
+	// InstanceType is the instance type of the PCU group.
+	InstanceType *string `json:"instanceType,omitempty"`
+	// PCUType describes the type/tier of this PCU group.
+	PCUType *PCUGroupType `json:"pcuType,omitempty"`
+	// ProvisionType indicates how the PCU is provisioned.
+	ProvisionType *string `json:"provisionType,omitempty"`
+	// Min is the minimum number of PCUs.
+	Min *int `json:"min,omitempty"`
+	// Max is the maximum number of PCUs.
+	Max *int `json:"max,omitempty"`
+	// Description is a human-readable description.
+	Description *string `json:"description,omitempty"`
+	// CreatedAt is the creation timestamp.
+	CreatedAt *string `json:"createdAt,omitempty"`
+	// UpdatedAt is the last updated timestamp.
+	UpdatedAt *string `json:"updatedAt,omitempty"`
+	// CreatedBy is the identifier of who created this group.
+	CreatedBy *string `json:"createdBy,omitempty"`
+	// UpdatedBy is the identifier of who last updated this group.
+	UpdatedBy *string `json:"updatedBy,omitempty"`
+	// Status is the current status of the PCU group.
+	Status *string `json:"status,omitempty"`
+	// Reserved is the number of reserved PCUs.
+	Reserved *int `json:"reserved,omitempty"`
 }
 
 // rawDatabaseResponse represents the full database response from the DevOps API.
@@ -328,7 +394,7 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.F
 //	databases, err := admin.ListDatabases(ctx,
 //	    options.ListDatabases().
 //	        SetInclude(options.DatabaseStatusActive).
-//	        SetProvider(options.CloudProviderGCP))
+//	        SetProvider(options.CloudProviderFilterGCP))
 //
 // Example - paginate through results and retrieve all databases:
 //
@@ -425,25 +491,33 @@ func (a *AstraAdmin) DatabaseInfo(ctx context.Context, databaseID string, opts .
 
 // CreateDatabaseParams contains the required parameters for creating a database.
 type CreateDatabaseParams struct {
-	// Name is the database name. Must start and end with a letter or number.
-	// Can contain letters, numbers, and special characters: & + - _ ( ) < > . , @
-	// Cannot exceed 50 characters.
-	Name string
 	// CloudProvider is the cloud provider (e.g., "aws", "gcp", "azure").
-	CloudProvider string
+	CloudProvider options.CloudProvider
 	// Region is the cloud provider region for the database location.
 	Region string
+	// PCUGroupUUID is the optional UUID of a PCU group to attach the database to upon creation.
+	// If set, CreateDatabase will validate that a PCU group with this ID exists and matches
+	// the specified CloudProvider and Region before submitting the creation request.
+	PCUGroupUUID string
+	// Tier is the database tier (e.g., "serverless"). Defaults to "serverless".
+	Tier string
+	// CapacityUnits is the number of capacity units. Defaults to 1.
+	CapacityUnits int
+	// DbType is the type of database. Defaults to "vector".
+	// If set to "nonvector", the field is omitted from the request.
+	DbType string
 }
 
 // createDatabaseRequest is the request payload for the create database API.
 type createDatabaseRequest struct {
-	Name          string `json:"name"`
-	CloudProvider string `json:"cloudProvider"`
-	Region        string `json:"region"`
-	Keyspace      string `json:"keyspace,omitempty"`
-	DbType        string `json:"dbType"`
-	Tier          string `json:"tier"`
-	CapacityUnits int    `json:"capacityUnits"`
+	Name          string                `json:"name"`
+	CloudProvider options.CloudProvider `json:"cloudProvider"`
+	Region        string                `json:"region"`
+	Keyspace      string                `json:"keyspace,omitempty"`
+	DbType        string                `json:"dbType,omitempty"`
+	Tier          string                `json:"tier"`
+	CapacityUnits int                   `json:"capacityUnits"`
+	PCUGroupUUID  string                `json:"pcuGroupUUID,omitempty"`
 }
 
 // DatabaseAdmin returns an AstraDatabaseAdmin handle for the given database ID and region.
@@ -457,8 +531,7 @@ type createDatabaseRequest struct {
 //	dbAdmin := admin.DatabaseAdmin("a6a1d8d6-...-377566f345bf", "us-east1")
 //	keyspaces, err := dbAdmin.ListKeyspaces(ctx)
 func (a *AstraAdmin) DatabaseAdmin(id, region string, opts ...options.APIOption) *AstraDatabaseAdmin {
-	return &AstraDatabaseAdmin{a, newDbFromID(id, region, a.astraEnvironment,
-		a.client, options.Merge(append([]options.APIOption{a.options}, opts...)...))}
+	return &AstraDatabaseAdmin{a, newDbFromID(id, region, a.astraEnvironment, a.client, options.Merge(append([]options.APIOption{a.options}, opts...)...))}
 }
 
 // DatabaseAdminFromEndpoint returns an AstraDatabaseAdmin handle for the given database endpoint.
@@ -487,11 +560,6 @@ type AwaitStatusOptions struct {
 	APIOptions *options.APIOptions
 }
 
-// Case-insensitive compare out of an abundance of caution
-func compareStatus(s DatabaseStatus, t DatabaseStatus) bool {
-	return strings.EqualFold(string(s), string(t))
-}
-
 // Interval returns PollInterval if non-zero and falls back to default.
 func (o *AwaitStatusOptions) Interval() time.Duration {
 	if o.PollInterval <= 0 {
@@ -503,7 +571,7 @@ func (o *AwaitStatusOptions) Interval() time.Duration {
 // IsStatusLegal returns true if the given status is in the list of legal states.
 func (o *AwaitStatusOptions) IsStatusLegal(s DatabaseStatus) bool {
 	for _, legal := range o.LegalStates {
-		if compareStatus(s, legal) {
+		if s == legal {
 			return true
 		}
 	}
@@ -537,6 +605,88 @@ func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts Aw
 	}
 }
 
+// ListPCUGroups retrieves PCU groups for the current organization from the DevOps API.
+//
+// Query the DevOps API to get a listing of the PCU groups for subsequent use in
+// database creation. The return value can be filtered to a specific cloud provider
+// and region, or include every PCU group in the org.
+//
+// If Region is set in options, CloudProvider must also be set.
+//
+// Example - list all PCU groups:
+//
+//	admin, err := client.Admin()
+//	groups, err := admin.ListPCUGroups(ctx)
+//
+// Example - filter by provider and region:
+//
+//	groups, err := admin.ListPCUGroups(ctx,
+//	    options.ListPCUGroups().SetCloudProvider("gcp").SetRegion("us-east1"))
+func (a *AstraAdmin) ListPCUGroups(ctx context.Context, opts ...options.ListPCUGroupsOption) ([]PCUGroup, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	cmd := a.createCommand(http.MethodPost, "/pcus/actions/get", struct{}{}, nil, merged.APIOptions)
+
+	resp, err := cmd.Execute(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var groups []PCUGroup
+	if err := json.Unmarshal(resp.Body, &groups); err != nil {
+		return nil, fmt.Errorf("failed to parse PCU groups response: %w", err)
+	}
+
+	if merged.CloudProvider != nil {
+		filtered := groups[:0]
+		for _, g := range groups {
+			if g.CloudProvider == *merged.CloudProvider && (merged.Region == nil || g.Region == *merged.Region) {
+				filtered = append(filtered, g)
+			}
+		}
+		return filtered, nil
+	}
+
+	return groups, nil
+}
+
+// validatePCUGroupExists checks that the given PCU group UUID exists and matches
+// the cloud provider and region specified in params. Called by CreateDatabase
+// when params.PCUGroupUUID is set.
+func (a *AstraAdmin) validatePCUGroupExists(ctx context.Context, params CreateDatabaseParams, apiOpts *options.APIOptions) error {
+	var opts []options.ListPCUGroupsOption
+	if apiOpts != nil {
+		opts = append(opts, options.ListPCUGroups().UpdateAPIOptions(apiOpts))
+	}
+	groups, err := a.ListPCUGroups(ctx, opts...)
+	if err != nil {
+		return err
+	}
+
+	var found *PCUGroup
+	for i := range groups {
+		if groups[i].ID == params.PCUGroupUUID {
+			found = &groups[i]
+			break
+		}
+	}
+
+	if found == nil {
+		return fmt.Errorf("requested PCU group ID %q not found for cloud provider/region (%q / %q): aborting database creation",
+			params.PCUGroupUUID, params.CloudProvider, params.Region)
+	}
+
+	if found.CloudProvider != params.CloudProvider || found.Region != params.Region {
+		return fmt.Errorf("requested PCU group ID %q is in another cloud provider and region (%q / %q): aborting database creation",
+			params.PCUGroupUUID, found.CloudProvider, found.Region)
+	}
+
+	return nil
+}
+
 // CreateDatabase creates a new serverless vector database and returns an
 // [AstraDatabaseAdmin] for performing admin operations on it.
 //
@@ -549,44 +699,64 @@ func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts Aw
 // Example - create a database (blocking by default):
 //
 //	admin, err := client.Admin()
-//	dbAdmin, err := admin.CreateDatabase(ctx, astra.CreateDatabaseParams{
-//	    Name:          "my-database",
+//	dbAdmin, err := admin.CreateDatabase(ctx, "my-database", astra.CreateDatabaseParams{
 //	    CloudProvider: "gcp",
 //	    Region:        "us-east1",
 //	})
 //
 // Example - create without waiting:
 //
-//	dbAdmin, err := admin.CreateDatabase(ctx, astra.CreateDatabaseParams{
-//	    Name:          "my-database",
+//	dbAdmin, err := admin.CreateDatabase(ctx, "my-database", astra.CreateDatabaseParams{
 //	    CloudProvider: "gcp",
 //	    Region:        "us-east1",
 //	}, options.CreateDatabase().SetBlocking(false))
 //
 // Example - create with custom keyspace and poll interval:
 //
-//	dbAdmin, err := admin.CreateDatabase(ctx, astra.CreateDatabaseParams{
-//	    Name:          "my-database",
+//	dbAdmin, err := admin.CreateDatabase(ctx, "my-database", astra.CreateDatabaseParams{
 //	    CloudProvider: "aws",
 //	    Region:        "us-east-1",
 //	}, options.CreateDatabase().
 //	    SetKeyspace("my_keyspace").
 //	    SetPollInterval(5 * time.Second))
-func (a *AstraAdmin) CreateDatabase(ctx context.Context, params CreateDatabaseParams, opts ...options.CreateDatabaseOption) (*AstraDatabaseAdmin, error) {
+func (a *AstraAdmin) CreateDatabase(ctx context.Context, name string, params CreateDatabaseParams, opts ...options.CreateDatabaseOption) (*AstraDatabaseAdmin, error) {
 	// Merge options
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
 		return nil, err
 	}
 
+	if params.PCUGroupUUID != "" {
+		if err := a.validatePCUGroupExists(ctx, params, merged.APIOptions); err != nil {
+			return nil, err
+		}
+	}
+
+	tier := params.Tier
+	if tier == "" {
+		tier = "serverless"
+	}
+	capacityUnits := params.CapacityUnits
+	if capacityUnits == 0 {
+		capacityUnits = 1
+	}
+	dbType := params.DbType
+	if dbType == "" {
+		dbType = "vector"
+	}
+	if dbType == "nonvector" {
+		dbType = ""
+	}
+
 	// Build request payload
 	payload := createDatabaseRequest{
-		Name:          params.Name,
+		Name:          name,
 		CloudProvider: params.CloudProvider,
 		Region:        params.Region,
-		DbType:        "vector",
-		Tier:          "serverless",
-		CapacityUnits: 1,
+		DbType:        dbType,
+		Tier:          tier,
+		CapacityUnits: capacityUnits,
+		PCUGroupUUID:  params.PCUGroupUUID,
 	}
 	if merged.Keyspace != nil {
 		payload.Keyspace = *merged.Keyspace
