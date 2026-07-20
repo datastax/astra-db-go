@@ -631,7 +631,7 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 		if _, err := d.ID(); err != nil {
 			return nil, err
 		}
-		admin, err := d.client.Admin(options.API().SetAstraEnvironment(d.env))
+		admin, err := d.client.Admin(d.options, options.API().SetAstraEnvironment(d.env))
 		if err != nil {
 			return nil, err
 		}
