@@ -34,9 +34,8 @@ func TestDocument_DeferredDecoding(t *testing.T) {
 		t.Fatalf("Deserialize() error = %v", err)
 	}
 
-	// Verify it's a ServerDocument
-	if reflect.TypeOf(doc).String() != "*untyped.ServerDocument" {
-		t.Errorf("expected *untyped.ServerDocument, got %T", doc)
+	if reflect.TypeOf(doc).String() != "*untyped.serverDocument" {
+		t.Errorf("expected *untyped.serverDocument, got %T", doc)
 	}
 
 	// Test Get()
@@ -166,6 +165,22 @@ func TestDocument_MustGet(t *testing.T) {
 	}()
 
 	doc.MustGet("missing")
+}
+
+func TestDocument_VectorFieldHint(t *testing.T) {
+	jsonData := `{"id": "123", "$vector": [0.1, 0.2, 0.3]}`
+
+	var doc Document
+	err := serdes.Deserialize([]byte(jsonData), &doc, GlobalDocumentCtx, serdes.TargetCollection)
+	if err != nil {
+		t.Fatalf("Deserialize() error = %v", err)
+	}
+
+	vector := doc.MustGet("$vector").(datatypes.Vector)
+	expectedVector := datatypes.NewVector([]float32{0.1, 0.2, 0.3})
+	if diff := testlib.Diff(t, expectedVector, vector); diff != "" {
+		t.Errorf("MustGet($vector) mismatch (-want +got):\n%s", diff)
+	}
 }
 
 func TestNewDocument_MustGet(t *testing.T) {

@@ -141,10 +141,10 @@ func alignedSize(t reflect.Type) uintptr {
 
 func extractFieldHint(field string) fieldHint {
 	if len(field) > 0 && field[0] == '$' {
-		switch {
-		case field[1:] == "vector":
+		switch field {
+		case "$vector":
 			return vectorField
-		case field[1:] == "vectorize":
+		case "$vectorize":
 			return vectorizeField
 		}
 	}

@@ -175,30 +175,22 @@ func (d NewDocument) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewDocument; use the astra.Document interface for results")
 }
 
-type ServerDocument struct {
-	Data  map[string]json.RawMessage
-	Flags serdes.DesFlags
+type serverDocument struct {
+	serdes.RawMap
 }
 
-func (d *ServerDocument) isDocument() {}
+func (d *serverDocument) isDocument() {}
 
-func (d *ServerDocument) ToMap() map[string]any {
+func (d *serverDocument) ToMap() map[string]any {
 	result := make(map[string]any, len(d.Data))
-
-	for name, rawValue := range d.Data {
-		if string(rawValue) == "null" {
-			result[name] = nil
-			continue
-		}
-
-		var val any
-		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetCollection, d.Flags)
+	for name := range d.Data {
+		val, _ := d.GetAny(name)
 		result[name] = val
 	}
 	return result
 }
 
-func (d *ServerDocument) Get(path ...string) (any, bool) {
+func (d *serverDocument) Get(path ...string) (any, bool) {
 	if len(path) == 0 {
 		return nil, false
 	}
@@ -210,7 +202,7 @@ func (d *ServerDocument) Get(path ...string) (any, bool) {
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.Flags); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.Flags()); err != nil {
 			return nil, false
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -219,18 +211,14 @@ func (d *ServerDocument) Get(path ...string) (any, bool) {
 		}
 	}
 
-	var generic any
-	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetCollection, d.Flags); err != nil {
-		return nil, false
-	}
-	return generic, true
+	return d.GetField(path[len(path)-1], currentRaw)
 }
 
-func (d *ServerDocument) MustGet(path ...string) any {
+func (d *serverDocument) MustGet(path ...string) any {
 	return mustGet(d.Get, path, "Document")
 }
 
-func (d *ServerDocument) Decode(dest any, path ...string) error {
+func (d *serverDocument) Decode(dest any, path ...string) error {
 	if len(path) == 0 {
 		return fmt.Errorf("astra: empty path for Decode")
 	}
@@ -242,7 +230,7 @@ func (d *ServerDocument) Decode(dest any, path ...string) error {
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.Flags); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetCollection, d.Flags()); err != nil {
 			return fmt.Errorf("astra: failed to decode intermediate path %q: %w", path[i-1], err)
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -251,16 +239,10 @@ func (d *ServerDocument) Decode(dest any, path ...string) error {
 		}
 	}
 
-	return serdes.Deserialize(currentRaw, dest, nil, serdes.TargetCollection, d.Flags)
+	return d.DecodeField(path[len(path)-1], currentRaw, dest)
 }
 
-func (d *ServerDocument) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
-	d.Data = make(map[string]json.RawMessage)
-	d.Flags = ctx.Flags
-	return serdes.Deserialize(value, &d.Data, nil, serdes.TargetCollection, d.Flags)
-}
-
-func (d *ServerDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (d *serverDocument) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if ctx.Target != serdes.TargetCollection {
 		return nil, fmt.Errorf("`Document` can only be serialized for collections, got %s", ctx.Target)
 	}
@@ -276,7 +258,7 @@ func (documentTargetCtx) UntypedTargetInterface() reflect.Type {
 }
 
 func (documentTargetCtx) NewUntypedTarget(ctx serdes.DecodeCtx, p unsafe.Pointer) serdes.AstraRawUnmarshaler {
-	doc := &ServerDocument{Flags: ctx.Flags}
+	doc := &serverDocument{}
 	*(*Document)(p) = doc
 	return doc
 }

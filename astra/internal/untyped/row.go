@@ -169,24 +169,21 @@ func (r NewRow) UnmarshalAstraRaw(_ serdes.DecodeCtx, _ []byte) error {
 	return fmt.Errorf("cannot deserialize into NewRow; use the astra.Row interface for results")
 }
 
-type ServerRow struct {
-	Data   map[string]json.RawMessage
+type serverRow struct {
+	serdes.RawMap
 	Schema *LazySchema
-	Flags  serdes.DesFlags
 }
 
-func (r *ServerRow) isRow() {}
+func (r *serverRow) isRow() {}
 
-func (r *ServerRow) ToMap() map[string]any {
+func (r *serverRow) ToMap() map[string]any {
 	schema := r.Schema.Get()
 	result := make(map[string]any, len(r.Data))
-
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.Schema, Flags: r.Flags}
 
 	for name, rawValue := range r.Data {
 		col, ok := schema.Get(name)
 		if ok {
-			val, err := deserializeColumn(ctx, rawValue, col)
+			val, err := deserializeColumn(r.Ctx(), rawValue, col)
 			if err != nil {
 				panic(fmt.Sprintf("astra: failed to decode field %q using schema type %q: %v", name, col.Type, err))
 			}
@@ -194,15 +191,14 @@ func (r *ServerRow) ToMap() map[string]any {
 			continue
 		}
 
-		var val any
-		_ = serdes.Deserialize(rawValue, &val, nil, serdes.TargetTable, r.Flags)
+		val, _ := r.GetAny(name)
 		result[name] = val
 	}
 
-	if r.Flags&serdes.SparseRows == 0 {
+	if r.Flags()&serdes.SparseRows == 0 {
 		for _, col := range schema {
 			if result[col.Name] == nil {
-				result[col.Name] = getDefaultValue(ctx, col.Column)
+				result[col.Name] = getDefaultValue(r.Ctx(), col.Column)
 			}
 		}
 	}
@@ -210,14 +206,14 @@ func (r *ServerRow) ToMap() map[string]any {
 	return result
 }
 
-func (r *ServerRow) Get(path ...string) (any, bool) {
+func (r *serverRow) Get(path ...string) (any, bool) {
 	if len(path) == 0 {
 		return nil, false
 	}
 
 	currentRaw, ok := r.Data[path[0]]
 	if !ok {
-		if r.Flags&serdes.SparseRows == 0 {
+		if r.Flags()&serdes.SparseRows == 0 {
 			if _, ok := r.Schema.Get().Get(path[0]); ok {
 				return nil, true
 			}
@@ -226,11 +222,10 @@ func (r *ServerRow) Get(path ...string) (any, bool) {
 	}
 
 	currentCol, hasCol := r.Schema.Get().Get(path[0])
-	ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.Schema, Flags: r.Flags}
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable, r.Flags); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable, r.Flags()); err != nil {
 			return nil, false
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -244,26 +239,21 @@ func (r *ServerRow) Get(path ...string) (any, bool) {
 	}
 
 	if hasCol {
-		val, err := deserializeColumn(ctx, currentRaw, currentCol)
+		val, err := deserializeColumn(r.Ctx(), currentRaw, currentCol)
 		if err != nil {
 			panic(fmt.Sprintf("astra: failed to decode path %v using schema type %q: %v", path, currentCol.Type, err))
 		}
 		return val, true
 	}
 
-	// Fallback to generic decoding if no column info
-	var generic any
-	if err := serdes.Deserialize(currentRaw, &generic, nil, serdes.TargetTable, r.Flags); err != nil {
-		return nil, false
-	}
-	return generic, true
+	return r.GetField(path[len(path)-1], currentRaw)
 }
 
-func (r *ServerRow) MustGet(path ...string) any {
+func (r *serverRow) MustGet(path ...string) any {
 	return mustGet(r.Get, path, "Row")
 }
 
-func (r *ServerRow) Decode(dest any, path ...string) error {
+func (r *serverRow) Decode(dest any, path ...string) error {
 	if len(path) == 0 {
 		return fmt.Errorf("astra: empty path for Decode")
 	}
@@ -277,7 +267,7 @@ func (r *ServerRow) Decode(dest any, path ...string) error {
 
 	for i := 1; i < len(path); i++ {
 		var nextLevel map[string]json.RawMessage
-		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable, r.Flags); err != nil {
+		if err := serdes.Deserialize(currentRaw, &nextLevel, nil, serdes.TargetTable, r.Flags()); err != nil {
 			return fmt.Errorf("astra: failed to decode intermediate path %q: %w", path[i-1], err)
 		}
 		currentRaw, ok = nextLevel[path[i]]
@@ -291,8 +281,7 @@ func (r *ServerRow) Decode(dest any, path ...string) error {
 	}
 
 	if _, ok := dest.(*any); ok && hasCol {
-		ctx := serdes.DecodeCtx{Target: serdes.TargetTable, TargetCtx: r.Schema, Flags: r.Flags}
-		val, err := deserializeColumn(ctx, currentRaw, currentCol)
+		val, err := deserializeColumn(r.Ctx(), currentRaw, currentCol)
 		if err != nil {
 			return err
 		}
@@ -305,16 +294,10 @@ func (r *ServerRow) Decode(dest any, path ...string) error {
 		targetCtx = &LazySchema{AsCols: currentCol.UDTDefinition.Fields}
 	}
 
-	return serdes.Deserialize(currentRaw, dest, targetCtx, serdes.TargetTable, r.Flags)
+	return serdes.Deserialize(currentRaw, dest, targetCtx, serdes.TargetTable, r.Flags())
 }
 
-func (r *ServerRow) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
-	r.Data = make(map[string]json.RawMessage)
-	r.Flags = ctx.Flags
-	return serdes.Deserialize(value, &r.Data, nil, serdes.TargetTable, r.Flags)
-}
-
-func (r *ServerRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
+func (r *serverRow) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, error) {
 	if ctx.Target != serdes.TargetTable {
 		return dst, fmt.Errorf("`Row` can only be serialized for tables, got %s", ctx.Target)
 	}
@@ -351,8 +334,8 @@ func (s *LazySchema) UntypedTargetInterface() reflect.Type {
 	return rowInterfaceType
 }
 
-func (s *LazySchema) NewUntypedTarget(ctx serdes.DecodeCtx, p unsafe.Pointer) serdes.AstraRawUnmarshaler {
-	row := &ServerRow{Schema: s, Flags: ctx.Flags}
+func (s *LazySchema) NewUntypedTarget(_ serdes.DecodeCtx, p unsafe.Pointer) serdes.AstraRawUnmarshaler {
+	row := &serverRow{Schema: s}
 	*(*Row)(p) = row
 	return row
 }

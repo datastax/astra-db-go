@@ -91,13 +91,18 @@ func SerializeInto(data any, target Target, dst []byte, flags ...SerFlags) ([]by
 }
 
 func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target Target, flags ...DesFlags) error {
-	if res == nil {
-		return &DecodeError{Action: DecodeActionInvalid}
-	}
-
 	var f DesFlags
 	for _, flag := range flags {
 		f |= flag
+	}
+
+	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, Flags: f}
+	return deserializeWithContext(data, res, ctx)
+}
+
+func deserializeWithContext(data []byte, res any, ctx DecodeCtx) error {
+	if res == nil {
+		return &DecodeError{Action: DecodeActionInvalid}
 	}
 
 	t := reflect.TypeOf(res)
@@ -107,10 +112,11 @@ func Deserialize(data []byte, res any, targetDecodeCtx TargetDecodeCtx, target T
 		return &DecodeError{Action: DecodeActionInvalid, Type: t}
 	}
 
-	ctx := DecodeCtx{Target: target, TargetCtx: targetDecodeCtx, Flags: f, payload: &data}
-	c := resolveCodecCaching(ctx.codecCtx, t.Elem(), f&DesNoCache != 0)
+	ctx.payload = &data
+	c := resolveCodecCaching(ctx.codecCtx, t.Elem(), ctx.Flags&DesNoCache != 0)
 
 	srcAfter, err := c.decode(ctx, data, p)
+	runtime.KeepAlive(res)
 	if err != nil {
 		return wrapStruct(err, t.Elem().Name())
 	}
