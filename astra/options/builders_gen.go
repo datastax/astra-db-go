@@ -83,39 +83,63 @@ func (b *apiOptionsBuilder) SetRequestTimeout(v time.Duration) *apiOptionsBuilde
 	return b
 }
 
-// SetConnectionTimeout sets the Connection option.
-// Connection is the timeout for establishing connections (lifted from TimeoutOptions)
-func (b *apiOptionsBuilder) SetConnectionTimeout(v time.Duration) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		if o.Timeout == nil {
-			o.Timeout = &TimeoutOptions{}
-		}
-		o.Timeout.Connection = &v
-	})
-	return b
-}
-
-// SetBulkOperationTimeout sets the BulkOperation option.
-// BulkOperation is the timeout for bulk operations like insertMany (lifted from TimeoutOptions)
-func (b *apiOptionsBuilder) SetBulkOperationTimeout(v time.Duration) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		if o.Timeout == nil {
-			o.Timeout = &TimeoutOptions{}
-		}
-		o.Timeout.BulkOperation = &v
-	})
-	return b
-}
-
 // SetGeneralMethodTimeout sets the GeneralMethod option.
-// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
-// When set, the entire multi-page operation must complete within this duration. (lifted from TimeoutOptions)
+// GeneralMethod is the overall timeout for general method operations (DML operations).
+// When set, the entire operation must complete within this duration. (lifted from TimeoutOptions)
 func (b *apiOptionsBuilder) SetGeneralMethodTimeout(v time.Duration) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
 		if o.Timeout == nil {
 			o.Timeout = &TimeoutOptions{}
 		}
 		o.Timeout.GeneralMethod = &v
+	})
+	return b
+}
+
+// SetCollectionAdminTimeout sets the CollectionAdmin option.
+// CollectionAdmin is the timeout for collection admin operations (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetCollectionAdminTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.CollectionAdmin = &v
+	})
+	return b
+}
+
+// SetTableAdminTimeout sets the TableAdmin option.
+// TableAdmin is the timeout for table admin operations (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetTableAdminTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.TableAdmin = &v
+	})
+	return b
+}
+
+// SetDatabaseAdminTimeout sets the DatabaseAdmin option.
+// DatabaseAdmin is the timeout for database admin operations (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetDatabaseAdminTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.DatabaseAdmin = &v
+	})
+	return b
+}
+
+// SetKeyspaceAdminTimeout sets the KeyspaceAdmin option.
+// KeyspaceAdmin is the timeout for keyspace admin operations (lifted from TimeoutOptions)
+func (b *apiOptionsBuilder) SetKeyspaceAdminTimeout(v time.Duration) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		if o.Timeout == nil {
+			o.Timeout = &TimeoutOptions{}
+		}
+		o.Timeout.KeyspaceAdmin = &v
 	})
 	return b
 }
@@ -3870,30 +3894,48 @@ func (b *timeoutOptionsBuilder) SetRequest(v time.Duration) *timeoutOptionsBuild
 	return b
 }
 
-// SetConnection sets the Connection option.
-// Connection is the timeout for establishing connections
-func (b *timeoutOptionsBuilder) SetConnection(v time.Duration) *timeoutOptionsBuilder {
-	b.setters = append(b.setters, func(o *TimeoutOptions) {
-		o.Connection = &v
-	})
-	return b
-}
-
-// SetBulkOperation sets the BulkOperation option.
-// BulkOperation is the timeout for bulk operations like insertMany
-func (b *timeoutOptionsBuilder) SetBulkOperation(v time.Duration) *timeoutOptionsBuilder {
-	b.setters = append(b.setters, func(o *TimeoutOptions) {
-		o.BulkOperation = &v
-	})
-	return b
-}
-
 // SetGeneralMethod sets the GeneralMethod option.
-// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
-// When set, the entire multi-page operation must complete within this duration.
+// GeneralMethod is the overall timeout for general method operations (DML operations).
+// When set, the entire operation must complete within this duration.
 func (b *timeoutOptionsBuilder) SetGeneralMethod(v time.Duration) *timeoutOptionsBuilder {
 	b.setters = append(b.setters, func(o *TimeoutOptions) {
 		o.GeneralMethod = &v
+	})
+	return b
+}
+
+// SetCollectionAdmin sets the CollectionAdmin option.
+// CollectionAdmin is the timeout for collection admin operations
+func (b *timeoutOptionsBuilder) SetCollectionAdmin(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.CollectionAdmin = &v
+	})
+	return b
+}
+
+// SetTableAdmin sets the TableAdmin option.
+// TableAdmin is the timeout for table admin operations
+func (b *timeoutOptionsBuilder) SetTableAdmin(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.TableAdmin = &v
+	})
+	return b
+}
+
+// SetDatabaseAdmin sets the DatabaseAdmin option.
+// DatabaseAdmin is the timeout for database admin operations
+func (b *timeoutOptionsBuilder) SetDatabaseAdmin(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.DatabaseAdmin = &v
+	})
+	return b
+}
+
+// SetKeyspaceAdmin sets the KeyspaceAdmin option.
+// KeyspaceAdmin is the timeout for keyspace admin operations
+func (b *timeoutOptionsBuilder) SetKeyspaceAdmin(v time.Duration) *timeoutOptionsBuilder {
+	b.setters = append(b.setters, func(o *TimeoutOptions) {
+		o.KeyspaceAdmin = &v
 	})
 	return b
 }

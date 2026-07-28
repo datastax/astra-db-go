@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
@@ -207,7 +208,7 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		"options": merged,
 	}, merged.APIOptions)
 
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.CollectionAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +252,7 @@ func (d *Db) CreateTable(ctx context.Context, name string, definition table.Defi
 		"options":    merged,
 	}, merged.APIOptions)
 
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +288,7 @@ func (d *Db) CreateType(ctx context.Context, name string, definition table.UDTDe
 		"options":    merged,
 	}, merged.APIOptions)
 
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -324,7 +325,7 @@ func (d *Db) AlterType(ctx context.Context, name string, op table.AlterTypeOpera
 		Op:   op,
 	}, merged.APIOptions)
 
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -342,7 +343,7 @@ func (d *Db) DropCollection(ctx context.Context, name string, opts ...options.Dr
 	cmd := d.newCmd("deleteCollection", map[string]any{
 		"name": name,
 	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.CollectionAdmin)
 	return err
 }
 
@@ -364,7 +365,7 @@ func (d *Db) DropTable(ctx context.Context, name string, opts ...options.DropTab
 			"ifExists": merged.IfExists,
 		},
 	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -386,7 +387,7 @@ func (d *Db) DropTableIndex(ctx context.Context, name string, opts ...options.Dr
 			"ifExists": merged.IfExists,
 		},
 	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -406,7 +407,7 @@ func (d *Db) DropType(ctx context.Context, name string, opts ...options.DropType
 			"ifExists": merged.IfExists,
 		},
 	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -478,7 +479,7 @@ func listCollections[T any](d *Db, ctx context.Context, explain bool, opts *opti
 			"explain": explain,
 		},
 	}, opts)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.CollectionAdmin)
 	if err != nil {
 		var zero T
 		return zero, err
@@ -546,7 +547,7 @@ func listTables[T any](d *Db, ctx context.Context, explain bool, opts *options.A
 			"explain": explain,
 		},
 	}, opts)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	if err != nil {
 		var zero T
 		return zero, err
@@ -607,7 +608,7 @@ func listTypes[T any](d *Db, ctx context.Context, explain bool, opts *options.AP
 			"explain": explain,
 		},
 	}, opts)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	if err != nil {
 		var zero T
 		return zero, err

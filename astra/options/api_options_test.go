@@ -36,8 +36,8 @@ func TestDefaultAPIOptions(t *testing.T) {
 	if opts.GetHTTPClient() == nil {
 		t.Error("expected default HTTP client to be non-nil")
 	}
-	if opts.GetRequestTimeout() != 30*time.Second {
-		t.Errorf("expected default request timeout 30s, got %v", opts.GetRequestTimeout())
+	if opts.GetRequestTimeout() != 15*time.Second {
+		t.Errorf("expected default request timeout 15s, got %v", opts.GetRequestTimeout())
 	}
 	if opts.TokenProvider != nil {
 		t.Error("expected default token provider to be nil")
@@ -191,8 +191,8 @@ func TestGetters_NilSafety(t *testing.T) {
 	if nilOpts.GetHTTPClient() == nil {
 		t.Error("expected non-nil HTTP client for nil options")
 	}
-	if nilOpts.GetRequestTimeout() != 30*time.Second {
-		t.Errorf("expected 30s timeout for nil options, got %v", nilOpts.GetRequestTimeout())
+	if nilOpts.GetRequestTimeout() != 15*time.Second {
+		t.Errorf("expected 15s timeout for nil options, got %v", nilOpts.GetRequestTimeout())
 	}
 }
 
@@ -233,27 +233,42 @@ func TestMerge_FullHierarchy(t *testing.T) {
 }
 
 func TestTimeoutOptions(t *testing.T) {
-	connTimeout := 10 * time.Second
 	reqTimeout := 30 * time.Second
-	bulkTimeout := 120 * time.Second
+	generalTimeout := 60 * time.Second
+	collectionAdminTimeout := 90 * time.Second
+	tableAdminTimeout := 45 * time.Second
+	databaseAdminTimeout := 15 * time.Minute
+	keyspaceAdminTimeout := 50 * time.Second
 
 	opts := options.Merge(
-		options.API().SetConnectionTimeout(connTimeout),
 		options.API().SetRequestTimeout(reqTimeout),
-		options.API().UpdateTimeout(options.Timeout().SetBulkOperation(bulkTimeout)),
+		options.API().SetGeneralMethodTimeout(generalTimeout),
+		options.API().SetCollectionAdminTimeout(collectionAdminTimeout),
+		options.API().SetTableAdminTimeout(tableAdminTimeout),
+		options.API().SetDatabaseAdminTimeout(databaseAdminTimeout),
+		options.API().SetKeyspaceAdminTimeout(keyspaceAdminTimeout),
 	)
 
 	if opts.Timeout == nil {
 		t.Fatal("expected timeout options to be set")
 	}
-	if *opts.Timeout.Connection != connTimeout {
-		t.Errorf("expected connection timeout %v, got %v", connTimeout, *opts.Timeout.Connection)
-	}
 	if *opts.Timeout.Request != reqTimeout {
 		t.Errorf("expected request timeout %v, got %v", reqTimeout, *opts.Timeout.Request)
 	}
-	if *opts.Timeout.BulkOperation != bulkTimeout {
-		t.Errorf("expected bulk operation timeout %v, got %v", bulkTimeout, *opts.Timeout.BulkOperation)
+	if *opts.Timeout.GeneralMethod != generalTimeout {
+		t.Errorf("expected general method timeout %v, got %v", generalTimeout, *opts.Timeout.GeneralMethod)
+	}
+	if *opts.Timeout.CollectionAdmin != collectionAdminTimeout {
+		t.Errorf("expected collection admin timeout %v, got %v", collectionAdminTimeout, *opts.Timeout.CollectionAdmin)
+	}
+	if *opts.Timeout.TableAdmin != tableAdminTimeout {
+		t.Errorf("expected table admin timeout %v, got %v", tableAdminTimeout, *opts.Timeout.TableAdmin)
+	}
+	if *opts.Timeout.DatabaseAdmin != databaseAdminTimeout {
+		t.Errorf("expected database admin timeout %v, got %v", databaseAdminTimeout, *opts.Timeout.DatabaseAdmin)
+	}
+	if *opts.Timeout.KeyspaceAdmin != keyspaceAdminTimeout {
+		t.Errorf("expected keyspace admin timeout %v, got %v", keyspaceAdminTimeout, *opts.Timeout.KeyspaceAdmin)
 	}
 }
 
@@ -292,19 +307,21 @@ func TestGeneralMethodTimeoutMerge(t *testing.T) {
 	}
 }
 
-func TestGeneralMethodTimeoutMergePreservesNil(t *testing.T) {
+func TestGeneralMethodTimeoutMergePreservesDefault(t *testing.T) {
 	clientOpts := options.API().SetToken("t")
 	result := options.Merge(clientOpts)
 
-	if result.GetGeneralMethodTimeout() != nil {
-		t.Errorf("expected nil GeneralMethod timeout, got %v", result.GetGeneralMethodTimeout())
+	expected := 30 * time.Second
+	if result.GetGeneralMethodTimeout() != expected {
+		t.Errorf("expected default GeneralMethod timeout %v, got %v", expected, result.GetGeneralMethodTimeout())
 	}
 }
 
 func TestGetGeneralMethodTimeoutNilSafety(t *testing.T) {
 	var nilOpts *options.APIOptions
-	if nilOpts.GetGeneralMethodTimeout() != nil {
-		t.Error("expected nil for nil options")
+	expected := 30 * time.Second
+	if nilOpts.GetGeneralMethodTimeout() != expected {
+		t.Errorf("expected default timeout %v for nil options, got %v", expected, nilOpts.GetGeneralMethodTimeout())
 	}
 }
 

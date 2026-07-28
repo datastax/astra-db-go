@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/internal/untyped"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/results"
@@ -106,8 +107,15 @@ func (c DataAPI) MarshalAstraRaw(ctx serdes.EncodeCtx, dst []byte) ([]byte, erro
 	return serdes.SerializeInto(c.payload, c.target, dst, ctx.Flags)
 }
 
-// Execute a command against the astra DB web API.
-func (c *DataAPI) Execute(ctx context.Context) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+func (c *DataAPI) ExecuteSingle(ctx context.Context, timeoutType timeout.SingleType) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+	tm := timeout.NewSingleCall(c.options, timeoutType)
+	return c.Execute(ctx, tm)
+}
+
+func (c *DataAPI) Execute(ctx context.Context, tm *timeout.Manager) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
+	ctx, cancel := tm.ApplyToContext(ctx)
+	defer cancel()
+
 	var body []byte
 	if c.url == "" {
 		return body, nil, nil, ErrCmdNilDb

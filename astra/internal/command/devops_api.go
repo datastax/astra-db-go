@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
@@ -76,7 +77,19 @@ func extractHeaders(h http.Header) slog.Attr {
 	}
 }
 
-func (ac *DevOpsAPI) Execute(ctx context.Context) (*DevOpsResponse, error) {
+// ExecuteSingle executes a single DevOps API call with database admin timeout management.
+// Creates a timeout manager internally using DatabaseAdmin timeout (default 10 minutes).
+func (ac *DevOpsAPI) ExecuteSingle(ctx context.Context, timeoutType timeout.SingleType) (*DevOpsResponse, error) {
+	tm := timeout.NewSingleCall(ac.apiOptions, timeoutType)
+	return ac.Execute(ctx, tm)
+}
+
+// Execute executes a DevOps API call with explicit timeout management.
+// The timeout manager parameter allows tracking elapsed time across multiple calls.
+func (ac *DevOpsAPI) Execute(ctx context.Context, tm *timeout.Manager) (*DevOpsResponse, error) {
+	ctx, cancel := tm.ApplyToContext(ctx)
+	defer cancel()
+
 	// Build URL with query params
 	reqURL := ac.URL()
 

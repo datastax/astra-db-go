@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/results"
 )
@@ -49,7 +50,7 @@ func findEmbeddingProviders(db *Db, ctx context.Context, opts ...options.FindEmb
 	}
 
 	cmd := db.newAdminCmd("findEmbeddingProviders", payload, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		return nil, err
 	}
