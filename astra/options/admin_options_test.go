@@ -83,8 +83,8 @@ func TestCreateKeyspace_Defaults(t *testing.T) {
 	if opts.GetPollInterval() != options.DefaultKeyspacePollInterval {
 		t.Errorf("expected GetPollInterval() default %v, got %v", options.DefaultKeyspacePollInterval, opts.GetPollInterval())
 	}
-	if opts.ReplicationFactor != nil {
-		t.Errorf("expected ReplicationFactor to be nil, got %v", opts.ReplicationFactor)
+	if opts.Replication != nil {
+		t.Errorf("expected ReplicationFactor to be nil, got %v", opts.Replication)
 	}
 }
 

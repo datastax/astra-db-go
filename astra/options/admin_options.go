@@ -229,7 +229,7 @@ type CreateKeyspaceOptions struct {
 	PollInterval *time.Duration
 	// ReplicationFactor sets the replication factor for the keyspace.
 	// Only used by the Data API path (non-Astra environments).
-	ReplicationFactor *int
+	Replication *map[string]any
 	// UpdateDbKeyspace controls whether to update the parent Db instance to use the
 	// new keyspace after creation. Defaults to false.
 	UpdateDbKeyspace *bool

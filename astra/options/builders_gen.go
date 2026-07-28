@@ -1702,12 +1702,12 @@ func (b *createKeyspaceOptionsBuilder) SetPollInterval(v time.Duration) *createK
 	return b
 }
 
-// SetReplicationFactor sets the ReplicationFactor option.
+// SetReplication sets the Replication option.
 // ReplicationFactor sets the replication factor for the keyspace.
 // Only used by the Data API path (non-Astra environments).
-func (b *createKeyspaceOptionsBuilder) SetReplicationFactor(v int) *createKeyspaceOptionsBuilder {
+func (b *createKeyspaceOptionsBuilder) SetReplication(v *map[string]any) *createKeyspaceOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateKeyspaceOptions) {
-		o.ReplicationFactor = &v
+		o.Replication = v
 	})
 	return b
 }

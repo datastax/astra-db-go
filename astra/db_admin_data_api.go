@@ -67,28 +67,12 @@ func (a *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 		a.db.UseKeyspace(keyspace)
 	}
 
-	type replicationOptions struct {
-		Class             string `json:"class"`
-		ReplicationFactor int    `json:"replication_factor"`
+	payload := map[string]any{
+		"name": keyspace,
+		"options": map[string]any{
+			"replication": merged.Replication,
+		},
 	}
-	type createKeyspacePayloadOptions struct {
-		Replication replicationOptions `json:"replication"`
-	}
-	type createKeyspacePayload struct {
-		Name    string                        `json:"name"`
-		Options *createKeyspacePayloadOptions `json:"options,omitempty"`
-	}
-
-	payload := createKeyspacePayload{Name: keyspace}
-	if merged.ReplicationFactor != nil {
-		payload.Options = &createKeyspacePayloadOptions{
-			Replication: replicationOptions{
-				Class:             "SimpleStrategy",
-				ReplicationFactor: *merged.ReplicationFactor,
-			},
-		}
-	}
-
 	cmd := a.db.newAdminCmd("createKeyspace", payload, merged.APIOptions)
 	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.KeyspaceAdmin)
 	return err
