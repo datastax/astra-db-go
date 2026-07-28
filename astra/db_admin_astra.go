@@ -18,6 +18,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
@@ -121,7 +122,7 @@ func (a *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 	}
 
 	cmd := a.admin.createCommand(http.MethodPost, "/databases/"+a.ID()+"/keyspaces/"+keyspace, nil, nil, merged.APIOptions)
-	_, err = cmd.Execute(ctx)
+	_, err = cmd.ExecuteSingle(ctx, timeout.KeyspaceAdmin)
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func (a *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 	}
 
 	cmd := a.admin.createCommand(http.MethodDelete, "/databases/"+a.ID()+"/keyspaces/"+keyspace, nil, nil, merged.APIOptions)
-	_, err = cmd.Execute(ctx)
+	_, err = cmd.ExecuteSingle(ctx, timeout.KeyspaceAdmin)
 	if err != nil {
 		return err
 	}

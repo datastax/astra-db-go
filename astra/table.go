@@ -21,6 +21,7 @@ import (
 	"github.com/datastax/astra-db-go/v2/astra/cursors"
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/results"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
@@ -228,7 +229,7 @@ func (t *Table) Find(f TableFilter, opts ...options.TableFindOption) *cursors.Ta
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 		cmd := t.newCmd("find", payload, merged.APIOptions)
-		return cmd.Execute(ctx)
+		return cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	}
 
 	return cursors.NewTableFindCursor(f, merged, fetcher, err)
@@ -321,7 +322,7 @@ func (t *Table) DeleteMany(ctx context.Context, f TableFilter, opts ...options.T
 	cmd := t.newCmd("deleteMany", map[string]any{
 		"filter": f,
 	}, deleteOpts.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	return err
 }
 
@@ -366,7 +367,7 @@ func (t *Table) CreateIndex(ctx context.Context, name string, column any, opts .
 	if err != nil {
 		return err
 	}
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -470,7 +471,7 @@ func (t *Table) CreateVectorIndex(ctx context.Context, name string, column strin
 	if err != nil {
 		return err
 	}
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -523,7 +524,7 @@ func (t *Table) CreateTextIndex(ctx context.Context, name string, column string,
 	if err != nil {
 		return err
 	}
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 
@@ -618,7 +619,7 @@ func listIndexes[T any](t *Table, ctx context.Context, explain bool, opts *optio
 			"explain": explain,
 		},
 	}, opts)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	if err != nil {
 		var zero T
 		return zero, err
@@ -692,7 +693,7 @@ func (t *Table) Alter(ctx context.Context, op table.AlterOperation, opts ...opti
 	cmd := t.newCmd("alterTable", alterTablePayload{
 		Operation: op,
 	}, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.TableAdmin)
 	return err
 }
 

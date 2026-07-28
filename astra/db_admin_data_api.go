@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
@@ -38,7 +39,7 @@ func (a *DataAPIDatabaseAdmin) ListKeyspaces(ctx context.Context, opts ...option
 	}
 
 	cmd := a.db.newAdminCmd("findKeyspaces", struct{}{}, merged.APIOptions)
-	body, _, _, err := cmd.Execute(ctx)
+	body, _, _, err := cmd.ExecuteSingle(ctx, timeout.KeyspaceAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +90,7 @@ func (a *DataAPIDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace stri
 	}
 
 	cmd := a.db.newAdminCmd("createKeyspace", payload, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.KeyspaceAdmin)
 	return err
 }
 
@@ -104,7 +105,7 @@ func (a *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 		"name": keyspace,
 	}
 	cmd := a.db.newAdminCmd("dropKeyspace", payload, merged.APIOptions)
-	_, _, _, err = cmd.Execute(ctx)
+	_, _, _, err = cmd.ExecuteSingle(ctx, timeout.KeyspaceAdmin)
 	return err
 }
 

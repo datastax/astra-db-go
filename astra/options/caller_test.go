@@ -23,6 +23,7 @@ import (
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
 	"github.com/datastax/astra-db-go/v2/astra/internal/constants"
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 )
 
@@ -46,7 +47,7 @@ func TestCommandUserAgent(t *testing.T) {
 
 	// 1. Default User-Agent
 	cmd := command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Merge(options.API().SetHTTPClient(httpClient).SetToken("")))
-	_, _, _, err := cmd.Execute(context.Background())
+	_, _, _, err := cmd.ExecuteSingle(context.Background(), timeout.GeneralMethod)
 	if err != nil {
 		t.Fatalf("command execution failed: %v", err)
 	}
@@ -63,7 +64,7 @@ func TestCommandUserAgent(t *testing.T) {
 		SetToken("")
 
 	cmd = command.NewDataAPICommand("http://localhost", "", "", nil, 0, options.Merge(opts))
-	_, _, _, _ = cmd.Execute(context.Background())
+	_, _, _, _ = cmd.ExecuteSingle(context.Background(), timeout.GeneralMethod)
 	expected = constants.LibName + "/" + constants.LibVersion + " my-app/1.2.3 my-framework"
 	if capturedUA != expected {
 		t.Errorf("expected User-Agent with callers %q, got %q", expected, capturedUA)

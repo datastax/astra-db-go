@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 )
@@ -365,7 +366,7 @@ func (a *AstraAdmin) FindAvailableRegions(ctx context.Context, opts ...options.F
 	cmd := a.createCommand(http.MethodGet, "/regions/serverless", nil, params, merged.APIOptions)
 
 	// Execute request
-	resp, err := cmd.Execute(ctx)
+	resp, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +438,7 @@ func (a *AstraAdmin) ListDatabases(ctx context.Context, opts ...options.ListData
 	}
 	cmd := a.createCommand(http.MethodGet, "/databases", nil, params, merged.APIOptions)
 
-	resp, err := cmd.Execute(ctx)
+	resp, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -472,7 +473,7 @@ func (a *AstraAdmin) DatabaseInfo(ctx context.Context, databaseID string, opts .
 	}
 
 	cmd := a.createCommand(http.MethodGet, "/databases/"+databaseID, nil, nil, merged.APIOptions)
-	resp, err := cmd.Execute(ctx)
+	resp, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		if resp != nil && resp.StatusCode == http.StatusNotFound {
 			// Wrap error to provide more context and allow callers to check with errors.Is(err, ErrNotFound)
@@ -630,7 +631,7 @@ func (a *AstraAdmin) ListPCUGroups(ctx context.Context, opts ...options.ListPCUG
 
 	cmd := a.createCommand(http.MethodPost, "/pcus/actions/get", struct{}{}, nil, merged.APIOptions)
 
-	resp, err := cmd.Execute(ctx)
+	resp, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -764,7 +765,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, name string, params Cre
 
 	// Execute request
 	cmd := a.createCommand(http.MethodPost, "/databases", payload, nil, merged.APIOptions)
-	httpResp, err := cmd.Execute(ctx)
+	httpResp, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -821,7 +822,7 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 	}
 
 	cmd := a.createCommand(http.MethodPost, "/databases/"+databaseID+"/terminate", nil, nil, merged.APIOptions)
-	_, err = cmd.Execute(ctx)
+	_, err = cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
 	if err != nil {
 		return err
 	}

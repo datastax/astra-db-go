@@ -45,7 +45,7 @@ type APIOptions struct {
 	Headers Headers
 
 	// Timeout contains timeout configuration
-	Timeout *TimeoutOptions `optlift:"Request:RequestTimeout,Connection:ConnectionTimeout,BulkOperation:BulkOperationTimeout,GeneralMethod:GeneralMethodTimeout"`
+	Timeout *TimeoutOptions `optlift:"Request:RequestTimeout,GeneralMethod:GeneralMethodTimeout,CollectionAdmin:CollectionAdminTimeout,TableAdmin:TableAdminTimeout,DatabaseAdmin:DatabaseAdminTimeout,KeyspaceAdmin:KeyspaceAdminTimeout"`
 
 	// Serdes contains serialization/deserialization options
 	Serdes *SerdesOptions
@@ -173,13 +173,17 @@ func (o *SerdesOptions) walkDesFlags(fn func(serdes.DesFlags, **bool)) {
 type TimeoutOptions struct {
 	// Request is the timeout for individual HTTP requests
 	Request *time.Duration
-	// Connection is the timeout for establishing connections
-	Connection *time.Duration
-	// BulkOperation is the timeout for bulk operations like insertMany
-	BulkOperation *time.Duration
-	// GeneralMethod is the overall timeout for paginated operations like deleteMany and updateMany.
-	// When set, the entire multi-page operation must complete within this duration.
+	// GeneralMethod is the overall timeout for general method operations (DML operations).
+	// When set, the entire operation must complete within this duration.
 	GeneralMethod *time.Duration
+	// CollectionAdmin is the timeout for collection admin operations
+	CollectionAdmin *time.Duration
+	// TableAdmin is the timeout for table admin operations
+	TableAdmin *time.Duration
+	// DatabaseAdmin is the timeout for database admin operations
+	DatabaseAdmin *time.Duration
+	// KeyspaceAdmin is the timeout for keyspace admin operations
+	KeyspaceAdmin *time.Duration
 }
 
 // Merge implements shouldMerge for TimeoutOptions.
@@ -188,36 +192,52 @@ func (o *TimeoutOptions) merge(other shouldMerge) shouldMerge {
 	return Merge[TimeoutOptions](o, casted)
 }
 
-// GetRequest returns the request timeout or 30 seconds if not set.
+// GetRequest returns the request timeout or 15 seconds if not set.
 func (o *TimeoutOptions) GetRequest() time.Duration {
 	if o == nil || o.Request == nil {
-		return 30 * time.Second
+		return 15 * time.Second
 	}
 	return *o.Request
 }
 
-// GetConnection returns the connection timeout or 0 if not set.
-func (o *TimeoutOptions) GetConnection() time.Duration {
-	if o == nil || o.Connection == nil {
-		return 0
+// GetGeneralMethod returns the general method timeout or 30 seconds if not set.
+func (o *TimeoutOptions) GetGeneralMethod() time.Duration {
+	if o == nil || o.GeneralMethod == nil {
+		return 30 * time.Second
 	}
-	return *o.Connection
+	return *o.GeneralMethod
 }
 
-// GetBulkOperation returns the bulk operation timeout or 0 if not set.
-func (o *TimeoutOptions) GetBulkOperation() time.Duration {
-	if o == nil || o.BulkOperation == nil {
-		return 0
+// GetCollectionAdmin returns the collection admin timeout or 60 seconds if not set.
+func (o *TimeoutOptions) GetCollectionAdmin() time.Duration {
+	if o == nil || o.CollectionAdmin == nil {
+		return 60 * time.Second
 	}
-	return *o.BulkOperation
+	return *o.CollectionAdmin
 }
 
-// GetGeneralMethod returns the general method timeout or nil if not set.
-func (o *TimeoutOptions) GetGeneralMethod() *time.Duration {
-	if o == nil {
-		return nil
+// GetTableAdmin returns the table admin timeout or 30 seconds if not set.
+func (o *TimeoutOptions) GetTableAdmin() time.Duration {
+	if o == nil || o.TableAdmin == nil {
+		return 30 * time.Second
 	}
-	return o.GeneralMethod
+	return *o.TableAdmin
+}
+
+// GetDatabaseAdmin returns the database admin timeout or 10 minutes if not set.
+func (o *TimeoutOptions) GetDatabaseAdmin() time.Duration {
+	if o == nil || o.DatabaseAdmin == nil {
+		return 10 * time.Minute
+	}
+	return *o.DatabaseAdmin
+}
+
+// GetKeyspaceAdmin returns the keyspace admin timeout or 30 seconds if not set.
+func (o *TimeoutOptions) GetKeyspaceAdmin() time.Duration {
+	if o == nil || o.KeyspaceAdmin == nil {
+		return 30 * time.Second
+	}
+	return *o.KeyspaceAdmin
 }
 
 // EnableSerFlags sets the provided serialization flags to true.
@@ -371,8 +391,8 @@ func (o *APIOptions) GetRequestTimeout() time.Duration {
 	return o.GetTimeout().GetRequest()
 }
 
-// GetGeneralMethodTimeout returns the general method timeout or nil if not set.
-func (o *APIOptions) GetGeneralMethodTimeout() *time.Duration {
+// GetGeneralMethodTimeout returns the general method timeout or 30 seconds if not set.
+func (o *APIOptions) GetGeneralMethodTimeout() time.Duration {
 	return o.GetTimeout().GetGeneralMethod()
 }
 

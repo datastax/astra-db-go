@@ -24,6 +24,7 @@ import (
 
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
@@ -51,7 +52,7 @@ func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptio
 		"document": record,
 	}, opts.APIOptions)
 
-	b, warnings, _, err := cmd.Execute(ctx)
+	b, warnings, _, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -102,13 +103,15 @@ func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOp
 		opts.Ordered = ptr.To(false)
 	}
 
+	tm := timeout.NewMultiCall(opts.APIOptions)
+
 	if *opts.Ordered {
-		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target)
+		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target, tm)
 	}
-	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target)
+	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target, tm)
 }
 
-func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target, tm *timeout.Manager) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
 	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
@@ -123,7 +126,7 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 
 		slice := records.Slice(i, end).Interface()
 
-		batch, warnings, apiErrors, err := runInsertMany(ctx, slice, mkCmd, opts)
+		batch, warnings, apiErrors, err := runInsertMany(ctx, slice, mkCmd, opts, tm)
 
 		allWarnings = append(allWarnings, warnings...)
 		if err != nil {
@@ -144,7 +147,7 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()), nil
 }
 
-func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target, tm *timeout.Manager) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -181,7 +184,7 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 					return
 				}
 
-				batch, warnings, apiErrors, err := runInsertMany(ctx, slice, mkCmd, opts)
+				batch, warnings, apiErrors, err := runInsertMany(ctx, slice, mkCmd, opts, tm)
 
 				if err != nil {
 					if criticalErr.CompareAndSwap(nil, &err) {
@@ -214,7 +217,7 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()), nil
 }
 
-func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions) (results.InsertManyBatch, results.Warnings, results.DataAPIErrors, error) {
+func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions, tm *timeout.Manager) (results.InsertManyBatch, results.Warnings, results.DataAPIErrors, error) {
 	cmd := mkCmd("insertMany", map[string]any{
 		"documents": records,
 		"options": map[string]any{
@@ -222,7 +225,7 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertMa
 		},
 	}, opts.APIOptions)
 
-	b, warnings, schema, execErr := cmd.Execute(ctx)
+	b, warnings, schema, execErr := cmd.Execute(ctx, tm)
 
 	batch := results.InsertManyBatch{
 		InsertedIds: nil,
@@ -264,7 +267,7 @@ func findOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts findOne
 		},
 	}, opts.APIOptions)
 
-	b, warnings, schema, err := cmd.Execute(ctx)
+	b, warnings, schema, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	return results.NewSingleResult(b, warnings, schema, target, err, opts.APIOptions.GetDesFlags())
 }
 
@@ -288,7 +291,7 @@ func updateOne(ctx context.Context, f filter.Filterable, u any, mkCmd mkCmd, opt
 		},
 	}, opts.APIOptions)
 
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -312,7 +315,7 @@ func deleteOne(ctx context.Context, f filter.Filterable, mkCmd mkCmd, opts delet
 	}
 
 	cmd := mkCmd("deleteOne", payload, opts.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	if err != nil {
 		return nil, err
 	}

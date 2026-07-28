@@ -17,11 +17,11 @@ package astra
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/cursors"
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
+	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
 	"github.com/datastax/astra-db-go/v2/astra/results"
@@ -80,17 +80,6 @@ func (c *Collection) Database() *Db {
 // newCmd creates a command for this collection.
 func (c *Collection) newCmd(name string, payload any, opts ...options.APIOption) command.DataAPI {
 	return command.NewDataAPICommand(c.db.endpoint, c.name, name, payload, serdes.TargetCollection, options.Merge(append([]options.APIOption{c.options}, opts...)...))
-}
-
-// resolveGeneralMethodTimeout returns the effective timeout for a paginated
-// operation. The per-method timeout takes priority over the hierarchy timeout.
-func (c *Collection) resolveGeneralMethodTimeout(methodTimeout *time.Duration, override *options.APIOptions) *time.Duration {
-	if methodTimeout != nil {
-		return methodTimeout
-	}
-	cmd := c.newCmd("", nil, override)
-	opts := cmd.ResolveOptions()
-	return opts.GetGeneralMethodTimeout()
 }
 
 // endregion
@@ -211,7 +200,7 @@ func (c *Collection) Find(f CollectionFilter, opts ...options.CollectionFindOpti
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 		cmd := c.newCmd("find", payload, merged.APIOptions)
-		return cmd.Execute(ctx)
+		return cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	}
 
 	return cursors.NewCollectionFindCursor(f, merged, fetcher, err)
@@ -246,7 +235,7 @@ func (c *Collection) FindAndRerank(f CollectionFilter, opts ...options.Collectio
 
 	fetcher := func(ctx context.Context, payload any, opts *options.APIOptions) ([]byte, results.Warnings, serdes.TargetDecodeCtx, error) {
 		cmd := c.newCmd("findAndRerank", payload, merged.APIOptions)
-		return cmd.Execute(ctx)
+		return cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	}
 
 	return cursors.NewCollectionFindAndRerankCursor(f, merged, fetcher, err)
@@ -311,11 +300,8 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 		return nil, err
 	}
 
-	if timeout := c.resolveGeneralMethodTimeout(merged.Timeout, merged.APIOptions); timeout != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, *timeout)
-		defer cancel()
-	}
+	// Create timeout manager for multi-call operation
+	tm := timeout.NewMultiCall(merged.APIOptions)
 
 	payload := map[string]any{
 		"filter": f,
@@ -329,7 +315,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 
 	for {
 		cmd := c.newCmd("updateMany", payload, merged.APIOptions)
-		b, _, _, err := cmd.Execute(ctx)
+		b, _, _, err := cmd.Execute(ctx, tm)
 		if err != nil {
 			return nil, err
 		}
@@ -379,7 +365,7 @@ func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u
 		},
 	}, merged.APIOptions)
 
-	b, warnings, schema, err := cmd.Execute(ctx)
+	b, warnings, schema, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	return results.NewSingleResult(b, warnings, schema, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
@@ -459,8 +445,7 @@ func (c *Collection) findOneAndReplace(ctx context.Context, f CollectionFilter, 
 		},
 	}, opts.APIOptions)
 
-	b, warnings, schema, err := cmd.Execute(ctx)
-	return b, warnings, schema, err
+	return cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 }
 
 // endregion
@@ -531,11 +516,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 		return nil, ErrNilFilter
 	}
 
-	if timeout := c.resolveGeneralMethodTimeout(merged.Timeout, merged.APIOptions); timeout != nil {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, *timeout)
-		defer cancel()
-	}
+	tm := timeout.NewMultiCall(merged.APIOptions)
 
 	payload := map[string]any{
 		"filter": f,
@@ -545,7 +526,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 
 	for {
 		cmd := c.newCmd("deleteMany", payload, merged.APIOptions)
-		b, _, _, err := cmd.Execute(ctx)
+		b, _, _, err := cmd.Execute(ctx, tm)
 		if err != nil {
 			return nil, err
 		}
@@ -581,7 +562,7 @@ func (c *Collection) FindOneAndDelete(ctx context.Context, f CollectionFilter, o
 		"projection": utils.NonNilMap(merged.Projection),
 	}, merged.APIOptions)
 
-	b, warnings, schema, err := cmd.Execute(ctx)
+	b, warnings, schema, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	return results.NewSingleResult(b, warnings, schema, serdes.TargetCollection, err, merged.APIOptions.GetDesFlags())
 }
 
@@ -607,7 +588,7 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 	}
 
 	cmd := c.newCmd("countDocuments", map[string]any{"filter": f}, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	if err != nil {
 		return 0, err
 	}
@@ -642,7 +623,7 @@ func (c *Collection) EstimatedDocumentCount(ctx context.Context, opts ...options
 	}
 
 	cmd := c.newCmd("estimatedDocumentCount", struct{}{}, merged.APIOptions)
-	b, _, _, err := cmd.Execute(ctx)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	if err != nil {
 		return 0, err
 	}
