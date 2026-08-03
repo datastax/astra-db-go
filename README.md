@@ -13,18 +13,30 @@
 >
 > For production use, see the [Python](https://github.com/datastax/astrapy), [TypeScript](https://github.com/datastax/astra-db-ts), [Java](https://github.com/datastax/astra-db-java), or [.NET](https://github.com/datastax/astra-db-csharp) clients.
 
-## Requirements
+## Setup & requirements
 
-- Go 1.24 or higher. [Download it here](https://go.dev/doc/install).
+Update to Go 1.24 or higher. [Download it here](https://go.dev/doc/install).
+
+Install the client:
+
+```
+go get github.com/datastax/gocql-astra/v2
+```
+
+You need an Astra DB database or a Hyper-Converged Database (HCD) for the client to connect to.
 
 ## Documentation
 
 For Astra DB Serverless:
 
+- [Quickstart for collections](https://docs.datastax.com/en/astra-db-serverless/get-started/quickstart.html)
+- [Quickstart for tables](https://docs.datastax.com/en/astra-db-serverless/get-started/quickstart-tables.html)
 - [Get started with the Data API](https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html)
 
 For Hyper-Converged Database (HCD):
 
+- [Quickstart for collections](https://docs.datastax.com/en/hyper-converged-database/1.2/api-reference/quickstart.html)
+- [Quickstart for tables](https://docs.datastax.com/en/hyper-converged-database/1.2/api-reference/quickstart-tables.html)
 - [Get started with the Data API](https://docs.datastax.com/en/hyper-converged-database/1.2/api-reference/dataapiclient.html)
 
 Package-level documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/datastax/astra-db-go/v2).
@@ -90,8 +102,6 @@ func main() {
     }
 }
 ```
-
-Further usage examples are available in the [examples](./examples) directory of this repository.
 
 ## Other Data API clients
 
