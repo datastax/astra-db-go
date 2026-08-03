@@ -59,6 +59,20 @@ type FindEmbeddingProvidersOptions struct {
 	APIOptions *APIOptions `json:"-"`
 }
 
+// FindRerankingProvidersOptions represents options for the FindRerankingProviders operation.
+type FindRerankingProvidersOptions struct {
+	// FilterModelStatus filters models by their lifecycle status.
+	//
+	//   - If not provided: defaults to SUPPORTED models only.
+	//   - If set to ModelLifecycleStatusAll (""): includes all statuses (SUPPORTED, DEPRECATED, END_OF_LIFE).
+	//   - If set to a specific status: includes only models with that status.
+	FilterModelStatus *ModelLifecycleStatus `json:"filterModelStatus,omitempty"`
+
+	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+	// for this command. These are merged into the Client→DB→Command hierarchy.
+	APIOptions *APIOptions `json:"-"`
+}
+
 // ListCollectionsOptions represents options for listing collections in a database.
 // Right now this is empty except for APIOptions, but leaving it here for future-proofing.
 type ListCollectionsOptions struct {

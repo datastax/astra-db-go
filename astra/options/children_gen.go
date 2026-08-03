@@ -397,6 +397,16 @@ func (o *FindEmbeddingProvidersOptions) Children() []any {
 	return children
 }
 
+// Children implements ChildValidator for FindRerankingProvidersOptions.
+// Returns all non-nil option fields.
+func (o *FindRerankingProvidersOptions) Children() []any {
+	var children []any
+	if o.APIOptions != nil {
+		children = append(children, o.APIOptions)
+	}
+	return children
+}
+
 // Children implements ChildValidator for GetCollectionOptions.
 // Returns all non-nil option fields.
 func (o *GetCollectionOptions) Children() []any {
