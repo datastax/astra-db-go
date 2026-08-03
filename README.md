@@ -39,6 +39,8 @@ For Hyper-Converged Database (HCD):
 - [Quickstart for tables](https://docs.datastax.com/en/hyper-converged-database/1.2/api-reference/quickstart-tables.html)
 - [Get started with the Data API](https://docs.datastax.com/en/hyper-converged-database/1.2/api-reference/dataapiclient.html)
 
+Package-level documentation is available on [pkg.go.dev](https://pkg.go.dev/github.com/datastax/astra-db-go/v2).
+
 ## At a glance
 
 ```go
