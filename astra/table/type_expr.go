@@ -116,11 +116,6 @@ func (p *typeExprParser) parseExpr() (typeExpr, error) {
 		}
 		return typeExpr{name: "udt", udtName: name}, nil
 
-	case "infer":
-		if p.hasByte('[') {
-			return typeExpr{}, fmt.Errorf("infer is a leaf; brackets not allowed")
-		}
-		return typeExpr{name: "infer"}, nil
 
 	default:
 		if p.hasByte('[') {

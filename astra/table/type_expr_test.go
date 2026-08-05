@@ -54,14 +54,8 @@ func TestParseTypeExpr(t *testing.T) {
 			typeExpr{name: "map", key: &typeExpr{name: "text"}, elem: &typeExpr{name: "udt", udtName: "person"}},
 		},
 
-		{"map[infer]blob", "map[infer]blob", typeExpr{name: "map", key: &typeExpr{name: "infer"}, elem: &typeExpr{name: "blob"}}},
-		{"map[text]infer", "map[text]infer", typeExpr{name: "map", key: &typeExpr{name: "text"}, elem: &typeExpr{name: "infer"}}},
-		{"map[infer]infer", "map[infer]infer", typeExpr{name: "map", key: &typeExpr{name: "infer"}, elem: &typeExpr{name: "infer"}}},
-
 		{"udt[person]", "udt[person]", typeExpr{name: "udt", udtName: "person"}},
 		{"udt underscore digits", "udt[my_type_1]", typeExpr{name: "udt", udtName: "my_type_1"}},
-
-		{"infer leaf", "infer", typeExpr{name: "infer"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,7 +84,9 @@ func TestParseTypeExpr_Errors(t *testing.T) {
 		{"map empty brackets", "map[]", "expected identifier"},
 		{"udt without brackets", "udt", "udt requires a name"},
 		{"udt empty brackets", "udt[]", "udt"},
-		{"infer with brackets", "infer[text]", "infer is a leaf"},
+		{"infer leaf", "infer", "unknown type"},
+		{"map[infer]blob", "map[infer]blob", "unknown type"},
+		{"infer with brackets", "infer[text]", "cannot take bracket"},
 		{"scalar with brackets", "text[ascii]", "cannot take bracket"},
 		{"trailing garbage", "set[text]extra", "trailing"},
 	}

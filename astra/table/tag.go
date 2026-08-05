@@ -25,83 +25,114 @@ type tagInfo struct {
 	isPK         bool
 	pkOrdinal    int // 1-based; 0 = unset
 	isCK         bool
-	ckOrdinal    int // 1-based
+	ckOrdinal    int // 1-based; 0 = unset
 	ckDescending bool
 	typeOverride string
 	dimension    int
-	isVector     bool
-	hasVectorize bool
-	provider     string
-	model        string
-	isJSONString bool
 	skip         bool
 }
 
 // parseAstraTag parses the value of an "astra" struct tag.
 //
-// Grammar: <role>[,<ordinal>][,<modifier>...]
+// Grammar: <role>[<brackets>][,<modifier>...]
 //
 // Roles: pk, ck, -
-// Modifiers: type=<T>, dim=<N>, vector, vectorize, provider=<P>, model=<M>, jsonString
+// Brackets:
+//
+//	pk[N]
+//	ck[N], ck[ORD], ck[N,ORD] (where ORD is asc or desc)
+//
+// Modifiers: type=<T>, dim=<N>
 func parseAstraTag(raw string) (tagInfo, error) {
 	var info tagInfo
 	if raw == "" {
 		return info, nil
 	}
 
-	tokens := strings.Split(raw, ",")
-	i := 0
+	// 1. Extract role and optional bracket
+	remaining := raw
+	var roleToken string
+	var bracketPayload string
 
-	switch tokens[0] {
-	case "-":
+	if strings.HasPrefix(raw, "-") && (len(raw) == 1 || raw[1] == ',') {
 		return tagInfo{skip: true}, nil
+	}
 
+	isRole := false
+	if strings.HasPrefix(raw, "pk") && (len(raw) == 2 || raw[2] == '[' || raw[2] == ',') {
+		roleToken = "pk"
+		isRole = true
+	} else if strings.HasPrefix(raw, "ck") && (len(raw) == 2 || raw[2] == '[' || raw[2] == ',') {
+		roleToken = "ck"
+		isRole = true
+	}
+
+	if isRole {
+		remaining = remaining[2:]
+		if len(remaining) > 0 && remaining[0] == '[' {
+			endIdx := strings.IndexByte(remaining, ']')
+			if endIdx == -1 {
+				return info, fmt.Errorf("missing closing bracket in tag %q", raw)
+			}
+			bracketPayload = remaining[1:endIdx]
+			remaining = remaining[endIdx+1:]
+		}
+		if len(remaining) > 0 {
+			if remaining[0] != ',' {
+				return info, fmt.Errorf("expected comma after role token in tag %q", raw)
+			}
+			remaining = remaining[1:]
+		}
+	} else {
+		roleToken = ""
+	}
+
+	switch roleToken {
 	case "pk":
 		info.isPK = true
-		i = 1
-		// Optional ordinal (next numeric token)
-		if i < len(tokens) {
-			if n, err := strconv.Atoi(tokens[i]); err == nil {
-				info.pkOrdinal = n
-				i++
+		if bracketPayload != "" {
+			n, err := strconv.Atoi(bracketPayload)
+			if err != nil {
+				return info, fmt.Errorf("pk ordinal must be a number, got %q", bracketPayload)
 			}
+			if n < 1 {
+				return info, fmt.Errorf("pk ordinal must be >= 1, got %d", n)
+			}
+			info.pkOrdinal = n
 		}
 
 	case "ck":
 		info.isCK = true
-		i = 1
-		// Required: ordinal
-		if i >= len(tokens) {
-			return info, fmt.Errorf("ck requires ordinal and sort direction (e.g. ck,1,asc)")
+		if bracketPayload != "" {
+			parts := strings.Split(bracketPayload, ",")
+			for _, part := range parts {
+				part = strings.TrimSpace(part)
+				if part == "asc" {
+					info.ckDescending = false
+				} else if part == "desc" {
+					info.ckDescending = true
+				} else {
+					n, err := strconv.Atoi(part)
+					if err == nil {
+						if n < 1 {
+							return info, fmt.Errorf("ck ordinal must be >= 1, got %d", n)
+						}
+						info.ckOrdinal = n
+					} else {
+						return info, fmt.Errorf("ck bracket token must be a number, 'asc', or 'desc', got %q", part)
+					}
+				}
+			}
 		}
-		n, err := strconv.Atoi(tokens[i])
-		if err != nil {
-			return info, fmt.Errorf("ck ordinal must be a number, got %q", tokens[i])
-		}
-		info.ckOrdinal = n
-		i++
-		// Required: sort direction
-		if i >= len(tokens) {
-			return info, fmt.Errorf("ck requires sort direction (asc or desc)")
-		}
-		switch tokens[i] {
-		case "asc":
-			info.ckDescending = false
-		case "desc":
-			info.ckDescending = true
-		default:
-			return info, fmt.Errorf("ck sort direction must be asc or desc, got %q", tokens[i])
-		}
-		i++
-
-	default:
-		// No role prefix — all tokens are modifiers
-		i = 0
 	}
 
-	// Parse remaining tokens as modifiers
-	for ; i < len(tokens); i++ {
-		tok := tokens[i]
+	// 2. Parse remaining tokens as modifiers
+	if remaining == "" {
+		return info, nil
+	}
+
+	tokens := strings.Split(remaining, ",")
+	for _, tok := range tokens {
 		switch {
 		case strings.HasPrefix(tok, "type="):
 			info.typeOverride = tok[len("type="):]
@@ -111,16 +142,6 @@ func parseAstraTag(raw string) (tagInfo, error) {
 				return info, fmt.Errorf("dim= value must be a number, got %q", tok[len("dim="):])
 			}
 			info.dimension = d
-		case tok == "vector":
-			info.isVector = true
-		case tok == "vectorize":
-			info.hasVectorize = true
-		case strings.HasPrefix(tok, "provider="):
-			info.provider = tok[len("provider="):]
-		case strings.HasPrefix(tok, "model="):
-			info.model = tok[len("model="):]
-		case tok == "jsonString":
-			info.isJSONString = true
 		default:
 			return info, fmt.Errorf("unknown astra tag token %q", tok)
 		}

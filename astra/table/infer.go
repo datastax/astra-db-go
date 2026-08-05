@@ -98,28 +98,6 @@ func collectFields(t reflect.Type) ([]fieldData, error) {
 func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 	t = reflectutil.UnwindPointerType(t)
 
-	// jsonString — field is stored as a text column
-	if info.isJSONString {
-		return Text(), nil
-	}
-
-	// Vectorize produces a vector column regardless of Go type
-	if info.hasVectorize {
-		svc := &VectorService{
-			Provider:  info.provider,
-			ModelName: info.model,
-		}
-		return VectorWithService(info.dimension, svc), nil
-	}
-
-	// Explicit vector modifier
-	if info.isVector {
-		if info.dimension <= 0 {
-			return Column{}, fmt.Errorf("vector modifier requires dim=N")
-		}
-		return Vector(info.dimension), nil
-	}
-
 	// Type override
 	if info.typeOverride != "" {
 		expr, err := parseTypeExpr(info.typeOverride)
@@ -131,7 +109,10 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 
 	// Standalone dim= implies vector
 	if info.dimension > 0 {
-		return Vector(info.dimension), nil
+		if t == reflectVector {
+			return Vector(info.dimension), nil
+		}
+		return Column{}, fmt.Errorf("dim= alone requires datatypes.Vector; use type=vector,dim=%d for other types", info.dimension)
 	}
 
 	// Known named types (by reflect.Type identity)
@@ -139,7 +120,7 @@ func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
 	case reflectUUID:
 		return UUID(), nil
 	case reflectVector:
-		return Column{}, fmt.Errorf("Vector requires dim=N in astra tag")
+		return Column{}, fmt.Errorf("datatypes.Vector requires dim=N or type=vector,dim=N in astra tag")
 	case reflectTime:
 		return Timestamp(), nil
 	case reflectDuration:
@@ -316,17 +297,17 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 			noOrd = true
 		}
 	}
-	if hasOrd && noOrd {
-		return PrimaryKey{}, fmt.Errorf("partition key fields must all have ordinals or all omit them")
-	}
-
-	if hasOrd {
+	if len(pks) == 1 && !hasOrd {
+		// single pk with no ordinal: valid, use it as-is
+	} else if hasOrd && noOrd {
+		return PrimaryKey{}, fmt.Errorf("mixed ordinals")
+	} else if !hasOrd {
+		return PrimaryKey{}, fmt.Errorf("multiple partition keys require explicit ordinals (pk[1], pk[2], ...)")
+	} else {
 		sort.Slice(pks, func(i, j int) bool { return pks[i].pkOrd < pks[j].pkOrd })
 		if err := validateOrdinals("partition key", pks); err != nil {
 			return PrimaryKey{}, err
 		}
-	} else {
-		sort.Slice(pks, func(i, j int) bool { return pks[i].fieldOrd < pks[j].fieldOrd })
 	}
 
 	partitionBy := make([]string, len(pks))
@@ -336,10 +317,28 @@ func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
 
 	var partitionSort PartitionSort
 	if len(cks) > 0 {
-		sort.Slice(cks, func(i, j int) bool { return cks[i].pkOrd < cks[j].pkOrd })
-		if err := validateOrdinals("clustering key", cks); err != nil {
-			return PrimaryKey{}, err
+		hasCkOrd, noCkOrd := false, false
+		for _, ck := range cks {
+			if ck.pkOrd > 0 {
+				hasCkOrd = true
+			} else {
+				noCkOrd = true
+			}
 		}
+
+		if len(cks) == 1 && !hasCkOrd {
+			// single ck with no ordinal: valid, use it as-is
+		} else if hasCkOrd && noCkOrd {
+			return PrimaryKey{}, fmt.Errorf("mixed ck ordinals")
+		} else if !hasCkOrd {
+			return PrimaryKey{}, fmt.Errorf("multiple clustering keys require explicit ordinals (ck[1], ck[2], ...)")
+		} else {
+			sort.Slice(cks, func(i, j int) bool { return cks[i].pkOrd < cks[j].pkOrd })
+			if err := validateOrdinals("clustering key", cks); err != nil {
+				return PrimaryKey{}, err
+			}
+		}
+		
 		partitionSort = make(PartitionSort, 0, len(cks))
 		for _, ck := range cks {
 			order := SortAscending
@@ -406,7 +405,7 @@ func validateOrdinals(label string, keys []keyField) error {
 //
 //	def, err := table.Infer[Book]()
 //	tbl, err := db.CreateTable(ctx, "books", def)
-func Infer[T any]() (Definition, error) {
+func Infer[T any](overrides ...*DefinitionBuilder) (Definition, error) {
 	t := reflect.TypeFor[T]()
 
 	fields, err := collectFields(t)
@@ -440,6 +439,22 @@ func Infer[T any]() (Definition, error) {
 		return Definition{}, fmt.Errorf("table.Infer[%s]: %w", t.Name(), err)
 	}
 
+	for _, override := range overrides {
+		for _, nc := range override.columns {
+			found := false
+			for i, existing := range columns {
+				if existing.Name == nc.Name {
+					columns[i].Column = nc.Column
+					found = true
+					break
+				}
+			}
+			if !found {
+				return Definition{}, fmt.Errorf("table.Infer[%s]: override column %q not found in struct", t.Name(), nc.Name)
+			}
+		}
+	}
+
 	return Definition{
 		Columns:    columns,
 		PrimaryKey: primaryKey,
@@ -462,7 +477,7 @@ func Infer[T any]() (Definition, error) {
 //
 //	def, err := table.InferUDT[Address]()
 //	err := db.CreateType(ctx, "address", def)
-func InferUDT[T any]() (UDTDefinition, error) { // TODO somehow try to check if people are using the right Infer... maybe use pk tags to detect misuse?
+func InferUDT[T any](overrides ...*DefinitionBuilder) (UDTDefinition, error) { // TODO somehow try to check if people are using the right Infer... maybe use pk tags to detect misuse?
 	t := reflect.TypeFor[T]()
 
 	fields, err := collectFields(t)
@@ -480,6 +495,22 @@ func InferUDT[T any]() (UDTDefinition, error) { // TODO somehow try to check if 
 			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.name, err)
 		}
 		columns = append(columns, NamedColumn{Name: fd.name, Column: col})
+	}
+
+	for _, override := range overrides {
+		for _, nc := range override.columns {
+			found := false
+			for i, existing := range columns {
+				if existing.Name == nc.Name {
+					columns[i].Column = nc.Column
+					found = true
+					break
+				}
+			}
+			if !found {
+				return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: override column %q not found in struct", t.Name(), nc.Name)
+			}
+		}
 	}
 
 	return UDTDefinition{

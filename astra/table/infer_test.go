@@ -61,19 +61,8 @@ func TestGoTypeToColumn(t *testing.T) {
 		{"float64+type = decimal", reflect.TypeFor[float64](), tagInfo{typeOverride: "decimal"}, Decimal(), false},
 		{"string+type = ascii", reflect.TypeFor[string](), tagInfo{typeOverride: "ascii"}, Ascii(), false},
 		{"string+type = uuid", reflect.TypeFor[string](), tagInfo{typeOverride: "uuid"}, UUID(), false},
-		{"[]float32+vector+dim = 3", reflect.TypeFor[[]float32](), tagInfo{isVector: true, dimension: 3}, Vector(3), false},
-		{"Vector+dim = 4", reflect.TypeFor[datatypes.Vector](), tagInfo{dimension: 4}, Vector(4), false},
-		{
-			"vectorize",
-			reflect.TypeFor[any](),
-			tagInfo{hasVectorize: true, provider: "openai", model: "text-embedding-3-small"},
-			VectorWithService(0, &VectorService{Provider: "openai", ModelName: "text-embedding-3-small"}),
-			false,
-		},
-
 		// Error cases
 		{"Vector no dim", reflect.TypeFor[datatypes.Vector](), tagInfo{}, Column{}, true},
-		{"vector no dim", reflect.TypeFor[[]float32](), tagInfo{isVector: true}, Column{}, true},
 		{"interface no modifier", reflect.TypeFor[any](), tagInfo{}, Column{}, true},
 	}
 
@@ -99,10 +88,10 @@ func TestGoTypeToColumn(t *testing.T) {
 func TestInfer_CompoundPrimaryKey(t *testing.T) {
 	// Matches CompoundPrimaryKey from models.go
 	type Row struct {
-		KeyTwo            string `json:"keyTwo" astra:"pk,2"`
-		KeyOne            string `json:"keyOne" astra:"pk,1"`
-		SortTwoDescending string `json:"sortTwoDescending" astra:"ck,2,desc"`
-		SortOneAscending  string `json:"sortOneAscending" astra:"ck,1,asc"`
+		KeyTwo            string `json:"keyTwo" astra:"pk[2]"`
+		KeyOne            string `json:"keyOne" astra:"pk[1]"`
+		SortTwoDescending string `json:"sortTwoDescending" astra:"ck[2,desc]"`
+		SortOneAscending  string `json:"sortOneAscending" astra:"ck[1,asc]"`
 	}
 	def, err := Infer[Row]()
 	if err != nil {
@@ -121,19 +110,14 @@ func TestInfer_CompoundPrimaryKey(t *testing.T) {
 	}
 }
 
-func TestInfer_PartitionKeyStructOrder(t *testing.T) {
-	// Without ordinals, struct declaration order is used
+func TestInfer_MultiPK_RequiresOrdinals(t *testing.T) {
 	type Row struct {
 		A string `json:"a" astra:"pk"`
 		B string `json:"b" astra:"pk"`
 	}
-	def, err := Infer[Row]()
-	if err != nil {
-		t.Fatal(err)
-	}
-	wantPK := []string{"a", "b"}
-	if !reflect.DeepEqual(def.PrimaryKey.PartitionBy, wantPK) {
-		t.Errorf("PartitionBy = %v, want %v", def.PrimaryKey.PartitionBy, wantPK)
+	_, err := Infer[Row]()
+	if err == nil {
+		t.Fatal("expected error for multiple pk without ordinals")
 	}
 }
 
@@ -288,9 +272,9 @@ const compositeKeyJSON = `{
 
 func TestInferDocsCompositeKeyExample(t *testing.T) {
 	type bookCompositeKey struct {
-		Title         string            `json:"title" astra:"pk"`
+		Title         string            `json:"title" astra:"pk[1]"`
 		NumberOfPages int               `json:"number_of_pages"`
-		Rating        float32           `json:"rating" astra:"pk"`
+		Rating        float32           `json:"rating" astra:"pk[2]"`
 		Metadata      map[string]string `json:"metadata"`
 		Genres        []string          `json:"genres" astra:"type=set"`
 		IsCheckedOut  bool              `json:"is_checked_out"`
@@ -390,12 +374,12 @@ func TestInferDocsCompoundKeyExample(t *testing.T) {
 	// Just testing infer from here on out. I think the other tests tested the builder/raw
 	// struct against infer well enough.
 	type bookCompoundKey struct {
-		Title         string            `json:"title" astra:"pk"`
-		NumberOfPages int               `json:"number_of_pages" astra:"ck,1,asc"`
-		Rating        float32           `json:"rating" astra:"pk"`
+		Title         string            `json:"title" astra:"pk[1]"`
+		NumberOfPages int               `json:"number_of_pages" astra:"ck[1,asc]"`
+		Rating        float32           `json:"rating" astra:"pk[2]"`
 		Metadata      map[string]string `json:"metadata"`
 		Genres        []string          `json:"genres" astra:"type=set"`
-		IsCheckedOut  bool              `json:"is_checked_out" astra:"ck,2,desc"`
+		IsCheckedOut  bool              `json:"is_checked_out" astra:"ck[2,desc]"`
 		DueDate       time.Time         `json:"due_date" astra:"type=date"`
 	}
 	def, err := Infer[bookCompoundKey]()
@@ -463,12 +447,13 @@ const vectorizeExampleJSON = `{
   }
 }`
 
-func TestInferDocsVectorizeExample(t *testing.T) {
+func TestInfer_Vectorize_Override(t *testing.T) {
 	type vectorizeExample struct {
-		VectorColumnName []float32 `json:"VECTOR_COLUMN_NAME" astra:"vectorize,provider=nvidia,model=nvidia/nv-embedqa-e5-v5"`
+		VectorColumnName []float32 `json:"VECTOR_COLUMN_NAME"`
 		TextColumnName   string    `json:"TEXT_COLUMN_NAME" astra:"pk"`
 	}
-	def, err := Infer[vectorizeExample]()
+	override := NewDefinition().AddVectorColumnWithService("VECTOR_COLUMN_NAME", 0, &VectorService{Provider: "nvidia", ModelName: "nvidia/nv-embedqa-e5-v5"})
+	def, err := Infer[vectorizeExample](override)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -524,9 +509,9 @@ func TestInferDocsUDTExample(t *testing.T) {
 	// want to keep improving the astra tag.
 	type Group struct {
 		ID           datatypes.UUID `json:"id" astra:"pk"`
-		GroupLeader  Person         `json:"group_leader" astra:"udt=person"`
-		GroupMembers []Person       `json:"group_members" astra:"type=set,udt=person"`
-		GroupRoles   []Person       `json:"group_roles" astra:"type=map,keyType=text,udt=person"`
+		GroupLeader  Person         `json:"group_leader" astra:"type=udt[person]"`
+		GroupMembers []Person       `json:"group_members" astra:"type=set[udt[person]]"`
+		GroupRoles   []Person       `json:"group_roles" astra:"type=map[text]udt[person]"`
 	}
 	def, err := Infer[Group]()
 	if err != nil {
@@ -610,8 +595,8 @@ func TestInfer_AllColumnTypes(t *testing.T) {
 // Doc reference: https://docs.datastax.com/en/astra-db-serverless/api-reference/tables.html#createTable
 func TestInfer_JSONEquivalence_CompoundKey(t *testing.T) {
 	type EventByDay struct {
-		EventDate string `json:"event_date" astra:"pk,1"`
-		ID        string `json:"id" astra:"pk,2"`
+		EventDate string `json:"event_date" astra:"pk[1]"`
+		ID        string `json:"id" astra:"pk[2]"`
 		Title     string `json:"title"`
 		Location  string `json:"location"`
 	}
@@ -737,66 +722,6 @@ func TestInfer_FieldShadowing(t *testing.T) {
 	}
 }
 
-func TestInfer_Vectorize(t *testing.T) {
-	type Row struct {
-		ID    string `json:"id" astra:"pk"`
-		Embed any    `json:"embed" astra:"vectorize,provider=openai,model=text-embedding-3-small"`
-	}
-
-	def, err := Infer[Row]()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	col, _ := def.Columns.Get("embed")
-	if col.Type != TypeVector {
-		t.Errorf("type = %q, want %q", col.Type, TypeVector)
-	}
-	if col.Service == nil {
-		t.Fatal("expected vectorize service")
-	}
-	if col.Service.Provider != "openai" {
-		t.Errorf("provider = %q, want openai", col.Service.Provider)
-	}
-	if col.Service.ModelName != "text-embedding-3-small" {
-		t.Errorf("model = %q, want text-embedding-3-small", col.Service.ModelName)
-	}
-}
-
-func TestInfer_VectorizeWithDimension(t *testing.T) {
-	type Row struct {
-		ID    string `json:"id" astra:"pk"`
-		Embed any    `json:"embed" astra:"vectorize,provider=nvidia,model=NV-Embed-QA,dim=1536"`
-	}
-
-	def, err := Infer[Row]()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	col, _ := def.Columns.Get("embed")
-	if col.Dimension == nil || *col.Dimension != 1536 {
-		t.Errorf("dimension = %v, want 1536", col.Dimension)
-	}
-}
-
-func TestInfer_JSONString(t *testing.T) {
-	type Inner struct{ Foo string }
-	type Row struct {
-		ID   string  `json:"id" astra:"pk"`
-		Data []Inner `json:"data" astra:"jsonString"`
-	}
-
-	def, err := Infer[Row]()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	col, _ := def.Columns.Get("data")
-	if col.Type != TypeText {
-		t.Errorf("jsonString column type = %q, want %q", col.Type, TypeText)
-	}
-}
 
 func TestInfer_SkipFields(t *testing.T) {
 	type Row struct {
@@ -835,8 +760,8 @@ func TestInfer_NoPrimaryKey(t *testing.T) {
 func TestInfer_BrokenCompositeKey_OrdinalGap(t *testing.T) {
 	// Matches BrokenCompositePrimaryKey from models.go
 	type Row struct {
-		KeyTwo string `json:"keyTwo" astra:"pk,3"`
-		KeyOne string `json:"keyOne" astra:"pk,1"`
+		KeyTwo string `json:"keyTwo" astra:"pk[3]"`
+		KeyOne string `json:"keyOne" astra:"pk[1]"`
 	}
 	_, err := Infer[Row]()
 	if err == nil {
@@ -847,10 +772,10 @@ func TestInfer_BrokenCompositeKey_OrdinalGap(t *testing.T) {
 func TestInfer_BrokenCompoundKey_OrdinalZero(t *testing.T) {
 	// Matches BrokenCompoundPrimaryKey from models.go
 	type Row struct {
-		KeyTwo            string `json:"keyTwo" astra:"pk,2"`
-		KeyOne            string `json:"keyOne" astra:"pk,1"`
-		SortTwoDescending string `json:"sortTwoDescending" astra:"ck,2,desc"`
-		SortOneAscending  string `json:"sortOneAscending" astra:"ck,0,asc"`
+		KeyTwo            string `json:"keyTwo" astra:"pk[2]"`
+		KeyOne            string `json:"keyOne" astra:"pk[1]"`
+		SortTwoDescending string `json:"sortTwoDescending" astra:"ck[2,desc]"`
+		SortOneAscending  string `json:"sortOneAscending" astra:"ck[0,asc]"`
 	}
 	_, err := Infer[Row]()
 	if err == nil {
@@ -860,8 +785,8 @@ func TestInfer_BrokenCompoundKey_OrdinalZero(t *testing.T) {
 
 func TestInfer_DuplicateOrdinals(t *testing.T) {
 	type Row struct {
-		A string `json:"a" astra:"pk,1"`
-		B string `json:"b" astra:"pk,1"`
+		A string `json:"a" astra:"pk[1]"`
+		B string `json:"b" astra:"pk[1]"`
 	}
 	_, err := Infer[Row]()
 	if err == nil {
@@ -871,7 +796,7 @@ func TestInfer_DuplicateOrdinals(t *testing.T) {
 
 func TestInfer_MixedOrdinals(t *testing.T) {
 	type Row struct {
-		A string `json:"a" astra:"pk,1"`
+		A string `json:"a" astra:"pk[1]"`
 		B string `json:"b" astra:"pk"` // no ordinal — mixed with ordinal
 	}
 	_, err := Infer[Row]()
@@ -953,23 +878,6 @@ func TestInfer_BracketTypeOverride(t *testing.T) {
 		}
 	})
 
-	t.Run("map[infer]infer on map[UUID][]byte", func(t *testing.T) {
-		type Row struct {
-			ID string                    `json:"id" astra:"pk"`
-			M  map[datatypes.UUID][]byte `json:"m" astra:"type=map[infer]infer"`
-		}
-		def, err := Infer[Row]()
-		if err != nil {
-			t.Fatalf("Infer errored: %v", err)
-		}
-		col, _ := def.Columns.Get("m")
-		if col.KeyType == nil || *col.KeyType != TypeUUID {
-			t.Errorf("key = %v, want %q", col.KeyType, TypeUUID)
-		}
-		if col.ValueType == nil || col.ValueType.Type != TypeBlob {
-			t.Errorf("value = %+v, want blob", col.ValueType)
-		}
-	})
 
 	t.Run("udt[person]", func(t *testing.T) {
 		type Person struct{ Name string }
@@ -1025,4 +933,56 @@ func TestInfer_BracketTypeOverride(t *testing.T) {
 			t.Errorf("error = %q, want containing %q", err.Error(), "type=set requires slice")
 		}
 	})
+}
+
+func TestInfer_MultiCK_RequiresOrdinals(t *testing.T) {
+	type Row struct {
+		A string `json:"a" astra:"pk"`
+		B string `json:"b" astra:"ck"`
+		C string `json:"c" astra:"ck"`
+	}
+	_, err := Infer[Row]()
+	if err == nil {
+		t.Fatal("expected error for multiple ck without ordinals")
+	}
+}
+
+func TestInfer_SingleCK_NoOrdinal(t *testing.T) {
+	type Row struct {
+		A string `json:"a" astra:"pk"`
+		B string `json:"b" astra:"ck"`
+	}
+	def, err := Infer[Row]()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(def.PrimaryKey.PartitionSort) != 1 || def.PrimaryKey.PartitionSort[0].Name != "b" {
+		t.Errorf("expected PartitionSort [b], got %v", def.PrimaryKey.PartitionSort)
+	}
+}
+
+func TestInfer_Override_UnknownColumn(t *testing.T) {
+	type Row struct {
+		A string `json:"a" astra:"pk"`
+	}
+	override := NewDefinition().AddTextColumn("unknown")
+	_, err := Infer[Row](override)
+	if err == nil {
+		t.Fatal("expected error for unknown column in override")
+	}
+}
+
+func TestInferUDT_Override(t *testing.T) {
+	type Row struct {
+		A string `json:"a"`
+	}
+	override := NewDefinition().AddIntColumn("a")
+	def, err := InferUDT[Row](override)
+	if err != nil {
+		t.Fatal(err)
+	}
+	col, _ := def.Fields.Get("a")
+	if col.Type != TypeInt {
+		t.Errorf("expected overridden type %q, got %q", TypeInt, col.Type)
+	}
 }
