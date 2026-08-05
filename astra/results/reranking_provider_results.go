@@ -27,30 +27,66 @@ package results
 //	    fmt.Println(model.Name)
 //	}
 type FindRerankingProvidersResult struct {
+	// EmbeddingProviders is a map of embedding provider names (e.g. "openai") to information
+	// about said provider (e.g. models/auth).
+	//
+	// Example:
+	//
+	//	result.EmbeddingProviders["openai"] // => EmbeddingProviderInfo{ DisplayName: "OpenAI", ... }
 	RerankingProviders map[string]RerankingProviderInfo `json:"rerankingProviders"`
 }
 
 // RerankingProviderInfo contains info about a specific reranking provider.
 type RerankingProviderInfo struct {
-	// DisplayName is the prettified name of the provider (as shown in the Astra portal).
-	DisplayName string `json:"displayName"`
+	// IsDefault Shows if the reranking provider is the default one. The current default is Nvidia
+	IsDefault bool `json:"isDefault"`
 
-	// URL is the rerankings endpoint used for the provider. May be nil for some providers.
+	// DisplayName is the prettified name of the provider (as shown in the Astra portal).
 	//
-	// May use a Python f-string-style interpolation pattern for certain providers which take
-	// in additional parameters
-	URL *string `json:"url"`
+	// Example: "OpenAI"
+	DisplayName string `json:"displayName"`
 
 	// SupportedAuthentication maps auth method names to info about that auth method for this provider.
 	//
 	// Possible methods include "HEADER", "SHARED_SECRET", and "NONE".
-	SupportedAuthentication map[string]RerankingProviderAuthInfo `json:"supportedAuthentication"`
-
-	// Parameters are any additional, arbitrary parameters the provider may take in. May or may not be required.
 	//
-	// Passed into the parameters block when creating a vectorize-enabled collection or table
-	// (except for vectorDimension, which belongs in the vector dimension field).
-	Parameters []RerankingProviderProviderParameterInfo `json:"parameters"`
+	//   - "HEADER": Authentication using direct API keys passed through headers on every Data API call.
+	//
+	//	    coll := db.Collection("my_coll",
+	//	        options.API().SetHeaders(map[string]string{
+	//	            // Not tied to the collection; can be different every time.
+	//	            "nvidia/llama-3.2-nv-rerankqa-1b-v2": "sk-...",
+	//	        }),
+	//	    )
+	//
+	//   - "SHARED_SECRET": Authentication tied to a collection at collection creation time using the Astra KMS.
+	//
+	//	    _, err = db.CreateCollection(ctx, "my_coll",
+	//	        options.CreateCollection().UpdateVector(
+	//	            options.Vector().UpdateService(
+	//	                options.VectorService().
+	//	                    SetProvider("nvidia").
+	//	                    SetModelName("nvidia/llama-3.2-nv-rerankqa-1b-v2").
+	//	                    // Name of the key in Astra portal's OpenAI integration (KMS):
+	//	                    SetAuthentication(map[string]any{"providerKey": "*KEY_NAME*"}),
+	//	            ),
+	//	        ),
+	//	    )
+	//
+	//
+	//   - "NONE": For providers that do not require authentication (e.g. nvidia).
+	//     No key or credential is needed when creating or using the collection.
+	//
+	//	    _, err = db.CreateCollection(ctx, "my_coll",
+	//	        options.CreateCollection().UpdateVector(
+	//	            options.Vector().UpdateService(
+	//	                options.VectorService().
+	//	                    SetProvider("nvidia").
+	//	                    SetModelName("NV-Embed-QA"),
+	//	            ),
+	//	        ),
+	//	    )
+	SupportedAuthentication map[string]RerankingProviderAuthInfo `json:"supportedAuthentication"`
 
 	// Models are the specific models that the provider supports.
 	//
@@ -68,7 +104,19 @@ type RerankingProviderAuthInfo struct {
 	Tokens []RerankingProviderTokenInfo `json:"tokens"`
 }
 
-// rerankingProviderTokenInfo contains info on how exactly a method of auth may be used.
+// RerankingProviderAuthInfo contains information about a specific auth method
+// (such as "HEADER", "SHARED_SECRET", or "NONE") for a specific provider.
+//
+// Example:
+//
+//	// openai.SupportedAuthentication["HEADER"]:
+//	RerankingProviderAuthInfo{
+//	    Enabled: true,
+//	    Tokens: []RerankingProviderTokenInfo{{
+//	        Accepted:  "x-embedding-api-key",
+//	        Forwarded: "Authorization",
+//	    }},
+//	}
 type RerankingProviderTokenInfo struct {
 	// Accepted is the accepted token.
 	// Most often "providerKey" for SHARED_SECRET, or "x-reranking-api-key" for HEADER.
@@ -78,7 +126,7 @@ type RerankingProviderTokenInfo struct {
 	Forwarded string `json:"forwarded"`
 }
 
-// rerankingProviderModelParameterInfo contains info about any additional, arbitrary parameter
+// RerankingProviderModelParameterInfo contains info about any additional, arbitrary parameter
 // a model may take in. May or may not be required.
 //
 // Passed into the parameters block when creating a vectorize-enabled collection or table
@@ -109,8 +157,8 @@ type RerankingProviderModelParameterInfo struct {
 	Help string `json:"help"`
 }
 
-// rerankingProviderProviderParameterInfo contains info about any additional, arbitrary parameter
-// a provider may take in. May or may not be required. Extends rerankingProviderModelParameterInfo
+// RerankingProviderProviderParameterInfo contains info about any additional, arbitrary parameter
+// a provider may take in. May or may not be required. Extends RerankingProviderModelParameterInfo
 // with display metadata.
 type RerankingProviderProviderParameterInfo struct {
 	RerankingProviderModelParameterInfo
@@ -122,7 +170,7 @@ type RerankingProviderProviderParameterInfo struct {
 	Hint string `json:"hint"`
 }
 
-// rerankingProviderModelInfo describes a specific model offered by an reranking provider.
+// RerankingProviderModelInfo describes a specific model offered by an reranking provider.
 //
 // May include an "endpoint-defined-model" for some providers, such as huggingfaceDedicated,
 // where the model may be truly arbitrary.
@@ -131,15 +179,19 @@ type RerankingProviderModelInfo struct {
 	// May be "endpoint-defined-model" for providers like huggingfaceDedicated.
 	Name string `json:"name"`
 
-	// VectorDimension is the preset, exact vector dimension to be used (if applicable).
-	// If nil, a vectorDimension parameter will be present in Parameters instead.
-	VectorDimension *int `json:"vectorDimension"`
-
-	// Parameters are any additional, arbitrary parameters the model may take in.
-	Parameters []RerankingProviderModelParameterInfo `json:"parameters"`
-
 	// ApiModelSupport describes the API support status and lifecycle of the model.
 	ApiModelSupport RerankingProviderModelApiSupportInfo `json:"apiModelSupport"`
+
+	IsDefault bool `json:"isDefault"`
+
+	// URL is the rerankings endpoint used for the provider. May be nil for some providers.
+	//
+	// May use a Python f-string-style interpolation pattern for certain providers which take
+	// in additional parameters
+	URL *string `json:"url"`
+
+	// Properties is a free-form dictionary with string keys, describing the model.
+	Properties map[string]any `json:"properties"`
 }
 
 // RerankingProviderModelApiSupportInfo describes the API support status and lifecycle of a model.
