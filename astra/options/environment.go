@@ -88,20 +88,20 @@ func ParseAstraEndpoint(endpoint string) (id, region string, env AstraEnvironmen
 	}
 }
 
-// DataAPIBackend represents the database backend (controls Data API path).
-type DataAPIBackend string
+// Environment represents the database backend (controls Data API path).
+type Environment string
 
 const (
-	// DataAPIBackendAstra is the Astra backend.
-	DataAPIBackendAstra DataAPIBackend = "astra"
-	// DataAPIBackendHCD is the Hyper-Converged Database backend.
-	DataAPIBackendHCD DataAPIBackend = "hcd"
-	// DataAPIBackendDSE is the DataStax Enterprise backend.
-	DataAPIBackendDSE DataAPIBackend = "dse"
-	// DataAPIBackendCassandra is the open-source Cassandra backend.
-	DataAPIBackendCassandra DataAPIBackend = "cassandra"
-	// DataAPIBackendOther is any other backend.
-	DataAPIBackendOther DataAPIBackend = "other"
+	// EnvironmentAstra is the Astra backend.
+	EnvironmentAstra Environment = "astra"
+	// EnvironmentHCD is the Hyper-Converged Database backend.
+	EnvironmentHCD Environment = "hcd"
+	// EnvironmentDSE is the DataStax Enterprise backend.
+	EnvironmentDSE Environment = "dse"
+	// EnvironmentCassandra is the open-source Cassandra backend.
+	EnvironmentCassandra Environment = "cassandra"
+	// EnvironmentOther is any other backend.
+	EnvironmentOther Environment = "other"
 )
 
 // DataAPIPath returns the Data API URL path prefix for this backend.
@@ -113,14 +113,14 @@ const (
 //
 // Non-astra DBs don't have /api/json. See also:
 // https://github.com/datastax/astra-db-ts/blob/45f1c7fd9d46d82eee802947a285437c70d419bf/src/lib/api/constants.ts#L62
-func (b DataAPIBackend) DataAPIPath() string {
-	if b == DataAPIBackendAstra {
+func (b Environment) DataAPIPath() string {
+	if b == EnvironmentAstra {
 		return "api/json"
 	}
 	return ""
 }
 
 // IsAstra returns true if the backend is Astra.
-func (b DataAPIBackend) IsAstra() bool {
-	return b == DataAPIBackendAstra
+func (b Environment) IsAstra() bool {
+	return b == EnvironmentAstra
 }

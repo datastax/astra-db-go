@@ -230,7 +230,7 @@ func TestAdminEnvironmentOverriddenAtAdminLevel(t *testing.T) {
 func TestAdminNotAvailableForNonAstra(t *testing.T) {
 	client := NewClient(
 		options.API().SetToken("token"),
-		options.API().SetDataAPIBackend(options.DataAPIBackendHCD),
+		options.API().SetEnvironment(options.EnvironmentHCD),
 	)
 	_, err := client.Admin()
 	if err == nil {

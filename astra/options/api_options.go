@@ -58,9 +58,9 @@ type APIOptions struct {
 	// Controls the DevOps API URL. Defaults to prod.
 	AstraEnvironment *AstraEnvironment
 
-	// DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
+	// Environment is the database backend (astra, hcd, dse, cassandra, other).
 	// Controls the Data API path. Defaults to astra.
-	DataAPIBackend *DataAPIBackend
+	Environment *Environment
 
 	// Callers contains information about the application making the request
 	Callers Callers
@@ -386,12 +386,12 @@ func (o *APIOptions) GetAstraEnvironment() AstraEnvironment {
 	return *o.AstraEnvironment
 }
 
-// GetDataAPIBackend returns the database backend or DataAPIBackendAstra if not set.
-func (o *APIOptions) GetDataAPIBackend() DataAPIBackend {
-	if o == nil || o.DataAPIBackend == nil {
-		return DataAPIBackendAstra
+// GetEnvironment returns the database backend or EnvironmentAstra if not set.
+func (o *APIOptions) GetEnvironment() Environment {
+	if o == nil || o.Environment == nil {
+		return EnvironmentAstra
 	}
-	return *o.DataAPIBackend
+	return *o.Environment
 }
 
 // GetRequestTimeout returns the request timeout or 30 seconds if not set.

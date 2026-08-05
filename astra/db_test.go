@@ -27,7 +27,7 @@ import (
 )
 
 func TestDbInfoNonAstra(t *testing.T) {
-	client := NewClient(options.API().SetDataAPIBackend(options.DataAPIBackendHCD))
+	client := NewClient(options.API().SetEnvironment(options.EnvironmentHCD))
 	db := client.Database("http://localhost:8181")
 
 	_, err := db.Info(context.Background())

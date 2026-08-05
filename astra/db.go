@@ -84,8 +84,8 @@ func (d *Db) Endpoint() string {
 // Returns an error if the database is not an Astra database, or if the ID cannot be parsed
 // from the endpoint URL.
 func (d *Db) ID() (string, error) {
-	if !d.client.dataAPIBackend.IsAstra() {
-		return "", fmt.Errorf("db.ID() is only available for Astra databases (current backend: %s)", d.client.dataAPIBackend)
+	if !d.client.environment.IsAstra() {
+		return "", fmt.Errorf("db.ID() is only available for Astra databases (current backend: %s)", d.client.environment)
 	}
 	if d.id == nil {
 		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database ID could not be parsed", d.endpoint)
@@ -105,8 +105,8 @@ func (d *Db) ID() (string, error) {
 // Returns an error if the database is not an Astra database, or if the region cannot be parsed
 // from the endpoint URL.
 func (d *Db) Region() (string, error) {
-	if !d.client.dataAPIBackend.IsAstra() {
-		return "", fmt.Errorf("db.Region() is only available for Astra databases (current backend: %s)", d.client.dataAPIBackend)
+	if !d.client.environment.IsAstra() {
+		return "", fmt.Errorf("db.Region() is only available for Astra databases (current backend: %s)", d.client.environment)
 	}
 	if d.region == nil {
 		return "", fmt.Errorf("unexpected Astra endpoint URL %q: database region could not be parsed", d.endpoint)
@@ -628,7 +628,7 @@ func listTypes[T any](d *Db, ctx context.Context, explain bool, opts *options.AP
 //   - Non-Astra environments return a [DataAPIDatabaseAdmin] (Data API)
 func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 	// Astra backends use the DevOps API.
-	if d.client.dataAPIBackend.IsAstra() {
+	if d.client.environment.IsAstra() {
 		if _, err := d.ID(); err != nil {
 			return nil, err
 		}
@@ -645,7 +645,7 @@ func (d *Db) DatabaseAdmin() (DatabaseAdmin, error) {
 // Info retrieves partial database metadata based on the database's endpoint.
 // This operation requires a call to the DevOps API, which is only available on Astra databases.
 func (d *Db) Info(ctx context.Context, opts ...options.DatabaseInfoOption) (*PartialAstraDatabaseInfo, error) {
-	if !d.client.dataAPIBackend.IsAstra() {
+	if !d.client.environment.IsAstra() {
 		return nil, fmt.Errorf("info() is only available for Astra databases")
 	}
 

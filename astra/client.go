@@ -26,8 +26,8 @@ import (
 // Options set on the client are inherited by all databases, collections,
 // tables, and commands created from it, unless overridden at a lower level.
 type DataAPIClient struct {
-	options        *options.APIOptions
-	dataAPIBackend options.DataAPIBackend
+	options     *options.APIOptions
+	environment options.Environment
 }
 
 // NewClient returns a new DataAPIClient with the given options.
@@ -42,13 +42,13 @@ type DataAPIClient struct {
 //
 //	client := astra.NewClient(
 //	    options.API().SetToken("AstraCS:..."),
-//	    options.API().SetDataAPIBackend(options.DataAPIBackendHCD),
+//	    options.API().SetEnvironment(options.EnvironmentHCD),
 //	)
 func NewClient(opts ...options.APIOption) *DataAPIClient {
 	resolved := options.Merge(opts...)
 	return &DataAPIClient{
-		options:        resolved,
-		dataAPIBackend: resolved.GetDataAPIBackend(),
+		options:     resolved,
+		environment: resolved.GetEnvironment(),
 	}
 }
 
@@ -83,8 +83,8 @@ func (c *DataAPIClient) Database(endpoint string, opts ...options.APIOption) *Db
 //	}
 //	regions, err := admin.FindAvailableRegions(ctx)
 func (c *DataAPIClient) Admin(opts ...options.APIOption) (*AstraAdmin, error) {
-	if !c.dataAPIBackend.IsAstra() {
-		return nil, fmt.Errorf("Admin is only available with the Astra backend (current: %s)", c.dataAPIBackend)
+	if !c.environment.IsAstra() {
+		return nil, fmt.Errorf("Admin is only available with the Astra backend (current: %s)", c.environment)
 	}
 	combined := options.Merge(append([]options.APIOption{c.options}, opts...)...)
 	env := combined.GetAstraEnvironment()

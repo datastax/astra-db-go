@@ -103,8 +103,8 @@ func ApplicationToken() string {
 	return cfg.applicationToken
 }
 
-func Backend() options.DataAPIBackend {
-	return options.DataAPIBackend(cfg.backend) // should probably add validation but eh whatever
+func Backend() options.Environment {
+	return options.Environment(cfg.backend) // should probably add validation but eh whatever
 }
 
 func ShouldRun(s *S, testName string) bool {

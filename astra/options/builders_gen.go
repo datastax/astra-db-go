@@ -172,12 +172,12 @@ func (b *apiOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *apiOptionsB
 	return b
 }
 
-// SetDataAPIBackend sets the DataAPIBackend option.
-// DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
+// SetEnvironment sets the Environment option.
+// Environment is the database backend (astra, hcd, dse, cassandra, other).
 // Controls the Data API path. Defaults to astra.
-func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) SetEnvironment(v Environment) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		o.DataAPIBackend = &v
+		o.Environment = &v
 	})
 	return b
 }

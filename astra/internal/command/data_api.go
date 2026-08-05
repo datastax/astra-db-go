@@ -48,7 +48,7 @@ func newDataAPICommand(endpoint, resourceName, name string, payload any, target 
 
 	var u string
 	if endpoint != "" {
-		basePath := opts.GetDataAPIBackend().DataAPIPath()
+		basePath := opts.GetEnvironment().DataAPIPath()
 		u, _ = url.JoinPath(endpoint, basePath, opts.GetAPIVersion())
 		if !admin {
 			u, _ = url.JoinPath(u, opts.GetKeyspace(), resourceName)
