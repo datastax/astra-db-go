@@ -320,6 +320,14 @@ func (b *apiOptionsBuilder) SetToken(token string) *apiOptionsBuilder {
 	return b
 }
 
+// SetUsernamePasswordTokenProvider sets the authentication token for DSE/HCD/Cassandra.
+func (b *apiOptionsBuilder) SetUsernamePasswordTokenProvider(user, pass string) *apiOptionsBuilder {
+	b.setters = append(b.setters, func(o *APIOptions) {
+		o.TokenProvider = NewUsernamePasswordTokenProvider(user, pass)
+	})
+	return b
+}
+
 // SetTokenProvider sets the authentication token provider for Astra DB.
 func (b *apiOptionsBuilder) SetTokenProvider(provider TokenProvider) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
