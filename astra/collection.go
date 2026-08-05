@@ -134,7 +134,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.newCmd, (insertManyOptions)(*merged), serdes.TargetCollection)
+	return insertMany(ctx, documents, c.options, c.newCmd, (insertManyOptions)(*merged), serdes.TargetCollection)
 }
 
 // endregion
@@ -301,7 +301,7 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 	}
 
 	// Create timeout manager for multi-call operation
-	tm := timeout.NewMultiCall(merged.APIOptions)
+	tm := timeout.NewMultiCall(c.options, merged.APIOptions)
 
 	payload := map[string]any{
 		"filter": f,
@@ -516,7 +516,7 @@ func (c *Collection) DeleteMany(ctx context.Context, f CollectionFilter, opts ..
 		return nil, ErrNilFilter
 	}
 
-	tm := timeout.NewMultiCall(merged.APIOptions)
+	tm := timeout.NewMultiCall(c.options, merged.APIOptions)
 
 	payload := map[string]any{
 		"filter": f,

@@ -402,15 +402,7 @@ func (b *collectionDeleteManyOptionsBuilder) Setters() []func(*CollectionDeleteM
 	return b.setters
 }
 
-// SetTimeout sets the Timeout option.
-// Timeout is the overall timeout for the entire paginated operation.
-// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-func (b *collectionDeleteManyOptionsBuilder) SetTimeout(v time.Duration) *collectionDeleteManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionDeleteManyOptions) {
-		o.Timeout = &v
-	})
-	return b
-}
+
 
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
@@ -1307,15 +1299,7 @@ func (b *collectionUpdateManyOptionsBuilder) SetUpsert(v bool) *collectionUpdate
 	return b
 }
 
-// SetTimeout sets the Timeout option.
-// Timeout is the overall timeout for the entire paginated operation.
-// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-func (b *collectionUpdateManyOptionsBuilder) SetTimeout(v time.Duration) *collectionUpdateManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
-		o.Timeout = &v
-	})
-	return b
-}
+
 
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)

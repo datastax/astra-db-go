@@ -65,10 +65,11 @@ func NewSingleCall(opts *options.APIOptions, tt SingleType) *Manager {
 	}
 }
 
-func NewMultiCall(opts *options.APIOptions) *Manager {
+func NewMultiCall(opts ...options.APIOption) *Manager {
+	resolved := options.Merge(opts...)
 	return &Manager{
-		requestTimeout: opts.GetRequestTimeout(),
-		overallTimeout: opts.GetTimeout().GetGeneralMethod(),
+		requestTimeout: resolved.GetRequestTimeout(),
+		overallTimeout: resolved.GetTimeout().GetGeneralMethod(),
 	}
 }
 
@@ -97,10 +98,8 @@ func (tm *Manager) Advance() time.Duration {
 func (tm *Manager) ApplyToContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	timeout := tm.Advance()
 	if timeout <= 0 {
-		// Return a context that's already cancelled
-		ctx, cancel := context.WithCancel(ctx)
-		cancel()
-		return ctx, cancel
+		// Return a context that's already timed out
+		return context.WithTimeout(ctx, 0)
 	}
 	return context.WithTimeout(ctx, timeout)
 }

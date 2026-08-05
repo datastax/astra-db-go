@@ -159,7 +159,7 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, rows, t.newCmd, (insertManyOptions)(*merged), serdes.TargetTable)
+	return insertMany(ctx, rows, t.options, t.newCmd, (insertManyOptions)(*merged), serdes.TargetTable)
 }
 
 // endregion

@@ -16,7 +16,6 @@ package options
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/constants"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
@@ -442,9 +441,7 @@ type CollectionUpdateOneOptions struct {
 type CollectionUpdateManyOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool `json:"upsert,omitempty"`
-	// Timeout is the overall timeout for the entire paginated operation.
-	// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-	Timeout *time.Duration `json:"-"`
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
@@ -462,9 +459,6 @@ type CollectionDeleteOneOptions struct {
 
 // CollectionDeleteManyOptions represents options for a deleteMany operation.
 type CollectionDeleteManyOptions struct {
-	// Timeout is the overall timeout for the entire paginated operation.
-	// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-	Timeout *time.Duration `json:"-"`
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`

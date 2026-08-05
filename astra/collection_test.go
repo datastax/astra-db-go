@@ -283,7 +283,7 @@ func TestDeleteManyTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
-		options.CollectionDeleteMany().SetTimeout(250*time.Millisecond),
+		options.CollectionDeleteMany().UpdateAPIOptions(options.API().SetGeneralMethodTimeout(250*time.Millisecond)),
 	)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
@@ -311,7 +311,7 @@ func TestUpdateManyTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := coll.UpdateMany(ctx, filter.F{"status": "old"}, update.Coll().Set("status", "archived"),
-		options.CollectionUpdateMany().SetTimeout(250*time.Millisecond),
+		options.CollectionUpdateMany().UpdateAPIOptions(options.API().SetGeneralMethodTimeout(250*time.Millisecond)),
 	)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
@@ -362,7 +362,7 @@ func TestDeleteManyMethodTimeoutOverridesHierarchy(t *testing.T) {
 
 	// Method-level timeout is generous enough to succeed
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
-		options.CollectionDeleteMany().SetTimeout(5*time.Second),
+		options.CollectionDeleteMany().UpdateAPIOptions(options.API().SetGeneralMethodTimeout(5*time.Second)),
 	)
 	if err != nil {
 		t.Fatalf("expected success with method-level override, got: %v", err)

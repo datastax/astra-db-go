@@ -87,7 +87,7 @@ type insertManyResponse struct {
 	Errors []results.DataAPIError `json:"errors,omitempty"`
 }
 
-func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertMany(ctx context.Context, records any, baseOpts options.APIOption, mkCmd mkCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
 	recordsVal := reflect.ValueOf(records)
 	if recordsVal.Kind() != reflect.Slice {
 		return nil, errors.New("records must be a slice")
@@ -103,7 +103,7 @@ func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOp
 		opts.Ordered = ptr.To(false)
 	}
 
-	tm := timeout.NewMultiCall(opts.APIOptions)
+	tm := timeout.NewMultiCall(baseOpts, opts.APIOptions)
 
 	if *opts.Ordered {
 		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target, tm)

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/options"
 )
@@ -159,62 +158,9 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 	}
 }
 
-func TestDeleteManyOptionsTimeout(t *testing.T) {
-	timeout := 3 * time.Minute
 
-	// Builder style
-	opts, err := options.MergeAndValidate(options.CollectionDeleteMany().SetTimeout(timeout))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts.Timeout == nil || *opts.Timeout != timeout {
-		t.Errorf("expected timeout %v, got %v", timeout, opts.Timeout)
-	}
 
-	// Raw struct style
-	opts2, err := options.MergeAndValidate(&options.CollectionDeleteManyOptions{Timeout: &timeout})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts2.Timeout == nil || *opts2.Timeout != timeout {
-		t.Errorf("expected timeout %v via raw struct, got %v", timeout, opts2.Timeout)
-	}
-}
 
-func TestUpdateManyOptionsTimeout(t *testing.T) {
-	timeout := 3 * time.Minute
-
-	// Builder style
-	opts, err := options.MergeAndValidate(options.CollectionUpdateMany().SetTimeout(timeout))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts.Timeout == nil || *opts.Timeout != timeout {
-		t.Errorf("expected timeout %v, got %v", timeout, opts.Timeout)
-	}
-
-	// Raw struct style
-	opts2, err := options.MergeAndValidate(&options.CollectionUpdateManyOptions{Timeout: &timeout})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if opts2.Timeout == nil || *opts2.Timeout != timeout {
-		t.Errorf("expected timeout %v via raw struct, got %v", timeout, opts2.Timeout)
-	}
-}
-
-func TestDeleteManyOptionsTimeoutNotSerialized(t *testing.T) {
-	timeout := 3 * time.Minute
-	opts := options.CollectionDeleteManyOptions{Timeout: &timeout}
-	b, err := json.Marshal(opts)
-	if err != nil {
-		t.Fatalf("json.Marshal error: %v", err)
-	}
-	// json:"-" means Timeout should not appear in the JSON
-	if string(b) != "{}" {
-		t.Errorf("expected empty JSON object, got %s", string(b))
-	}
-}
 
 func TestUpdateAPIOptionsBuilder(t *testing.T) {
 	// Builder style
