@@ -196,7 +196,7 @@ type VectorOptions struct {
 	// Metric specifies the similarity metric used for vector search.
 	// Valid values are "cosine", "euclidean", or "dot_product".
 	// Default is "cosine".
-	Metric *string `json:"metric,omitempty"`
+	Metric *VectorMetric `json:"metric,omitempty"`
 
 	// SourceModel is the embedding generation model, enabling optimizations.
 	SourceModel *string `json:"sourceModel,omitempty"`

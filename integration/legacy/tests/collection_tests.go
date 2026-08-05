@@ -1242,7 +1242,7 @@ func CollectionVectorCreate(e *harness.TestEnv) error {
 	_, err := db.CreateCollection(ctx, vectorCollectionName,
 		options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(vectorDimension),
-			Metric:    ptr.To("cosine"),
+			Metric:    ptr.To(options.MetricCosine),
 		}))
 	if err != nil {
 		return fmt.Errorf("failed to create vector collection: %w", err)

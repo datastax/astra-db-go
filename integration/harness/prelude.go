@@ -98,7 +98,7 @@ func startCreateCollections(db *astra.Db) {
 			if ks == TestKeyspaces[0] {
 				builder.UpdateVector(&options.VectorOptions{
 					Dimension: ptr.To(5),
-					Metric:    ptr.To("cosine"),
+					Metric:    ptr.To(options.MetricCosine),
 				})
 			} else {
 				builder.UpdateVector(&options.VectorOptions{

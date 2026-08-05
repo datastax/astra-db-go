@@ -4028,7 +4028,7 @@ func (b *vectorOptionsBuilder) SetDimension(v int) *vectorOptionsBuilder {
 // Metric specifies the similarity metric used for vector search.
 // Valid values are "cosine", "euclidean", or "dot_product".
 // Default is "cosine".
-func (b *vectorOptionsBuilder) SetMetric(v string) *vectorOptionsBuilder {
+func (b *vectorOptionsBuilder) SetMetric(v VectorMetric) *vectorOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorOptions) {
 		o.Metric = &v
 	})

@@ -97,7 +97,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("with vector", func(t *testing.T) {
 		opts := options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(1024),
-			Metric:    ptr.To("cosine"),
+			Metric:    ptr.To(options.MetricCosine),
 		})
 
 		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
@@ -114,11 +114,11 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("multiple builders merged", func(t *testing.T) {
 		opts := options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(512),
-			Metric:    ptr.To("euclidean"),
+			Metric:    ptr.To(options.MetricEuclidean),
 		})
 		opts.UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(1024),
-			Metric:    ptr.To("cosine"),
+			Metric:    ptr.To(options.MetricCosine),
 		})
 
 		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
