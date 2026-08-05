@@ -15,12 +15,12 @@
 
 ## Setup & requirements
 
-Update to Go 1.24 or higher. [Download it here](https://go.dev/doc/install).
+Update to Go 1.23 or higher. [Download it here](https://go.dev/doc/install).
 
 Install the client:
 
 ```
-go get github.com/datastax/gocql-astra/v2
+go get github.com/datastax/astra-db-go/v2
 ```
 
 You need an Astra DB database or a Hyper-Converged Database (HCD) for the client to connect to.
