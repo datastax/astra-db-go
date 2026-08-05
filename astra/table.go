@@ -513,7 +513,7 @@ func createVectorIndexCommand(t *Table, name string, column string, opts ...opti
 // Example - with analyzer:
 //
 //	err := tbl.CreateTextIndex(ctx, "content_idx", "content",
-//	    options.CreateTextIndex().UpdateAnalyzer("standard"))
+//	    options.CreateTextIndex().SetAnalyzer("standard"))
 //
 // Example - with ifNotExists:
 //

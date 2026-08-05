@@ -110,7 +110,7 @@ func CollectionNestedCreate(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
 	_, err := db.CreateCollection(ctx, nestedCollectionName, options.CreateCollection().
-		UpdateIndexingAllow("*").
+		SetIndexingAllow("*").
 		UpdateAPIOptions(options.API()))
 	return err
 }

@@ -30,21 +30,21 @@ func TestIndexingOptionsValidation(t *testing.T) {
 	}{
 		{
 			name: "allow only",
-			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
 				Allow: []string{"field1", "field2"},
 			}),
 			wantErr: false,
 		},
 		{
 			name: "deny only",
-			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
 				Deny: []string{"field3", "field4"},
 			}),
 			wantErr: false,
 		},
 		{
 			name: "allow and deny",
-			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
 				Allow: []string{"field1"},
 				Deny:  []string{"field2"},
 			}),
@@ -52,12 +52,12 @@ func TestIndexingOptionsValidation(t *testing.T) {
 		},
 		{
 			name:    "fluent version with allow",
-			opts:    options.CreateCollection().UpdateIndexingAllow("field1", "field2"),
+			opts:    options.CreateCollection().SetIndexingAllow("field1", "field2"),
 			wantErr: false,
 		},
 		{
 			name:    "fluent version with allow and deny",
-			opts:    options.CreateCollection().UpdateIndexingAllow("field1", "field2").UpdateIndexingDeny("field3", "field4"),
+			opts:    options.CreateCollection().SetIndexingAllow("field1", "field2").SetIndexingDeny("field3", "field4"),
 			wantErr: true,
 		},
 		{
@@ -157,10 +157,6 @@ func TestVectorServiceOptionsValidation(t *testing.T) {
 		})
 	}
 }
-
-
-
-
 
 func TestUpdateAPIOptionsBuilder(t *testing.T) {
 	// Builder style

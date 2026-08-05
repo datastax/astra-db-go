@@ -1426,9 +1426,9 @@ func (b *createCollectionOptionsBuilder) UpdateVector(v ...VectorOption) *create
 	return b
 }
 
-// UpdateIndexing sets the Indexing option.
+// SetIndexing sets the Indexing option.
 // Overrides for document indexing
-func (b *createCollectionOptionsBuilder) UpdateIndexing(v ...IndexingOption) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) SetIndexing(v ...IndexingOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Indexing, v...)
 	})

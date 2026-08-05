@@ -115,9 +115,9 @@ func (b *createCollectionOptionsBuilder) SetRerankingHeadersProvider(provider Re
 	return b
 }
 
-// UpdateIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
-// Mutually exclusive with UpdateIndexingDeny.
-func (b *createCollectionOptionsBuilder) UpdateIndexingAllow(v ...string) *createCollectionOptionsBuilder {
+// SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
+// Mutually exclusive with SetIndexingDeny.
+func (b *createCollectionOptionsBuilder) SetIndexingAllow(v ...string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
@@ -127,9 +127,9 @@ func (b *createCollectionOptionsBuilder) UpdateIndexingAllow(v ...string) *creat
 	return b
 }
 
-// UpdateIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
-// disable indexing entirely. Mutually exclusive with UpdateIndexingAllow.
-func (b *createCollectionOptionsBuilder) UpdateIndexingDeny(v ...string) *createCollectionOptionsBuilder {
+// SetIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
+// disable indexing entirely. Mutually exclusive with SetIndexingAllow.
+func (b *createCollectionOptionsBuilder) SetIndexingDeny(v ...string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
@@ -289,8 +289,8 @@ type RerankServiceOptions struct {
 	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
-// UpdateAnalyzer sets the analyzer name for lexical search (e.g., "standard").
-func (b *lexicalOptionsBuilder) UpdateAnalyzer(v string) *lexicalOptionsBuilder {
+// SetAnalyzer sets the analyzer name for lexical search (e.g., "standard").
+func (b *lexicalOptionsBuilder) SetAnalyzer(v string) *lexicalOptionsBuilder {
 	b.setters = append(b.setters, func(o *LexicalOptions) {
 		o.Analyzer = v
 	})
