@@ -373,12 +373,11 @@ func (b *collectionDefaultIdOptionsBuilder) SetType(v CollectionIdType) *collect
 //
 // Example using the fluent builder ([CollectionDeleteMany]):
 //
-//	// No need to use pointer for builder; the builder handles that for you.
-//	opts := options.CollectionDeleteMany().SetTimeout(10 * time.Second)
+//	opts := options.CollectionDeleteMany().UpdateAPIOptions(...)
 //
 // Example using a pointer to [CollectionDeleteManyOptions] without the fluent builder:
 //
-//	opts := &options.CollectionDeleteManyOptions{Timeout: ptr.To(10 * time.Second)}
+//	opts := &options.CollectionDeleteManyOptions{...}
 type CollectionDeleteManyOption = Builder[CollectionDeleteManyOptions]
 
 // Setters implements Builder[CollectionDeleteManyOptions] allowing the raw struct to be
@@ -401,8 +400,6 @@ func CollectionDeleteMany() *collectionDeleteManyOptionsBuilder {
 func (b *collectionDeleteManyOptionsBuilder) Setters() []func(*CollectionDeleteManyOptions) {
 	return b.setters
 }
-
-
 
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
@@ -1299,8 +1296,6 @@ func (b *collectionUpdateManyOptionsBuilder) SetUpsert(v bool) *collectionUpdate
 	return b
 }
 
-
-
 // UpdateAPIOptions sets the APIOptions option.
 // APIOptions overrides API-level settings (token, timeout, headers, etc.)
 // for this command. These are merged into the Client→DB→Collection→Command hierarchy.
@@ -1426,9 +1421,9 @@ func (b *createCollectionOptionsBuilder) UpdateVector(v ...VectorOption) *create
 	return b
 }
 
-// SetIndexing sets the Indexing option.
+// UpdateIndexing sets the Indexing option.
 // Overrides for document indexing
-func (b *createCollectionOptionsBuilder) SetIndexing(v ...IndexingOption) *createCollectionOptionsBuilder {
+func (b *createCollectionOptionsBuilder) UpdateIndexing(v ...IndexingOption) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		MergeInto(&o.Indexing, v...)
 	})
