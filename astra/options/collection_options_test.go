@@ -30,21 +30,21 @@ func TestIndexingOptionsValidation(t *testing.T) {
 	}{
 		{
 			name: "allow only",
-			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
 				Allow: []string{"field1", "field2"},
 			}),
 			wantErr: false,
 		},
 		{
 			name: "deny only",
-			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
 				Deny: []string{"field3", "field4"},
 			}),
 			wantErr: false,
 		},
 		{
 			name: "allow and deny",
-			opts: options.CreateCollection().SetIndexing(&options.IndexingOptions{
+			opts: options.CreateCollection().UpdateIndexing(&options.IndexingOptions{
 				Allow: []string{"field1"},
 				Deny:  []string{"field2"},
 			}),
