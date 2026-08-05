@@ -191,7 +191,7 @@ func (d *Db) Table(name string, opts ...options.GetTableOption) *Table {
 //	// Passing in options as raw struct
 //	opts := &options.CreateCollectionOptions{
 //		DefaultId: &options.CollectionDefaultIdOptions{
-//			Type: options.DefaultIdTypeUUIDv7,
+//			Type: options.CollectionIdTypeUUIDv7,
 //		},
 //	}
 //	coll, err := db.CreateCollection(ctx, "my_collection", opts)

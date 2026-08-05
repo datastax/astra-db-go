@@ -361,7 +361,7 @@ func (b *collectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultI
 // Type is the type of the default ID that the API should generate if no ID is provided in the inserted document.
 // Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
 // If not specified, the default ID will be a string UUID.
-func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collectionDefaultIdOptionsBuilder {
+func (b *collectionDefaultIdOptionsBuilder) SetType(v CollectionIdType) *collectionDefaultIdOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDefaultIdOptions) {
 		o.Type = &v
 	})

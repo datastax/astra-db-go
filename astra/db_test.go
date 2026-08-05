@@ -135,7 +135,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("raw struct passed directly", func(t *testing.T) {
 		rawOpts := &options.CreateCollectionOptions{
 			DefaultId: &options.CollectionDefaultIdOptions{
-				Type: ptr.To(options.DefaultIdTypeUUIDv7),
+				Type: ptr.To(options.CollectionIdTypeUUIDv7),
 			},
 		}
 

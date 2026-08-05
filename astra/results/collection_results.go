@@ -43,27 +43,27 @@ type CollectionDefinition struct {
 	Rerank *RerankDefinition `json:"rerank,omitempty"`
 }
 
-// DefaultIdType specifies the type of auto-generated document ID when no _id is
+// CollectionIdType specifies the type of auto-generated document ID when no _id is
 // provided in an inserted document. If not set, the default is a string UUID v4.
-type DefaultIdType string
+type CollectionIdType string
 
 const (
-	// DefaultIdTypeUUID uses a [UUID v4] as the default document ID.
+	// CollectionIdTypeUUID uses a [UUID v4] as the default document ID.
 	//
 	// [UUID v4]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-4
-	DefaultIdTypeUUID DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUID)
-	// DefaultIdTypeUUIDv6 uses a UUID v6 as the default document ID.
+	CollectionIdTypeUUID CollectionIdType = CollectionIdType(constants.CollectionIdTypeUUID)
+	// CollectionIdTypeUUIDv6 uses a UUID v6 as the default document ID.
 	// UUID v6 is field-compatible with UUID v1 and supports lexicographic sorting.
 	//
 	// [UUID v6]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-6
-	DefaultIdTypeUUIDv6 DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUIDv6)
-	// DefaultIdTypeUUIDv7 uses a [UUID v7] as the default document ID.
+	CollectionIdTypeUUIDv6 CollectionIdType = CollectionIdType(constants.CollectionIdTypeUUIDv6)
+	// CollectionIdTypeUUIDv7 uses a [UUID v7] as the default document ID.
 	// UUID v7 is recommended for new systems as a replacement for UUID v1.
 	//
 	// [UUID v7]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-7
-	DefaultIdTypeUUIDv7 DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUIDv7)
-	// DefaultIdTypeObjectId uses an ObjectID as the default document ID.
-	DefaultIdTypeObjectId DefaultIdType = DefaultIdType(constants.DefaultIdTypeObjectId)
+	CollectionIdTypeUUIDv7 CollectionIdType = CollectionIdType(constants.CollectionIdTypeUUIDv7)
+	// CollectionIdTypeObjectId uses an ObjectID as the default document ID.
+	CollectionIdTypeObjectId CollectionIdType = CollectionIdType(constants.CollectionIdTypeObjectId)
 )
 
 // CollectionDefaultIdDefinition represents the definition for a collection's default ID.
@@ -73,7 +73,7 @@ type CollectionDefaultIdDefinition struct {
 	// Type is the type of the default ID that the API should generate if no ID is provided in the inserted document.
 	// Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
 	// If not specified, the default ID will be a string UUID.
-	Type *DefaultIdType `json:"type,omitempty"`
+	Type *CollectionIdType `json:"type,omitempty"`
 }
 
 // -- Placeholder structs for the types referenced above --
