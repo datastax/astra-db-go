@@ -20,7 +20,7 @@ Update to Go 1.24 or higher. [Download it here](https://go.dev/doc/install).
 Install the client:
 
 ```
-go get github.com/datastax/gocql-astra/v2
+go get github.com/datastax/astra-db-go/v2/astra
 ```
 
 You need an Astra DB database or a Hyper-Converged Database (HCD) for the client to connect to.
@@ -66,10 +66,28 @@ func main() {
 
     // Initialize the client
     client := astra.NewClient()
+    // Example endpoint: "https://abc123ab-abc1-abc1-abc1-abc123abc123-us-east-2.apps.astra.datastax.com"
+    // Example token: "AstraCS:abc123abc123abc123abc123:abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc1"
     db := client.Database("<endpoint>", options.API().SetToken("<token>"))
 
     // Create a collection
-    coll, err := db.CreateCollection(ctx, "ExampleCollection")
+    
+    coll, err := db.CreateCollection(
+        ctx,
+        "ExampleCollection",
+        options.CreateCollection().
+            UpdateVector(
+                options.Vector().
+                    SetDimension(1024).
+                    SetMetric("cosine").
+                    // Set built-in NVIDIA provider to make this example easily runnable
+                    UpdateService(
+                        options.VectorService().
+                            SetProvider("nvidia").
+                            SetModelName("nvidia/nv-embedqa-e5-v5"),
+                    ),
+            ),
+    )
     if err != nil {
         log.Fatal(err)
     }
