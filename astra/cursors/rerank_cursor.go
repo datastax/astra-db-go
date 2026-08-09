@@ -139,7 +139,7 @@ type findAndRerankPayload struct {
 }
 
 type findAndRerankOptions struct {
-	Limit             *int                          `json:"limit,omitempty"`
+	Limit             int                           `json:"limit,omitempty"`
 	HybridLimits      any                           `json:"hybridLimits,omitempty"`
 	IncludeScores     *bool                         `json:"includeScores,omitempty"`
 	IncludeSortVector *bool                         `json:"includeSortVector,omitempty"`

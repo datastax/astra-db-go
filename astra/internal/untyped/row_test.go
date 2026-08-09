@@ -176,8 +176,8 @@ func TestRow_UnmarshalAstraRaw(t *testing.T) {
 				"udt_missing": map[string]any{"field1": nil, "field2": nil},
 				"map1":        map[string]datatypes.UUID{},
 				"map2":        map[int32]datatypes.UUID{},
-				"map3":        datatypes.NewSortedMapWithComparator[any, any](datatypes.ComparatorFor(reflect.TypeFor[big.Int]())),
-				"list":        []big.Float{},
+				"map3":        datatypes.NewSortedMapWithComparator[any, any](datatypes.ComparatorFor(reflect.TypeFor[*big.Int]())),
+				"list":        []*big.Float{},
 				"set":         []string{},
 			},
 		},
@@ -275,9 +275,9 @@ func TestProperty_DeserializeWithTypeHint_Varint(t *testing.T) {
 			t.Fatalf("untyped.deserializeColumn(%s) error = %v", s, err)
 		}
 
-		got, ok := val.(big.Int)
+		got, ok := val.(*big.Int)
 		if !ok {
-			t.Fatalf("expected big.Int, got %T", val)
+			t.Fatalf("expected *big.Int, got %T", val)
 		}
 
 		expected := new(big.Int)
@@ -306,9 +306,9 @@ func TestProperty_DeserializeWithTypeHint_Decimal(t *testing.T) {
 			t.Fatalf("untyped.deserializeColumn(%s) error = %v", s, err)
 		}
 
-		got, ok := val.(big.Float)
+		got, ok := val.(*big.Float)
 		if !ok {
-			t.Fatalf("expected big.Float, got %T", val)
+			t.Fatalf("expected *big.Float, got %T", val)
 		}
 
 		expected := new(big.Float)

@@ -64,8 +64,8 @@ var (
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
 	rawMessageType   = reflect.TypeFor[json.RawMessage]()
-	bigIntType       = reflect.TypeFor[big.Int]()
-	bigFloatType     = reflect.TypeFor[big.Float]()
+	bigIntPtrType    = reflect.TypeFor[*big.Int]()
+	bigFloatPtrType  = reflect.TypeFor[*big.Float]()
 )
 
 var (

@@ -57,6 +57,15 @@ type Document interface {
 	//      }
 	Get(path ...string) (any, bool)
 
+	// Has returns true if the specified path exists in the document.
+	//
+	// Example:
+	//
+	//      if doc.Has("metadata", "priority") {
+	//          // ...
+	//      }
+	Has(path ...string) bool
+
 	// MustGet is like [Document.Get] but panics if the path doesn't exist.
 	// Use this when you're certain the document has the structure you expect.
 	//
@@ -131,6 +140,12 @@ func (d NewDocument) ToMap() map[string]any {
 //	val, ok := doc.Get("metadata", "tags")
 func (d NewDocument) Get(path ...string) (any, bool) {
 	return getDeepFromMap(d, path...)
+}
+
+// Has returns true if the specified path exists in the document.
+func (d NewDocument) Has(path ...string) bool {
+	_, ok := d.Get(path...)
+	return ok
 }
 
 // MustGet is like [NewDocument.Get] but panics if the path doesn't exist.
@@ -212,6 +227,11 @@ func (d *serverDocument) Get(path ...string) (any, bool) {
 	}
 
 	return d.GetField(path[len(path)-1], currentRaw)
+}
+
+func (d *serverDocument) Has(path ...string) bool {
+	_, ok := d.Get(path...) // TODO optimize it
+	return ok
 }
 
 func (d *serverDocument) MustGet(path ...string) any {

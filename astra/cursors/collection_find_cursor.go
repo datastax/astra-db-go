@@ -72,7 +72,7 @@ func (c *CollectionFindCursor) mkPayload(pageState *string) any {
 		Sort:       c.options.Sort,
 		Projection: c.options.Projection,
 		Options: &findOptions{
-			Limit:             c.options.Limit,
+			Limit:             ptr.From(c.options.Limit),
 			Skip:              c.options.Skip,
 			IncludeSimilarity: c.options.IncludeSimilarity,
 			IncludeSortVector: c.options.IncludeSortVector,

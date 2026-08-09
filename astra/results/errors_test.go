@@ -27,7 +27,7 @@ func TestInsertManyError(t *testing.T) {
 		{Message: "failed to insert some"},
 	}
 
-	batches := []InsertManyBatch{
+	batches := []InternalInsertManyBatch{
 		{
 			InsertedIds: []json.RawMessage{
 				json.RawMessage(`"id1"`),
@@ -37,7 +37,9 @@ func TestInsertManyError(t *testing.T) {
 		},
 	}
 
-	res := NewInsertManyResult(batches, 2, nil, serdes.TargetNone, 0)
+	res := NewInsertManyResult(batches, 2, nil, serdes.TargetNone, 0, func(message json.RawMessage, _ serdes.TargetDecodeCtx) json.RawMessage {
+		return message
+	})
 
 	err := &InsertManyError{
 		Errors: apiErrors,

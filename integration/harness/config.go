@@ -46,21 +46,23 @@ type config struct {
 	// flags
 	local       bool
 	skipPrelude bool
+	skipLegacy  bool
 	include     stringSlice
 	exclude     stringSlice
 
 	// env
-	apiEndpoint      string `env:"API_ENDPOINT,optional"`
-	applicationToken string `env:"APPLICATION_TOKEN,optional"`
-	backend          string `env:"BACKEND" default:"astra"`
+	ApiEndpoint      string `env:"API_ENDPOINT,optional"`
+	ApplicationToken string `env:"APPLICATION_TOKEN,optional"`
+	Backend          string `env:"BACKEND" default:"astra"`
+	EmbeddingApiKey  string `env:"EMBEDDING_API_KEY,optional"`
 }
 
 var cfg config
 
 func Init() {
-	c, err := dotconfig.FromFileName[config](".env")
+	c, err := dotconfig.FromFileName[config](".env", dotconfig.ReturnFileIOErrors)
 	if err != nil {
-		c, err = dotconfig.FromFileName[config]("./integration/.env")
+		c, err = dotconfig.FromFileName[config]("./integration/.env", dotconfig.ReturnFileIOErrors)
 	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
@@ -68,20 +70,21 @@ func Init() {
 
 	flag.BoolVar(&c.local, "local", false, "run tests against a local HCD/DSE instance")
 	flag.BoolVar(&c.skipPrelude, "P", false, "skip the prelude (setup) step")
+	flag.BoolVar(&c.skipLegacy, "L", false, "skip the legacy integration tests")
 	flag.Var(&c.include, "f", "filter tests by name (must include)")
 	flag.Var(&c.exclude, "F", "filter tests by name (must not include)")
 	flag.Parse()
 
 	if c.local {
-		c.backend = "hcd"
+		c.Backend = "hcd"
 	}
 
-	if c.backend != "astra" {
-		if c.apiEndpoint == "" {
-			c.apiEndpoint = "http://127.0.0.1:8181"
+	if c.Backend != "astra" {
+		if c.ApiEndpoint == "" {
+			c.ApiEndpoint = "http://127.0.0.1:8181"
 		}
-		if c.applicationToken == "" {
-			c.applicationToken = "Cassandra:Y2Fzc2FuZHJh:Y2Fzc2FuZHJh"
+		if c.ApplicationToken == "" {
+			c.ApplicationToken = "Cassandra:Y2Fzc2FuZHJh:Y2Fzc2FuZHJh"
 		}
 	}
 
@@ -96,18 +99,22 @@ func Init() {
 }
 
 func APIEndpoint() string {
-	return cfg.apiEndpoint
+	return cfg.ApiEndpoint
 }
 
 func ApplicationToken() string {
-	return cfg.applicationToken
+	return cfg.ApplicationToken
 }
 
 func Backend() options.Environment {
-	return options.Environment(cfg.backend) // should probably add validation but eh whatever
+	return options.Environment(cfg.Backend) // should probably add validation but eh whatever
 }
 
-func ShouldRun(s *S, testName string) bool {
+func EmbeddingApiKey() string {
+	return cfg.EmbeddingApiKey
+}
+
+func shouldRun(s *S, testName string) bool {
 	if len(cfg.include) == 0 && len(cfg.exclude) == 0 {
 		return true
 	}

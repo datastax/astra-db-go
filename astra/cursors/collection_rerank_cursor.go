@@ -71,7 +71,7 @@ func (c *CollectionFindAndRerankCursor) mkPayload(pageState *string) any {
 		Sort:       c.options.Sort,
 		Projection: c.options.Projection,
 		Options: &findAndRerankOptions{
-			Limit:             c.options.Limit,
+			Limit:             ptr.From(c.options.Limit),
 			HybridLimits:      c.options.HybridLimits,
 			IncludeScores:     c.options.IncludeScores,
 			IncludeSortVector: c.options.IncludeSortVector,

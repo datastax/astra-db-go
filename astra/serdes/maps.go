@@ -266,7 +266,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			if fromArray {
 				if len(src) == 0 || src[0] != '[' {
-					return src, ctx.syntaxError(src, "expected '[' for table entry")
+					return src, ctx.syntaxError(src, "expected '[' for table map entry")
 				}
 				src = skipWS(src[1:])
 			}
@@ -297,7 +297,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 			if fromArray {
 				if len(src) == 0 || src[0] != ']' {
-					return src, ctx.syntaxError(src, "expected ']' after table entry")
+					return src, ctx.syntaxError(src, "expected ']' after table map entry")
 				}
 				src = skipWS(src[1:])
 			}

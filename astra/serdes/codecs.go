@@ -150,9 +150,9 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 		return codec{rawMessageEncoder, rawMessageDecoder}
 	case vectorType:
 		return codec{vectorEncoder, vectorDecoder}
-	case bigIntType:
+	case bigIntPtrType:
 		return codec{bigIntEncoder, bigIntDecoder}
-	case bigFloatType:
+	case bigFloatPtrType:
 		return codec{bigFloatEncoder, bigFloatDecoder}
 	case byteSliceType:
 		return codec{binaryEncoder, binaryDecoder}

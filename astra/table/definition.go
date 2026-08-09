@@ -146,9 +146,9 @@ func (c Column) GoType() reflect.Type {
 	case TypeDouble:
 		return reflect.TypeFor[float64]()
 	case TypeVarint:
-		return reflect.TypeFor[big.Int]()
+		return reflect.TypeFor[*big.Int]()
 	case TypeDecimal:
-		return reflect.TypeFor[big.Float]()
+		return reflect.TypeFor[*big.Float]()
 	case TypeText, TypeAscii:
 		return reflect.TypeFor[string]()
 	case TypeBoolean:

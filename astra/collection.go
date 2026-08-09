@@ -16,6 +16,7 @@ package astra
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 
 	"github.com/datastax/astra-db-go/v2/astra/cursors"
@@ -123,7 +124,7 @@ func (c *Collection) InsertOne(ctx context.Context, document any, opts ...option
 	if err != nil {
 		return nil, err
 	}
-	return insertOne(ctx, document, c.newCmd, (insertOneOptions)(*merged), serdes.TargetCollection)
+	return insertOne(ctx, document, c.newCmd, (insertOneOptions)(*merged), serdes.TargetCollection, collectionIdMapper)
 }
 
 // InsertMany inserts documents into the collection. Param documents must be a non-empty slice.
@@ -134,7 +135,11 @@ func (c *Collection) InsertMany(ctx context.Context, documents any, opts ...opti
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, documents, c.options, c.newCmd, (insertManyOptions)(*merged), serdes.TargetCollection)
+	return insertMany(ctx, documents, c.options, c.newCmd, (insertManyOptions)(*merged), serdes.TargetCollection, collectionIdMapper)
+}
+
+func collectionIdMapper(raw json.RawMessage, _ serdes.TargetDecodeCtx) json.RawMessage {
+	return raw
 }
 
 // endregion
@@ -248,10 +253,10 @@ func (c *Collection) FindAndRerank(f CollectionFilter, opts ...options.Collectio
 // collectionUpdateResponse is the response from various update commands, where `MoreData` may or may not be present.
 type collectionUpdateResponse struct {
 	Status struct {
-		MatchedCount  int  `json:"matchedCount"`
-		ModifiedCount int  `json:"modifiedCount"`
-		MoreData      bool `json:"moreData"`
-		UpsertedId    any  `json:"upsertedId"`
+		MatchedCount  int    `json:"matchedCount"`
+		ModifiedCount int    `json:"modifiedCount"`
+		UpsertedId    any    `json:"upsertedId"`
+		NextPageState string `json:"nextPageState"`
 	} `json:"status"`
 }
 
@@ -263,6 +268,9 @@ type collectionUpdateResponse struct {
 func (c *Collection) UpdateOne(ctx context.Context, f CollectionFilter, u CollectionUpdate, opts ...options.CollectionUpdateOneOption) (*results.UpdateResult, error) {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
+		return nil, err
+	}
+	if err := rejectFilterBuilderOnUpsert(merged.Upsert, f); err != nil {
 		return nil, err
 	}
 	b, err := updateOne(ctx, f, u, c.newCmd, (updateOneOptions)(*merged))
@@ -299,16 +307,19 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 	if err != nil {
 		return nil, err
 	}
+	if err := rejectFilterBuilderOnUpsert(merged.Upsert, f); err != nil {
+		return nil, err
+	}
 
-	// Create timeout manager for multi-call operation
 	tm := timeout.NewMultiCall(c.options, merged.APIOptions)
 
+	updateOptions := map[string]any{
+		"upsert": ptr.From(merged.Upsert),
+	}
 	payload := map[string]any{
-		"filter": f,
-		"update": u,
-		"options": map[string]any{
-			"upsert": ptr.From(merged.Upsert),
-		},
+		"filter":  f,
+		"update":  u,
+		"options": updateOptions,
 	}
 
 	result := &results.UpdateResult{}
@@ -333,7 +344,8 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 			result.UpsertedCount = 1
 		}
 
-		if !resp.Status.MoreData {
+		updateOptions["pageState"] = resp.Status.NextPageState
+		if resp.Status.NextPageState == "" {
 			break
 		}
 	}
@@ -351,6 +363,9 @@ func (c *Collection) UpdateMany(ctx context.Context, f CollectionFilter, u Colle
 func (c *Collection) FindOneAndUpdate(ctx context.Context, f CollectionFilter, u CollectionUpdate, opts ...options.CollectionFindOneAndUpdateOption) *results.SingleResult {
 	merged, err := options.MergeAndValidate(opts...)
 	if err != nil {
+		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
+	}
+	if err := rejectFilterBuilderOnUpsert(merged.Upsert, f); err != nil {
 		return results.NewSingleResult(nil, nil, nil, serdes.TargetCollection, err, c.ClientOptions().GetDesFlags())
 	}
 
@@ -496,6 +511,31 @@ type collectionDeleteManyResponse struct {
 
 var ErrNilFilter = errors.New("filter cannot be nil. If you want to delete all documents, use an empty filter instead")
 
+// ErrFilterBuilderUpsert is returned when a filter.Filter (built via the filter
+// builder API) is used together with upsert=true on a command that relies on the
+// filter to populate the inserted document. The filter builder produces a
+// {"$and":[...]} structure that the Data API does not extract field values from
+// during an upsert, so those fields would be silently absent from the new
+// document. Use filter.F{} (a raw map) instead.
+var ErrFilterBuilderUpsert = errors.New(
+	"filter builder (filter.Filter) cannot be used with upsert=true: the Data API " +
+		"does not extract field values from a $and filter when constructing the upserted " +
+		"document, which can cause silent data loss. Use filter.F{} instead",
+)
+
+// rejectFilterBuilderOnUpsert returns ErrFilterBuilderUpsert when upsert is
+// enabled and the caller supplied a filter.Filter (builder output) rather than
+// a raw filter.F. It is a no-op when upsert is false/nil.
+func rejectFilterBuilderOnUpsert(upsert *bool, f CollectionFilter) error {
+	if !ptr.From(upsert) {
+		return nil
+	}
+	if _, ok := f.(filter.Filter); ok {
+		return ErrFilterBuilderUpsert
+	}
+	return nil
+}
+
 // DeleteMany deletes all documents matching the filter.
 //
 // The Data API may not delete all matching documents in a single round-trip.
@@ -605,8 +645,11 @@ func (c *Collection) CountDocuments(ctx context.Context, f CollectionFilter, upp
 	// So - if we exceed what the API allows, we get an error. But we also enforce
 	// the upper bound the user supplies. See also:
 	// https://docs.datastax.com/en/astra-db-serverless/api-reference/document-methods/count-all.html#result
-	if resp.Status.MoreData || resp.Status.Count > upperBound {
+	if resp.Status.MoreData {
 		return resp.Status.Count, results.ErrTooManyDocumentsToCount
+	}
+	if resp.Status.Count > upperBound {
+		return upperBound, results.ErrTooManyDocumentsToCount
 	}
 	return resp.Status.Count, nil
 }

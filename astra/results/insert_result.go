@@ -22,37 +22,59 @@ import (
 	"github.com/datastax/astra-db-go/v2/internal/utils"
 )
 
-// InsertOneResult represents the result of an insertOne operation.
-type InsertOneResult struct {
-	insertedId json.RawMessage
-	targetCtx  serdes.TargetDecodeCtx
-	warnings   Warnings
-	target     serdes.Target
-	desFlags   serdes.DesFlags
-}
-
-// InsertManyResult represents the result of an insertMany operation.
-type InsertManyResult struct {
-	batches  []InsertManyBatch
-	count    int
+type insertResultCommon struct {
 	warnings Warnings
 	target   serdes.Target
 	desFlags serdes.DesFlags
 }
 
-type InsertManyBatch struct {
+// InsertOneResult represents the result of an insertOne operation.
+type InsertOneResult struct {
+	insertedId json.RawMessage
+	targetCtx  serdes.TargetDecodeCtx
+	insertResultCommon
+}
+
+// InsertManyResult represents the result of an insertMany operation.
+type InsertManyResult struct {
+	batches []InternalInsertManyBatch
+	count   int
+	insertResultCommon
+}
+
+type InternalInsertManyBatch struct {
 	InsertedIds []json.RawMessage
 	TargetCtx   serdes.TargetDecodeCtx
 }
 
+type InternalIDMapper func(json.RawMessage, serdes.TargetDecodeCtx) json.RawMessage
+
 // NewInsertOneResult creates a new InsertOneResult.
-func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, desFlags serdes.DesFlags) *InsertOneResult {
-	return &InsertOneResult{insertedId, targetCtx, warnings, target, desFlags}
+func NewInsertOneResult(insertedId json.RawMessage, warnings Warnings, targetCtx serdes.TargetDecodeCtx, target serdes.Target, desFlags serdes.DesFlags, idMapper InternalIDMapper) *InsertOneResult {
+	return &InsertOneResult{
+		insertedId:         idMapper(insertedId, targetCtx),
+		targetCtx:          targetCtx,
+		insertResultCommon: newInsertResultCommon(warnings, target, desFlags),
+	}
 }
 
 // NewInsertManyResult creates a new InsertManyResult.
-func NewInsertManyResult(batches []InsertManyBatch, count int, warnings Warnings, target serdes.Target, desFlags serdes.DesFlags) *InsertManyResult {
-	return &InsertManyResult{batches, count, warnings, target, desFlags}
+func NewInsertManyResult(batches []InternalInsertManyBatch, count int, warnings Warnings, target serdes.Target, desFlags serdes.DesFlags, idMapper InternalIDMapper) *InsertManyResult {
+	for _, batch := range batches {
+		for i := range batch.InsertedIds {
+			batch.InsertedIds[i] = idMapper(batch.InsertedIds[i], batch.TargetCtx)
+		}
+	}
+
+	return &InsertManyResult{
+		batches:            batches,
+		count:              count,
+		insertResultCommon: newInsertResultCommon(warnings, target, desFlags),
+	}
+}
+
+func newInsertResultCommon(warnings Warnings, target serdes.Target, desFlags serdes.DesFlags) insertResultCommon {
+	return insertResultCommon{warnings, target, desFlags}
 }
 
 // Warnings returns any warnings from the API response.

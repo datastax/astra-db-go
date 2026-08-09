@@ -16,12 +16,14 @@ package astra
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/datastax/astra-db-go/v2/astra/cursors"
 	"github.com/datastax/astra-db-go/v2/astra/filter"
 	"github.com/datastax/astra-db-go/v2/astra/internal/command"
 	"github.com/datastax/astra-db-go/v2/astra/internal/timeout"
+	"github.com/datastax/astra-db-go/v2/astra/internal/untyped"
 	"github.com/datastax/astra-db-go/v2/astra/options"
 	"github.com/datastax/astra-db-go/v2/astra/results"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
@@ -137,7 +139,7 @@ func (t *Table) InsertOne(ctx context.Context, row any, opts ...options.TableIns
 	if err != nil {
 		return nil, err
 	}
-	return insertOne(ctx, row, t.newCmd, (insertOneOptions)(*merged), serdes.TargetTable)
+	return insertOne(ctx, row, t.newCmd, (insertOneOptions)(*merged), serdes.TargetTable, tableIdMapper)
 }
 
 // InsertMany inserts multiple rows into the table.
@@ -159,7 +161,31 @@ func (t *Table) InsertMany(ctx context.Context, rows any, opts ...options.TableI
 	if err != nil {
 		return nil, err
 	}
-	return insertMany(ctx, rows, t.options, t.newCmd, (insertManyOptions)(*merged), serdes.TargetTable)
+	return insertMany(ctx, rows, t.options, t.newCmd, (insertManyOptions)(*merged), serdes.TargetTable, tableIdMapper)
+}
+
+func tableIdMapper(raw json.RawMessage, targetCtx serdes.TargetDecodeCtx) json.RawMessage {
+	schema, ok := targetCtx.(*untyped.LazySchema)
+	if !ok {
+		panic("Table insertion used without LazySchema as the TargetDecodeCtx. This is an astra-db-go bug and should be reported to the developers")
+	}
+
+	var id []json.RawMessage
+	err := serdes.Deserialize(raw, &id, nil, serdes.TargetNone) // not using table target on purpose since we don't actually care about the value of the keys
+	if err != nil {
+		panic("Data API returned invalid JSON for the inserted ID from a table insertion")
+	}
+
+	res := make(map[string]json.RawMessage)
+	for i, nc := range schema.Get() {
+		res[nc.Name] = id[i]
+	}
+
+	rawRes, err := serdes.Serialize(res, serdes.TargetNone)
+	if err != nil {
+		panic(fmt.Sprintf("An error occurred while serializing the inserted ID map from a table insertion: %v", err))
+	}
+	return rawRes
 }
 
 // endregion

@@ -63,7 +63,7 @@ func genTypeExpr(t reflect.Type, hint genTypeExprHint) (string, error) {
 		return "date", nil
 	case reflectTimeOnly:
 		return "time", nil
-	case reflectBigInt:
+	case reflectBigInt: // technically only pointers should be used but UnwindPointerType means we can't distinguish
 		return "varint", nil
 	case reflectBigFloat:
 		return "decimal", nil

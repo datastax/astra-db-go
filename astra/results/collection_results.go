@@ -22,7 +22,7 @@ type CollectionDescriptor struct {
 	Name string `json:"name"`
 
 	// Definition of the collection.
-	Definition CollectionDefinition `json:"definition"`
+	Definition CollectionDefinition `json:"options"`
 }
 
 // CollectionDefinition represents the definition of a collection.
