@@ -17,9 +17,10 @@ package serdes
 import (
 	"maps"
 	"reflect"
-	"strings"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/datastax/astra-db-go/v2/astra/internal/typeutil"
 )
 
 type codec struct {
@@ -185,7 +186,7 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	case reflect.Ptr:
 		c = mkPointerCodec(ctx, t, seen)
 	case reflect.Struct:
-		if mkCodec, yes := isSpecialGenericDatatype(t); yes {
+		if mkCodec, yes := getCustomGenericTypeCodec(t); yes {
 			return mkCodec(ctx, t, seen)
 		}
 		c = mkStructCodec(ctx, t, seen, canAddr)
@@ -232,19 +233,13 @@ func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) 
 	return
 }
 
-func isSpecialGenericDatatype(t reflect.Type) (func(ctx codecCtx, t reflect.Type, seen seenStructs) codec, bool) {
-	if t.PkgPath() != datatypesPkgPath {
-		return nil, false
-	}
-
-	tName := t.Name()
-
-	switch {
-	case strings.HasPrefix(tName, someLinkedMapTypeName):
+func getCustomGenericTypeCodec(t reflect.Type) (func(ctx codecCtx, t reflect.Type, seen seenStructs) codec, bool) {
+	switch typeutil.GetCustomGenericTypeID(t) {
+	case typeutil.LinkedMapType:
 		return mkLinkedMapCodec, true
-	case strings.HasPrefix(tName, someSortedMapTypeName):
+	case typeutil.SortedMapType:
 		return mkSortedMapCodec, true
-	case strings.HasPrefix(tName, someSetTypeName):
+	case typeutil.SetType:
 		return mkSetCodec, true
 	default:
 		return nil, false

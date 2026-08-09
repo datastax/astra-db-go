@@ -30,10 +30,6 @@ func TestParseTypeExpr(t *testing.T) {
 		{"scalar duration", "duration", typeExpr{name: "duration"}},
 		{"scalar vector", "vector", typeExpr{name: "vector"}},
 
-		{"bare set", "set", typeExpr{name: "set", elem: &typeExpr{name: "infer"}}},
-		{"bare list", "list", typeExpr{name: "list", elem: &typeExpr{name: "infer"}}},
-		{"bare map", "map", typeExpr{name: "map", key: &typeExpr{name: "infer"}, elem: &typeExpr{name: "infer"}}},
-
 		{"set[ascii]", "set[ascii]", typeExpr{name: "set", elem: &typeExpr{name: "ascii"}}},
 		{"list[blob]", "list[blob]", typeExpr{name: "list", elem: &typeExpr{name: "blob"}}},
 		{"map[uuid]blob", "map[uuid]blob", typeExpr{name: "map", key: &typeExpr{name: "uuid"}, elem: &typeExpr{name: "blob"}}},
@@ -77,11 +73,11 @@ func TestParseTypeExpr_Errors(t *testing.T) {
 		wantSub string // substring expected in error message
 	}{
 		{"empty", "", "empty"},
-		{"unterminated set", "set[", "expected identifier"},
+		{"unterminated set", "set[", "expected type identifier"},
 		{"unterminated set after ident", "set[ascii", "expected"},
 		{"unknown inner", "set[foo]", "unknown type"},
 		{"map missing value", "map[text]", "map[K]V requires both"},
-		{"map empty brackets", "map[]", "expected identifier"},
+		{"map empty brackets", "map[]", "expected type identifier"},
 		{"udt without brackets", "udt", "udt requires a name"},
 		{"udt empty brackets", "udt[]", "udt"},
 		{"infer leaf", "infer", "unknown type"},

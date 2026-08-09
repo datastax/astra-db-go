@@ -49,6 +49,10 @@ type Definition struct {
 	PrimaryKey PrimaryKey `json:"primaryKey"`
 }
 
+func (d Definition) build() Definition {
+	return d
+}
+
 // Columns is an ordered collection of named columns. It marshals as a JSON
 // object, preserving insertion order on output and input order on parse.
 //

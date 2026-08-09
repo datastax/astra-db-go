@@ -140,6 +140,10 @@ type DefinitionBuilder struct {
 	scalarBuilder[*DefinitionBuilder]
 }
 
+func (b *DefinitionBuilder) build() Definition {
+	return b.Build()
+}
+
 // NewDefinition creates a new DefinitionBuilder for fluent table definition construction.
 func NewDefinition() *DefinitionBuilder {
 	b := &DefinitionBuilder{

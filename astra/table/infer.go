@@ -1,373 +1,17 @@
-// Copyright IBM Corp.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package table
 
 import (
 	"fmt"
-	"math/big"
-	"net"
 	"reflect"
 	"sort"
-	"strings"
-	"time"
-
-	"github.com/datastax/astra-db-go/v2/astra/datatypes"
-	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
 )
 
-// Well-known reflect types for comparison in type mapping.
-var (
-	reflectUUID      = reflect.TypeFor[datatypes.UUID]()
-	reflectVector    = reflect.TypeFor[datatypes.Vector]()
-	reflectTime      = reflect.TypeFor[time.Time]()
-	reflectDuration  = reflect.TypeFor[datatypes.Duration]()
-	reflectIP        = reflect.TypeFor[net.IP]()
-	reflectByteSlice = reflect.TypeFor[[]byte]()
-	reflectDateOnly  = reflect.TypeFor[datatypes.DateOnly]()
-	reflectTimeOnly  = reflect.TypeFor[datatypes.TimeOnly]()
-	reflectBigInt    = reflect.TypeFor[big.Int]()
-	reflectBigFloat  = reflect.TypeFor[big.Float]()
-)
-
-// fieldData holds processed metadata about a single struct field.
-type fieldData struct {
-	name string
-	typ  reflect.Type
-	tag  tagInfo
-	ord  int // position for stable ordering
+type DefinitionLike interface {
+	build() Definition
 }
 
-func collectFields(t reflect.Type) ([]fieldData, error) {
-	t = reflectutil.UnwindPointerType(t)
-	if t.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("expected struct, got %s", t.Kind())
-	}
-
-	fields, err := reflectutil.GetFlattenedFields(t)
-	if err != nil {
-		return nil, err
-	}
-
-	seen := make(map[string]bool)
-	var result []fieldData
-
-	for i, f := range fields {
-		// Skip $-prefixed fields (API metadata: $similarity, $vector, $vectorize)
-		if strings.HasPrefix(f.Name, "$") {
-			continue
-		}
-
-		tag, err := parseAstraTag(f.Field.Tag.Get("astra"))
-		if err != nil {
-			return nil, fmt.Errorf("field %q: %w", f.Field.Name, err)
-		}
-
-		if tag.skip {
-			continue
-		}
-
-		if seen[f.Name] {
-			return nil, fmt.Errorf("duplicate column name %q", f.Name)
-		}
-		seen[f.Name] = true
-
-		result = append(result, fieldData{
-			name: f.Name,
-			typ:  f.Field.Type,
-			tag:  tag,
-			ord:  i,
-		})
-	}
-
-	return result, nil
-}
-
-// goTypeToColumn converts a Go reflect.Type to a table Column using tag metadata.
-func goTypeToColumn(t reflect.Type, info tagInfo) (Column, error) {
-	t = reflectutil.UnwindPointerType(t)
-
-	// Type override
-	if info.typeOverride != "" {
-		expr, err := parseTypeExpr(info.typeOverride)
-		if err != nil {
-			return Column{}, fmt.Errorf("type=%s: %w", info.typeOverride, err)
-		}
-		return resolveTypeExpr(expr, t, info)
-	}
-
-	// Standalone dim= implies vector
-	if info.dimension > 0 {
-		if t == reflectVector {
-			return Vector(info.dimension), nil
-		}
-		return Column{}, fmt.Errorf("dim= alone requires datatypes.Vector; use type=vector,dim=%d for other types", info.dimension)
-	}
-
-	// Known named types (by reflect.Type identity)
-	switch t {
-	case reflectUUID:
-		return UUID(), nil
-	case reflectVector:
-		return Column{}, fmt.Errorf("datatypes.Vector requires dim=N or type=vector,dim=N in astra tag")
-	case reflectTime:
-		return Timestamp(), nil
-	case reflectDuration:
-		return Column{Type: "duration"}, nil
-	case reflectIP:
-		return Inet(), nil
-	case reflectByteSlice:
-		return Blob(), nil
-	case reflectDateOnly:
-		return Date(), nil
-	case reflectTimeOnly:
-		return Time(), nil
-	case reflectBigInt:
-		return Varint(), nil
-	case reflectBigFloat:
-		return Decimal(), nil
-	}
-
-	// Kind-based mapping
-	switch t.Kind() {
-	case reflect.String:
-		return Text(), nil
-	case reflect.Int, reflect.Int32:
-		return Int(), nil
-	case reflect.Int64:
-		return BigInt(), nil
-	case reflect.Int16:
-		return SmallInt(), nil
-	case reflect.Int8, reflect.Uint8:
-		return TinyInt(), nil
-	case reflect.Float32:
-		return Float(), nil
-	case reflect.Float64:
-		return Double(), nil
-	case reflect.Bool:
-		return Boolean(), nil
-	case reflect.Slice:
-		elem, err := goTypeToColumn(t.Elem(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("list element: %w", err)
-		}
-		return List(elem), nil
-	case reflect.Map:
-		keyCol, err := goTypeToColumn(t.Key(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("map key: %w", err)
-		}
-		valCol, err := goTypeToColumn(t.Elem(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("map value: %w", err)
-		}
-		return Map(keyCol.Type, valCol), nil
-	case reflect.Interface:
-		return Column{}, fmt.Errorf("interface type requires vectorize or type= modifier")
-	case reflect.Struct:
-		return Column{}, fmt.Errorf("struct type %s requires jsonString or type= modifier", t.Name())
-	default:
-		return Column{}, fmt.Errorf("unsupported Go type %s", t)
-	}
-}
-
-// resolveTypeExpr walks a parsed typeExpr and produces a Column. It consults
-// typ only at "infer" leaves and at container boundaries where the Go
-// type's shape (slice / map) governs how values will be marshaled. For
-// container leaves declared explicitly (e.g. set[ascii]), the declared leaf
-// wins and the Go element type is not consulted — callers are trusted to
-// serialize values compatibly.
-func resolveTypeExpr(expr typeExpr, t reflect.Type, info tagInfo) (Column, error) {
-	t = reflectutil.UnwindPointerType(t)
-
-	switch expr.name {
-	case "infer":
-		return goTypeToColumn(t, tagInfo{})
-
-	case "udt":
-		if expr.udtName == "" {
-			return Column{}, fmt.Errorf("udt requires a name")
-		}
-		return UDT(expr.udtName), nil
-
-	case TypeSet:
-		if t.Kind() != reflect.Slice {
-			return Column{}, fmt.Errorf("type=set requires slice Go type, got %s", t)
-		}
-		elem, err := resolveTypeExpr(*expr.elem, t.Elem(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("set element: %w", err)
-		}
-		return Set(elem), nil
-
-	case TypeList:
-		if t.Kind() != reflect.Slice {
-			return Column{}, fmt.Errorf("type=list requires slice Go type, got %s", t)
-		}
-		elem, err := resolveTypeExpr(*expr.elem, t.Elem(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("list element: %w", err)
-		}
-		return List(elem), nil
-
-	case TypeMap:
-		if t.Kind() != reflect.Map {
-			return Column{}, fmt.Errorf("type=map requires map Go type, got %s", t)
-		}
-		keyCol, err := resolveTypeExpr(*expr.key, t.Key(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("map key: %w", err)
-		}
-		valCol, err := resolveTypeExpr(*expr.elem, t.Elem(), tagInfo{})
-		if err != nil {
-			return Column{}, fmt.Errorf("map value: %w", err)
-		}
-		return Map(keyCol.Type, valCol), nil
-
-	case TypeVector:
-		if info.dimension <= 0 {
-			return Column{}, fmt.Errorf("type=vector requires dim=N")
-		}
-		return Vector(info.dimension), nil
-
-	default:
-		if factory, ok := scalarFactories[expr.name]; ok {
-			return factory(), nil
-		}
-		return Column{}, fmt.Errorf("unknown type override %q", expr.name)
-	}
-}
-
-// scalarFactories maps a scalar type name to the Column factory that produces
-// the corresponding column. Vector and the container types are handled
-// directly in resolveTypeExpr because they need extra inputs.
-var scalarFactories = map[string]func() Column{
-	TypeText:      Text,
-	TypeAscii:     Ascii,
-	TypeInt:       Int,
-	TypeBigInt:    BigInt,
-	TypeSmallInt:  SmallInt,
-	TypeTinyInt:   TinyInt,
-	TypeFloat:     Float,
-	TypeDouble:    Double,
-	TypeDecimal:   Decimal,
-	TypeBoolean:   Boolean,
-	TypeDate:      Date,
-	TypeTime:      Time,
-	TypeTimestamp: Timestamp,
-	TypeUUID:      UUID,
-	TypeTimeUUID:  TimeUUID,
-	TypeBlob:      Blob,
-	TypeVarint:    Varint,
-	TypeInet:      Inet,
-	TypeDuration:  Duration,
-}
-
-// keyField is used during primary key assembly.
-type keyField struct {
-	name     string
-	pkOrd    int
-	fieldOrd int  // struct field index for stable ordering
-	desc     bool // clustering key: true = descending
-}
-
-// buildPrimaryKey assembles the PrimaryKey from collected partition and clustering key fields.
-func buildPrimaryKey(pks, cks []keyField) (PrimaryKey, error) {
-	if len(pks) == 0 {
-		return PrimaryKey{}, fmt.Errorf("no partition key defined (tag at least one field with astra:\"pk\")")
-	}
-
-	// Determine ordering strategy: all ordinals or all struct-order
-	hasOrd, noOrd := false, false
-	for _, pk := range pks {
-		if pk.pkOrd > 0 {
-			hasOrd = true
-		} else {
-			noOrd = true
-		}
-	}
-	if len(pks) == 1 && !hasOrd {
-		// single pk with no ordinal: valid, use it as-is
-	} else if hasOrd && noOrd {
-		return PrimaryKey{}, fmt.Errorf("mixed ordinals")
-	} else if !hasOrd {
-		return PrimaryKey{}, fmt.Errorf("multiple partition keys require explicit ordinals (pk[1], pk[2], ...)")
-	} else {
-		sort.Slice(pks, func(i, j int) bool { return pks[i].pkOrd < pks[j].pkOrd })
-		if err := validateOrdinals("partition key", pks); err != nil {
-			return PrimaryKey{}, err
-		}
-	}
-
-	partitionBy := make([]string, len(pks))
-	for i, pk := range pks {
-		partitionBy[i] = pk.name
-	}
-
-	var partitionSort PartitionSort
-	if len(cks) > 0 {
-		hasCkOrd, noCkOrd := false, false
-		for _, ck := range cks {
-			if ck.pkOrd > 0 {
-				hasCkOrd = true
-			} else {
-				noCkOrd = true
-			}
-		}
-
-		if len(cks) == 1 && !hasCkOrd {
-			// single ck with no ordinal: valid, use it as-is
-		} else if hasCkOrd && noCkOrd {
-			return PrimaryKey{}, fmt.Errorf("mixed ck ordinals")
-		} else if !hasCkOrd {
-			return PrimaryKey{}, fmt.Errorf("multiple clustering keys require explicit ordinals (ck[1], ck[2], ...)")
-		} else {
-			sort.Slice(cks, func(i, j int) bool { return cks[i].pkOrd < cks[j].pkOrd })
-			if err := validateOrdinals("clustering key", cks); err != nil {
-				return PrimaryKey{}, err
-			}
-		}
-		
-		partitionSort = make(PartitionSort, 0, len(cks))
-		for _, ck := range cks {
-			order := SortAscending
-			if ck.desc {
-				order = SortDescending
-			}
-			partitionSort = append(partitionSort, NamedSort{Name: ck.name, Order: order})
-		}
-	}
-
-	pk := PrimaryKey{PartitionBy: partitionBy}
-	if len(partitionSort) > 0 {
-		pk.PartitionSort = partitionSort
-	}
-	return pk, nil
-}
-
-// validateOrdinals checks that sorted key fields have contiguous 1-based ordinals
-// with no duplicates.
-func validateOrdinals(label string, keys []keyField) error {
-	for i, k := range keys {
-		if i > 0 && k.pkOrd == keys[i-1].pkOrd {
-			return fmt.Errorf("duplicate %s ordinal %d: %q and %q", label, k.pkOrd, keys[i-1].name, k.name)
-		}
-		if k.pkOrd != i+1 {
-			return fmt.Errorf("%s ordinals must be contiguous starting from 1 (expected %d, got %d for %q)", label, i+1, k.pkOrd, k.name)
-		}
-	}
-	return nil
+type UDTDefinitionLike interface {
+	build() Definition
 }
 
 // Infer generates a table [Definition] from a Go struct's type information.
@@ -376,62 +20,41 @@ func validateOrdinals(label string, keys []keyField) error {
 // Primary key configuration and type overrides come from astra tags.
 //
 // See the astra tag grammar:
-//   - astra:"pk" or astra:"pk,N" — partition key (N = ordinal for composite keys)
-//   - astra:"ck,N,asc" or astra:"ck,N,desc" — clustering key
+//   - astra:"pk" or astra:"pk[N]" — partition key (N = ordinal for composite keys)
+//   - astra:"ck", "ck[N], or astra:"ck[N,asc|desc]" — clustering key
 //   - astra:"-" — skip field
 //   - astra:"type=<T>" — override inferred column type
 //   - astra:"dim=<N>" — vector dimension
-//   - astra:"vectorize,provider=<P>,model=<M>" — vectorize service
 //
 // The <T> in type= supports:
 //   - scalars: text, ascii, int, bigint, smallint, tinyint, float, double,
 //     decimal, boolean, date, time, timestamp, uuid, timeuuid, blob, varint,
 //     inet, duration, vector (vector additionally requires dim=<N>)
-//   - containers: set[T], list[T], map[K]V. Bare set / list / map default to
-//     inferring their inner types from the Go field type.
+//   - containers: set[T], list[T], map[K]V — Type parameters are required, except for type=set, as a handy shortcut
 //   - user-defined types: udt[<name>]
-//   - infer — only valid inside brackets; reuses the Go field's inferred type
-//     at that position. E.g. map[uuid]infer overrides only the key type.
 //
-// Composed example: astra:"type=map[uuid]set[ascii]"
+// Overrides for fields with complex options may be provided within the Infer call itself, e.g. to specify
+// vectorize configuration.
+//
+// Composite example: map[uuid]udt[address]
 //
 // Example:
 //
 //	type Book struct {
-//	    Title  string  `json:"title"  astra:"pk"`
-//	    Author string  `json:"author"`
-//	    Rating float32 `json:"rating"`
+//	    Title   string              `json:"title"   astra:"pk"`
+//	    Authors []string            `json:"author"  astra:"type=set"
+//	    Rating  float32             `json:"rating"`
+//	    Vector  datatypes.Vectorize `json:"desc_vector"`
 //	}
 //
-//	def, err := table.Infer[Book]()
+//	def, err := table.Infer[Book](
+//	  table.VectorWithService("desc_vector", ...)
+//	)
 //	tbl, err := db.CreateTable(ctx, "books", def)
-func Infer[T any](overrides ...*DefinitionBuilder) (Definition, error) {
-	t := reflect.TypeFor[T]()
-
-	fields, err := collectFields(t)
+func Infer[T any](overrides ...DefinitionLike) (Definition, error) {
+	t, cols, pks, cks, err := infer[T](overrides, func(def DefinitionLike) Columns { return def.build().Columns })
 	if err != nil {
 		return Definition{}, fmt.Errorf("table.Infer[%s]: %w", t.Name(), err)
-	}
-	if len(fields) == 0 {
-		return Definition{}, fmt.Errorf("table.Infer[%s]: no columns found", t.Name())
-	}
-
-	columns := make(Columns, 0, len(fields))
-	var pks, cks []keyField
-
-	for _, f := range fields {
-		col, err := goTypeToColumn(f.typ, f.tag)
-		if err != nil {
-			return Definition{}, fmt.Errorf("table.Infer[%s]: field %q: %w", t.Name(), f.name, err)
-		}
-		columns = append(columns, NamedColumn{Name: f.name, Column: col})
-
-		if f.tag.isPK {
-			pks = append(pks, keyField{name: f.name, pkOrd: f.tag.pkOrdinal, fieldOrd: f.ord})
-		}
-		if f.tag.isCK {
-			cks = append(cks, keyField{name: f.name, pkOrd: f.tag.ckOrdinal, fieldOrd: f.ord, desc: f.tag.ckDescending})
-		}
 	}
 
 	primaryKey, err := buildPrimaryKey(pks, cks)
@@ -439,24 +62,8 @@ func Infer[T any](overrides ...*DefinitionBuilder) (Definition, error) {
 		return Definition{}, fmt.Errorf("table.Infer[%s]: %w", t.Name(), err)
 	}
 
-	for _, override := range overrides {
-		for _, nc := range override.columns {
-			found := false
-			for i, existing := range columns {
-				if existing.Name == nc.Name {
-					columns[i].Column = nc.Column
-					found = true
-					break
-				}
-			}
-			if !found {
-				return Definition{}, fmt.Errorf("table.Infer[%s]: override column %q not found in struct", t.Name(), nc.Name)
-			}
-		}
-	}
-
 	return Definition{
-		Columns:    columns,
+		Columns:    cols,
 		PrimaryKey: primaryKey,
 	}, nil
 }
@@ -472,48 +79,134 @@ func Infer[T any](overrides ...*DefinitionBuilder) (Definition, error) {
 //
 //	type Address struct {
 //	    Street string `json:"street"`
-//	    City   string `json:"city"`
+//	    City   string `json:"city"` astra:"type=ascii"
 //	}
 //
 //	def, err := table.InferUDT[Address]()
 //	err := db.CreateType(ctx, "address", def)
-func InferUDT[T any](overrides ...*DefinitionBuilder) (UDTDefinition, error) { // TODO somehow try to check if people are using the right Infer... maybe use pk tags to detect misuse?
-	t := reflect.TypeFor[T]()
-
-	fields, err := collectFields(t)
+func InferUDT[T any](overrides ...UDTDefinitionLike) (UDTDefinition, error) {
+	t, cols, pks, cks, err := infer[T](overrides, func(def UDTDefinitionLike) Columns { return def.build().Columns })
 	if err != nil {
 		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: %w", t.Name(), err)
 	}
-	if len(fields) == 0 {
-		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: no fields found", t.Name())
+
+	if len(pks) > 0 || len(cks) > 0 {
+		return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: UDTs cannot have primary or clustering keys", t.Name())
 	}
 
-	columns := make(Columns, 0, len(fields))
-	for _, fd := range fields {
-		col, err := goTypeToColumn(fd.typ, fd.tag)
+	return UDTDefinition{
+		Fields: cols,
+	}, nil
+}
+
+func infer[T, B any](overrides []B, extractCols func(B) Columns) (reflect.Type, Columns, []tableKeyInfo, []tableKeyInfo, error) {
+	t := reflect.TypeFor[T]()
+
+	fields, err := compileFields(t)
+	if err != nil {
+		return t, nil, nil, nil, err
+	}
+
+	cols := make(Columns, 0, fields.Len())
+	var pks, cks []tableKeyInfo
+
+	for name, info := range fields.All() {
+		col, err := resolveTypeExpr(info.typeExpr, info.modifier)
 		if err != nil {
-			return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: field %q: %w", t.Name(), fd.name, err)
+			return t, nil, nil, nil, fmt.Errorf("field %q: %w", name, err)
 		}
-		columns = append(columns, NamedColumn{Name: fd.name, Column: col})
+		cols = append(cols, NamedColumn{Name: name, Column: col})
+
+		if mod, ok := info.modifier.(pkFieldMod); ok {
+			pks = append(pks, tableKeyInfo{name: name, ord: mod.ord})
+		}
+
+		if mod, ok := info.modifier.(ckFieldMod); ok {
+			cks = append(cks, tableKeyInfo{name: name, ord: mod.ord, desc: mod.desc})
+		}
 	}
 
 	for _, override := range overrides {
-		for _, nc := range override.columns {
+		for _, nc := range extractCols(override) {
 			found := false
-			for i, existing := range columns {
+			for i, existing := range cols {
 				if existing.Name == nc.Name {
-					columns[i].Column = nc.Column
+					cols[i].Column = nc.Column
 					found = true
 					break
 				}
 			}
 			if !found {
-				return UDTDefinition{}, fmt.Errorf("table.InferUDT[%s]: override column %q not found in struct", t.Name(), nc.Name)
+				return t, nil, nil, nil, fmt.Errorf("override column %q not found in struct", nc.Name)
 			}
 		}
 	}
 
-	return UDTDefinition{
-		Fields: columns,
-	}, nil
+	return t, cols, pks, cks, nil
+}
+
+type tableKeyInfo struct {
+	name string
+	ord  int
+	desc bool
+}
+
+// buildPrimaryKey assembles the PrimaryKey from collected partition and clustering key fields.
+func buildPrimaryKey(pks, cks []tableKeyInfo) (PrimaryKey, error) {
+	if len(pks) == 0 {
+		return PrimaryKey{}, fmt.Errorf("no partition key defined (tag at least one field with astra:\"pk\")")
+	}
+
+	if err := sortAndValidateOrdinals("pk", pks); err != nil {
+		return PrimaryKey{}, err
+	}
+
+	if err := sortAndValidateOrdinals("ck", cks); err != nil {
+		return PrimaryKey{}, err
+	}
+
+	partitionBy := make([]string, len(pks))
+	for i, pk := range pks {
+		partitionBy[i] = pk.name
+	}
+
+	partitionSort := make(PartitionSort, 0, len(cks))
+	for _, ck := range cks {
+		order := SortAscending
+		if ck.desc {
+			order = SortDescending
+		}
+		partitionSort = append(partitionSort, NamedSort{Name: ck.name, Order: order})
+	}
+
+	return PrimaryKey{partitionBy, partitionSort}, nil
+}
+
+// validateOrdinals checks that sorted key fields have contiguous 1-based ordinals
+// with no duplicates.
+func sortAndValidateOrdinals(label string, keys []tableKeyInfo) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	sort.Slice(keys, func(i, j int) bool { return keys[i].ord < keys[j].ord })
+
+	if keys[0].ord != 0 {
+		return fmt.Errorf("%s ordinals must start counting from 0 (got %d for %q)", label, keys[0].ord, keys[0].name)
+	}
+
+	if len(keys) > 1 && keys[1].ord == 0 {
+		return fmt.Errorf("if multiple %ss are present, explicit ordinals in the form of %s[N] must be used", label, label)
+	}
+
+	for i, k := range keys {
+		if i > 0 && k.ord == keys[i-1].ord {
+			return fmt.Errorf("duplicate %s ordinal %d: %q and %q", label, k.ord, keys[i-1].name, k.name)
+		}
+		if k.ord != i {
+			return fmt.Errorf("%s ordinals must be contiguous starting from 0 (expected %d, got %d for %q)", label, i, k.ord, k.name)
+		}
+	}
+
+	return nil
 }

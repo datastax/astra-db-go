@@ -1,20 +1,214 @@
-// Copyright IBM Corp.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 package table
 
-import "fmt"
+import (
+	"fmt"
+	"math/big"
+	"net"
+	"reflect"
+	"time"
+
+	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/astra/internal/typeutil"
+	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
+)
+
+type genTypeExprHint int
+
+const (
+	genTypeExprHintNone genTypeExprHint = iota
+	genTypeExprHintSet
+)
+
+func shouldGenTypeExpr(info fieldInfo) (bool, genTypeExprHint) {
+	if info.typeExpr == "" {
+		return true, genTypeExprHintNone
+	}
+	if info.typeExpr == "set" {
+		return true, genTypeExprHintSet
+	}
+	return false, genTypeExprHintNone
+}
+
+// Well-known reflect types for comparison in type mapping.
+var (
+	reflectUUID      = reflect.TypeFor[datatypes.UUID]()
+	reflectVector    = reflect.TypeFor[datatypes.Vector]()
+	reflectTime      = reflect.TypeFor[time.Time]()
+	reflectDuration  = reflect.TypeFor[datatypes.Duration]()
+	reflectIP        = reflect.TypeFor[net.IP]()
+	reflectByteSlice = reflect.TypeFor[[]byte]()
+	reflectDateOnly  = reflect.TypeFor[datatypes.DateOnly]()
+	reflectTimeOnly  = reflect.TypeFor[datatypes.TimeOnly]()
+	reflectBigInt    = reflect.TypeFor[big.Int]()
+	reflectBigFloat  = reflect.TypeFor[big.Float]()
+)
+
+func genTypeExpr(t reflect.Type, hint genTypeExprHint) (string, error) {
+	t = reflectutil.UnwindPointerType(t)
+
+	switch t {
+	case reflectUUID:
+		return "uuid", nil
+	case reflectVector:
+		return "vector", nil
+	case reflectTime:
+		return "timestamp", nil
+	case reflectDuration:
+		return "duration", nil
+	case reflectIP:
+		return "inet", nil
+	case reflectByteSlice:
+		return "blob", nil
+	case reflectDateOnly:
+		return "date", nil
+	case reflectTimeOnly:
+		return "time", nil
+	case reflectBigInt:
+		return "varint", nil
+	case reflectBigFloat:
+		return "decimal", nil
+	}
+
+	switch t.Kind() {
+	case reflect.String:
+		return "text", nil
+	case reflect.Int, reflect.Int32:
+		return "int", nil
+	case reflect.Int64:
+		return "bigint", nil
+	case reflect.Int16:
+		return "smallint", nil
+	case reflect.Int8, reflect.Uint8:
+		return "tinyint", nil
+	case reflect.Float32:
+		return "float", nil
+	case reflect.Float64:
+		return "double", nil
+	case reflect.Bool:
+		return "boolean", nil
+	case reflect.Slice:
+		if hint == genTypeExprHintSet {
+			return genListLikeTypeExpr("set", t.Elem())
+		}
+		return genListLikeTypeExpr("list", t.Elem())
+	case reflect.Map:
+		return genMapTypeExpr(t.Key(), t.Elem())
+	case reflect.Struct:
+		switch typeutil.GetCustomGenericTypeID(t) {
+		case typeutil.SetType:
+			return genListLikeTypeExpr("set", typeutil.GetCustomGenericTypeKey(t))
+		case typeutil.LinkedMapType, typeutil.SortedMapType:
+			return genMapTypeExpr(typeutil.GetCustomGenericTypeKey(t), typeutil.GetCustomGenericTypeValue(t))
+		default:
+			return "", fmt.Errorf("struct type %q requires explicit type= modifier", t.Name())
+		}
+	default:
+		return "", fmt.Errorf("unsupported Go type: %q", t)
+	}
+}
+
+func genListLikeTypeExpr(container string, vt reflect.Type) (string, error) {
+	vc, err := genTypeExpr(vt, genTypeExprHintNone)
+	if err != nil {
+		return "", fmt.Errorf("slice element: %w", err)
+	}
+
+	return fmt.Sprintf("%s[%s]", container, vc), nil
+}
+
+func genMapTypeExpr(kt, vt reflect.Type) (string, error) {
+	kc, err := genTypeExpr(kt, genTypeExprHintNone)
+	if err != nil {
+		return "", fmt.Errorf("map key: %w", err)
+	}
+
+	vc, err := genTypeExpr(vt, genTypeExprHintNone)
+	if err != nil {
+		return "", fmt.Errorf("map element: %w", err)
+	}
+
+	return fmt.Sprintf("map[%s]%s", kc, vc), nil
+}
+
+func resolveTypeExpr(expr string, modifier fieldModifier) (Column, error) {
+	parsed, err := parseTypeExpr(expr)
+	if err != nil {
+		return Column{}, err
+	}
+	return resolveTypeExprRecursive(parsed, modifier)
+}
+
+func resolveTypeExprRecursive(expr typeExpr, modifier fieldModifier) (Column, error) {
+	switch expr.name {
+	case "udt":
+		if expr.udtName == "" {
+			return Column{}, fmt.Errorf("udt requires a name")
+		}
+		return UDT(expr.udtName), nil
+
+	case TypeSet:
+		elem, err := resolveTypeExprRecursive(*expr.elem, nil)
+		if err != nil {
+			return Column{}, fmt.Errorf("set element: %w", err)
+		}
+		return Set(elem), nil
+
+	case TypeList:
+		elem, err := resolveTypeExprRecursive(*expr.elem, nil)
+		if err != nil {
+			return Column{}, fmt.Errorf("list element: %w", err)
+		}
+		return List(elem), nil
+
+	case TypeMap:
+		keyCol, err := resolveTypeExprRecursive(*expr.key, nil)
+		if err != nil {
+			return Column{}, fmt.Errorf("map key: %w", err)
+		}
+		valCol, err := resolveTypeExprRecursive(*expr.elem, nil)
+		if err != nil {
+			return Column{}, fmt.Errorf("map value: %w", err)
+		}
+		return Map(keyCol.Type, valCol), nil
+
+	case TypeVector:
+		if dimMod, ok := modifier.(dimFieldMod); ok {
+			return Vector(dimMod.dim), nil
+		}
+		return Column{}, fmt.Errorf("type=vector requires dim=N")
+
+	default:
+		if factory, ok := scalarFactories[expr.name]; ok {
+			return factory(), nil
+		}
+		return Column{}, fmt.Errorf("unknown type override %q", expr.name)
+	}
+}
+
+// scalarFactories maps a scalar type name to the Column factory that produces
+// the corresponding column. Vector and the container types are handled
+// directly in resolveTypeExprOld because they need extra inputs.
+var scalarFactories = map[string]func() Column{
+	TypeText:      Text,
+	TypeAscii:     Ascii,
+	TypeInt:       Int,
+	TypeBigInt:    BigInt,
+	TypeSmallInt:  SmallInt,
+	TypeTinyInt:   TinyInt,
+	TypeFloat:     Float,
+	TypeDouble:    Double,
+	TypeDecimal:   Decimal,
+	TypeBoolean:   Boolean,
+	TypeDate:      Date,
+	TypeTime:      Time,
+	TypeTimestamp: Timestamp,
+	TypeUUID:      UUID,
+	TypeTimeUUID:  TimeUUID,
+	TypeBlob:      Blob,
+	TypeVarint:    Varint,
+	TypeInet:      Inet,
+	TypeDuration:  Duration,
+}
 
 // typeExpr is the parsed form of the value of a `type=<T>` modifier on an
 // astra struct tag. It supports bracket-parameterized containers
@@ -33,10 +227,6 @@ type typeExpr struct {
 	// udtName is the name inside udt[<name>]. Empty unless name == "udt".
 	udtName string
 }
-
-// inferExpr returns a fresh infer-leaf node. Used by the parser to auto-fill
-// children of a bare container (set / list / map without brackets).
-func inferExpr() *typeExpr { return &typeExpr{name: "infer"} }
 
 // parseTypeExpr parses a full type expression, erroring on empty input,
 // malformed syntax, or trailing characters.
@@ -68,8 +258,8 @@ func (p *typeExprParser) parseExpr() (typeExpr, error) {
 
 	switch ident {
 	case "set", "list":
-		if !p.hasByte('[') {
-			return typeExpr{name: ident, elem: inferExpr()}, nil
+		if !p.hasNext('[') {
+			return typeExpr{}, fmt.Errorf("missing brackets in type=%s[V]", ident)
 		}
 		p.pos++
 		child, err := p.parseExpr()
@@ -82,8 +272,8 @@ func (p *typeExprParser) parseExpr() (typeExpr, error) {
 		return typeExpr{name: ident, elem: &child}, nil
 
 	case "map":
-		if !p.hasByte('[') {
-			return typeExpr{name: "map", key: inferExpr(), elem: inferExpr()}, nil
+		if !p.hasNext('[') {
+			return typeExpr{}, fmt.Errorf("missing brackets in type=map[K]V")
 		}
 		p.pos++
 		keyExpr, err := p.parseExpr()
@@ -103,7 +293,7 @@ func (p *typeExprParser) parseExpr() (typeExpr, error) {
 		return typeExpr{name: "map", key: &keyExpr, elem: &valExpr}, nil
 
 	case "udt":
-		if !p.hasByte('[') {
+		if !p.hasNext('[') {
 			return typeExpr{}, fmt.Errorf("udt requires a name (use udt[<name>])")
 		}
 		p.pos++
@@ -116,47 +306,50 @@ func (p *typeExprParser) parseExpr() (typeExpr, error) {
 		}
 		return typeExpr{name: "udt", udtName: name}, nil
 
-
 	default:
-		if p.hasByte('[') {
+		if p.hasNext('[') {
 			return typeExpr{}, fmt.Errorf("scalar type %q cannot take bracket parameters", ident)
 		}
-		if !knownScalars[ident] {
+		if !isKnownScalar(ident) {
 			return typeExpr{}, fmt.Errorf("unknown type %q", ident)
 		}
 		return typeExpr{name: ident}, nil
 	}
 }
 
+func isKnownScalar(s string) bool {
+	return scalarFactories[s] != nil || s == "vector"
+}
+
 func (p *typeExprParser) readIdent() (string, error) {
 	if p.pos >= len(p.src) {
-		return "", fmt.Errorf("expected identifier, got end of input")
+		return "", fmt.Errorf("expected type identifier, got end of input")
 	}
 	c := p.src[p.pos]
 	if !isIdentStart(c) {
-		return "", fmt.Errorf("expected identifier at position %d, got %q", p.pos, c)
+		return "", fmt.Errorf("expected type identifier at position %d, got %q", p.pos, c)
 	}
 	start := p.pos
 	p.pos++
 	for p.pos < len(p.src) && isIdentCont(p.src[p.pos]) {
 		p.pos++
 	}
-	return p.src[start:p.pos], nil
-}
-
-func (p *typeExprParser) hasByte(b byte) bool {
-	return p.pos < len(p.src) && p.src[p.pos] == b
+	return p.src[start:p.pos], nil // should already be lowercase
 }
 
 func (p *typeExprParser) consume(b byte) error {
 	if p.pos >= len(p.src) {
 		return fmt.Errorf("expected %q, got end of input", b)
 	}
-	if p.src[p.pos] != b {
+	if !p.hasNext(b) {
 		return fmt.Errorf("expected %q at position %d, got %q", b, p.pos, p.src[p.pos])
 	}
 	p.pos++
 	return nil
+}
+
+func (p *typeExprParser) hasNext(b byte) bool {
+	return p.pos < len(p.src) && p.src[p.pos] == b
 }
 
 func isIdentStart(c byte) bool {
@@ -165,29 +358,4 @@ func isIdentStart(c byte) bool {
 
 func isIdentCont(c byte) bool {
 	return isIdentStart(c) || (c >= '0' && c <= '9')
-}
-
-// knownScalars is the set of leaf type names valid as a type= scalar. Containers
-// (set, list, map), udt, and infer are recognized separately in parseExpr.
-var knownScalars = map[string]bool{
-	TypeText:      true,
-	TypeAscii:     true,
-	TypeInt:       true,
-	TypeBigInt:    true,
-	TypeSmallInt:  true,
-	TypeTinyInt:   true,
-	TypeFloat:     true,
-	TypeDouble:    true,
-	TypeDecimal:   true,
-	TypeBoolean:   true,
-	TypeDate:      true,
-	TypeTime:      true,
-	TypeTimestamp: true,
-	TypeUUID:      true,
-	TypeTimeUUID:  true,
-	TypeBlob:      true,
-	TypeVarint:    true,
-	TypeInet:      true,
-	TypeVector:    true,
-	TypeDuration:  true,
 }
