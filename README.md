@@ -66,7 +66,7 @@ func main() {
 
     // Initialize the client
     client := astra.NewClient()
-    // Example endpoint: "https://abc123ab-abc1-abc1-abc1-abc123abc123-us-east-2.apps.astra.datastax.com"
+    // Example endpoint (do NOT include `/api/json/v1/<keyspace>`): "https://abc123ab-abc1-abc1-abc1-abc123abc123-us-east-2.apps.astra.datastax.com"
     // Example token: "AstraCS:abc123abc123abc123abc123:abc123abc123abc123abc123abc123abc123abc123abc123abc123abc123abc1"
     db := client.Database("<endpoint>", options.API().SetToken("<token>"))
 
