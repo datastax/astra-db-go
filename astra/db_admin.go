@@ -33,6 +33,7 @@ type DatabaseAdmin interface {
 	CreateKeyspace(ctx context.Context, keyspace string, opts ...options.CreateKeyspaceOption) error
 	DropKeyspace(ctx context.Context, keyspace string, opts ...options.DropKeyspaceOption) error
 	FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error)
+	FindRerankingProviders(ctx context.Context, opts ...options.FindRerankingProvidersOption) (*results.FindRerankingProvidersResult, error)
 }
 
 // Compile-time interface checks
@@ -60,6 +61,32 @@ func findEmbeddingProviders(db *Db, ctx context.Context, opts ...options.FindEmb
 	}
 	if err := json.Unmarshal(b, &resp); err != nil {
 		return nil, fmt.Errorf("failed to parse findEmbeddingProviders response: %w", err)
+	}
+
+	return &resp.Status, nil
+}
+
+func findRerankingProviders(db *Db, ctx context.Context, opts ...options.FindRerankingProvidersOption) (*results.FindRerankingProvidersResult, error) {
+	merged, err := options.MergeAndValidate(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("invalid options: %w", err)
+	}
+
+	payload := map[string]any{
+		"options": merged,
+	}
+
+	cmd := db.newAdminCmd("findRerankingProviders", payload, merged.APIOptions)
+	b, _, _, err := cmd.ExecuteSingle(ctx, timeout.DatabaseAdmin)
+	if err != nil {
+		return nil, err
+	}
+
+	var resp struct {
+		Status results.FindRerankingProvidersResult `json:"status"`
+	}
+	if err := json.Unmarshal(b, &resp); err != nil {
+		return nil, fmt.Errorf("failed to parse findRerankingProviders response: %w", err)
 	}
 
 	return &resp.Status, nil

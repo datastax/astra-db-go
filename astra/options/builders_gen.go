@@ -2537,6 +2537,62 @@ func (b *findEmbeddingProvidersOptionsBuilder) UpdateAPIOptions(v ...APIOption) 
 	return b
 }
 
+// FindRerankingProvidersOption configures a FindRerankingProviders operation.
+// You can use the fluent-style builder or a pointer to [FindRerankingProvidersOptions] interchangeably.
+//
+// Example using the fluent builder ([FindRerankingProviders]):
+//
+//	opts := options.FindRerankingProviders().SetFilterModelStatus(...)
+//
+// Example using a pointer to [FindRerankingProvidersOptions] without the fluent builder:
+//
+//	opts := &options.FindRerankingProvidersOptions{...}
+type FindRerankingProvidersOption = Builder[FindRerankingProvidersOptions]
+
+// Setters implements Builder[FindRerankingProvidersOptions] allowing the raw struct to be
+// passed directly to methods that accept ...Builder[FindRerankingProvidersOptions].
+func (o *FindRerankingProvidersOptions) Setters() []func(*FindRerankingProvidersOptions) {
+	return NoopBuilder(o)
+}
+
+// findRerankingProvidersOptionsBuilder is a builder for FindRerankingProvidersOptions.
+type findRerankingProvidersOptionsBuilder struct {
+	setters []func(*FindRerankingProvidersOptions)
+}
+
+// FindRerankingProviders creates a new builder for [FindRerankingProvidersOptions].
+func FindRerankingProviders() *findRerankingProvidersOptionsBuilder {
+	return &findRerankingProvidersOptionsBuilder{}
+}
+
+// Setters implements Builder[FindRerankingProvidersOptions].
+func (b *findRerankingProvidersOptionsBuilder) Setters() []func(*FindRerankingProvidersOptions) {
+	return b.setters
+}
+
+// SetFilterModelStatus sets the FilterModelStatus option.
+// FilterModelStatus filters models by their lifecycle status.
+//
+//   - If not provided: defaults to SUPPORTED models only.
+//   - If set to ModelLifecycleStatusAll (""): includes all statuses (SUPPORTED, DEPRECATED, END_OF_LIFE).
+//   - If set to a specific status: includes only models with that status.
+func (b *findRerankingProvidersOptionsBuilder) SetFilterModelStatus(v ModelLifecycleStatus) *findRerankingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindRerankingProvidersOptions) {
+		o.FilterModelStatus = &v
+	})
+	return b
+}
+
+// UpdateAPIOptions sets the APIOptions option.
+// APIOptions overrides API-level settings (token, timeout, headers, etc.)
+// for this command. These are merged into the Client→DB→Command hierarchy.
+func (b *findRerankingProvidersOptionsBuilder) UpdateAPIOptions(v ...APIOption) *findRerankingProvidersOptionsBuilder {
+	b.setters = append(b.setters, func(o *FindRerankingProvidersOptions) {
+		MergeInto(&o.APIOptions, v...)
+	})
+	return b
+}
+
 // GetCollectionOption configures a GetCollection operation.
 // You can use the fluent-style builder or a pointer to [GetCollectionOptions] interchangeably.
 //

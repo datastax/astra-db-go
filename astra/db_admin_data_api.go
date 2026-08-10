@@ -112,3 +112,7 @@ func (a *DataAPIDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string
 func (a *DataAPIDatabaseAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
 	return findEmbeddingProviders(a.db, ctx, opts...)
 }
+
+func (a *DataAPIDatabaseAdmin) FindRerankingProviders(ctx context.Context, opts ...options.FindRerankingProvidersOption) (*results.FindRerankingProvidersResult, error) {
+	return findRerankingProviders(a.db, ctx, opts...)
+}

@@ -196,3 +196,7 @@ func (a *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 func (a *AstraDatabaseAdmin) FindEmbeddingProviders(ctx context.Context, opts ...options.FindEmbeddingProvidersOption) (*results.FindEmbeddingProvidersResult, error) {
 	return findEmbeddingProviders(a.db, ctx, opts...)
 }
+
+func (a *AstraDatabaseAdmin) FindRerankingProviders(ctx context.Context, opts ...options.FindRerankingProvidersOption) (*results.FindRerankingProvidersResult, error) {
+	return findRerankingProviders(a.db, ctx, opts...)
+}
