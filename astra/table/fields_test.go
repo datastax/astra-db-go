@@ -41,7 +41,7 @@ func TestParseAstraTag(t *testing.T) {
 		{name: "type=ascii,pk", raw: "type=ascii,pk", want: fieldInfo{typeExpr: "ascii", modifier: pkFieldMod{}}},
 		{name: "type=ascii,ck[1,desc]", raw: "type=ascii,ck[1,desc]", want: fieldInfo{typeExpr: "ascii", modifier: ckFieldMod{ord: 1, desc: true}}},
 		{name: "type=ascii,dim=3", raw: "type=ascii,dim=3", want: fieldInfo{typeExpr: "ascii", modifier: dimFieldMod{dim: 3}}},
-		
+
 		{name: "pk missing bracket", raw: "pk[1", wantErr: `error parsing "pk[...]" modifier: expected brackets in after "pk" in "[1"`},
 		{name: "pk bad ord", raw: "pk[abc]", wantErr: `error parsing "pk[...]" modifier: invalid ordinal "abc": strconv.Atoi: parsing "abc": invalid syntax`},
 		{name: "ck bad dir", raw: "ck[1,up]", wantErr: `error parsing "ck[...]" modifier: invalid column order "up" (expected either 'asc' or 'desc')`},

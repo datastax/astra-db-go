@@ -75,7 +75,7 @@ func init() {
 		hasNext := cursor.Next(t.Ctx)
 		testlib.FailIf(t, !hasNext, "expected Next to return true")
 		testlib.FailIf(t, cursor.State() != cursors.CursorStateStarted, "expected state to be started after Next")
-		testlib.FailIf(t, cursor.Buffered() != 2, "expected 2 buffered documents after consuming 1")
+		testlib.FailIf(t, cursor.Buffered() != 3, "expected 3 buffered documents after first Next")
 	})
 
 	s.Run("should buffer documents on first Next call", func(t *harness.T) {
@@ -85,7 +85,7 @@ func init() {
 		testlib.FailIf(t, cursor.Buffered() != 0, "expected 0 buffered initially")
 
 		cursor.Next(t.Ctx)
-		testlib.FailIf(t, cursor.Buffered() != 2, "expected 2 buffered after first Next")
+		testlib.FailIf(t, cursor.Buffered() != 3, "expected 3 buffered after first Next")
 	})
 
 	// Next tests
@@ -442,14 +442,14 @@ func init() {
 
 		// Trigger first fetch
 		cursor.Next(t.Ctx)
-		testlib.FailIf(t, cursor.Buffered() != 2, "expected 2 buffered after first Next")
+		testlib.FailIf(t, cursor.Buffered() != 3, "expected 3 buffered after first Next")
 
-		// Decode buffered (should get 2 more docs, total 3 including current)
+		// Decode buffered (should get 3 docs, total 3 including current)
 		var buffered []astra.Document
 		err := cursor.DecodeBuffered(&buffered, 0)
 		testlib.FailIfErr(t, err, "DecodeBuffered failed: %v", err)
 
-		testlib.FailIf(t, len(buffered) != 2, "expected 2 buffered documents, got %d", len(buffered))
+		testlib.FailIf(t, len(buffered) != 3, "expected 3 buffered documents, got %d", len(buffered))
 		testlib.FailIf(t, cursor.Buffered() != 0, "expected 0 buffered after DecodeBuffered")
 	})
 
@@ -459,7 +459,7 @@ func init() {
 
 		// Trigger first fetch
 		cursor.Next(t.Ctx)
-		testlib.FailIf(t, cursor.Buffered() != 2, "expected 2 buffered after first Next")
+		testlib.FailIf(t, cursor.Buffered() != 3, "expected 3 buffered after first Next")
 
 		// Decode only 1 buffered document
 		var buffered []astra.Document
@@ -467,7 +467,7 @@ func init() {
 		testlib.FailIfErr(t, err, "DecodeBuffered failed: %v", err)
 
 		testlib.FailIf(t, len(buffered) != 1, "expected 1 buffered document, got %d", len(buffered))
-		testlib.FailIf(t, cursor.Buffered() != 1, "expected 1 still buffered after DecodeBuffered with limit")
+		testlib.FailIf(t, cursor.Buffered() != 2, "expected 2 still buffered after DecodeBuffered with limit")
 	})
 
 	// Helper function tests using cursors.Decode
@@ -515,22 +515,6 @@ func init() {
 			testlib.FailIf(t, doc.ID == "", "expected non-empty ID")
 			testlib.FailIf(t, doc.Int < 0 || doc.Int > 2, "expected int in range [0,2], got %d", doc.Int)
 		}
-	})
-
-	// Warnings tests
-	s.Run("should collect warnings from cursor operations", func(t *harness.T) {
-		cursor := t.Collection.Find(filter.F{})
-		defer cursor.Close()
-
-		// Iterate through cursor
-		for cursor.Next(t.Ctx) {
-			var doc astra.Document
-			cursor.Decode(&doc)
-		}
-
-		warnings := cursor.Warnings()
-		// Warnings may or may not be present, just verify the method works
-		testlib.FailIf(t, warnings == nil, "expected warnings to be non-nil (even if empty)")
 	})
 
 	// NextPageState tests

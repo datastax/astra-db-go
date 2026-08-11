@@ -550,7 +550,7 @@ func (a *AstraAdmin) DatabaseAdminFromEndpoint(endpoint string, opts ...options.
 	return &AstraDatabaseAdmin{a, newDbFromEndpoint(endpoint, a.client, options.Merge(append([]options.APIOption{a.options}, opts...)...))}
 }
 
-type AwaitStatusOptions struct {
+type awaitStatusOptions struct {
 	// Will default to sane value
 	PollInterval time.Duration
 	// The status we are waiting for
@@ -562,7 +562,7 @@ type AwaitStatusOptions struct {
 }
 
 // Interval returns PollInterval if non-zero and falls back to default.
-func (o *AwaitStatusOptions) Interval() time.Duration {
+func (o *awaitStatusOptions) Interval() time.Duration {
 	if o.PollInterval <= 0 {
 		return options.DefaultDatabasePollInterval
 	}
@@ -570,7 +570,7 @@ func (o *AwaitStatusOptions) Interval() time.Duration {
 }
 
 // IsStatusLegal returns true if the given status is in the list of legal states.
-func (o *AwaitStatusOptions) IsStatusLegal(s DatabaseStatus) bool {
+func (o *awaitStatusOptions) IsStatusLegal(s DatabaseStatus) bool {
 	for _, legal := range o.LegalStates {
 		if s == legal {
 			return true
@@ -580,8 +580,8 @@ func (o *AwaitStatusOptions) IsStatusLegal(s DatabaseStatus) bool {
 }
 
 // awaitStatus polls DatabaseInfo until the status matches a target or hits a failure state.
-// See [AwaitStatusOptions] for configuration.
-func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts AwaitStatusOptions) error {
+// See [awaitStatusOptions] for configuration.
+func (a *AstraAdmin) awaitStatus(ctx context.Context, databaseID string, opts awaitStatusOptions) error {
 	ticker := time.NewTicker(opts.Interval())
 	defer ticker.Stop()
 	for {
@@ -784,7 +784,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, name string, params Cre
 		return dbAdmin, nil
 	}
 	// Poll until database is ACTIVE
-	awaitOpts := AwaitStatusOptions{
+	awaitOpts := awaitStatusOptions{
 		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusInitializing, DatabaseStatusPending, DatabaseStatusAssociating},
@@ -831,7 +831,7 @@ func (a *AstraAdmin) DropDatabase(ctx context.Context, databaseID string, opts .
 		return nil
 	}
 	// Poll until database is terminated
-	awaitOpts := AwaitStatusOptions{
+	awaitOpts := awaitStatusOptions{
 		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusTerminated,
 		LegalStates:  []DatabaseStatus{DatabaseStatusTerminating},

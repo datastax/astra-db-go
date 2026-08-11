@@ -203,6 +203,9 @@ func (d *Db) CreateCollection(ctx context.Context, name string, opts ...options.
 		return nil, err
 	}
 
+	// special case for CreateCollection since it can take a really long time
+	merged = options.Merge[options.CreateCollectionOptions](merged, options.CreateCollection().UpdateAPIOptions(options.API().SetRequestTimeout(0)))
+
 	cmd := d.newCmd("createCollection", map[string]any{
 		"name":    name,
 		"options": merged,

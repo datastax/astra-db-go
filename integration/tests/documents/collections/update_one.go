@@ -15,7 +15,6 @@
 package collections
 
 import (
-
 	"github.com/datastax/astra-db-go/v2/astra"
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/datastax/astra-db-go/v2/astra/filter"

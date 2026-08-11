@@ -172,7 +172,7 @@ func (c Column) GoType() reflect.Type {
 	case TypeMap:
 		colType := Column{Type: *c.KeyType}.GoType()
 
-		if colType.Comparable() {
+		if colType.Comparable() && colType.Kind() != reflect.Ptr {
 			return reflect.MapOf(colType, c.ValueType.GoType())
 		}
 

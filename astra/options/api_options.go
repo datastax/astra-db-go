@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
-	"github.com/datastax/astra-db-go/v2/astra/results"
 	"github.com/datastax/astra-db-go/v2/astra/serdes"
 )
 
@@ -49,10 +48,6 @@ type APIOptions struct {
 
 	// Serdes contains serialization/deserialization options
 	Serdes *SerdesOptions
-
-	// WarningHandler is called for each warning received from the API.
-	// Set this at any level (Client, Database, Collection/Table, or Command).
-	WarningHandler WarningHandler
 
 	// AstraEnvironment is the Astra environment (prod, dev, test).
 	// Controls the DevOps API URL. Defaults to prod.
@@ -288,10 +283,6 @@ func (b *serdesOptionsBuilder) DisableDesFlags(flags serdes.DesFlags) *serdesOpt
 	return b
 }
 
-// WarningHandler is a callback function invoked for each warning in API responses.
-// warnings indicate non-fatal conditions such as missing indexes or deprecated features.
-type WarningHandler func(w results.Warning)
-
 // APIOption is a Builder that modifies APIOptions.
 type APIOption = Builder[APIOptions]
 
@@ -301,13 +292,6 @@ func (b *apiOptionsBuilder) AddHeader(key, value string) *apiOptionsBuilder {
 		maps.Copy(newHeaders, o.Headers)
 		newHeaders[key] = value
 		o.Headers = newHeaders
-	})
-	return b
-}
-
-func (b *apiOptionsBuilder) SetWarningHandler(handler WarningHandler) *apiOptionsBuilder {
-	b.setters = append(b.setters, func(o *APIOptions) {
-		o.WarningHandler = handler
 	})
 	return b
 }

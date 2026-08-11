@@ -261,7 +261,7 @@ func TestExtractDevopsError(t *testing.T) {
 }
 
 func TestAwaitStatusOptions(t *testing.T) {
-	opts := &AwaitStatusOptions{
+	opts := &awaitStatusOptions{
 		Target:      "ACTIVE",
 		LegalStates: []DatabaseStatus{"MAINTENANCE"},
 	}

@@ -25,8 +25,8 @@ import (
 )
 
 const (
-	DefaultCollectionName = "default_collection"
-	DefaultTableName      = "default_table"
+	DefaultCollectionName = "test_coll_go"
+	DefaultTableName      = "test_table_go"
 	DefaultUDTName        = "example_udt"
 )
 

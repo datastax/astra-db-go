@@ -376,11 +376,11 @@ func ComparatorFor(t reflect.Type) Comparator {
 		}
 	case bigIntPtrType:
 		return func(a, b unsafe.Pointer) int {
-			return (*big.Int)(a).Cmp((*big.Int)(b))
+			return (*(**big.Int)(a)).Cmp(*(**big.Int)(b))
 		}
 	case bigFloatPtrType:
 		return func(a, b unsafe.Pointer) int {
-			return (*big.Float)(a).Cmp((*big.Float)(b))
+			return (*(**big.Float)(a)).Cmp(*(**big.Float)(b))
 		}
 	case jsonMsgType:
 		return func(a, b unsafe.Pointer) int { return strings.Compare(*(*string)(a), *(*string)(b)) }

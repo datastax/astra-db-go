@@ -109,9 +109,7 @@ func getTestRestaurants() []Restaurant {
 func CollectionNestedCreate(e *harness.TestEnv) error {
 	ctx := context.Background()
 	db := e.DefaultDb()
-	_, err := db.CreateCollection(ctx, nestedCollectionName, options.CreateCollection().
-		SetIndexingAllow("*").
-		UpdateAPIOptions(options.API()))
+	_, err := db.CreateCollection(ctx, nestedCollectionName, options.CreateCollection().SetIndexingAllow("*"))
 	return err
 }
 

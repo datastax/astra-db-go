@@ -45,7 +45,6 @@ type DataAPI struct {
 }
 
 func newDataAPICommand(endpoint, resourceName, name string, payload any, target serdes.Target, opts *options.APIOptions, admin bool) DataAPI {
-
 	var u string
 	if endpoint != "" {
 		basePath := opts.GetEnvironment().DataAPIPath()
@@ -177,10 +176,10 @@ func (c *DataAPI) Execute(ctx context.Context, tm *timeout.Manager) ([]byte, res
 type apiResponse struct {
 	Errors results.DataAPIErrors `json:"errors"`
 	Status struct {
-		Warnings         results.Warnings `json:"warnings"`
-		PrimaryKeySchema json.RawMessage  `json:"primaryKeySchema"`
-		ProjectionSchema json.RawMessage  `json:"projectionSchema"`
+		PrimaryKeySchema json.RawMessage `json:"primaryKeySchema"`
+		ProjectionSchema json.RawMessage `json:"projectionSchema"`
 	} `json:"status"`
+	Warnings results.Warnings `json:"warnings"`
 }
 
 type apiStatus struct {
@@ -201,14 +200,8 @@ func (c *DataAPI) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	var resp apiResponse
 	serdes.Deserialize(body, &resp, nil, c.target, opts.GetDesFlags())
 
-	if opts != nil && opts.WarningHandler != nil && len(resp.Status.Warnings) > 0 {
-		for _, w := range resp.Status.Warnings {
-			opts.WarningHandler(w)
-		}
-	}
-
 	status := apiStatus{
-		warnings: resp.Status.Warnings,
+		warnings: resp.Warnings,
 		schema:   resp.Status.PrimaryKeySchema,
 	}
 	if resp.Status.ProjectionSchema != nil {
@@ -223,10 +216,10 @@ func (c *DataAPI) ExtractErrors(statusCode int, body []byte, opts *options.APIOp
 	}
 
 	if len(resp.Errors) > 0 {
-		return body, resp.Status.Warnings, schema, &resp.Errors
+		return body, resp.Warnings, schema, &resp.Errors
 	}
 
-	return body, resp.Status.Warnings, schema, nil
+	return body, resp.Warnings, schema, nil
 }
 
 func setEmbeddingHeaders(ctx context.Context, headers http.Header, provider options.EmbeddingHeadersProvider) error {

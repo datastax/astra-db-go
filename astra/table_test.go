@@ -725,7 +725,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 		if idx.Definition == nil {
 			t.Fatal("expected definition to be present")
 		}
-		if idx.Definition.Column != "rating" {
+		if idx.Definition.Column.Name != "rating" {
 			t.Errorf("expected column 'rating', got %s", idx.Definition.Column)
 		}
 	})
@@ -750,7 +750,7 @@ func TestListIndexesResponseUnmarshal(t *testing.T) {
 		if idx.Definition == nil {
 			t.Fatal("expected definition to be present")
 		}
-		if idx.Definition.Column != "embedding" {
+		if idx.Definition.Column.Name != "embedding" {
 			t.Errorf("expected column 'embedding', got %s", idx.Definition.Column)
 		}
 		if idx.Definition.Options == nil {
