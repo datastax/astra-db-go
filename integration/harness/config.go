@@ -60,10 +60,7 @@ type config struct {
 var cfg config
 
 func Init() {
-	c, err := dotconfig.FromFileName[config](".env", dotconfig.ReturnFileIOErrors)
-	if err != nil {
-		c, err = dotconfig.FromFileName[config]("./integration/.env", dotconfig.ReturnFileIOErrors)
-	}
+	c, err := dotconfig.FromFileName[config](".env")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load config: %v", err))
 	}
