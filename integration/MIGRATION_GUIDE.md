@@ -4,7 +4,7 @@
 Migrating TypeScript integration tests from `astra-db-ts` to Go in `astra-db-go`.
 
 **Total**: 55 test files (~9,333 lines of TypeScript)
-**Completed**: 22/55 files fully migrated
+**Completed**: 23/55 files fully migrated
 **Location**: 
 - TS: `/Users/me/work/astra-db-ts/tests/integration/`
 - Go: `/Users/me/work/astra-db-go/integration/tests/`
@@ -63,7 +63,7 @@ and just trying to fucking eyeball the tests and hoping it'll compile. Don't fuc
 
 ---
 
-## Completed Files (20/55)
+## Completed Files (22/55)
 
 ### Collection Tests
 **`documents/collections/insert-one.test.ts` → `collections/insert_one.go` ✅ COMPLETE**
@@ -83,6 +83,14 @@ and just trying to fucking eyeball the tests and hoping it'll compile. Don't fuc
 **4/5 tests migrated** (1 test skipped - see notes below)
 
 ### Table Tests
+**`documents/tables/alter.test.ts` → `tables/alter.go` ✅ COMPLETE**
+
+**2/2 tests migrated**
+
+**`documents/tables/indexes.test.ts` → `tables/indexes.go` ✅ COMPLETE**
+
+**8/8 tests migrated**
+
 **`documents/tables/insert-one.test.ts` → `tables/insert_one.go` ✅ COMPLETE**
 
 **7/7 tests migrated** (Note: TS has 7 tests, Go has 7 tests. The "insert one with a blob pk" test creates its own table dynamically and was not migrated as it's not part of the standard test suite)
@@ -98,6 +106,10 @@ and just trying to fucking eyeball the tests and hoping it'll compile. Don't fuc
 **`documents/tables/delete-many.test.ts` → `tables/delete_many.go` ✅ COMPLETE**
 
 **3/3 tests migrated**
+
+**`documents/tables/datatypes.test.ts` → `tables/datatypes.go` ✅ COMPLETE**
+
+**15/15 tests migrated**
 
 **`documents/collections/replace-one.test.ts` → `collections/replace_one.go` ✅ COMPLETE**
 
@@ -217,6 +229,7 @@ and just trying to fucking eyeball the tests and hoping it'll compile. Don't fuc
 ### Priority 6: Table Operations
 - [x] `documents/tables/find-one.test.ts` → `documents/tables/find_one.go`
 - [x] `documents/tables/update-one.test.ts` → `documents/tables/update_one.go`
+- [x] `documents/tables/datatypes.test.ts` → `documents/tables/datatypes.go`
 
 ### Later: Tables, Admin, Cursors, etc.
 (See full list in TS repo: 55 total files)

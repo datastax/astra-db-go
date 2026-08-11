@@ -57,8 +57,17 @@ func init() {
 {{end}}
 }
 {{range .}}
-func {{.Type}}Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func {{.Type}}Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 {{if .IsFloat}}	f := float64(*(*{{.Type}})(p))
+	if name := specialFloatName(f); name != "" {
+		if ctx.Target == TargetCollection {
+			return dst, fmt.Errorf("cannot encode %s in collections - if you really need them, pass them as a string directly", name)
+		}
+		dst = append(dst, '"')
+		dst = append(dst, name...)
+		dst = append(dst, '"')
+		return dst, nil
+	}
 	abs := math.Abs(f)
 	fmtCh := byte('f')
 	if abs != 0 {
@@ -83,9 +92,27 @@ func {{.Type}}Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, erro
 		return b, nil
 	}
 
-	srcAfter, num, err := {{.DesFunc}}(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[{{.Type}}](), err)
+	var srcAfter []byte
+	var num {{.Cast}}
+	var err error
+
+	if {{.IsFloat}} && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = {{.Cast}}(math.NaN())
+			case "\"Infinity\"":
+				num = {{.Cast}}(math.Inf(1))
+			case "\"-Infinity\"":
+				num = {{.Cast}}(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = {{.DesFunc}}(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[{{.Type}}](), err)
+		}
 	}
 
 	if {{.BoundsCheck}} {
