@@ -374,13 +374,13 @@ func ComparatorFor(t reflect.Type) Comparator {
 		return func(a, b unsafe.Pointer) int {
 			return (*time.Time)(a).Compare(*(*time.Time)(b))
 		}
-	case bigIntType:
+	case bigIntPtrType:
 		return func(a, b unsafe.Pointer) int {
-			return (*big.Int)(a).Cmp((*big.Int)(b))
+			return (*(**big.Int)(a)).Cmp(*(**big.Int)(b))
 		}
-	case bigFloatType:
+	case bigFloatPtrType:
 		return func(a, b unsafe.Pointer) int {
-			return (*big.Float)(a).Cmp((*big.Float)(b))
+			return (*(**big.Float)(a)).Cmp(*(**big.Float)(b))
 		}
 	case jsonMsgType:
 		return func(a, b unsafe.Pointer) int { return strings.Compare(*(*string)(a), *(*string)(b)) }
@@ -419,9 +419,9 @@ func ComparatorFor(t reflect.Type) Comparator {
 }
 
 var (
-	timeType       = reflect.TypeOf(time.Time{})
-	bigIntType     = reflect.TypeFor[big.Int]()
-	bigFloatType   = reflect.TypeFor[big.Float]()
-	jsonMsgType    = reflect.TypeFor[json.RawMessage]()
-	comparableType = reflect.TypeOf((*interface{ CompareTo(any) int })(nil)).Elem()
+	timeType        = reflect.TypeOf(time.Time{})
+	bigIntPtrType   = reflect.TypeFor[*big.Int]()
+	bigFloatPtrType = reflect.TypeFor[*big.Float]()
+	jsonMsgType     = reflect.TypeFor[json.RawMessage]()
+	comparableType  = reflect.TypeOf((*interface{ CompareTo(any) int })(nil)).Elem()
 )

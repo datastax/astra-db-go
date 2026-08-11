@@ -49,6 +49,10 @@ type Definition struct {
 	PrimaryKey PrimaryKey `json:"primaryKey"`
 }
 
+func (d Definition) build() Definition {
+	return d
+}
+
 // Columns is an ordered collection of named columns. It marshals as a JSON
 // object, preserving insertion order on output and input order on parse.
 //
@@ -142,9 +146,9 @@ func (c Column) GoType() reflect.Type {
 	case TypeDouble:
 		return reflect.TypeFor[float64]()
 	case TypeVarint:
-		return reflect.TypeFor[big.Int]()
+		return reflect.TypeFor[*big.Int]()
 	case TypeDecimal:
-		return reflect.TypeFor[big.Float]()
+		return reflect.TypeFor[*big.Float]()
 	case TypeText, TypeAscii:
 		return reflect.TypeFor[string]()
 	case TypeBoolean:
@@ -168,7 +172,7 @@ func (c Column) GoType() reflect.Type {
 	case TypeMap:
 		colType := Column{Type: *c.KeyType}.GoType()
 
-		if colType.Comparable() {
+		if colType.Comparable() && colType.Kind() != reflect.Ptr {
 			return reflect.MapOf(colType, c.ValueType.GoType())
 		}
 

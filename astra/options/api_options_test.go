@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/options"
-	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 func TestDefaultAPIOptions(t *testing.T) {
@@ -322,26 +321,5 @@ func TestGetGeneralMethodTimeoutNilSafety(t *testing.T) {
 	expected := 30 * time.Second
 	if nilOpts.GetGeneralMethodTimeout() != expected {
 		t.Errorf("expected default timeout %v for nil options, got %v", expected, nilOpts.GetGeneralMethodTimeout())
-	}
-}
-
-func TestMerge_WarningHandler(t *testing.T) {
-	called := false
-	handler := func(w results.Warning) {
-		called = true
-	}
-
-	opt1 := options.API().SetWarningHandler(handler)
-	opt2 := options.API().SetKeyspace("test")
-
-	merged := options.Merge(opt1, opt2)
-
-	if merged.WarningHandler == nil {
-		t.Fatal("expected WarningHandler to be preserved, but got nil")
-	}
-
-	merged.WarningHandler(results.Warning{})
-	if !called {
-		t.Fatal("expected WarningHandler to be called")
 	}
 }

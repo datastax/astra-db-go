@@ -77,6 +77,7 @@ type failSignal struct {
 }
 
 func (t *T) Fatalf(format string, args ...any) {
+	t.Helper()
 	file, line := lowestNonHelperCallerInfo(&t.mu, t.helpers)
 
 	panic(failSignal{
@@ -87,7 +88,7 @@ func (t *T) Fatalf(format string, args ...any) {
 }
 
 func (t *T) Key(seed int) string {
-	return fmt.Sprintf("k_%d", seed)
+	return fmt.Sprintf("k_%s_%05d", t.key, seed) // %04d keeps it numerically sortable
 }
 
 var suites = []*S{
@@ -166,7 +167,7 @@ func (s *S) After(fn func(*T)) *S {
 	return s
 }
 
-func Run() int {
+func Run() (int, bool) {
 	suitesToRun, testsRun := filterTests()
 
 	var bgWg sync.WaitGroup
@@ -188,14 +189,14 @@ func Run() int {
 	bgWg.Wait()
 	fmt.Print(bgOut.String())
 
-	return printResults(testsRun)
+	return printResults(testsRun), cfg.skipLegacy
 }
 
 func filterTests() (suitesToRun []*S, testsRun int) {
 	for _, s := range suites {
 		var tests []test
 		for _, t := range s.tests {
-			if ShouldRun(s, t.name) {
+			if shouldRun(s, t.name) {
 				tests = append(tests, t)
 			}
 		}

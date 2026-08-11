@@ -15,7 +15,6 @@
 package serdes
 
 import (
-	"bytes"
 	"encoding/json"
 	"math/big"
 	"net"
@@ -65,21 +64,8 @@ var (
 	timeType         = reflect.TypeFor[time.Time]()
 	ipType           = reflect.TypeFor[net.IP]()
 	rawMessageType   = reflect.TypeFor[json.RawMessage]()
-	bigIntType       = reflect.TypeFor[big.Int]()
-	bigFloatType     = reflect.TypeFor[big.Float]()
-)
-
-var (
-	datatypesPkgPath = someLinkedMapType.PkgPath() // this will be the same for all special datatypes for now
-
-	someLinkedMapType     = reflect.TypeFor[datatypes.LinkedMap[any, any]]()
-	someLinkedMapTypeName = typeNameUntilBracket(someLinkedMapType)
-
-	someSortedMapType     = reflect.TypeFor[datatypes.SortedMap[any, any]]()
-	someSortedMapTypeName = typeNameUntilBracket(someSortedMapType)
-
-	someSetType     = reflect.TypeFor[datatypes.Set[any]]()
-	someSetTypeName = typeNameUntilBracket(someSetType)
+	bigIntPtrType    = reflect.TypeFor[*big.Int]()
+	bigFloatPtrType  = reflect.TypeFor[*big.Float]()
 )
 
 var (
@@ -149,12 +135,4 @@ func extractFieldHint(field string) fieldHint {
 		}
 	}
 	return unknownField
-}
-
-func typeNameUntilBracket(t reflect.Type) string {
-	name := t.Name()
-	if idx := bytes.IndexByte([]byte(name), '['); idx != -1 {
-		return name[:idx+1]
-	}
-	return name
 }

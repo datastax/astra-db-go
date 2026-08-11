@@ -214,21 +214,16 @@ func mapKeys[K comparable, V any](m map[K]V) []K {
 }
 
 func TestSet_NonComparable(t *testing.T) {
-	s := datatypes.NewSet[big.Int]()
+	s := datatypes.NewSet[*big.Int]()
 
-	b1 := *big.NewInt(10)
-	b2 := *big.NewInt(20)
-	b3 := *big.NewInt(5)
-
-	s.Add(b1)
-	s.Add(b2)
-	s.Add(b3)
+	s.Add(big.NewInt(10))
+	s.Add(big.NewInt(20))
+	s.Add(big.NewInt(5))
 
 	if s.Len() != 3 {
 		t.Fatalf("expected len 3, got %d", s.Len())
 	}
 
-	// Should be sorted
 	got := s.ToSlice()
 	if got[0].Cmp(big.NewInt(5)) != 0 || got[1].Cmp(big.NewInt(10)) != 0 || got[2].Cmp(big.NewInt(20)) != 0 {
 		t.Fatalf("not sorted correctly: %v", got)

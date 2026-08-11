@@ -16,6 +16,7 @@ package timeout
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/options"
@@ -58,18 +59,26 @@ func NewSingleCall(opts *options.APIOptions, tt SingleType) *Manager {
 		methodTimeout = opts.GetTimeout().GetGeneralMethod()
 	}
 
-	timeout := min(requestTimeout, methodTimeout)
+	timeout := min(infIfZero(requestTimeout), infIfZero(methodTimeout))
 	return &Manager{
 		requestTimeout: timeout,
 		overallTimeout: timeout,
 	}
 }
 
-func NewMultiCall(opts *options.APIOptions) *Manager {
+func NewMultiCall(opts ...options.APIOption) *Manager {
+	resolved := options.Merge(opts...)
 	return &Manager{
-		requestTimeout: opts.GetRequestTimeout(),
-		overallTimeout: opts.GetTimeout().GetGeneralMethod(),
+		requestTimeout: infIfZero(resolved.GetRequestTimeout()),
+		overallTimeout: infIfZero(resolved.GetTimeout().GetGeneralMethod()),
 	}
+}
+
+func infIfZero(d time.Duration) time.Duration {
+	if d == 0 {
+		return math.MaxInt64
+	}
+	return d
 }
 
 func (tm *Manager) Advance() time.Duration {
@@ -78,12 +87,10 @@ func (tm *Manager) Advance() time.Duration {
 		tm.started = true
 	}
 
-	// For single-call operations (requestTimeout == overallTimeout)
 	if tm.requestTimeout == tm.overallTimeout {
 		return tm.requestTimeout
 	}
 
-	// For multi-call operations, calculate remaining time
 	elapsed := time.Since(tm.startTime)
 	remaining := tm.overallTimeout - elapsed
 
@@ -97,10 +104,8 @@ func (tm *Manager) Advance() time.Duration {
 func (tm *Manager) ApplyToContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	timeout := tm.Advance()
 	if timeout <= 0 {
-		// Return a context that's already cancelled
-		ctx, cancel := context.WithCancel(ctx)
-		cancel()
-		return ctx, cancel
+		// Return a context that's already timed out
+		return context.WithTimeout(ctx, 0)
 	}
 	return context.WithTimeout(ctx, timeout)
 }

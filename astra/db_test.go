@@ -27,7 +27,7 @@ import (
 )
 
 func TestDbInfoNonAstra(t *testing.T) {
-	client := NewClient(options.API().SetDataAPIBackend(options.DataAPIBackendHCD))
+	client := NewClient(options.API().SetEnvironment(options.EnvironmentHCD))
 	db := client.Database("http://localhost:8181")
 
 	_, err := db.Info(context.Background())
@@ -97,7 +97,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("with vector", func(t *testing.T) {
 		opts := options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(1024),
-			Metric:    ptr.To("cosine"),
+			Metric:    ptr.To(options.MetricCosine),
 		})
 
 		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
@@ -114,11 +114,11 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("multiple builders merged", func(t *testing.T) {
 		opts := options.CreateCollection().UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(512),
-			Metric:    ptr.To("euclidean"),
+			Metric:    ptr.To(options.MetricEuclidean),
 		})
 		opts.UpdateVector(&options.VectorOptions{
 			Dimension: ptr.To(1024),
-			Metric:    ptr.To("cosine"),
+			Metric:    ptr.To(options.MetricCosine),
 		})
 
 		cmdBytes, err := serdes.Serialize(options.Merge[options.CreateCollectionOptions](opts), serdes.TargetNone, serdes.SortMapKeys)
@@ -135,7 +135,7 @@ func TestCollectionOptionsMarshal(t *testing.T) {
 	t.Run("raw struct passed directly", func(t *testing.T) {
 		rawOpts := &options.CreateCollectionOptions{
 			DefaultId: &options.CollectionDefaultIdOptions{
-				Type: ptr.To(options.DefaultIdTypeUUIDv7),
+				Type: ptr.To(options.CollectionIdTypeUUIDv7),
 			},
 		}
 

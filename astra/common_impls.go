@@ -47,12 +47,12 @@ type insertOneResponse struct {
 	} `json:"status"`
 }
 
-func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptions, target serdes.Target) (*results.InsertOneResult, error) {
+func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptions, target serdes.Target, idMapper results.InternalIDMapper) (*results.InsertOneResult, error) {
 	cmd := mkCmd("insertOne", map[string]any{
 		"document": record,
 	}, opts.APIOptions)
 
-	b, warnings, _, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
+	b, warnings, schema, err := cmd.ExecuteSingle(ctx, timeout.GeneralMethod)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func insertOne(ctx context.Context, record any, mkCmd mkCmd, opts insertOneOptio
 		return nil, errors.New("no inserted ID returned from server")
 	}
 
-	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, nil, target, opts.APIOptions.GetDesFlags()), nil
+	return results.NewInsertOneResult(resp.Status.InsertedIds[0], warnings, schema, target, opts.APIOptions.GetDesFlags(), idMapper), nil
 }
 
 // endregion
@@ -87,7 +87,7 @@ type insertManyResponse struct {
 	Errors []results.DataAPIError `json:"errors,omitempty"`
 }
 
-func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOptions, target serdes.Target) (*results.InsertManyResult, error) {
+func insertMany(ctx context.Context, records any, baseOpts options.APIOption, mkCmd mkCmd, opts insertManyOptions, target serdes.Target, idMapper results.InternalIDMapper) (*results.InsertManyResult, error) {
 	recordsVal := reflect.ValueOf(records)
 	if recordsVal.Kind() != reflect.Slice {
 		return nil, errors.New("records must be a slice")
@@ -103,18 +103,18 @@ func insertMany(ctx context.Context, records any, mkCmd mkCmd, opts insertManyOp
 		opts.Ordered = ptr.To(false)
 	}
 
-	tm := timeout.NewMultiCall(opts.APIOptions)
+	tm := timeout.NewMultiCall(baseOpts, opts.APIOptions)
 
 	if *opts.Ordered {
-		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target, tm)
+		return insertManyOrdered(ctx, recordsVal, mkCmd, &opts, target, tm, idMapper)
 	}
-	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target, tm)
+	return insertManyUnordered(ctx, recordsVal, mkCmd, &opts, target, tm, idMapper)
 }
 
-func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target, tm *timeout.Manager) (*results.InsertManyResult, error) {
+func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target, tm *timeout.Manager, idMapper results.InternalIDMapper) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
-	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
+	batches := make([]results.InternalInsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
 	var allWarnings results.Warnings
 	var count int
 
@@ -139,15 +139,15 @@ func insertManyOrdered(ctx context.Context, records reflect.Value, mkCmd mkCmd, 
 		if len(apiErrors) > 0 {
 			return nil, &results.InsertManyError{
 				Errors: apiErrors,
-				Result: results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()),
+				Result: results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags(), idMapper),
 			}
 		}
 	}
 
-	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()), nil
+	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags(), idMapper), nil
 }
 
-func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target, tm *timeout.Manager) (*results.InsertManyResult, error) {
+func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd, opts *insertManyOptions, target serdes.Target, tm *timeout.Manager, idMapper results.InternalIDMapper) (*results.InsertManyResult, error) {
 	totalDocs := records.Len()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -159,7 +159,7 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	var wg sync.WaitGroup
 	var resultsMu sync.Mutex
 
-	batches := make([]results.InsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
+	batches := make([]results.InternalInsertManyBatch, 0, (totalDocs+*opts.ChunkSize-1) / *opts.ChunkSize)
 	var allApiErrors results.DataAPIErrors
 	var allWarnings results.Warnings
 	var count int
@@ -211,13 +211,13 @@ func insertManyUnordered(ctx context.Context, records reflect.Value, mkCmd mkCmd
 	if len(allApiErrors) > 0 {
 		return nil, &results.InsertManyError{
 			Errors: allApiErrors,
-			Result: results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()),
+			Result: results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags(), idMapper),
 		}
 	}
-	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags()), nil
+	return results.NewInsertManyResult(batches, count, allWarnings, target, opts.APIOptions.GetDesFlags(), idMapper), nil
 }
 
-func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions, tm *timeout.Manager) (results.InsertManyBatch, results.Warnings, results.DataAPIErrors, error) {
+func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertManyOptions, tm *timeout.Manager) (results.InternalInsertManyBatch, results.Warnings, results.DataAPIErrors, error) {
 	cmd := mkCmd("insertMany", map[string]any{
 		"documents": records,
 		"options": map[string]any{
@@ -227,7 +227,7 @@ func runInsertMany(ctx context.Context, records any, mkCmd mkCmd, opts *insertMa
 
 	b, warnings, schema, execErr := cmd.Execute(ctx, tm)
 
-	batch := results.InsertManyBatch{
+	batch := results.InternalInsertManyBatch{
 		InsertedIds: nil,
 		TargetCtx:   schema,
 	}

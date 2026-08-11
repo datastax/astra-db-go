@@ -172,12 +172,12 @@ func (b *apiOptionsBuilder) SetAstraEnvironment(v AstraEnvironment) *apiOptionsB
 	return b
 }
 
-// SetDataAPIBackend sets the DataAPIBackend option.
-// DataAPIBackend is the database backend (astra, hcd, dse, cassandra, other).
+// SetEnvironment sets the Environment option.
+// Environment is the database backend (astra, hcd, dse, cassandra, other).
 // Controls the Data API path. Defaults to astra.
-func (b *apiOptionsBuilder) SetDataAPIBackend(v DataAPIBackend) *apiOptionsBuilder {
+func (b *apiOptionsBuilder) SetEnvironment(v Environment) *apiOptionsBuilder {
 	b.setters = append(b.setters, func(o *APIOptions) {
-		o.DataAPIBackend = &v
+		o.Environment = &v
 	})
 	return b
 }
@@ -361,7 +361,7 @@ func (b *collectionDefaultIdOptionsBuilder) Setters() []func(*CollectionDefaultI
 // Type is the type of the default ID that the API should generate if no ID is provided in the inserted document.
 // Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
 // If not specified, the default ID will be a string UUID.
-func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collectionDefaultIdOptionsBuilder {
+func (b *collectionDefaultIdOptionsBuilder) SetType(v CollectionIdType) *collectionDefaultIdOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionDefaultIdOptions) {
 		o.Type = &v
 	})
@@ -373,12 +373,11 @@ func (b *collectionDefaultIdOptionsBuilder) SetType(v DefaultIdType) *collection
 //
 // Example using the fluent builder ([CollectionDeleteMany]):
 //
-//	// No need to use pointer for builder; the builder handles that for you.
-//	opts := options.CollectionDeleteMany().SetTimeout(10 * time.Second)
+//	opts := options.CollectionDeleteMany().UpdateAPIOptions(...)
 //
 // Example using a pointer to [CollectionDeleteManyOptions] without the fluent builder:
 //
-//	opts := &options.CollectionDeleteManyOptions{Timeout: ptr.To(10 * time.Second)}
+//	opts := &options.CollectionDeleteManyOptions{...}
 type CollectionDeleteManyOption = Builder[CollectionDeleteManyOptions]
 
 // Setters implements Builder[CollectionDeleteManyOptions] allowing the raw struct to be
@@ -400,16 +399,6 @@ func CollectionDeleteMany() *collectionDeleteManyOptionsBuilder {
 // Setters implements Builder[CollectionDeleteManyOptions].
 func (b *collectionDeleteManyOptionsBuilder) Setters() []func(*CollectionDeleteManyOptions) {
 	return b.setters
-}
-
-// SetTimeout sets the Timeout option.
-// Timeout is the overall timeout for the entire paginated operation.
-// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-func (b *collectionDeleteManyOptionsBuilder) SetTimeout(v time.Duration) *collectionDeleteManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionDeleteManyOptions) {
-		o.Timeout = &v
-	})
-	return b
 }
 
 // UpdateAPIOptions sets the APIOptions option.
@@ -1303,16 +1292,6 @@ func (b *collectionUpdateManyOptionsBuilder) Setters() []func(*CollectionUpdateM
 func (b *collectionUpdateManyOptionsBuilder) SetUpsert(v bool) *collectionUpdateManyOptionsBuilder {
 	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
 		o.Upsert = &v
-	})
-	return b
-}
-
-// SetTimeout sets the Timeout option.
-// Timeout is the overall timeout for the entire paginated operation.
-// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-func (b *collectionUpdateManyOptionsBuilder) SetTimeout(v time.Duration) *collectionUpdateManyOptionsBuilder {
-	b.setters = append(b.setters, func(o *CollectionUpdateManyOptions) {
-		o.Timeout = &v
 	})
 	return b
 }
@@ -4044,7 +4023,7 @@ func (b *vectorOptionsBuilder) SetDimension(v int) *vectorOptionsBuilder {
 // Metric specifies the similarity metric used for vector search.
 // Valid values are "cosine", "euclidean", or "dot_product".
 // Default is "cosine".
-func (b *vectorOptionsBuilder) SetMetric(v string) *vectorOptionsBuilder {
+func (b *vectorOptionsBuilder) SetMetric(v VectorMetric) *vectorOptionsBuilder {
 	b.setters = append(b.setters, func(o *VectorOptions) {
 		o.Metric = &v
 	})

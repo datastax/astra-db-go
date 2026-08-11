@@ -14,7 +14,11 @@
 
 package results
 
-import "github.com/datastax/astra-db-go/v2/astra/serdes"
+import (
+	"fmt"
+
+	"github.com/datastax/astra-db-go/v2/astra/serdes"
+)
 
 // IndexDescriptor describes an index on a table.
 // When listing indexes with explain=true, all fields are populated.
@@ -54,9 +58,34 @@ func (d *IndexDescriptor) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) 
 // IndexDefinition describes which column is indexed and its options.
 type IndexDefinition struct {
 	// Column is the name of the indexed column.
-	Column string `json:"column"`
+	Column IndexColumn `json:"column"`
 	// Options contains index-specific configuration.
 	Options *IndexDefinitionOptions `json:"options,omitempty"`
+}
+
+type IndexColumn struct {
+	Name string
+	Func string
+}
+
+func (m *IndexColumn) UnmarshalAstraRaw(ctx serdes.DecodeCtx, value []byte) error {
+	var columnStr string
+	if err := serdes.Deserialize(value, &columnStr, nil, ctx.Target, ctx.Flags); err == nil {
+		m.Name = columnStr
+		m.Func = ""
+		return nil
+	}
+
+	var columnDef map[string]string
+	if err := serdes.Deserialize(value, &columnDef, nil, ctx.Target, ctx.Flags); err == nil {
+		for k, v := range columnDef {
+			m.Name = k
+			m.Func = v
+		}
+		return nil
+	}
+
+	return fmt.Errorf(`expected either "COLUMN" or { "COLUMN": "$FUNC" }; got: %q`, string(value))
 }
 
 // IndexDefinitionOptions contains configuration for an index.

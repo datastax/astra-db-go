@@ -62,6 +62,8 @@ func Run() {
 	ran := 0
 	skipped := 0
 
+	slog.SetLogLoggerLevel(slog.LevelWarn)
+
 	totalStart := time.Now()
 	// Then run them
 	for _, test := range tests {
@@ -106,7 +108,7 @@ func createLogFile() *os.File {
 func setupLogging(writers ...io.Writer) {
 	multiWriter := io.MultiWriter(writers...)
 	opts := &slog.HandlerOptions{
-		Level: slog.LevelDebug, // We want debug logs
+		Level: slog.LevelWarn, // We want debug logs
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
 			// Customize the time format
 			if a.Key == slog.TimeKey {

@@ -230,7 +230,7 @@ func TestAdminEnvironmentOverriddenAtAdminLevel(t *testing.T) {
 func TestAdminNotAvailableForNonAstra(t *testing.T) {
 	client := NewClient(
 		options.API().SetToken("token"),
-		options.API().SetDataAPIBackend(options.DataAPIBackendHCD),
+		options.API().SetEnvironment(options.EnvironmentHCD),
 	)
 	_, err := client.Admin()
 	if err == nil {
@@ -261,7 +261,7 @@ func TestExtractDevopsError(t *testing.T) {
 }
 
 func TestAwaitStatusOptions(t *testing.T) {
-	opts := &AwaitStatusOptions{
+	opts := &awaitStatusOptions{
 		Target:      "ACTIVE",
 		LegalStates: []DatabaseStatus{"MAINTENANCE"},
 	}

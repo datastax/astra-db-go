@@ -283,7 +283,7 @@ func TestDeleteManyTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
-		options.CollectionDeleteMany().SetTimeout(250*time.Millisecond),
+		options.CollectionDeleteMany().UpdateAPIOptions(options.API().SetGeneralMethodTimeout(250*time.Millisecond)),
 	)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
@@ -303,7 +303,7 @@ func TestUpdateManyTimeout(t *testing.T) {
 		calls.Add(1)
 		time.Sleep(100 * time.Millisecond)
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprint(w, `{"status":{"matchedCount":20,"modifiedCount":20,"moreData":true}}`)
+		fmt.Fprint(w, `{"status":{"matchedCount":20,"modifiedCount":20,"nextPageState":"xyz"}}`)
 	}))
 	defer ts.Close()
 
@@ -311,7 +311,7 @@ func TestUpdateManyTimeout(t *testing.T) {
 	ctx := context.Background()
 
 	_, err := coll.UpdateMany(ctx, filter.F{"status": "old"}, update.Coll().Set("status", "archived"),
-		options.CollectionUpdateMany().SetTimeout(250*time.Millisecond),
+		options.CollectionUpdateMany().UpdateAPIOptions(options.API().SetGeneralMethodTimeout(250*time.Millisecond)),
 	)
 	if err == nil {
 		t.Fatal("expected timeout error, got nil")
@@ -362,7 +362,7 @@ func TestDeleteManyMethodTimeoutOverridesHierarchy(t *testing.T) {
 
 	// Method-level timeout is generous enough to succeed
 	_, err := coll.DeleteMany(ctx, filter.F{"status": "old"},
-		options.CollectionDeleteMany().SetTimeout(5*time.Second),
+		options.CollectionDeleteMany().UpdateAPIOptions(options.API().SetGeneralMethodTimeout(5*time.Second)),
 	)
 	if err != nil {
 		t.Fatalf("expected success with method-level override, got: %v", err)
@@ -529,4 +529,91 @@ func TestFindAndRerankPayloadSerialization(t *testing.T) {
 			t.Errorf("lexical mismatch")
 		}
 	})
+}
+
+// TestUpdateOneRejectsFilterBuilderOnUpsert verifies that UpdateOne returns
+// ErrFilterBuilderUpsert when a filter.Filter is used with upsert=true.
+// Tests that use upsert must use filter.F{} instead.
+func TestUpdateOneRejectsFilterBuilderOnUpsert(t *testing.T) {
+	ctx := context.Background()
+	u := update.Coll().Set("x", 1)
+
+	// filter.Filter + upsert=true → rejected before any network call
+	_, err := (&astra.Collection{}).UpdateOne(ctx, filter.Eq("x", 1), u,
+		options.CollectionUpdateOne().SetUpsert(true),
+	)
+	if !errors.Is(err, astra.ErrFilterBuilderUpsert) {
+		t.Errorf("expected ErrFilterBuilderUpsert, got: %v", err)
+	}
+
+	// filter.F + upsert=true → allowed
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":0,"modifiedCount":0,"upsertedId":"new-id"}}`)
+	}))
+	defer ts.Close()
+	_, err = newTestCollection(ts).UpdateOne(ctx, filter.F{"x": 1}, u,
+		options.CollectionUpdateOne().SetUpsert(true),
+	)
+	if err != nil {
+		t.Errorf("unexpected error with filter.F and upsert=true: %v", err)
+	}
+}
+
+// TestUpdateManyRejectsFilterBuilderOnUpsert verifies that UpdateMany returns
+// ErrFilterBuilderUpsert when a filter.Filter is used with upsert=true.
+// Tests that use upsert must use filter.F{} instead.
+func TestUpdateManyRejectsFilterBuilderOnUpsert(t *testing.T) {
+	ctx := context.Background()
+	u := update.Coll().Set("x", 1)
+
+	// filter.Filter + upsert=true → rejected before any network call
+	_, err := (&astra.Collection{}).UpdateMany(ctx, filter.Eq("x", 1), u,
+		options.CollectionUpdateMany().SetUpsert(true),
+	)
+	if !errors.Is(err, astra.ErrFilterBuilderUpsert) {
+		t.Errorf("expected ErrFilterBuilderUpsert, got: %v", err)
+	}
+
+	// filter.F + upsert=true → allowed
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"status":{"matchedCount":0,"modifiedCount":0,"upsertedId":"new-id"}}`)
+	}))
+	defer ts.Close()
+	_, err = newTestCollection(ts).UpdateMany(ctx, filter.F{"x": 1}, u,
+		options.CollectionUpdateMany().SetUpsert(true),
+	)
+	if err != nil {
+		t.Errorf("unexpected error with filter.F and upsert=true: %v", err)
+	}
+}
+
+// TestFindOneAndUpdateRejectsFilterBuilderOnUpsert verifies that FindOneAndUpdate
+// returns ErrFilterBuilderUpsert when a filter.Filter is used with upsert=true.
+// Tests that use upsert must use filter.F{} instead.
+func TestFindOneAndUpdateRejectsFilterBuilderOnUpsert(t *testing.T) {
+	ctx := context.Background()
+	u := update.Coll().Set("x", 1)
+
+	// filter.Filter + upsert=true → rejected before any network call
+	err := (&astra.Collection{}).FindOneAndUpdate(ctx, filter.Eq("x", 1), u,
+		options.CollectionFindOneAndUpdate().SetUpsert(true),
+	).Err()
+	if !errors.Is(err, astra.ErrFilterBuilderUpsert) {
+		t.Errorf("expected ErrFilterBuilderUpsert, got: %v", err)
+	}
+
+	// filter.F + upsert=true → allowed
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":{"document":{"x":1}}}`)
+	}))
+	defer ts.Close()
+	err = newTestCollection(ts).FindOneAndUpdate(ctx, filter.F{"x": 1}, u,
+		options.CollectionFindOneAndUpdate().SetUpsert(true),
+	).Err()
+	if err != nil {
+		t.Errorf("unexpected error with filter.F and upsert=true: %v", err)
+	}
 }

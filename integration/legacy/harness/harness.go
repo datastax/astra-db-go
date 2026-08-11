@@ -17,14 +17,12 @@ package harness
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"sync"
 
 	"github.com/DeanPDX/dotconfig"
 	"github.com/datastax/astra-db-go/v2/astra"
 	"github.com/datastax/astra-db-go/v2/astra/options"
-	"github.com/datastax/astra-db-go/v2/astra/results"
 )
 
 // TestEnv represents our test environment.
@@ -36,7 +34,7 @@ type TestEnv struct {
 	// If set, will only run tests with names that start with prefix.
 	TestPrefix string `env:"TEST_PREFIX,optional"`
 	// The backend we are running this against. "astra", "hcd", etc. Defaults to "astra".
-	// See: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/options#DataAPIBackend
+	// See: https://pkg.go.dev/github.com/datastax/astra-db-go/v2/astra/options#Environment
 	Backend string `env:"BACKEND" default:"astra"`
 }
 
@@ -64,7 +62,7 @@ func (e *TestEnv) DefaultClient() *astra.DataAPIClient {
 	return astra.NewClient(
 		options.API().
 			SetToken(e.ApplicationToken).
-			SetDataAPIBackend(options.DataAPIBackend(e.Backend)),
+			SetEnvironment(options.Environment(e.Backend)),
 	)
 }
 
@@ -73,18 +71,9 @@ func (e *TestEnv) DefaultDb() *astra.Db {
 	client := astra.NewClient(
 		options.API().
 			SetToken(e.ApplicationToken).
-			SetDataAPIBackend(options.DataAPIBackend(e.Backend)).
-			SetWarningHandler(func(w results.Warning) {
-				// Add client handler just to make sure it is properly superseded by
-				// DB level handler.
-				slog.Error("Client handler called and should have been superseded by DB handler")
-			}),
+			SetEnvironment(options.Environment(e.Backend)),
 	)
-	return client.Database(e.APIEndpoint, options.API().SetWarningHandler(func(w results.Warning) {
-		// Warn and let logs know this came from DB handler. In our tests we will
-		// make sure that collection/table/command level handlers supersede this.
-		slog.Warn("API warning from DB handler", "code", w.ErrorCode, "message", w.Message)
-	}))
+	return client.Database(e.APIEndpoint)
 }
 
 // An integration test

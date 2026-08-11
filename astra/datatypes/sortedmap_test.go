@@ -140,10 +140,10 @@ func TestSortedMap_Ranges(t *testing.T) {
 
 func TestSortedMap_BigTypes(t *testing.T) {
 	// big.Int
-	m := datatypes.NewSortedMap[big.Int, int]()
+	m := datatypes.NewSortedMap[*big.Int, int]()
 	for _, v := range []int64{10, -5, 100, 0} {
-		var bi big.Int
-		bi.SetInt64(v)
+		//var bi big.Int
+		bi := big.NewInt(v)
 		m.Set(bi, int(v))
 	}
 	var got []int64
@@ -155,10 +155,9 @@ func TestSortedMap_BigTypes(t *testing.T) {
 	}
 
 	// big.Float
-	mf := datatypes.NewSortedMap[big.Float, int]()
+	mf := datatypes.NewSortedMap[*big.Float, int]()
 	for _, v := range []float64{10.5, -5.2, 100.1, 0.0} {
-		var bf big.Float
-		bf.SetFloat64(v)
+		bf := big.NewFloat(v)
 		mf.Set(bf, int(v))
 	}
 	var gotf []float64

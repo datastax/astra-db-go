@@ -249,7 +249,7 @@ func timeOnlyDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 // ================================
 
 func bigIntEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	bi := *(*big.Int)(p)
+	bi := *(**big.Int)(p)
 	return bi.Append(dst, 10), nil
 }
 
@@ -265,12 +265,12 @@ func bigIntDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return srcAfter, err
 	}
 
-	var bi big.Int
+	bi := new(big.Int)
 	if _, ok := bi.SetString(unsafeString(numStr), 10); !ok {
 		return srcAfter, ctx.syntaxError(src, "invalid big.Int value")
 	}
 
-	*(*big.Int)(p) = bi
+	*(**big.Int)(p) = bi
 	return srcAfter, nil
 }
 
@@ -279,7 +279,7 @@ func bigIntDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 // ================================
 
 func bigFloatEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
-	bf := *(*big.Float)(p)
+	bf := *(**big.Float)(p)
 	return bf.Append(dst, 'g', -1), nil
 }
 
@@ -295,12 +295,12 @@ func bigFloatDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error
 		return srcAfter, err
 	}
 
-	var bf big.Float
+	bf := new(big.Float)
 	if _, ok := bf.SetString(unsafeString(numStr)); !ok {
 		return srcAfter, ctx.syntaxError(src, "invalid big.Float value")
 	}
 
-	*(*big.Float)(p) = bf
+	*(**big.Float)(p) = bf
 	return srcAfter, nil
 }
 
@@ -529,44 +529,49 @@ func encodeDollarDatatype(dst []byte, datatype []byte, encode func([]byte) ([]by
 
 func parseDollarDatatype[T any](ctx DecodeCtx, src []byte, datatype []byte, decode func(DecodeCtx, []byte) ([]byte, T, error)) ([]byte, T, error) {
 	var zero T
+	initSrc := skipWS(src)
 
-	src = skipWS(src)
-	if len(src) == 0 || src[0] != '{' {
-		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected object for %s", datatype))
+	if len(initSrc) > 0 && initSrc[0] == '{' {
+		src = skipWS(initSrc[1:])
+		if !bytes.HasPrefix(src, []byte(`"$`)) {
+			return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key", datatype))
+		}
+
+		src = src[2:]
+		if len(src) < len(datatype) || !bytes.Equal(src[:len(datatype)], datatype) {
+			return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key", datatype))
+		}
+
+		src = src[len(datatype):]
+		if len(src) == 0 || src[0] != '"' {
+			return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key to be quoted", datatype))
+		}
+
+		src = skipWS(src[1:])
+		if len(src) == 0 || src[0] != ':' {
+			return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected ':' after \"$%s\" key", datatype))
+		}
+
+		src = skipWS(src[1:])
+		src, res, err := decode(ctx, src)
+		if err != nil {
+			return src, zero, err
+		}
+
+		src = skipWS(src)
+		if len(src) == 0 || src[0] != '}' {
+			return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected '}' at the end of %s object", datatype))
+		}
+
+		return src[1:], res, nil
 	}
 
-	src = skipWS(src[1:])
-	if !bytes.HasPrefix(src, []byte(`"$`)) {
-		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key", datatype))
-	}
-
-	src = src[2:]
-	if len(src) < len(datatype) || !bytes.Equal(src[:len(datatype)], datatype) {
-		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key", datatype))
-	}
-
-	src = src[len(datatype):]
-	if len(src) == 0 || src[0] != '"' {
-		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected \"$%s\" key to be quoted", datatype))
-	}
-
-	src = skipWS(src[1:])
-	if len(src) == 0 || src[0] != ':' {
-		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected ':' after \"$%s\" key", datatype))
-	}
-
-	src = skipWS(src[1:])
-	src, res, err := decode(ctx, src)
+	fallbackSrc, res, err := decode(ctx, initSrc)
 	if err != nil {
-		return src, zero, err
+		return fallbackSrc, zero, ctx.syntaxErrorWrap(fallbackSrc, fmt.Sprintf("expected either {\"$%s\": ...} or a valid raw %s", datatype, datatype), err)
 	}
 
-	src = skipWS(src)
-	if len(src) == 0 || src[0] != '}' {
-		return src, zero, ctx.syntaxError(src, fmt.Sprintf("expected '}' at the end of %s object", datatype))
-	}
-
-	return src[1:], res, nil
+	return fallbackSrc, res, nil
 }
 
 func decodeDollarDatatype(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error, bool) {

@@ -114,7 +114,7 @@ type findPayload struct {
 }
 
 type findOptions struct {
-	Limit             *int    `json:"limit,omitempty"`
+	Limit             int     `json:"limit,omitempty"`
 	Skip              *int    `json:"skip,omitempty"`
 	IncludeSimilarity *bool   `json:"includeSimilarity,omitempty"`
 	IncludeSortVector *bool   `json:"includeSortVector,omitempty"`

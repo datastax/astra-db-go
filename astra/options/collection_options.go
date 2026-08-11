@@ -16,7 +16,6 @@ package options
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/constants"
 	"github.com/datastax/astra-db-go/v2/astra/ptr"
@@ -116,9 +115,9 @@ func (b *createCollectionOptionsBuilder) SetRerankingHeadersProvider(provider Re
 	return b
 }
 
-// UpdateIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
-// Mutually exclusive with UpdateIndexingDeny.
-func (b *createCollectionOptionsBuilder) UpdateIndexingAllow(v ...string) *createCollectionOptionsBuilder {
+// SetIndexingAllow sets the list of field paths to index. Use "*" to index all fields.
+// Mutually exclusive with SetIndexingDeny.
+func (b *createCollectionOptionsBuilder) SetIndexingAllow(v ...string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
@@ -128,9 +127,9 @@ func (b *createCollectionOptionsBuilder) UpdateIndexingAllow(v ...string) *creat
 	return b
 }
 
-// UpdateIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
-// disable indexing entirely. Mutually exclusive with UpdateIndexingAllow.
-func (b *createCollectionOptionsBuilder) UpdateIndexingDeny(v ...string) *createCollectionOptionsBuilder {
+// SetIndexingDeny sets the list of field paths to exclude from indexing. Use "*" to
+// disable indexing entirely. Mutually exclusive with SetIndexingAllow.
+func (b *createCollectionOptionsBuilder) SetIndexingDeny(v ...string) *createCollectionOptionsBuilder {
 	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
 		if o.Indexing == nil {
 			o.Indexing = &IndexingOptions{}
@@ -140,27 +139,38 @@ func (b *createCollectionOptionsBuilder) UpdateIndexingDeny(v ...string) *create
 	return b
 }
 
-// DefaultIdType specifies the type of auto-generated document ID when no _id is
+// SetDefaultIdType is a shortcut for setting the default ID type for the collection.
+func (b *createCollectionOptionsBuilder) SetDefaultIdType(t CollectionIdType) *createCollectionOptionsBuilder {
+	b.setters = append(b.setters, func(o *CreateCollectionOptions) {
+		if o.DefaultId == nil {
+			o.DefaultId = &CollectionDefaultIdOptions{}
+		}
+		o.DefaultId.Type = &t
+	})
+	return b
+}
+
+// CollectionIdType specifies the type of auto-generated document ID when no _id is
 // provided in an inserted document. If not set, the default is a string UUID v4.
-type DefaultIdType string
+type CollectionIdType string
 
 const (
-	// DefaultIdTypeUUID uses a [UUID v4] as the default document ID.
+	// CollectionIdTypeUUID uses a [UUID v4] as the default document ID.
 	//
 	// [UUID v4]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-4
-	DefaultIdTypeUUID DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUID)
-	// DefaultIdTypeUUIDv6 uses a UUID v6 as the default document ID.
+	CollectionIdTypeUUID CollectionIdType = CollectionIdType(constants.CollectionIdTypeUUID)
+	// CollectionIdTypeUUIDv6 uses a UUID v6 as the default document ID.
 	// UUID v6 is field-compatible with UUID v1 and supports lexicographic sorting.
 	//
 	// [UUID v6]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-6
-	DefaultIdTypeUUIDv6 DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUIDv6)
-	// DefaultIdTypeUUIDv7 uses a [UUID v7] as the default document ID.
+	CollectionIdTypeUUIDv6 CollectionIdType = CollectionIdType(constants.CollectionIdTypeUUIDv6)
+	// CollectionIdTypeUUIDv7 uses a [UUID v7] as the default document ID.
 	// UUID v7 is recommended for new systems as a replacement for UUID v1.
 	//
 	// [UUID v7]: https://www.ietf.org/archive/id/draft-ietf-uuidrev-rfc4122bis-14.html#name-uuid-version-7
-	DefaultIdTypeUUIDv7 DefaultIdType = DefaultIdType(constants.DefaultIdTypeUUIDv7)
-	// DefaultIdTypeObjectId uses an ObjectID as the default document ID.
-	DefaultIdTypeObjectId DefaultIdType = DefaultIdType(constants.DefaultIdTypeObjectId)
+	CollectionIdTypeUUIDv7 CollectionIdType = CollectionIdType(constants.CollectionIdTypeUUIDv7)
+	// CollectionIdTypeObjectId uses an ObjectID as the default document ID.
+	CollectionIdTypeObjectId CollectionIdType = CollectionIdType(constants.CollectionIdTypeObjectId)
 )
 
 // CollectionDefaultIdOptions represents the options for a collection's default ID.
@@ -170,7 +180,7 @@ type CollectionDefaultIdOptions struct {
 	// Type is the type of the default ID that the API should generate if no ID is provided in the inserted document.
 	// Valid values: "uuid", "uuidv6", "uuidv7", "objectId".
 	// If not specified, the default ID will be a string UUID.
-	Type *DefaultIdType `json:"type,omitempty"`
+	Type *CollectionIdType `json:"type,omitempty"`
 }
 
 // -- Placeholder structs for the types referenced above --
@@ -186,7 +196,7 @@ type VectorOptions struct {
 	// Metric specifies the similarity metric used for vector search.
 	// Valid values are "cosine", "euclidean", or "dot_product".
 	// Default is "cosine".
-	Metric *string `json:"metric,omitempty"`
+	Metric *VectorMetric `json:"metric,omitempty"`
 
 	// SourceModel is the embedding generation model, enabling optimizations.
 	SourceModel *string `json:"sourceModel,omitempty"`
@@ -290,8 +300,8 @@ type RerankServiceOptions struct {
 	Parameters map[string]any `json:"parameters,omitempty"`
 }
 
-// UpdateAnalyzer sets the analyzer name for lexical search (e.g., "standard").
-func (b *lexicalOptionsBuilder) UpdateAnalyzer(v string) *lexicalOptionsBuilder {
+// SetAnalyzer sets the analyzer name for lexical search (e.g., "standard").
+func (b *lexicalOptionsBuilder) SetAnalyzer(v string) *lexicalOptionsBuilder {
 	b.setters = append(b.setters, func(o *LexicalOptions) {
 		o.Analyzer = v
 	})
@@ -442,9 +452,7 @@ type CollectionUpdateOneOptions struct {
 type CollectionUpdateManyOptions struct {
 	// Upsert if true, inserts a new document if no document matches the filter.
 	Upsert *bool `json:"upsert,omitempty"`
-	// Timeout is the overall timeout for the entire paginated operation.
-	// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-	Timeout *time.Duration `json:"-"`
+
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`
@@ -462,9 +470,6 @@ type CollectionDeleteOneOptions struct {
 
 // CollectionDeleteManyOptions represents options for a deleteMany operation.
 type CollectionDeleteManyOptions struct {
-	// Timeout is the overall timeout for the entire paginated operation.
-	// Overrides the GeneralMethod timeout from the hierarchy. Client-side only.
-	Timeout *time.Duration `json:"-"`
 	// APIOptions overrides API-level settings (token, timeout, headers, etc.)
 	// for this command. These are merged into the Client→DB→Collection→Command hierarchy.
 	APIOptions *APIOptions `json:"-"`

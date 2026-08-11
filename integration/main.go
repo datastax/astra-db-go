@@ -25,13 +25,12 @@ import (
 
 func main() {
 	harness.Init()
-	exitCode := harness.Run()
+	exitCode, skipLegacy := harness.Run()
 
-	if exitCode != 0 {
+	if exitCode != 0 || skipLegacy {
 		os.Exit(exitCode)
 	}
 
 	harness.PrintlnBold(harness.Highlight("...Running legacy integration tests...\n"))
-
-	legacy.Run() // temporary (obviously)
+	legacy.Run() // temporary
 }

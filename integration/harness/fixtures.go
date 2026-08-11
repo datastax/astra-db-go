@@ -16,6 +16,8 @@ package harness
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	"github.com/datastax/astra-db-go/v2/astra"
 	"github.com/datastax/astra-db-go/v2/astra/options"
@@ -39,10 +41,31 @@ type TestObjects struct {
 var GlobalFixtures *TestObjects
 
 func NewTestObjects() *TestObjects {
+	return newTestObjects(false)
+}
+
+func NewMemoizedTestObjects() *TestObjects {
+	return newTestObjects(true)
+}
+
+func newTestObjects(memoize bool) *TestObjects {
+	var httpClient *http.Client
+	if memoize {
+		cachingTransport := newCachingRoundTripper()
+		httpClient = &http.Client{Transport: cachingTransport}
+	}
+
 	client := astra.NewClient(
 		options.API().
 			SetToken(ApplicationToken()).
-			SetDataAPIBackend(Backend()), // need to check if we need any more options here
+			SetEnvironment(Backend()).
+			SetHTTPClient(httpClient).
+			SetRequestTimeout(90 * time.Second).
+			SetDatabaseAdminTimeout(90 * time.Second).
+			SetCollectionAdminTimeout(90 * time.Second).
+			SetTableAdminTimeout(90 * time.Second).
+			SetKeyspaceAdminTimeout(90 * time.Second).
+			SetGeneralMethodTimeout(90 * time.Second),
 	)
 	db := client.Database(APIEndpoint())
 
@@ -56,11 +79,11 @@ func NewTestObjects() *TestObjects {
 	return &TestObjects{
 		Client:      client,
 		Db:          db,
-		Collection:  db.Collection(DefaultCollectionName),
-		Collection_: db.Collection(DefaultCollectionName, options.GetCollection().SetKeyspace("other_keyspace")),
+		Collection:  db.Collection(DefaultCollectionName, options.GetCollection().SetEmbeddingAPIKey(EmbeddingApiKey())),
+		Collection_: db.Collection(DefaultCollectionName, options.GetCollection().SetEmbeddingAPIKey(EmbeddingApiKey()).SetKeyspace("other_keyspace")),
 		DbAdmin:     dbAdmin,
-		Table:       db.Table(DefaultTableName),
-		Table_:      db.Table(DefaultTableName, options.GetTable().SetKeyspace("other_keyspace")),
+		Table:       db.Table(DefaultTableName, options.GetTable().SetEmbeddingAPIKey(EmbeddingApiKey())),
+		Table_:      db.Table(DefaultTableName, options.GetTable().SetEmbeddingAPIKey(EmbeddingApiKey()).SetKeyspace("other_keyspace")),
 		Admin:       admin,
 	}
 }

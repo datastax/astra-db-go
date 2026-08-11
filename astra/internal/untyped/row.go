@@ -62,6 +62,15 @@ type Row interface {
 	//      }
 	Get(path ...string) (any, bool)
 
+	// Has returns true if the specified path exists in the row.
+	//
+	// Example:
+	//
+	//      if row.Has("address", "city") {
+	//          // ...
+	//      }
+	Has(path ...string) bool
+
 	// MustGet is like [Row.Get] but panics if the path doesn't exist.
 	// Use this when you're certain the row has the structure you expect.
 	//
@@ -129,6 +138,12 @@ func (r NewRow) ToMap() map[string]any {
 //	val, ok := row.Get("address", "city")
 func (r NewRow) Get(path ...string) (any, bool) {
 	return getDeepFromMap(r, path...)
+}
+
+// Has returns true if the specified path exists in the row.
+func (r NewRow) Has(path ...string) bool {
+	_, ok := r.Get(path...)
+	return ok
 }
 
 // MustGet retrieves a value from the row at the specified path.
@@ -247,6 +262,11 @@ func (r *serverRow) Get(path ...string) (any, bool) {
 	}
 
 	return r.GetField(path[len(path)-1], currentRaw)
+}
+
+func (r *serverRow) Has(path ...string) bool {
+	_, ok := r.Get(path...)
+	return ok
 }
 
 func (r *serverRow) MustGet(path ...string) any {
@@ -410,12 +430,12 @@ func deserializeColumn(ctx serdes.DecodeCtx, raw json.RawMessage, col table.Colu
 		return v, err
 
 	case table.TypeVarint:
-		var v big.Int
+		var v *big.Int
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 
 	case table.TypeDecimal:
-		var v big.Float
+		var v *big.Float
 		err := serdes.Deserialize(raw, &v, nil, serdes.TargetTable, ctx.Flags)
 		return v, err
 

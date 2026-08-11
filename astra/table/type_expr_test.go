@@ -30,10 +30,6 @@ func TestParseTypeExpr(t *testing.T) {
 		{"scalar duration", "duration", typeExpr{name: "duration"}},
 		{"scalar vector", "vector", typeExpr{name: "vector"}},
 
-		{"bare set", "set", typeExpr{name: "set", elem: &typeExpr{name: "infer"}}},
-		{"bare list", "list", typeExpr{name: "list", elem: &typeExpr{name: "infer"}}},
-		{"bare map", "map", typeExpr{name: "map", key: &typeExpr{name: "infer"}, elem: &typeExpr{name: "infer"}}},
-
 		{"set[ascii]", "set[ascii]", typeExpr{name: "set", elem: &typeExpr{name: "ascii"}}},
 		{"list[blob]", "list[blob]", typeExpr{name: "list", elem: &typeExpr{name: "blob"}}},
 		{"map[uuid]blob", "map[uuid]blob", typeExpr{name: "map", key: &typeExpr{name: "uuid"}, elem: &typeExpr{name: "blob"}}},
@@ -54,14 +50,8 @@ func TestParseTypeExpr(t *testing.T) {
 			typeExpr{name: "map", key: &typeExpr{name: "text"}, elem: &typeExpr{name: "udt", udtName: "person"}},
 		},
 
-		{"map[infer]blob", "map[infer]blob", typeExpr{name: "map", key: &typeExpr{name: "infer"}, elem: &typeExpr{name: "blob"}}},
-		{"map[text]infer", "map[text]infer", typeExpr{name: "map", key: &typeExpr{name: "text"}, elem: &typeExpr{name: "infer"}}},
-		{"map[infer]infer", "map[infer]infer", typeExpr{name: "map", key: &typeExpr{name: "infer"}, elem: &typeExpr{name: "infer"}}},
-
 		{"udt[person]", "udt[person]", typeExpr{name: "udt", udtName: "person"}},
 		{"udt underscore digits", "udt[my_type_1]", typeExpr{name: "udt", udtName: "my_type_1"}},
-
-		{"infer leaf", "infer", typeExpr{name: "infer"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -83,14 +73,16 @@ func TestParseTypeExpr_Errors(t *testing.T) {
 		wantSub string // substring expected in error message
 	}{
 		{"empty", "", "empty"},
-		{"unterminated set", "set[", "expected identifier"},
+		{"unterminated set", "set[", "expected type identifier"},
 		{"unterminated set after ident", "set[ascii", "expected"},
 		{"unknown inner", "set[foo]", "unknown type"},
 		{"map missing value", "map[text]", "map[K]V requires both"},
-		{"map empty brackets", "map[]", "expected identifier"},
+		{"map empty brackets", "map[]", "expected type identifier"},
 		{"udt without brackets", "udt", "udt requires a name"},
 		{"udt empty brackets", "udt[]", "udt"},
-		{"infer with brackets", "infer[text]", "infer is a leaf"},
+		{"infer leaf", "infer", "unknown type"},
+		{"map[infer]blob", "map[infer]blob", "unknown type"},
+		{"infer with brackets", "infer[text]", "cannot take bracket"},
 		{"scalar with brackets", "text[ascii]", "cannot take bracket"},
 		{"trailing garbage", "set[text]extra", "trailing"},
 	}

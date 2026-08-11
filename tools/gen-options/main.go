@@ -21,7 +21,7 @@
 //     XxxOptionsBuilder struct, emits the builder struct definition, constructor,
 //     Setters(), and all Set* methods. Also emits the options struct's Setters() method
 //     and trivial Validate() stubs (when no hand-written Validate exists).
-//     Hand-written convenience methods (e.g. UpdateIndexingAllow) are left alone in their
+//     Hand-written convenience methods (e.g. SetIndexingAllow) are left alone in their
 //     original files and simply layer on top of the generated setters.
 //
 // Usage (via go:generate in options/options.go):

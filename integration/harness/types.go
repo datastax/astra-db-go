@@ -33,67 +33,83 @@ type EverythingDocInner struct {
 	UUID     datatypes.UUID     `json:"uuid"`
 	ObjectId datatypes.ObjectId `json:"objectid"`
 	Date     time.Time          `json:"date"`
-	Big      big.Int            `json:"big"`
+	Big      *big.Int           `json:"big"`
 }
 
 type ExampleUDT struct {
 	Name string         `json:"name"`
-	Age  big.Int        `json:"age"`
+	Age  *big.Int       `json:"age"`
 	ID   datatypes.UUID `json:"id"`
 }
 
 type EverythingRow struct {
-	Ascii     string             `json:"ascii" astra:"type=ascii"`
-	BigInt    int64              `json:"bigint"`
-	Blob      []byte             `json:"blob"`
-	Boolean   bool               `json:"boolean"`
-	Date      datatypes.DateOnly `json:"date"`
-	Decimal   big.Float          `json:"decimal"`
-	Double    float64            `json:"double"`
-	Duration  datatypes.Duration `json:"duration"`
-	Float     float32            `json:"float"`
-	Int       int                `json:"int"`
-	Inet      net.IP             `json:"inet"`
-	SmallInt  int16              `json:"smallint"`
-	Text      string             `json:"text" astra:"pk"`
-	Time      datatypes.TimeOnly `json:"time"`
-	Timestamp time.Time          `json:"timestamp"`
-	TinyInt   int8               `json:"tinyint"`
-	UUID      datatypes.UUID     `json:"uuid"`
-	Varint    big.Int            `json:"varint"`
-	Vector    datatypes.Vector   `json:"vector" astra:"dim=5"`
-	UDT       any                `json:"udt" astra:"type=udt[example_udt]"`
+	Ascii     string                   `json:"ascii" astra:"type=ascii"`
+	BigInt    int64                    `json:"bigint"`
+	Blob      []byte                   `json:"blob"`
+	Boolean   bool                     `json:"boolean"`
+	Date      datatypes.DateOnly       `json:"date"`
+	Decimal   *big.Float               `json:"decimal"`
+	Double    float64                  `json:"double"`
+	Duration  datatypes.Duration       `json:"duration"`
+	Float     float32                  `json:"float"`
+	Int       int                      `json:"int" astra:"ck"`
+	Inet      net.IP                   `json:"inet"`
+	SmallInt  int16                    `json:"smallint"`
+	Text      string                   `json:"text" astra:"pk"`
+	Time      datatypes.TimeOnly       `json:"time"`
+	Timestamp time.Time                `json:"timestamp"`
+	TinyInt   int8                     `json:"tinyint"`
+	UUID      datatypes.UUID           `json:"uuid"`
+	Varint    *big.Int                 `json:"varint"`
+	Vector    datatypes.Vector         `json:"vector" astra:"dim=5"`
+	Map       map[int64]map[string]any `json:"map" astra:"type=map[bigint]udt[example_udt]"`
+	Set       []datatypes.UUID         `json:"set" astra:"type=set"`
+	List      []map[string]any         `json:"list" astra:"type=list[udt[example_udt]]"`
+	UDT       any                      `json:"udt" astra:"type=udt[example_udt]"`
 }
 
 type EverythingRowWithVectorize struct {
-	Ascii     string             `json:"ascii" astra:"type=ascii"`
-	BigInt    int64              `json:"bigint"`
-	Blob      []byte             `json:"blob"`
-	Boolean   bool               `json:"boolean"`
-	Date      datatypes.DateOnly `json:"date"`
-	Decimal   big.Float          `json:"decimal"`
-	Double    float64            `json:"double"`
-	Duration  datatypes.Duration `json:"duration"`
-	Float     float32            `json:"float"`
-	Int       int                `json:"int"`
-	Inet      net.IP             `json:"inet"`
-	SmallInt  int16              `json:"smallint"`
-	Text      string             `json:"text" astra:"pk"`
-	Time      datatypes.TimeOnly `json:"time"`
-	Timestamp time.Time          `json:"timestamp"`
-	TinyInt   int8               `json:"tinyint"`
-	UUID      datatypes.UUID     `json:"uuid"`
-	Varint    big.Int            `json:"varint"`
-	Vector1   string             `json:"vector1" astra:"vectorize,provider=openai,model=text-embedding-3-small,dim=5"`
-	Vector2   string             `json:"vector2" astra:"vectorize,provider=openai,model=text-embedding-3-small,dim=5"`
-	UDT       any                `json:"udt" astra:"type=udt[example_udt]"`
+	Ascii     string                   `json:"ascii" astra:"type=ascii"`
+	BigInt    int64                    `json:"bigint"`
+	Blob      []byte                   `json:"blob"`
+	Boolean   bool                     `json:"boolean"`
+	Date      datatypes.DateOnly       `json:"date"`
+	Decimal   *big.Float               `json:"decimal"`
+	Double    float64                  `json:"double"`
+	Duration  datatypes.Duration       `json:"duration"`
+	Float     float32                  `json:"float"`
+	Int       int                      `json:"int" astra:"ck"`
+	Inet      net.IP                   `json:"inet"`
+	SmallInt  int16                    `json:"smallint"`
+	Text      string                   `json:"text" astra:"pk"`
+	Time      datatypes.TimeOnly       `json:"time"`
+	Timestamp time.Time                `json:"timestamp"`
+	TinyInt   int8                     `json:"tinyint"`
+	UUID      datatypes.UUID           `json:"uuid"`
+	Varint    *big.Int                 `json:"varint"`
+	Vector1   string                   `json:"vector1"`
+	Vector2   string                   `json:"vector2"`
+	Map       map[int64]map[string]any `json:"map" astra:"type=map[bigint]udt[example_udt]"`
+	Set       []datatypes.UUID         `json:"set" astra:"type=set"`
+	List      []map[string]any         `json:"list" astra:"type=list[udt[example_udt]]"`
+	UDT       any                      `json:"udt" astra:"type=udt[example_udt]"`
 }
 
 var ExampleUDTSchema = must(table.InferUDT[ExampleUDT]())
 
 var EverythingTableSchema = must(table.Infer[EverythingRow]())
 
-var EverythingTableSchemaWithVectorize = must(table.Infer[EverythingRowWithVectorize]())
+var EverythingTableSchemaWithVectorize = must(table.Infer[EverythingRowWithVectorize](
+	table.NewDefinition().
+		AddVectorColumnWithService("vector1", 1024, &table.VectorService{
+			Provider:  "openai",
+			ModelName: "text-embedding-3-small",
+		}).
+		AddVectorColumnWithService("vector2", 1024, &table.VectorService{
+			Provider:  "openai",
+			ModelName: "text-embedding-3-small",
+		}),
+))
 
 func must[T any](v T, err error) T {
 	if err != nil {

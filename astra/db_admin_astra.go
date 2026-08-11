@@ -131,7 +131,7 @@ func (a *AstraDatabaseAdmin) CreateKeyspace(ctx context.Context, keyspace string
 		return nil
 	}
 
-	awaitOpts := AwaitStatusOptions{
+	awaitOpts := awaitStatusOptions{
 		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},
@@ -162,7 +162,7 @@ func (a *AstraDatabaseAdmin) DropKeyspace(ctx context.Context, keyspace string, 
 		return nil
 	}
 
-	awaitOpts := AwaitStatusOptions{
+	awaitOpts := awaitStatusOptions{
 		PollInterval: merged.GetPollInterval(),
 		Target:       DatabaseStatusActive,
 		LegalStates:  []DatabaseStatus{DatabaseStatusMaintenance},

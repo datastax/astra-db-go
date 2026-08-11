@@ -120,9 +120,9 @@ package command_test
 //}
 //
 //func TestURLNonAstraBackend(t *testing.T) {
-//	hcd := options.DataAPIBackendHCD
+//	hcd := options.EnvironmentHCD
 //	client := astra.NewClient()
-//	db := client.Database("http://localhost:8181", options.API().SetDataAPIBackend(hcd))
+//	db := client.Database("http://localhost:8181", options.API().SetEnvironment(hcd))
 //	cmd := db.Collection("my_collection").newCmd("find", nil, nil)
 //
 //	got := cmd.URL()

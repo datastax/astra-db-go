@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collection_tests
+package collections
 
 import (
 	"fmt"
@@ -98,7 +98,7 @@ func init() {
 				UUID:     datatypes.NewUUIDv4(),
 				ObjectId: datatypes.NewObjectId(),
 				Date:     time.Now().Truncate(time.Millisecond),
-				Big:      *big.NewInt(123),
+				Big:      big.NewInt(123),
 			},
 		}
 
@@ -134,6 +134,105 @@ func init() {
 			testlib.ErrMustBe[*serdes.EncodeError](t, err, "expected %T insertion to fail", ty)
 			return nil, nil
 		})
+	})
+
+	s.Run("should insertOne document with a non-_id UUID", func(t *harness.T) {
+		id := datatypes.NewUUIDv4()
+		res, err := t.Collection.InsertOne(t.Ctx, astra.NewDocument{"foreignId": id})
+		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
+		testlib.FailIf(t, res == nil, "expected result")
+
+		var found astra.Document
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("foreignId", id)).Decode(&found)
+		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
+
+		foreignId := found.MustGet("foreignId").(datatypes.UUID)
+		testlib.FailIf(t, foreignId.String() != id.String(), "expected foreignId %s, got %s", id, foreignId)
+	})
+
+	s.Run("should insertOne document with a non-_id ObjectId", func(t *harness.T) {
+		id := datatypes.NewObjectId()
+		res, err := t.Collection.InsertOne(t.Ctx, astra.NewDocument{"foreignId": id})
+		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
+		testlib.FailIf(t, res == nil, "expected result")
+
+		var found astra.Document
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("foreignId", id)).Decode(&found)
+		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
+
+		foreignId := found.MustGet("foreignId").(datatypes.ObjectId)
+		testlib.FailIf(t, foreignId.String() != id.String(), "expected foreignId %s, got %s", id, foreignId)
+	})
+
+	s.Run("should insertOne with a $date", func(t *harness.T) {
+		timestamp := time.Now().Truncate(time.Millisecond)
+		res, err := t.Collection.InsertOne(t.Ctx, astra.NewDocument{
+			"name": t.Key(0),
+			"date": map[string]any{"$date": timestamp.UnixMilli()},
+		})
+		testlib.FailIfErr(t, err, "InsertOne failed: %v", err)
+		testlib.FailIf(t, res == nil, "expected result")
+
+		var found astra.Document
+		err = t.Collection.FindOne(t.Ctx, filter.Eq("name", t.Key(0))).Decode(&found)
+		testlib.FailIfErr(t, err, "FindOne failed: %v", err)
+
+		date := found.MustGet("date").(time.Time)
+		testlib.FailIf(t, !date.Equal(timestamp), "expected date %v, got %v", timestamp, date)
+	})
+
+	s.Run("should fail insert of doc over size 1 MB", func(t *harness.T) {
+		bigDoc := make([]byte, 1024*1024)
+		for i := range bigDoc {
+			bigDoc[i] = 'a'
+		}
+		_, err := t.Collection.InsertOne(t.Ctx, astra.NewDocument{"name": string(bigDoc)})
+		testlib.FailIf(t, err == nil, "expected InsertOne to fail for doc over 1 MB")
+	})
+
+	s.Run("should fail if the number of levels in the doc is > 16", func(t *harness.T) {
+		doc := astra.NewDocument{"l1": map[string]any{"l2": map[string]any{"l3": map[string]any{"l4": map[string]any{"l5": map[string]any{"l6": map[string]any{"l7": map[string]any{"l8": map[string]any{"l9": map[string]any{"l10": map[string]any{"l11": map[string]any{"l12": map[string]any{"l13": map[string]any{"l14": map[string]any{"l15": map[string]any{"l16": map[string]any{"l17": "l17value"}}}}}}}}}}}}}}}}}
+		_, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.ErrMustBe[*results.DataAPIError](t, err, "expected DataAPIError")
+	})
+
+	s.Run("should fail if the field length is > 1000", func(t *harness.T) {
+		fieldName := make([]byte, 1001)
+		for i := range fieldName {
+			fieldName[i] = 'a'
+		}
+		doc := astra.NewDocument{string(fieldName): "value"}
+		_, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.ErrMustBe[*results.DataAPIError](t, err, "expected DataAPIError")
+	})
+
+	s.Run("should fail if the string field value is > 8000", func(t *harness.T) {
+		longValue := make([]byte, 8001)
+		for i := range longValue {
+			longValue[i] = 'a'
+		}
+		doc := astra.NewDocument{"name": string(longValue)}
+		_, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.ErrMustBe[*results.DataAPIError](t, err, "expected DataAPIError")
+	})
+
+	s.Run("should fail if an array field size is > 1000", func(t *harness.T) {
+		tags := make([]string, 1001)
+		for i := range tags {
+			tags[i] = "tag"
+		}
+		doc := astra.NewDocument{"tags": tags}
+		_, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.ErrMustBe[*results.DataAPIError](t, err, "expected DataAPIError")
+	})
+
+	s.Run("should fail if a doc contains more than 1000 properties", func(t *harness.T) {
+		doc := astra.NewDocument{}
+		for i := 1; i <= 1001; i++ {
+			doc[fmt.Sprintf("prop%d", i)] = fmt.Sprintf("prop%dvalue", i)
+		}
+		_, err := t.Collection.InsertOne(t.Ctx, doc)
+		testlib.ErrMustBe[*results.DataAPIError](t, err, "expected DataAPIError")
 	})
 }
 
