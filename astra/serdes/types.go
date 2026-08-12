@@ -74,23 +74,10 @@ var (
 	anyEmpty    = reflect.Zero(anyType)
 )
 
-type iface struct {
-	typ unsafe.Pointer
-	ptr unsafe.Pointer
-}
-
 type slice struct {
 	data unsafe.Pointer
 	len  int
 	cap  int
-}
-
-func typePtr(t reflect.Type) unsafe.Pointer {
-	return (*iface)(unsafe.Pointer(&t)).ptr
-}
-
-func valuePtr(v reflect.Value) unsafe.Pointer {
-	return (*iface)(unsafe.Pointer(&v)).ptr
 }
 
 func inlined(t reflect.Type) bool {

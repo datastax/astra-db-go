@@ -30,6 +30,8 @@ func NewSet[T any](elements ...T) Set[T] {
 }
 
 // NewSetWithComparator returns a new Set with a custom Comparator.
+// Prefer RegisterComparator + NewSet for user-facing types; use this when you have
+// a runtime-derived comparator.
 func NewSetWithComparator[T any](cmp Comparator, elements ...T) Set[T] {
 	s := Set[T](NewSortedMapWithComparator[T, struct{}](cmp))
 	s.AddAll(elements...)

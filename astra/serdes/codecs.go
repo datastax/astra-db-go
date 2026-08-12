@@ -15,12 +15,11 @@
 package serdes
 
 import (
-	"maps"
 	"reflect"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/v2/astra/internal/typeutil"
+	"github.com/datastax/astra-db-go/v2/internal/typecache"
 )
 
 type codec struct {
@@ -64,7 +63,7 @@ type AstraRawUnmarshaler interface {
 }
 
 var (
-	typeCodecs atomic.Pointer[map[unsafe.Pointer]codec] // TODO may be able to just reuse the same cache for all targets and let the resolution be at execution time?
+	typeCodecs typecache.Map[codec]
 	kindCodecs [reflect.String + 1]codec
 )
 
@@ -82,11 +81,8 @@ type codecCtx struct {
 type seenStructs = map[reflect.Type]*structInfo
 
 func resolveCodecCaching(ctx codecCtx, t reflect.Type, noCache bool) codec {
-	tid := typePtr(t)
-
 	if !noCache {
-		cache := cacheLoad()
-		if c, ok := cache[tid]; ok {
+		if c, ok := typeCodecs.Load(t); ok {
 			return c
 		}
 	}
@@ -98,38 +94,10 @@ func resolveCodecCaching(ctx codecCtx, t reflect.Type, noCache bool) codec {
 	}
 
 	if !noCache {
-		return cacheSet(cacheLoad(), t, codec)
+		typeCodecs.Store(t, codec)
 	}
 
 	return codec
-}
-
-func cacheLoad() map[unsafe.Pointer]codec {
-	p := typeCodecs.Load()
-	if p == nil {
-		return map[unsafe.Pointer]codec{}
-	}
-	return *p
-}
-
-// I don't fully understand why using the "old" cache from the initial cacheLoad() as the base for the updated cache
-// instead of reloading the cache before updating is the right way to do this, but two major libraries do this:
-// - goccy/go-json: https://github.com/goccy/go-json/blob/e4877d51d546f8c67b1cd9b49ab002ba3af37785/internal/encoder/compiler.go#L46
-// - segmentio/encoding/json: https://github.com/segmentio/encoding/blob/fd406855de30c54110d23eace25478ab9c6fa2cc/json/codec.go#L75
-//
-// I do have my suspicions as to why they're doing this over reloading the cache, but I haven't taken the time to properly verify
-// that this is indeed the best way to do this (I do agree with CoW > mutex or using CaS here at least, not that it's likely
-// to make a huge difference either way)
-//
-// Anyway, at the risk of cargo-culting, I'm going to follow their lead here and do it this way regardless as
-// the authors of those libraries are highly talented and much more knowledgeable about this kind of thing than I am
-func cacheSet(oldCache map[unsafe.Pointer]codec, t reflect.Type, c codec) codec {
-	newCache := make(map[unsafe.Pointer]codec, len(oldCache)+1)
-	newCache[typePtr(t)] = c
-	maps.Copy(newCache, oldCache)
-	typeCodecs.Store(&newCache)
-
-	return c
 }
 
 func resolveCodec(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) (c codec) {

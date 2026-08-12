@@ -85,6 +85,8 @@ func cmpAny(a, b unsafe.Pointer) int {
 }
 
 func init() {
+	datatypes.RegisterComparator(reflect.TypeFor[any](), cmpAny)
+
 	s := harness.ParallelSuite("datatypes")
 	s.Truncate(harness.SelectTables, harness.SelectBefore)
 
@@ -298,66 +300,63 @@ func init() {
 		colAsserter.notOk(map[string]any{"1n": map[string]any{}})
 		colAsserter.notOk([][]any{{int64(5), map[string]any{"id": uuid1.String(), "name": "Charlie", "extra": "i should not be here"}}})
 
-		colAsserter.okExp(nil, datatypes.NewSortedMapWithComparator[any, any](cmpAny))
-		colAsserter.okExp(map[string]any{}, datatypes.NewSortedMapWithComparator[any, any](cmpAny))
-		colAsserter.okExp(datatypes.NewSortedMap[int64, map[string]any](), datatypes.NewSortedMapWithComparator[any, any](cmpAny))
+		colAsserter.okExp(nil, nil)
+		colAsserter.okExp(map[string]any{}, nil)
+		colAsserter.okExp(datatypes.NewSortedMap[int64, map[string]any](), nil)
+		colAsserter.okExp(datatypes.NewSortedMap[any, any](), nil)
 
-		expectedMap1 := datatypes.NewSortedMapWithComparator[any, any](cmpAny)
-		expectedMap1.Set(int64(1), map[string]any{"id": uuid1, "name": nil, "age": nil})
-		expectedMap1.Set(int64(2), map[string]any{"id": nil, "name": "John", "age": nil})
+		inputMap1 := [][]any{
+			{int64(1), map[string]any{"id": uuid1.String()}},
+			{int64(2), map[string]any{"name": "John"}},
+		}
 
 		colAsserter.okExp(
-			[][]any{{int64(1), map[string]any{"id": uuid1.String()}}, {int64(2), map[string]any{"name": "John"}}},
-			expectedMap1,
+			inputMap1,
+			map[int64]map[string]any{
+				1: {"id": uuid1, "name": nil, "age": nil},
+				2: {"id": nil, "name": "John", "age": nil},
+			},
 		)
 
-		expectedMap2 := datatypes.NewSortedMapWithComparator[any, any](cmpAny)
-		expectedMap2.Set(int64(3), map[string]any{"id": uuid1, "name": "Alice", "age": big.NewInt(25)})
-		expectedMap2.Set(int64(4), map[string]any{"id": uuid4, "name": "Bob", "age": big.NewInt(30)})
-
-		inputMap2 := datatypes.NewSortedMapWithComparator[int64, map[string]any](datatypes.ComparatorFor(reflect.TypeFor[int64]()))
+		inputMap2 := datatypes.NewSortedMap[int64, map[string]any]()
 		inputMap2.Set(int64(3), map[string]any{"id": uuid1.String(), "name": "Alice", "age": big.NewInt(25)})
 		inputMap2.Set(int64(4), map[string]any{"id": uuid4, "name": "Bob", "age": big.NewInt(30)})
 
-		colAsserter.okExp(inputMap2, expectedMap2)
+		colAsserter.okExp(inputMap2, map[int64]map[string]any{
+			3: {"id": uuid1, "name": "Alice", "age": big.NewInt(25)},
+			4: {"id": uuid4, "name": "Bob", "age": big.NewInt(30)},
+		})
 
-		largeKey, _ := new(big.Int).SetString("99999999999999999999999999999999999999999999999999999999999999999999", 10)
-		expectedMap3 := datatypes.NewSortedMapWithComparator[any, any](cmpAny)
-		expectedMap3.Set(largeKey, map[string]any{"id": uuid1, "name": nil, "age": nil})
+		inputMap3 := datatypes.NewSortedMap[any, map[string]any]()
+		inputMap3.Set(big.NewInt(999999999999999999), map[string]any{"id": uuid1})
 
-		inputMap3 := datatypes.NewSortedMapWithComparator[any, map[string]any](cmpAny)
-		inputMap3.Set(largeKey, map[string]any{"id": uuid1})
-
-		colAsserter.okExp(inputMap3, expectedMap3)
+		colAsserter.okExp(inputMap3, map[int64]map[string]any{
+			999999999999999999: {"id": uuid1, "name": nil, "age": nil},
+		})
 	})
 
 	s.Run("should handle different set insertion cases", func(t *harness.T) {
 		uuid1 := datatypes.NewUUIDv1()
 		uuid4 := datatypes.NewUUIDv4()
 
-		colAsserter := mkColumnAsserter(t, "set", nil, func(v any) any {
-			if slice, ok := v.([]any); ok {
-				return datatypes.NewSet(slice...)
-			}
-			return v
-		})
+		colAsserter := mkColumnAsserter(t, "set", nil, nil)
 
 		colAsserter.notOk(map[string]any{})
-		colAsserter.notOk(datatypes.NewSetWithComparator[any](cmpAny, uuid1, "uuid4")) // Mixed types or strings
+		colAsserter.notOk(datatypes.NewSet[any](uuid1, "uuid4"))
 
-		colAsserter.okExp(nil, datatypes.NewSetWithComparator[any](cmpAny))
-		colAsserter.okExp([]any{}, datatypes.NewSetWithComparator[any](cmpAny))
-		colAsserter.okExp(datatypes.NewSetWithComparator[any](cmpAny), datatypes.NewSetWithComparator[any](cmpAny))
+		colAsserter.okExp(nil, nil)
+		colAsserter.okExp([]any{}, nil)
+		colAsserter.okExp(datatypes.NewSet[any](), nil)
 
-		colAsserter.okExp([]any{uuid1.String(), uuid4}, datatypes.NewSetWithComparator[any](cmpAny, uuid1, uuid4))
-		colAsserter.okExp(datatypes.NewSetWithComparator[any](cmpAny, uuid1.String(), uuid4), datatypes.NewSetWithComparator[any](cmpAny, uuid1, uuid4))
-		colAsserter.okExp([]any{uuid1, uuid1, uuid4}, datatypes.NewSetWithComparator[any](cmpAny, uuid1, uuid4))
+		colAsserter.okExp([]any{uuid1.String(), uuid4}, []datatypes.UUID{uuid1, uuid4})
+		colAsserter.okExp(datatypes.NewSet[any](uuid1.String(), uuid4), []datatypes.UUID{uuid1, uuid4})
+		colAsserter.okExp([]any{uuid1, uuid1, uuid4}, []datatypes.UUID{uuid1, uuid4})
 
-		largeSet := make([]any, 100)
+		largeSet := make([]datatypes.UUID, 100)
 		for i := range largeSet {
 			largeSet[i] = datatypes.NewUUIDv7()
 		}
-		colAsserter.ok(datatypes.NewSet(largeSet...))
+		colAsserter.okExp(datatypes.NewSet(largeSet...), largeSet)
 	})
 
 	s.Run("should handle different list insertion cases", func(t *harness.T) {

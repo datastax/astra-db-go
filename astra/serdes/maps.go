@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/internal/refl"
 )
 
 // Map serdes is complex enough to warrant its own file, as we're allowing for a Cartesian product of features:
@@ -42,7 +43,7 @@ func mkSetCodec(ctx codecCtx, t reflect.Type, seen seenStructs) codec {
 	c := resolveCodec(ctx, et, seen, false)
 
 	return codec{
-		mkGenericMapEncoder(t, et, c.encode, nil, '[', ']', 0, newMapIterFromSortedMap),
+		mkGenericMapEncoder(t, et, c.encode, nil, false, '[', ']', 0, newMapIterFromSortedMap),
 		mkGenericMapDecoder(t, et, emptyType, reflect.Zero(et), emptyEmpty, c.decode, nil, '[', ']', 0, mkSortedMapMaker(t)),
 	}
 }
@@ -72,17 +73,13 @@ func mkGenericMapCodec(ctx codecCtx, t, kt, vt reflect.Type, seen seenStructs, m
 	kc := resolveCodec(ctx, kt, seen, false)
 	vc := resolveCodec(ctx, vt, seen, false)
 
-	if inlined(vt) {
-		vc.encode = mkInlineEncoder(vc.encode)
-	}
-
 	return codec{
-		mkMapEncoder(t, kt, kc.encode, vc.encode, mkIter),
+		mkMapEncoder(t, kt, kc.encode, vc.encode, inlined(vt), mkIter),
 		mkMapDecoder(t, kt, vt, kz, vz, kc.decode, vc.decode, maker),
 	}
 }
 
-func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkMapIter) encoder {
+func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, vtInlined bool, mkIter mkMapIter) encoder {
 	// We'll do our best to encode maps as if the keys will always be encoded as strings, but as we really don't have a
 	// way of knowing ahead of time if the codecs will produce string keys or not, we check every time and cancel the
 	// encoding if we find a non-string key
@@ -110,8 +107,8 @@ func mkMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkM
 		return dst, nil
 	}
 
-	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue, mkIter)
-	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '[', ']', ',', mkIter)
+	encodeObjectMap := mkNormalMapEncoder(t, kt, stringKeyEncoder, encodeValue, vtInlined, mkIter)
+	encodeArrayMap := mkGenericMapEncoder(t, kt, encodeKey, encodeValue, vtInlined, '[', ']', ',', mkIter)
 
 	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		dst, err := encodeObjectMap(ctx, dst, p)
@@ -147,7 +144,7 @@ func mkMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decod
 	}
 }
 
-func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, open, close, sep byte, mkIter mkMapIter) encoder {
+func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, vtInlined bool, open, close, sep byte, mkIter mkMapIter) encoder {
 	return func(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 		m := reflect.NewAt(t, p).Elem()
 
@@ -183,7 +180,7 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 			}
 
 			var next []byte
-			if next, err = encodeKey(ctx, dst, valuePtr(iter.Key())); err != nil {
+			if next, err = encodeKey(ctx, dst, refl.GetValuePtr(iter.Key())); err != nil {
 				return dst[:start], wrapPath(err, "<key>")
 			}
 			dst = next
@@ -195,7 +192,14 @@ func mkGenericMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, ope
 					ctx.fieldHint = extractFieldHint(iter.Key().String())
 				}
 
-				if next, err = encodeValue(ctx, dst, valuePtr(iter.Value())); err != nil {
+				valval := iter.Value()
+				valptr := refl.GetValuePtr(valval)
+				if vtInlined && !valval.CanAddr() {
+					next, err = encodeValue(ctx, dst, noescape(unsafe.Pointer(&valptr)))
+				} else {
+					next, err = encodeValue(ctx, dst, valptr)
+				}
+				if err != nil {
 					return dst[:start], wrapPath(err, fmt.Sprintf("[%v]", iter.Key().Interface()))
 				}
 				dst = next
@@ -234,7 +238,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 
 		k := reflect.New(kt).Elem()
 		v := reflect.New(vt).Elem()
-		kptr, vptr := valuePtr(k), valuePtr(v)
+		kptr, vptr := refl.GetValuePtr(k), refl.GetValuePtr(v)
 
 		fromArray := open == '[' && decodeValue != nil
 
@@ -246,7 +250,7 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 				if m.Kind() == reflect.Map {
 					*(*unsafe.Pointer)(p) = m.UnsafePointer()
 				} else {
-					*(*unsafe.Pointer)(p) = *(*unsafe.Pointer)(valuePtr(m))
+					*(*unsafe.Pointer)(p) = *(*unsafe.Pointer)(refl.GetValuePtr(m))
 				}
 				return src[1:], nil
 			}
@@ -307,8 +311,8 @@ func mkGenericMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey
 	}
 }
 
-func mkNormalMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, mkIter mkMapIter) encoder {
-	return mkGenericMapEncoder(t, kt, encodeKey, encodeValue, '{', '}', ':', mkIter)
+func mkNormalMapEncoder(t, kt reflect.Type, encodeKey, encodeValue encoder, vtInlined bool, mkIter mkMapIter) encoder {
+	return mkGenericMapEncoder(t, kt, encodeKey, encodeValue, vtInlined, '{', '}', ':', mkIter)
 }
 
 func mkNormalMapDecoder(t, kt, vt reflect.Type, kz, vz reflect.Value, decodeKey, decodeValue decoder, maker mapMaker) decoder {
@@ -348,7 +352,7 @@ func newMapIterMakerFromMap(t reflect.Type) mkMapIter {
 				cmp := datatypes.ComparatorFor(t.Key())
 
 				sort.Slice(wrapper.keys, func(i, j int) bool {
-					return cmp(valuePtr(wrapper.keys[i]), valuePtr(wrapper.keys[j])) < 0
+					return cmp(refl.GetValuePtr(wrapper.keys[i]), refl.GetValuePtr(wrapper.keys[j])) < 0
 				})
 			}
 
@@ -500,7 +504,7 @@ func mkLinkedMapMaker(t reflect.Type) mapMaker {
 			*(*unsafe.Pointer)(dataAddr) = reflect.MakeMap(dataType).UnsafePointer()
 
 			// wire *linkedMap into LinkedMap
-			*(*unsafe.Pointer)(valuePtr(m)) = implAddr
+			*(*unsafe.Pointer)(refl.GetValuePtr(m)) = implAddr
 
 			return m
 		},
@@ -535,7 +539,7 @@ func mkSortedMapMaker(t reflect.Type) mapMaker {
 			*(*unsafe.Pointer)(headAddr) = reflect.New(headType).UnsafePointer()
 
 			// wire *sortedMap into SortedMap
-			*(*unsafe.Pointer)(valuePtr(m)) = implAddr
+			*(*unsafe.Pointer)(refl.GetValuePtr(m)) = implAddr
 
 			return m
 		},
@@ -552,5 +556,5 @@ func mapIsNil(m reflect.Value) bool {
 	if m.Kind() == reflect.Map {
 		return m.IsNil()
 	}
-	return *(*unsafe.Pointer)(valuePtr(m)) == nil
+	return *(*unsafe.Pointer)(refl.GetValuePtr(m)) == nil
 }

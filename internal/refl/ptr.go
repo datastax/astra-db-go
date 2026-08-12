@@ -12,9 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reflectutil
+package refl
 
-import "reflect"
+import (
+	"reflect"
+	"unsafe"
+)
 
 // UnwindPointerType recursively unwraps pointer types, returning the underlying type.
 func UnwindPointerType(t reflect.Type) reflect.Type {
@@ -22,4 +25,23 @@ func UnwindPointerType(t reflect.Type) reflect.Type {
 		t = t.Elem()
 	}
 	return t
+}
+
+type IFace struct {
+	Typ unsafe.Pointer
+	Ptr unsafe.Pointer
+}
+
+type TypeID unsafe.Pointer
+
+// GetTypeID extracts the runtime type-descriptor pointer from a reflect.Type interface value.
+// Each distinct Go type has a unique, stable *abi.Type at a fixed address, so this gives us
+// a cheap, hashable identity — the same approach used by serdes/codecs.go.
+func GetTypeID(t reflect.Type) TypeID {
+	return TypeID((*IFace)(unsafe.Pointer(&t)).Ptr)
+}
+
+// GetValuePtr cheaply extracts the underlying pointer from an addressable reflect.Value interface value.
+func GetValuePtr(v reflect.Value) unsafe.Pointer {
+	return (*IFace)(unsafe.Pointer(&v)).Ptr
 }

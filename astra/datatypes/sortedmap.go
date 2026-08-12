@@ -15,15 +15,11 @@
 package datatypes
 
 import (
-	"cmp"
-	"encoding/json"
 	"fmt"
 	"iter"
-	"math/big"
 	"math/rand/v2"
 	"reflect"
 	"strings"
-	"time"
 	"unsafe"
 )
 
@@ -70,13 +66,15 @@ func (n *SortedMapNode[K, V]) Key() K                     { return n.key }
 func (n *SortedMapNode[K, V]) Value() V                   { return n.value }
 func (n *SortedMapNode[K, V]) Next() *SortedMapNode[K, V] { return n.next[0] }
 
-// NewSortedMap returns an empty map ordered by a default Comparator for K.
-// Use NewSortedMapWithComparator for custom ordering.
+// NewSortedMap returns an empty map ordered by the Comparator registered for K.
+// Register a custom Comparator for K via RegisterComparator before using this if K is not a built-in type.
 func NewSortedMap[K any, V any]() SortedMap[K, V] {
 	return NewSortedMapWithComparator[K, V](ComparatorFor(reflect.TypeFor[K]()))
 }
 
 // NewSortedMapWithComparator returns an empty map ordered by the given Comparator.
+// Prefer RegisterComparator + NewSortedMap for user-facing types; use this when you have
+// a runtime-derived comparator (e.g. from schema inspection).
 func NewSortedMapWithComparator[K any, V any](cmp Comparator) SortedMap[K, V] {
 	return SortedMap[K, V]{&sortedMap[K, V]{cmp: cmp, head: &SortedMapNode[K, V]{}}}
 }
@@ -340,88 +338,3 @@ func (m *sortedMap[K, V]) randomLevel() int {
 	}
 	return level
 }
-
-// -- Comparators --
-
-// Comparator compares two values via pointers.
-// Return <0 for a < b, 0 for a == b, and >0 for a > b.
-type Comparator func(a, b unsafe.Pointer) int
-
-// Comparable is for types that can compare themselves to another value of the same type.
-// The other arg will be the same type as the receiver.
-type Comparable interface {
-	CompareTo(other any) int
-}
-
-// ComparatorFor returns a Comparator for common types like primitives, time.Time, or Comparable.
-//
-// reflect.Type is only used once at construction to pick the logic; the returned closure
-// uses unsafe.Pointer casts and is allocation-free.
-//
-// The Comparable branch is the exception — it uses reflect.NewAt and .Interface() which allocates
-// on each call, but Comparable keys are niche enough that it shouldn't matter.
-func ComparatorFor(t reflect.Type) Comparator {
-	if t.Implements(comparableType) {
-		return func(a, b unsafe.Pointer) int {
-			av := reflect.NewAt(t, a).Elem().Interface().(Comparable) // maybe replace w/ i-face trick if we need more speed
-			bv := reflect.NewAt(t, b).Elem().Interface()
-			return av.CompareTo(bv)
-		}
-	}
-
-	switch t {
-	case timeType:
-		return func(a, b unsafe.Pointer) int {
-			return (*time.Time)(a).Compare(*(*time.Time)(b))
-		}
-	case bigIntPtrType:
-		return func(a, b unsafe.Pointer) int {
-			return (*(**big.Int)(a)).Cmp(*(**big.Int)(b))
-		}
-	case bigFloatPtrType:
-		return func(a, b unsafe.Pointer) int {
-			return (*(**big.Float)(a)).Cmp(*(**big.Float)(b))
-		}
-	case jsonMsgType:
-		return func(a, b unsafe.Pointer) int { return strings.Compare(*(*string)(a), *(*string)(b)) }
-	}
-
-	switch t.Kind() {
-	case reflect.Int:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*int)(a), *(*int)(b)) }
-	case reflect.Int8:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*int8)(a), *(*int8)(b)) }
-	case reflect.Int16:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*int16)(a), *(*int16)(b)) }
-	case reflect.Int32:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*int32)(a), *(*int32)(b)) }
-	case reflect.Int64:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*int64)(a), *(*int64)(b)) }
-	case reflect.Uint, reflect.Uintptr:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*uint)(a), *(*uint)(b)) }
-	case reflect.Uint8:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*uint8)(a), *(*uint8)(b)) }
-	case reflect.Uint16:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*uint16)(a), *(*uint16)(b)) }
-	case reflect.Uint32:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*uint32)(a), *(*uint32)(b)) }
-	case reflect.Uint64:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*uint64)(a), *(*uint64)(b)) }
-	case reflect.Float32:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*float32)(a), *(*float32)(b)) }
-	case reflect.Float64:
-		return func(a, b unsafe.Pointer) int { return cmp.Compare(*(*float64)(a), *(*float64)(b)) }
-	case reflect.String:
-		return func(a, b unsafe.Pointer) int { return strings.Compare(*(*string)(a), *(*string)(b)) }
-	}
-
-	panic(fmt.Sprintf("ComparatorFor: no comparator available for type %s", t))
-}
-
-var (
-	timeType        = reflect.TypeOf(time.Time{})
-	bigIntPtrType   = reflect.TypeFor[*big.Int]()
-	bigFloatPtrType = reflect.TypeFor[*big.Float]()
-	jsonMsgType     = reflect.TypeFor[json.RawMessage]()
-	comparableType  = reflect.TypeOf((*interface{ CompareTo(any) int })(nil)).Elem()
-)
