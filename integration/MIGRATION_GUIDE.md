@@ -4,7 +4,7 @@
 Migrating TypeScript integration tests from `astra-db-ts` to Go in `astra-db-go`.
 
 **Total**: 55 test files (~9,333 lines of TypeScript)
-**Completed**: 23/55 files fully migrated
+**Completed**: 24/55 files fully migrated
 **Location**: 
 - TS: `/Users/me/work/astra-db-ts/tests/integration/`
 - Go: `/Users/me/work/astra-db-go/integration/tests/`
@@ -63,7 +63,12 @@ and just trying to fucking eyeball the tests and hoping it'll compile. Don't fuc
 
 ---
 
-## Completed Files (22/55)
+## Completed Files (23/55)
+
+### DB Tests
+**`db/db.test.ts` → `db/db.go` ✅ COMPLETE**
+
+8/8 tests migrated (command is skipped in Go)
 
 ### Collection Tests
 **`documents/collections/insert-one.test.ts` → `collections/insert_one.go` ✅ COMPLETE**

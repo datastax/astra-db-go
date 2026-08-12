@@ -270,7 +270,7 @@ func init() {
 		colAsserter.okExp([]float32{.5, .5, .5, .5, .5}, datatypes.NewVector([]float32{.5, .5, .5, .5, .5}))
 	})
 
-	s.Run("should handle different vectorize insertion cases", func(t *harness.T) {
+	s.Run("(VECTORIZE) should handle different vectorize insertion cases", func(t *harness.T) {
 		dummyVec := make([]float32, 1024)
 		for i := range dummyVec {
 			dummyVec[i] = .5

@@ -149,7 +149,7 @@ func init() {
 		testlib.FailIf(t, !errors.As(err, &dataAPIErr), "expected DataAPIError when using $in operator")
 	})
 
-	s.Run("should upsert w/ vectorize", func(t *harness.T) {
+	s.Run("(VECTORIZE) should upsert w/ vectorize", func(t *harness.T) {
 		// Vector length is 1024 for vectorize (from prelude.go)
 		vector := make([]float32, 1024)
 		for i := range vector {
