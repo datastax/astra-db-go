@@ -154,7 +154,7 @@ func init() {
 		t.NoDiff(map[string]any{"text": t.Key(0), "int": int32(0)}, id2.ToMap())
 	})
 
-	s.Run("should insert w/ vectorize", func(t *harness.T) {
+	s.Run("(VECTORIZE) should insert w/ vectorize", func(t *harness.T) {
 		res, err := t.Table_.InsertOne(t.Ctx, astra.NewRow{
 			"text":    t.Key(0),
 			"int":     0,

@@ -55,7 +55,7 @@ func init() {
 
 }
 
-func intEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func intEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int)(p)), 10), nil
 }
 
@@ -64,9 +64,27 @@ func intDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseInt(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int](), err)
+	var srcAfter []byte
+	var num int64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = int64(math.NaN())
+			case "\"Infinity\"":
+				num = int64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = int64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseInt(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int](), err)
+		}
 	}
 
 	if num < math.MinInt || num > math.MaxInt {
@@ -77,7 +95,7 @@ func intDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func int8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int8Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int8)(p)), 10), nil
 }
 
@@ -86,9 +104,27 @@ func int8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseInt(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int8](), err)
+	var srcAfter []byte
+	var num int64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = int64(math.NaN())
+			case "\"Infinity\"":
+				num = int64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = int64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseInt(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int8](), err)
+		}
 	}
 
 	if num < math.MinInt8 || num > math.MaxInt8 {
@@ -99,7 +135,7 @@ func int8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func int16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int16Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int16)(p)), 10), nil
 }
 
@@ -108,9 +144,27 @@ func int16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseInt(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int16](), err)
+	var srcAfter []byte
+	var num int64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = int64(math.NaN())
+			case "\"Infinity\"":
+				num = int64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = int64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseInt(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int16](), err)
+		}
 	}
 
 	if num < math.MinInt16 || num > math.MaxInt16 {
@@ -121,7 +175,7 @@ func int16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func int32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int32Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int32)(p)), 10), nil
 }
 
@@ -130,9 +184,27 @@ func int32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseInt(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int32](), err)
+	var srcAfter []byte
+	var num int64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = int64(math.NaN())
+			case "\"Infinity\"":
+				num = int64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = int64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseInt(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int32](), err)
+		}
 	}
 
 	if num < math.MinInt32 || num > math.MaxInt32 {
@@ -143,7 +215,7 @@ func int32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func int64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func int64Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendInt(dst, int64(*(*int64)(p)), 10), nil
 }
 
@@ -152,9 +224,27 @@ func int64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseInt(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int64](), err)
+	var srcAfter []byte
+	var num int64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = int64(math.NaN())
+			case "\"Infinity\"":
+				num = int64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = int64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseInt(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[int64](), err)
+		}
 	}
 
 	if num < math.MinInt64 || num > math.MaxInt64 {
@@ -165,7 +255,7 @@ func int64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func uintEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uintEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint)(p)), 10), nil
 }
 
@@ -174,9 +264,27 @@ func uintDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseUint(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint](), err)
+	var srcAfter []byte
+	var num uint64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = uint64(math.NaN())
+			case "\"Infinity\"":
+				num = uint64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = uint64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseUint(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint](), err)
+		}
 	}
 
 	if num < 0 || num > math.MaxUint {
@@ -187,7 +295,7 @@ func uintDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func uint8Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint8Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint8)(p)), 10), nil
 }
 
@@ -196,9 +304,27 @@ func uint8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 		return b, nil
 	}
 
-	srcAfter, num, err := parseUint(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint8](), err)
+	var srcAfter []byte
+	var num uint64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = uint64(math.NaN())
+			case "\"Infinity\"":
+				num = uint64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = uint64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseUint(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint8](), err)
+		}
 	}
 
 	if num < 0 || num > math.MaxUint8 {
@@ -209,7 +335,7 @@ func uint8Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) {
 	return srcAfter, nil
 }
 
-func uint16Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint16Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint16)(p)), 10), nil
 }
 
@@ -218,9 +344,27 @@ func uint16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	srcAfter, num, err := parseUint(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint16](), err)
+	var srcAfter []byte
+	var num uint64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = uint64(math.NaN())
+			case "\"Infinity\"":
+				num = uint64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = uint64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseUint(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint16](), err)
+		}
 	}
 
 	if num < 0 || num > math.MaxUint16 {
@@ -231,7 +375,7 @@ func uint16Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return srcAfter, nil
 }
 
-func uint32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint32Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint32)(p)), 10), nil
 }
 
@@ -240,9 +384,27 @@ func uint32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	srcAfter, num, err := parseUint(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint32](), err)
+	var srcAfter []byte
+	var num uint64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = uint64(math.NaN())
+			case "\"Infinity\"":
+				num = uint64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = uint64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseUint(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint32](), err)
+		}
 	}
 
 	if num < 0 || num > math.MaxUint32 {
@@ -253,7 +415,7 @@ func uint32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return srcAfter, nil
 }
 
-func uint64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uint64Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uint64)(p)), 10), nil
 }
 
@@ -262,9 +424,27 @@ func uint64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 		return b, nil
 	}
 
-	srcAfter, num, err := parseUint(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint64](), err)
+	var srcAfter []byte
+	var num uint64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = uint64(math.NaN())
+			case "\"Infinity\"":
+				num = uint64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = uint64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseUint(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uint64](), err)
+		}
 	}
 
 	if num < 0 || num > math.MaxUint64 {
@@ -275,7 +455,7 @@ func uint64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error) 
 	return srcAfter, nil
 }
 
-func uintptrEncoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func uintptrEncoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	return strconv.AppendUint(dst, uint64(*(*uintptr)(p)), 10), nil
 }
 
@@ -284,9 +464,27 @@ func uintptrDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	srcAfter, num, err := parseUint(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uintptr](), err)
+	var srcAfter []byte
+	var num uint64
+	var err error
+
+	if false && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = uint64(math.NaN())
+			case "\"Infinity\"":
+				num = uint64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = uint64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseUint(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[uintptr](), err)
+		}
 	}
 
 	if num < 0 || num > uint64(maxUintptr) {
@@ -297,8 +495,17 @@ func uintptrDecoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	return srcAfter, nil
 }
 
-func float32Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func float32Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	f := float64(*(*float32)(p))
+	if name := specialFloatName(f); name != "" {
+		if ctx.Target == TargetCollection {
+			return dst, fmt.Errorf("cannot encode %s in collections - if you really need them, pass them as a string directly", name)
+		}
+		dst = append(dst, '"')
+		dst = append(dst, name...)
+		dst = append(dst, '"')
+		return dst, nil
+	}
 	abs := math.Abs(f)
 	fmtCh := byte('f')
 	if abs != 0 {
@@ -322,9 +529,27 @@ func float32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	srcAfter, num, err := parseFloat(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float32](), err)
+	var srcAfter []byte
+	var num float64
+	var err error
+
+	if true && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = float64(math.NaN())
+			case "\"Infinity\"":
+				num = float64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = float64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseFloat(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float32](), err)
+		}
 	}
 
 	if false {
@@ -335,8 +560,17 @@ func float32Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 	return srcAfter, nil
 }
 
-func float64Encoder(_ EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
+func float64Encoder(ctx EncodeCtx, dst []byte, p unsafe.Pointer) ([]byte, error) {
 	f := float64(*(*float64)(p))
+	if name := specialFloatName(f); name != "" {
+		if ctx.Target == TargetCollection {
+			return dst, fmt.Errorf("cannot encode %s in collections - if you really need them, pass them as a string directly", name)
+		}
+		dst = append(dst, '"')
+		dst = append(dst, name...)
+		dst = append(dst, '"')
+		return dst, nil
+	}
 	abs := math.Abs(f)
 	fmtCh := byte('f')
 	if abs != 0 {
@@ -360,9 +594,27 @@ func float64Decoder(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, error)
 		return b, nil
 	}
 
-	srcAfter, num, err := parseFloat(ctx, src)
-	if err != nil {
-		return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float64](), err)
+	var srcAfter []byte
+	var num float64
+	var err error
+
+	if true && ctx.Target == TargetTable && len(src) != 0 && src[0] == '"' {
+		var str []byte
+		if srcAfter, str, _, err = parseString(ctx, src); err == nil {
+			switch unsafeString(str) {
+			case "\"NaN\"":
+				num = float64(math.NaN())
+			case "\"Infinity\"":
+				num = float64(math.Inf(1))
+			case "\"-Infinity\"":
+				num = float64(math.Inf(-1))
+			}
+		}
+	} else {
+		srcAfter, num, err = parseFloat(ctx, src)
+		if err != nil {
+			return srcAfter, ctx.unmarshalTypeErrorWrap(src, reflect.TypeFor[float64](), err)
+		}
 	}
 
 	if false {

@@ -23,7 +23,7 @@ import (
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
 	"github.com/datastax/astra-db-go/v2/astra/internal/typeutil"
-	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
+	"github.com/datastax/astra-db-go/v2/internal/refl"
 )
 
 type genTypeExprHint int
@@ -58,7 +58,7 @@ var (
 )
 
 func genTypeExpr(t reflect.Type, hint genTypeExprHint) (string, error) {
-	t = reflectutil.UnwindPointerType(t)
+	t = refl.UnwindPointerType(t)
 
 	switch t {
 	case reflectUUID:

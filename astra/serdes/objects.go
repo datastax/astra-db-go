@@ -20,7 +20,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
+	"github.com/datastax/astra-db-go/v2/internal/refl"
 )
 
 // Serdes
@@ -245,7 +245,7 @@ func compileStructInfo(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr b
 }
 
 func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr bool) ([]fieldInfo, error) {
-	fields, err := reflectutil.GetFlattenedFields(t)
+	fields, err := refl.GetFlattenedFields(t)
 	if err != nil {
 		return nil, &EncodeError{Action: EncodeActionUnsupportedValue, Msg: fmt.Sprintf("failed to compile struct %s: %v", t.String(), err)}
 	}
@@ -270,7 +270,7 @@ func compileStructFields(ctx codecCtx, t reflect.Type, seen seenStructs, canAddr
 	return ret, nil
 }
 
-func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leafCodec codec, leafMeta reflectutil.FieldMeta) (codec, uintptr) {
+func resolveCodecInEmbeddedFields(parentType reflect.Type, indexPath []int, leafCodec codec, leafMeta refl.FieldMeta) (codec, uintptr) {
 	f := parentType.Field(indexPath[0])
 
 	if len(indexPath) == 1 {
@@ -351,7 +351,7 @@ func emptyFuncFor(omitempty bool, t reflect.Type) func(unsafe.Pointer) bool {
 		return func(p unsafe.Pointer) bool { return *(*unsafe.Pointer)(p) == nil }
 
 	case reflect.Interface:
-		return func(p unsafe.Pointer) bool { return (*iface)(p).ptr == nil }
+		return func(p unsafe.Pointer) bool { return (*refl.IFace)(p).Ptr == nil }
 
 	default:
 		return func(unsafe.Pointer) bool { return false }

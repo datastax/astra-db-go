@@ -69,7 +69,7 @@ func populateValue(v reflect.Value, depth int, seed int) {
 }
 
 func TestCache_HeavyContention_Correctness(t *testing.T) {
-	typeCodecs.Store(nil)
+	typeCodecs.Reset()
 
 	var wg sync.WaitGroup
 	numGoroutines := 64
@@ -146,7 +146,7 @@ func TestCache_HeavyContention_Correctness(t *testing.T) {
 
 func TestCache_ExactLength_SingleGoroutine(t *testing.T) {
 	// Reset the cache for a clean state
-	typeCodecs.Store(nil)
+	typeCodecs.Reset()
 
 	ctx := codecCtx{}
 
@@ -179,8 +179,7 @@ func TestCache_ExactLength_SingleGoroutine(t *testing.T) {
 	// 4 (shared) + 100 (dynamic) = 104
 	expectedTotal := len(sharedTypes) + numDynamic
 
-	currentCache := cacheLoad()
-	actualTotal := len(currentCache)
+	actualTotal := typeCodecs.Len()
 
 	if actualTotal != expectedTotal {
 		t.Errorf("cache length mismatch: expected %d, got %d", expectedTotal, actualTotal)
@@ -191,7 +190,7 @@ func TestCache_ExactLength_SingleGoroutine(t *testing.T) {
 		resolveCodecCaching(ctx, typ, false)
 	}
 
-	if len(cacheLoad()) != expectedTotal {
-		t.Errorf("cache size changed after resolving existing types: got %d", len(cacheLoad()))
+	if typeCodecs.Len() != expectedTotal {
+		t.Errorf("cache size changed after resolving existing types: got %d", typeCodecs.Len())
 	}
 }

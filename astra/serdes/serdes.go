@@ -20,6 +20,8 @@ import (
 	"runtime"
 	"sync"
 	"unsafe"
+
+	"github.com/datastax/astra-db-go/v2/internal/refl"
 )
 
 type bufferPool struct {
@@ -78,7 +80,7 @@ func SerializeInto(data any, target Target, dst []byte, flags ...SerFlags) ([]by
 	}
 
 	t := reflect.TypeOf(data)
-	p := (*iface)(unsafe.Pointer(&data)).ptr
+	p := (*refl.IFace)(unsafe.Pointer(&data)).Ptr
 
 	ctx := EncodeCtx{Target: target, Flags: f}
 	c := resolveCodecCaching(ctx.codecCtx, t, f&SerNoCache != 0)
@@ -106,7 +108,7 @@ func deserializeWithContext(data []byte, res any, ctx DecodeCtx) error {
 	}
 
 	t := reflect.TypeOf(res)
-	p := (*iface)(unsafe.Pointer(&res)).ptr
+	p := (*refl.IFace)(unsafe.Pointer(&res)).Ptr
 
 	if t.Kind() != reflect.Ptr {
 		return &DecodeError{Action: DecodeActionInvalid, Type: t}

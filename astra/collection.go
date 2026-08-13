@@ -518,9 +518,9 @@ var ErrNilFilter = errors.New("filter cannot be nil. If you want to delete all d
 // during an upsert, so those fields would be silently absent from the new
 // document. Use filter.F{} (a raw map) instead.
 var ErrFilterBuilderUpsert = errors.New(
-	"filter builder (filter.Filter) cannot be used with upsert=true: the Data API " +
-		"does not extract field values from a $and filter when constructing the upserted " +
-		"document, which can cause silent data loss. Use filter.F{} instead",
+	"filter builders should not be used with upsert=true. The Data API does not extract field values from an $and filter" +
+		"when constructing the upserted document, which the Filter.And() builder always produces. Use filter.F{} (a raw map)" +
+		"instead and avoid using $and unless you don't want those fields upserted",
 )
 
 // rejectFilterBuilderOnUpsert returns ErrFilterBuilderUpsert when upsert is

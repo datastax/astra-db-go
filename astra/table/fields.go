@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
-	"github.com/datastax/astra-db-go/v2/internal/reflectutil"
+	"github.com/datastax/astra-db-go/v2/internal/refl"
 )
 
 type fieldInfo struct {
@@ -32,12 +32,12 @@ type fieldInfo struct {
 func compileFields(t reflect.Type) (datatypes.LinkedMap[string, fieldInfo], error) {
 	res := datatypes.NewLinkedMap[string, fieldInfo]()
 
-	t = reflectutil.UnwindPointerType(t)
+	t = refl.UnwindPointerType(t)
 	if t.Kind() != reflect.Struct {
 		return res, fmt.Errorf("expected struct, got %q", t.Kind())
 	}
 
-	fields, err := reflectutil.GetFlattenedFields(t)
+	fields, err := refl.GetFlattenedFields(t)
 	if err != nil {
 		return res, err
 	}

@@ -26,6 +26,7 @@ import (
 	"unsafe"
 
 	"github.com/datastax/astra-db-go/v2/astra/datatypes"
+	"github.com/datastax/astra-db-go/v2/internal/refl"
 )
 
 // ================================
@@ -595,7 +596,7 @@ func decodeDollarDatatype(ctx DecodeCtx, src []byte, p unsafe.Pointer) ([]byte, 
 	if codec, ok := ctx.Target.dollarDatatypes()[unsafeString(datatype)]; ok {
 		valPtr := reflect.New(codec.typ)
 
-		src, err = codec.decode(ctx, initSrc, valuePtr(valPtr.Elem()))
+		src, err = codec.decode(ctx, initSrc, refl.GetValuePtr(valPtr.Elem()))
 		if err != nil {
 			return src, err, true
 		}

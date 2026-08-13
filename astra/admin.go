@@ -749,6 +749,10 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, name string, params Cre
 		dbType = ""
 	}
 
+	if merged.Keyspace == nil {
+		merged.Keyspace = ptr.To("default_keyspace")
+	}
+
 	// Build request payload
 	payload := createDatabaseRequest{
 		Name:          name,
@@ -758,9 +762,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, name string, params Cre
 		Tier:          tier,
 		CapacityUnits: capacityUnits,
 		PCUGroupUUID:  params.PCUGroupUUID,
-	}
-	if merged.Keyspace != nil {
-		payload.Keyspace = *merged.Keyspace
+		Keyspace:      *merged.Keyspace,
 	}
 
 	// Execute request
@@ -778,7 +780,7 @@ func (a *AstraAdmin) CreateDatabase(ctx context.Context, name string, params Cre
 
 	region := params.Region
 
-	dbAdmin := a.DatabaseAdmin(dbID, region)
+	dbAdmin := a.DatabaseAdmin(dbID, region, options.API().SetKeyspace(*merged.Keyspace))
 
 	if !merged.GetBlocking() {
 		return dbAdmin, nil

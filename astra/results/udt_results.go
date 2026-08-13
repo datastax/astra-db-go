@@ -19,7 +19,7 @@ import "github.com/datastax/astra-db-go/v2/astra/table"
 // UDTDescriptor represents the descriptor for a user-defined type, including its name and definition.
 type UDTDescriptor struct {
 	// Name of the user-defined type.
-	Name string `json:"name"`
+	Name string `json:"udtName"`
 
 	// Definition of the user-defined type.
 	// Only populated when listTypes is called with explain=true.

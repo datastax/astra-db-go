@@ -175,9 +175,10 @@ func Run() (int, bool) {
 
 	if len(suitesToRun) > 0 && suitesToRun[0].Type == suiteBackground {
 		bgWg.Add(1)
+		s := suitesToRun[0]
 		go func() {
 			defer bgWg.Done()
-			executeSuite(&bgOut, suitesToRun[0], len(suitesToRun))
+			executeSuite(&bgOut, s, len(suitesToRun))
 		}()
 		suitesToRun = suitesToRun[1:]
 	}

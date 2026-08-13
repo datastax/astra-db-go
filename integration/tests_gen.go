@@ -17,6 +17,8 @@
 package main
 
 import (
+	_ "github.com/datastax/astra-db-go/v2/integration/tests/administration"
+	_ "github.com/datastax/astra-db-go/v2/integration/tests/db"
 	_ "github.com/datastax/astra-db-go/v2/integration/tests/documents"
 	_ "github.com/datastax/astra-db-go/v2/integration/tests/documents/collections"
 	_ "github.com/datastax/astra-db-go/v2/integration/tests/documents/tables"

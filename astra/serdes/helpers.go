@@ -19,6 +19,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/bits"
 	"strconv"
 )
@@ -330,4 +331,18 @@ func appendString(dst []byte, s string) []byte {
 	dst = append(dst, s[start:]...)
 	dst = append(dst, '"')
 	return dst
+}
+
+// specialFloatName returns "NaN", "Infinity", or "-Infinity" for a
+// non-finite value, or "" if f is finite.
+func specialFloatName(f float64) string {
+	switch {
+	case math.IsNaN(f):
+		return "NaN"
+	case math.IsInf(f, 1):
+		return "Infinity"
+	case math.IsInf(f, -1):
+		return "-Infinity"
+	}
+	return ""
 }
