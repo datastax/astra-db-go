@@ -36,8 +36,8 @@ jobs:
           fi
 
           if [ "${{ github.event.inputs.preview }}" = "true" ]; then
-            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-preview\.[0-9]+$ ]]; then
-              echo "Error: Preview release is enabled, but LibVersion '$VERSION' does not end in '-preview.x'"
+            if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-[a-z]+\.[0-9]+$ ]]; then
+              echo "Error: Preview release is enabled, but LibVersion '$VERSION' does not end in '-[a-z]+.x'"
               exit 1
             fi
           else
