@@ -15,7 +15,7 @@
 package constants
 
 // LibVersion is the version of the library.
-const LibVersion = "2.3.0-rc.1"
+const LibVersion = "2.3.0"
 
 // LibName is the name of the library.
 const LibName = "astra-db-go"

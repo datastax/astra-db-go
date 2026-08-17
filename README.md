@@ -6,13 +6,6 @@
 
 `astra-db-go` is a Go client for interacting with [DataStax Astra DB](https://astra.datastax.com/) and Hyper-Converged Database.
 
-> [!WARNING]
-> The Go client is currently in **Public Preview** and is under active development.
->
-> APIs are subject to breaking changes prior to the official stable release, and is not recommended for production workloads.
->
-> For production use, see the [Python](https://github.com/datastax/astrapy), [TypeScript](https://github.com/datastax/astra-db-ts), [Java](https://github.com/datastax/astra-db-java), or [.NET](https://github.com/datastax/astra-db-csharp) clients.
-
 ## Setup & requirements
 
 Update to Go 1.23 or higher. [Download it here](https://go.dev/doc/install).
