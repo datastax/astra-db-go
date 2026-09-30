@@ -50,7 +50,7 @@ func init() {
 				},
 			}
 
-			tbl, err := t.Db.CreateTable(t.Ctx, name, def)
+			tbl, err := t.Db.CreateTable(t.Ctx, name, def, options.CreateTable().SetIfNotExists(true))
 			testlib.FailIfErr(t, err, "failed to create table")
 
 			err = createIndex(t.Ctx, tbl, name+"_index", false)
