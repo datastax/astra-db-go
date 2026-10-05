@@ -38,9 +38,11 @@ func init() {
 		testBeforeAlter func(ctx context.Context, tbl *astra.Table, t *harness.T),
 		testAfterAlter func(ctx context.Context, tbl *astra.Table, t *harness.T),
 	) {
+		idx := tableAlterTestIndex
+		tableAlterTestIndex++
+
 		s.Run(testName, func(t *harness.T) {
-			name := fmt.Sprintf("alter_table_test_%d", tableAlterTestIndex)
-			tableAlterTestIndex++
+			name := fmt.Sprintf("alter_table_test_%d", idx)
 
 			tbl, err := t.Db.CreateTable(t.Ctx, name, tableDefinition)
 			testlib.FailIfErr(t, err, "failed to create table")
