@@ -36,9 +36,11 @@ func init() {
 		indexType string,
 		createIndex func(ctx context.Context, table *astra.Table, indexName string, ifNotExists bool) error,
 	) {
+		idx := indexCreationTestIndex
+		indexCreationTestIndex++
+
 		s.Run(testName, func(t *harness.T) {
-			name := fmt.Sprintf("create_index_table_test_%d", indexCreationTestIndex)
-			indexCreationTestIndex++
+			name := fmt.Sprintf("create_index_table_test_%d", idx)
 
 			def := table.Definition{
 				Columns: table.Columns{
@@ -50,7 +52,7 @@ func init() {
 				},
 			}
 
-			tbl, err := t.Db.CreateTable(t.Ctx, name, def, options.CreateTable().SetIfNotExists(true))
+			tbl, err := t.Db.CreateTable(t.Ctx, name, def)
 			testlib.FailIfErr(t, err, "failed to create table")
 
 			err = createIndex(t.Ctx, tbl, name+"_index", false)
